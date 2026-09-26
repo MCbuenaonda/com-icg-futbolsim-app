@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Scouter Pre-Partido — {{ analisis.home_team_analysis.nombre }} vs {{ analisis.away_team_analysis.nombre }}{% endblock %}
+
+{% block content %}
+{% set home = analisis.home_team_analysis %}
+{% set away = analisis.away_team_analysis %}
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="display-6 fw-bold mb-1">🔎 Scouter Pre-Partido</h1>
+        <p class="text-muted mb-0">
+            {% if analisis.es_eliminacion_directa %}
+                Eliminación directa — partido único
+            {% else %}
+                {{ analisis.grupo }} · Jornada {{ analisis.jornada_actual }}{% if analisis.jornadas_totales %} de {{ analisis.jornadas_totales }}{% endif %} · {{ analisis.cantidad_equipos_grupo }} equipos en el grupo
+            {% endif %}
+        </p>
+    </div>
+    <a href="/juegos" class="btn btn-outline-light btn-sm">    
+        <i class="bi bi-arrow-left me-1"></i>Volver a partidos
+    </a>
+</div>
+
+<!-- Cabecera H2H -->
+<div class="card bg-dark border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+        <div class="row align-items-center text-center g-3">
+            <div class="col-5">
+                <div class="fs-1">{{ home.bandera }}</div>
+                <h4 class="fw-bold text-white mb-0">{{ home.nombre }}</h4>
+                <span class="badge bg-warning text-dark fs-6 mt-1">{{ home.probabilidad_victoria_pct }}% de ganar</span>
+            </div>
+            <div class="col-2">
+                <span class="display-6 fw-bold text-muted">VS</span>
+            </div>
+            <div class="col-5">
+                <div class="fs-1">{{ away.bandera }}</div>
+                <h4 class="fw-bold text-white mb-0">{{ away.nombre }}</h4>
+                <span class="badge bg-warning text-dark fs-6 mt-1">{{ away.probabilidad_victoria_pct }}% de ganar</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Veredicto del Scouter -->
+<div class="alert alert-info d-flex align-items-start gap-2 mb-4">
+    <i class="bi bi-binoculars-fill fs-4"></i>
+    <div>
+        <strong>Veredicto del Scouter:</strong> {{ analisis.scouter_verdict }}
+    </div>
+</div>
+
+<!-- Comparativa de estadísticas (barras de poder) -->
+<h4 class="section-heading">📊 Comparativa Cara a Cara</h4>
+<div class="card bg-dark border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+        {% macro barra(etiqueta, valor_home, valor_away, sufijo='') %}
+        {# 'poder' puede ser negativo (ver paises_service.actualizar_poder_y_rankin) -- a
+           diferencia del resto de las métricas acá (siempre >= 0), una suma <= 0 o un valor
+           individual negativo puede sacar el porcentaje fuera de [0, 100] y romper el ancho
+           de la barra. Se recorta explícitamente al rango válido. #}
+        {% set suma = valor_home + valor_away %}
+        {% set pct_home_raw = (valor_home / suma * 100) if suma != 0 else 50 %}
+        {% set pct_home = 0 if pct_home_raw < 0 else (100 if pct_home_raw > 100 else pct_home_raw) %}
+        <div class="mb-3">
+            <div class="d-flex justify-content-between small text-muted mb-1">
+                <span>{{ valor_home }}{{ sufijo }}</span>
+                <span class="text-uppercase fw-semibold">{{ etiqueta }}</span>
+                <span>{{ valor_away }}{{ sufijo }}</span>
+            </div>
+            <div class="progress" style="height: 10px; background-color: rgba(255,255,255,0.08);">
+                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ pct_home }}%"></div>
+                <div class="progress-bar bg-secondary" role="progressbar" style="width: {{ 100 - pct_home }}%"></div>
+            </div>
+        </div>
+        {% endmacro %}
+
+        {{ barra('Poder', home.poder, away.poder) }}
+        {{ barra('Ofensiva', home.p_ofensiva, away.p_ofensiva, '%') }}
+        {{ barra('Defensiva', home.p_defensiva, away.p_defensiva, '%') }}
+        {{ barra('Posesión', home.p_posesion, away.p_posesion, '%') }}
+        {{ barra('Goles a favor', home.goles_favor, away.goles_favor) }}
+        {{ barra('Goles en contra', home.goles_contra, away.goles_contra) }}
+    </div>
+</div>
+
+<!-- Pronóstico de clasificación -->
+<h4 class="section-heading">🎯 Pronóstico de Clasificación</h4>
+<div class="row g-3 mb-4">
+    {% for equipo in [home, away] %}
+    <div class="col-12 col-md-6">
+        <div class="stat-card p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0 fw-bold text-white">{{ equipo.bandera }} {{ equipo.nombre }}</h6>
+                {% if equipo.estado_clasificacion == 'MATHEMATICALLY_QUALIFIED' %}
+                    <span class="badge bg-success">Clasificado</span>
+                {% elif equipo.estado_clasificacion == 'ELIMINATED' %}
+                    <span class="badge bg-danger">Eliminado</span>
+                {% elif equipo.estado_clasificacion == 'DEPENDS_ON_SELF' %}
+                    <span class="badge bg-primary">Depende de sí mismo</span>
+                {% elif equipo.estado_clasificacion == 'NEEDS_OUTSIDE_RESULTS' %}
+                    <span class="badge bg-warning text-dark">Necesita ayuda externa</span>
+                {% else %}
+                    <span class="badge bg-secondary">Eliminación directa</span>
+                {% endif %}
+            </div>
+            {% if not analisis.es_eliminacion_directa %}
+                <div class="row g-2 small text-muted mb-2">
+                    <div class="col-4"><strong class="text-white d-block">{{ equipo.posicion }}º</strong>Posición</div>
+                    <div class="col-4"><strong class="text-white d-block">{{ equipo.puntos }}</strong>Puntos</div>
+                    <div class="col-4"><strong class="text-white d-block">{{ equipo.partidos_restantes }}</strong>Restantes</div>
+                </div>
+                <div class="small text-muted">
+                    Techo máximo: <strong class="text-white">{{ equipo.puntos_maximos_alcanzables }} pts</strong>
+                    {% if equipo.puntos_para_calificar is not none %}
+                        · Le faltan <strong class="text-warning">{{ equipo.puntos_para_calificar }} pts</strong> para asegurar matemáticamente su lugar
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="small text-muted">Se juega el pase de ronda en este único partido.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Tabla del grupo -->
+{% if not analisis.es_eliminacion_directa and analisis.group_standings_summary %}
+<h4 class="section-heading">📋 Tabla del Grupo {{ analisis.grupo }}</h4>
+<div class="card bg-dark border-0 shadow-sm mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0 align-middle">
+                <thead>
+                    <tr class="small text-uppercase text-muted">
+                        <th>#</th>
+                        <th>País</th>
+                        <th class="text-center">PJ</th>
+                        <th class="text-center">Pts</th>
+                        <th class="text-center">DG</th>
+                        <th class="text-center">Zona</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in analisis.group_standings_summary %}
+                    <tr class="{% if fila.es_equipo_analizado %}table-active{% endif %}">
+                        <td>{{ fila.posicion }}</td>
+                        <td class="{% if fila.es_equipo_analizado %}fw-bold text-warning{% endif %}">
+                            {{ fila.bandera }} {{ fila.nombre }}
+                        </td>
+                        <td class="text-center">{{ fila.partidos_jugados }}</td>
+                        <td class="text-center fw-bold">{{ fila.puntos }}</td>
+                        <td class="text-center">{{ fila.diferencia_goles }}</td>
+                        <td class="text-center">
+                            {% if fila.zona == 'DIRECTO' %}
+                                <span class="badge bg-success">Directo</span>
+                            {% elif fila.zona == 'POSIBILIDAD' %}
+                                <span class="badge bg-warning text-dark">Posibilidad</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Eliminado</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

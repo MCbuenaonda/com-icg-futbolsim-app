@@ -1,0 +1,39 @@
+# Control de versiones y entornos locales
+.git
+.gitignore
+.venv
+venv
+env
+.vscode
+.idea
+.claude
+.DS_Store
+
+# Python
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Secretos / configuración local (las variables se inyectan en runtime, no van en la imagen)
+.env
+.env.*
+
+# Docs, dumps de depuración y scripts de una sola corrida (no se usan al servir la app)
+CLAUDE.md
+juego.json
+test.py
+ver_esquema.py
+probar_calificaciones.py
+ajuste_pais_jugador.py
+ajustar_aficionados_paises.py
+ajustar_estado_animo_jugadores.py
+asignar_edad_jugadores.py
+asignar_rasgos_jugadores.py
+crear_indices.py
+seed_*.py
+
+# Docker
+Dockerfile
+.dockerignore

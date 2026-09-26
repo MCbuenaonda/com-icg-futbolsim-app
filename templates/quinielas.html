@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Quinielas - FutbolSim{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="display-6 fw-bold mb-1">Quinielas</h1>
+        <p class="text-muted mb-0">Pronosticá resultados y ganá puntos.</p>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
+            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
+        </span>
+        <a href="{{ url_for('quinielas_mias') }}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-ticket-perforated me-1"></i>Mis Quinielas
+        </a>
+    </div>
+</div>
+
+<!-- Catálogo de formatos -->
+<h2 class="section-heading">Elegí un formato</h2>
+<div class="row g-3 mb-4">
+    {% for config in configs %}
+        {% set alcanza = usuario_actual.monto >= config.costo_puntos %}
+        <div class="col-12 col-md-4">
+            <div class="card bg-dark border-0 shadow-sm h-100 config-quiniela {% if alcanza %}card-hover{% endif %}"
+                 data-config-id="{{ config.id }}"
+                 data-config-nombre="{{ config.nombre }}"
+                 data-config-cantidad="{{ config.cantidad_partidos }}"
+                 data-config-costo="{{ config.costo_puntos }}">
+                <div class="card-body p-4 text-center">
+                    <h5 class="fw-bold text-white mb-1">{{ config.nombre }}</h5>
+                    <div class="text-muted small mb-3">{{ config.cantidad_partidos }} pronósticos</div>
+
+                    <div class="display-6 fw-bold text-warning mb-3">
+                        <i class="bi bi-coin"></i> {{ config.costo_puntos }}
+                    </div>
+
+                    <div class="surface-soft p-2 mb-3 text-start">
+                        <div class="text-muted small text-uppercase mb-1">Premios</div>
+                        {% for regla in config.reglas_premio | sort(attribute="aciertos_requeridos", reverse=True) %}
+                            <div class="d-flex justify-content-between small">
+                                <span>{{ regla.aciertos_requeridos }}/{{ config.cantidad_partidos }} aciertos</span>
+                                <span class="fw-bold text-success">{{ "{:,}".format(regla.premio_puntos) }} pts</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if alcanza %}
+                        <button type="button" class="btn btn-success w-100 fw-bold btn-elegir-config">
+                            <i class="bi bi-check2-circle me-1"></i>Elegir
+                        </button>
+                    {% else %}
+                        <button type="button" class="btn btn-outline-secondary w-100" disabled>
+                            Saldo insuficiente
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-warning">No hay formatos de quiniela disponibles por el momento.</div>
+        </div>
+    {% endfor %}
+</div>
+
+<!-- Armado del boleto -->
+<div id="seccionArmarBoleto" class="d-none">
+    <h2 class="section-heading">
+        Armá tu quiniela: <span id="nombreConfigElegida" class="text-success"></span>
+    </h2>
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div class="fs-5">
+            <span id="contadorSeleccion" class="fw-bold text-warning">0</span> / <span id="cantidadRequerida">0</span> partidos seleccionados
+        </div>
+        <input type="text" id="buscarPartido" class="form-control" style="max-width: 280px;" placeholder="Buscar equipo...">
+    </div>
+
+    <div id="alertaBoleto" class="alert d-none" role="alert"></div>
+
+    <div class="card bg-dark border-0 shadow-sm mb-3">
+        <div class="table-responsive" style="max-height: 480px;">
+            <table class="table table-dark table-hover align-middle mb-0">
+                <thead class="table-dark" style="position: sticky; top: 0; z-index: 1;">
+                    <tr>
+                        <th style="width: 3rem;"></th>
+                        <th>Partido</th>
+                        <th>Fecha</th>
+                        <th style="width: 12rem;">Pronóstico</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for partido in partidos %}
+                        <tr class="fila-partido"
+                            data-juego-id="{{ partido._id }}"
+                            data-busqueda="{{ (partido.equipo_local.nombre ~ ' ' ~ partido.equipo_visitante.nombre) | lower }}">
+                            <td>
+                                <input class="form-check-input chk-partido" type="checkbox">
+                            </td>
+                            <td>
+                                <span class="fw-semibold">{{ partido.equipo_local.nombre }}</span>
+                                <span class="text-muted mx-1">vs</span>
+                                <span class="fw-semibold">{{ partido.equipo_visitante.nombre }}</span>
+                                <div class="text-muted small">{{ partido.grupo }} · {{ partido.jornada }}</div>
+                            </td>
+                            <td class="text-muted small">{{ partido.fecha }} <br>{{ partido.hora }} hrs</td>
+                            <td>
+                                <select class="form-select form-select-sm select-pronostico" disabled>
+                                    <option value="">Elegí...</option>
+                                    <option value="LOCAL">Gana {{ partido.equipo_local.nombre }}</option>
+                                    <option value="EMPATE">Empate</option>
+                                    <option value="VISITA">Gana {{ partido.equipo_visitante.nombre }}</option>
+                                </select>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="text-center text-muted py-4">No hay partidos disponibles para pronosticar.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <button type="button" id="btnConfirmarCompra" class="btn btn-success btn-lg fw-bold px-5" disabled>
+        <i class="bi bi-bag-check-fill me-1"></i>Confirmar Compra
+    </button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const usuarioId = "{{ usuario_actual._id }}";
+    const urlCrearBoleto = "{{ url_for('quinielas_crear_boleto') }}";
+    const urlMisQuinielas = "{{ url_for('quinielas_mias') }}";
+
+    const seccionArmar = document.getElementById('seccionArmarBoleto');
+    const nombreConfigElegida = document.getElementById('nombreConfigElegida');
+    const contadorSeleccion = document.getElementById('contadorSeleccion');
+    const cantidadRequeridaEl = document.getElementById('cantidadRequerida');
+    const btnConfirmar = document.getElementById('btnConfirmarCompra');
+    const alertaBoleto = document.getElementById('alertaBoleto');
+    const buscarPartido = document.getElementById('buscarPartido');
+    const filas = document.querySelectorAll('.fila-partido');
+
+    let configActual = null;
+
+    function mostrarAlerta(mensaje, tipo) {
+        alertaBoleto.className = `alert alert-${tipo}`;
+        alertaBoleto.textContent = mensaje;
+        alertaBoleto.classList.remove('d-none');
+    }
+
+    function actualizarContador() {
+        const marcados = document.querySelectorAll('.chk-partido:checked').length;
+        contadorSeleccion.textContent = marcados;
+
+        const todasConPronostico = Array.from(document.querySelectorAll('.chk-partido:checked')).every(chk => {
+            const select = chk.closest('tr').querySelector('.select-pronostico');
+            return select.value !== '';
+        });
+
+        btnConfirmar.disabled = !(configActual && marcados === configActual.cantidad && todasConPronostico);
+    }
+
+    // Selección de formato de quiniela
+    document.querySelectorAll('.btn-elegir-config').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const card = btn.closest('.config-quiniela');
+            configActual = {
+                id: card.dataset.configId,
+                nombre: card.dataset.configNombre,
+                cantidad: parseInt(card.dataset.configCantidad, 10),
+                costo: parseInt(card.dataset.configCosto, 10)
+            };
+
+            nombreConfigElegida.textContent = configActual.nombre;
+            cantidadRequeridaEl.textContent = configActual.cantidad;
+            alertaBoleto.classList.add('d-none');
+
+            // Resetear selección previa
+            document.querySelectorAll('.chk-partido').forEach(chk => { chk.checked = false; });
+            document.querySelectorAll('.select-pronostico').forEach(sel => { sel.disabled = true; sel.value = ''; });
+
+            seccionArmar.classList.remove('d-none');
+            actualizarContador();
+            seccionArmar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    // Checkbox de cada partido: habilita el pronóstico y limita la cantidad al requerido
+    document.querySelectorAll('.chk-partido').forEach(chk => {
+        chk.addEventListener('change', function () {
+            const select = chk.closest('tr').querySelector('.select-pronostico');
+
+            if (chk.checked) {
+                const marcados = document.querySelectorAll('.chk-partido:checked').length;
+                if (configActual && marcados > configActual.cantidad) {
+                    chk.checked = false;
+                    mostrarAlerta(`Esta quiniela requiere exactamente ${configActual.cantidad} partidos.`, 'warning');
+                    return;
+                }
+                select.disabled = false;
+            } else {
+                select.disabled = true;
+                select.value = '';
+            }
+
+            actualizarContador();
+        });
+    });
+
+    document.querySelectorAll('.select-pronostico').forEach(select => {
+        select.addEventListener('change', actualizarContador);
+    });
+
+    // Buscador de partidos (filtro simple por nombre de equipo)
+    if (buscarPartido) {
+        buscarPartido.addEventListener('input', function () {
+            const texto = buscarPartido.value.toLowerCase().trim();
+            filas.forEach(fila => {
+                fila.classList.toggle('d-none', !fila.dataset.busqueda.includes(texto));
+            });
+        });
+    }
+
+    // Confirmar compra
+    btnConfirmar.addEventListener('click', function () {
+        const selecciones = Array.from(document.querySelectorAll('.chk-partido:checked')).map(chk => {
+            const fila = chk.closest('tr');
+            return {
+                juego_id: fila.dataset.juegoId,
+                pronostico: fila.querySelector('.select-pronostico').value
+            };
+        });
+
+        btnConfirmar.disabled = true;
+        btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+
+        fetch(urlCrearBoleto, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                usuario_id: usuarioId,
+                quiniela_config_id: configActual.id,
+                selecciones: selecciones
+            })
+        })
+        .then(async resp => {
+            const data = await resp.json();
+            if (!resp.ok) {
+                throw new Error(data.detail || 'No se pudo completar la compra.');
+            }
+            mostrarAlerta('¡Quiniela comprada con éxito! Redirigiendo a Mis Quinielas...', 'success');
+            setTimeout(() => { window.location.href = urlMisQuinielas; }, 1200);
+        })
+        .catch(err => {
+            mostrarAlerta(err.message, 'danger');
+            btnConfirmar.disabled = false;
+            btnConfirmar.innerHTML = '<i class="bi bi-bag-check-fill me-1"></i>Confirmar Compra';
+        });
+    });
+});
+</script>
+{% endblock %}

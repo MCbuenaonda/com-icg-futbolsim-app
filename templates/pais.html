@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block title %}{{ pais.nombre }} ({{ pais.siglas }}) - Ficha Técnica{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+
+    <!-- Botón Volver y Header Principal -->
+    <div class="mb-4">
+        <a href="/paises" class="btn btn-sm btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left me-1"></i> Volver a Países
+        </a>
+
+        <div class="card border-0 shadow-lg p-4 bg-dark overflow-hidden position-relative">
+            <!-- Efecto visual de fondo -->
+            <div class="position-absolute top-0 end-0 opacity-10 me-4 mt-2 display-1 fw-bold text-uppercase text-white user-select-none">
+                {{ pais.siglas }}
+            </div>
+
+            <div class="row align-items-center position-relative z-1">
+                <div class="col-auto">
+                    <span class="display-1">{{ pais.bandera }}</span>
+                </div>
+                <div class="col">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <h1 class="display-5 fw-bold text-white mb-0">{{ pais.nombre }}</h1>
+                        <span class="badge bg-dark border border-secondary text-muted fs-6">ISO: {{ pais.iso }}</span>
+                        {% if pais.estado|lower == 'disponible' or 'clasificado' in pais.estado|lower %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">{{ pais.estado }}</span>
+                        {% elif pais.estado|lower == 'activo' %}
+                            <span class="badge bg-prymary-subtle text-prymary border border-prymary-subtle">{{ pais.estado }}</span>
+                        {% else %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">{{ pais.estado }}</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted mb-0 fs-6">
+                        <i class="bi bi-building me-1 text-success"></i>{{ pais.federacion }}
+                    </p>
+                    <!-- Botón para redirigir a la vista de los jugadores del equipo -->
+                    <a href="/jugadores/pais/{{ pais.id }}" class="btn btn-outline-secondary btn-sm">Ver Jugadores del Equipo</a>
+                </div>
+                <div class="col-auto text-end mt-3 mt-md-0">
+                    <div class="p-3 bg-black bg-opacity-40 rounded-3 border border-secondary border-opacity-25 text-center">
+                        <span class="fs-7 text-muted text-uppercase d-block fw-semibold">Ranking FIFAV</span>
+                        <span class="display-6 fw-bold text-warning">#{{ pais.estadisticas.rankin }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Malla de Rendimiento Táctico (Atributos) -->
+    <div class="row g-3 mb-4">
+        <!-- Poder del Equipo -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
+                <div class="card-body">
+                    <span class="text-muted fs-7 text-uppercase fw-semibold">Poder General</span>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <h2 class="fw-bold text-white mb-0">{{ [0, pais.estadisticas.poder] | max }}</h2>
+                        <i class="bi bi-lightning-charge-fill fs-2 text-success"></i>
+                    </div>
+                    <span class="fs-8 text-muted">Índice global de rendimiento</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Potencial Ofensivo -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between text-muted fs-7 mb-1">
+                        <span class="text-uppercase fw-semibold">Poder Ofensivo</span>
+                        <span class="fw-bold text-white">{{ pais.estadisticas.p_ofensiva }}%</span>
+                    </div>
+                    <div class="progress bg-dark mb-2" style="height: 8px;">
+                        <div class="progress-bar progress-bar-green" style="width: {{ pais.estadisticas.p_ofensiva }}%;"></div>
+                    </div>
+                    <span class="fs-8 text-muted">Efectividad de ataque</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Potencial Defensivo -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between text-muted fs-7 mb-1">
+                        <span class="text-uppercase fw-semibold">Poder Defensivo</span>
+                        <span class="fw-bold text-white">{{ pais.estadisticas.p_defensiva }}%</span>
+                    </div>
+                    <div class="progress bg-dark mb-2" style="height: 8px;">
+                        <div class="progress-bar bg-info" style="width: {{ pais.estadisticas.p_defensiva }}%;"></div>
+                    </div>
+                    <span class="fs-8 text-muted">Solidez en retaguardia</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Posesión de Balón -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between text-muted fs-7 mb-1">
+                        <span class="text-uppercase fw-semibold">Posesión Media</span>
+                        <span class="fw-bold text-white">{{ pais.estadisticas.p_posesion }}%</span>
+                    </div>
+                    <div class="progress bg-dark mb-2" style="height: 8px;">
+                        <div class="progress-bar bg-warning" style="width: {{ pais.estadisticas.p_posesion }}%;"></div>
+                    </div>
+                    <span class="fs-8 text-muted">Control de juego</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aficionados / Popularidad (independiente del ranking FIFA, ver services/fanbase_service.py) -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-danger">
+                <div class="card-body">
+                    <span class="text-muted fs-7 text-uppercase fw-semibold">Base de Fans</span>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <h2 class="fw-bold text-white mb-0">{{ "{:,}".format(pais.aficionados | default(aficionados_base)) }}</h2>
+                        <i class="bi bi-heart-fill fs-2 text-danger"></i>
+                    </div>
+                    {% set aficionados_actual = pais.aficionados | default(aficionados_base) %}
+                    {% if aficionados_actual > aficionados_base %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle fs-8">
+                            <i class="bi bi-graph-up-arrow me-1"></i>Popularidad en ascenso
+                        </span>
+                    {% elif aficionados_actual < aficionados_base %}
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-8">
+                            <i class="bi bi-graph-down-arrow me-1"></i>Popularidad en descenso
+                        </span>
+                    {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fs-8">
+                            <i class="bi bi-dash-lg me-1"></i>Base de fans estable
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historial de Aficionados (ver services/fanbase_service.py::obtener_historial_aficionados_pais) -->
+    {% if historial_aficionados %}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header py-3 border-0 d-flex justify-content-between align-items-center">
+            <h5 class="card-title fw-bold text-white mb-0">
+                <i class="bi bi-heart-pulse-fill me-2 text-danger"></i>Historial de Aficionados
+            </h5>
+            <a href="/juegos" class="badge bg-dark border border-secondary text-muted fs-8">Ver partidos</a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0 align-middle">
+                    <thead>
+                        <tr class="small text-uppercase text-muted">
+                            <th>Fecha</th>
+                            <th>Motivo</th>
+                            <th class="text-end">Variación</th>
+                            <th class="text-end">Total resultante</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for registro in historial_aficionados %}
+                        <tr>
+                            <td class="text-muted fs-8">
+                                {{ registro.created_at.strftime('%d/%m/%Y %H:%M') if registro.created_at else 'N/A' }}
+                            </td>
+                            <td>{{ registro.motivo }}</td>
+                            <td class="text-end fw-bold {% if registro.aficionados_ganados_perdidos > 0 %}text-success{% elif registro.aficionados_ganados_perdidos < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                {{ "+" if registro.aficionados_ganados_perdidos > 0 else "" }}{{ "{:,}".format(registro.aficionados_ganados_perdidos) }}
+                            </td>
+                            <td class="text-end">{{ "{:,}".format(registro.aficionados_totales_resultantes) }}</td>
+                            <td class="text-end">
+                                {% if registro.partido_id %}
+                                    <a href="/juegos/{{ registro.partido_id }}" class="btn btn-sm btn-outline-secondary py-0 px-2">
+                                        <i class="bi bi-arrow-up-right"></i>
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Sección Principal: Estadísticas de Partidos y Métricas -->
+    <div class="row g-4 mb-4">
+
+        <!-- Tabla de Rendimiento / Historial -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header py-3 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title fw-bold text-white mb-0">
+                        <i class="bi bi-bar-chart-line-fill me-2 text-success"></i>Estadísticas Históricas del Torneo
+                    </h5>
+                    <span class="badge bg-dark border border-secondary text-muted">Puntos Totales: {{ pais.estadisticas.puntos }}</span>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Resumen de Resultados -->
+                    <div class="row text-center g-2 mb-4">
+                        <div class="col-3">
+                            <div class="p-3 bg-dark rounded-3 border border-secondary border-opacity-25">
+                                <span class="fs-7 text-muted d-block text-uppercase">Jugados</span>
+                                <span class="fs-3 fw-bold text-white">{{ pais.estadisticas.juegos_jugados }}</span>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="p-3 bg-dark rounded-3 border border-success border-opacity-25">
+                                <span class="fs-7 text-success d-block text-uppercase">Ganados</span>
+                                <span class="fs-3 fw-bold text-success">{{ pais.estadisticas.juegos_ganados }}</span>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="p-3 bg-dark rounded-3 border border-warning border-opacity-25">
+                                <span class="fs-7 text-warning d-block text-uppercase">Empatados</span>
+                                <span class="fs-3 fw-bold text-warning">{{ pais.estadisticas.juegos_empatados }}</span>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="p-3 bg-dark rounded-3 border border-danger border-opacity-25">
+                                <span class="fs-7 text-danger d-block text-uppercase">Perdidos</span>
+                                <span class="fs-3 fw-bold text-danger">{{ pais.estadisticas.juegos_perdidos }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Balance de Goles -->
+                    <h6 class="fw-bold text-muted text-uppercase fs-7 mb-3">Balance de Goles</h6>
+                    <div class="table-responsive">
+                        <table class="table table-dark align-middle text-white mb-0">
+                            <thead class="text-muted fs-7 text-uppercase border-bottom border-secondary border-opacity-25">
+                                <tr>
+                                    <th>Goles a Favor (GF)</th>
+                                    <th>Goles en Contra (GC)</th>
+                                    <th>Diferencia (DG)</th>
+                                    <th>Promedio Gol/Partido</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="fs-5 fw-bold text-success">+{{ pais.estadisticas.goles_favor }}</td>
+                                    <td class="fs-5 fw-bold text-danger">-{{ pais.estadisticas.goles_contra }}</td>
+                                    <td class="fs-5 fw-bold text-white">
+                                        {% if pais.estadisticas.diferencia_goles > 0 %}
+                                            +{{ pais.estadisticas.diferencia_goles }}
+                                        {% else %}
+                                            {{ pais.estadisticas.diferencia_goles }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="fs-5 fw-bold text-info">{{ pais.estadisticas.promedio_gol }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Ficha de Datos Técnicos y Último Partido -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header py-3 border-0">
+                    <h5 class="card-title fw-bold text-white mb-0">
+                        <i class="bi bi-info-circle-fill me-2 text-info"></i>Información Técnica
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="text-muted">Valor de Plantilla</span>
+                            <span class="fw-bold text-success">${{ "{:,}".format(pais.valor) }} K</span>
+                        </li>                                                
+                    </ul>
+
+                    <!-- Card del Último Partido -->
+                    {% if pais.estadisticas.ultima_actualizacion %}
+                    <div class="mt-4 p-3 bg-dark rounded-3 border border-secondary border-opacity-25">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fs-8 text-uppercase fw-semibold text-muted">
+                                <i class="bi bi-clock-history me-1"></i>Último Partido
+                            </span>
+                            <span class="badge bg-secondary-subtle text-secondary fs-8">Simulado</span>
+                        </div>
+                        <div class="fw-bold text-white fs-6">
+                            {{ pais.estadisticas.ultima_actualizacion.partido_id.replace('_', ' ') }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Sección de Ciudades Sede y Estadios -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header py-3 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title fw-bold text-white mb-0">
+                        <i class="bi bi-geo-alt-fill me-2 text-success"></i>Ciudades Sede y Estadios
+                    </h5>
+                    <span class="badge bg-dark border border-secondary text-muted">
+                        Total: {{ pais.ciudades|length if pais.ciudades else 0 }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    {% if pais.ciudades and pais.ciudades|length > 0 %}
+                        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
+                            {% for ciudad in pais.ciudades %}
+                            <div class="col">
+                                <div class="p-3 bg-dark rounded-3 border border-secondary border-opacity-25 h-100 d-flex flex-column justify-content-between position-relative overflow-hidden">
+                                    
+                                    <!-- Icono de fondo decorativo -->
+                                    <i class="bi bi-building position-absolute top-0 end-0 me-2 mt-1 display-6 text-white opacity-10 user-select-none"></i>
+
+                                    <div class="position-relative z-1">
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle fs-8">
+                                                {{ ciudad.tipo }}
+                                            </span>
+                                            <span class="fs-8 text-muted">ID #{{ ciudad.id }}</span>
+                                        </div>
+                                        <h6 class="fw-bold text-white mb-2 text-truncate" title="{{ ciudad.nombre }}">
+                                            {{ ciudad.nombre }}
+                                        </h6>
+                                    </div>
+
+                                    <div class="pt-2 border-top border-secondary border-opacity-25 mt-2 position-relative z-1">
+                                        <span class="fs-8 text-muted d-block text-uppercase fw-semibold mb-1">
+                                            <i class="bi bi-stadium-fill text-warning me-1"></i>Estadio
+                                        </span>
+                                        <span class="fw-bold text-info fs-7 text-truncate d-block" title="{{ ciudad.estadio }}">
+                                            {{ ciudad.estadio }}
+                                        </span>
+                                    </div>
+
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <!-- Estado cuando el arreglo de ciudades viene vacío -->
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-geo fs-2 d-block mb-2"></i>
+                            No hay ciudades o estadios registrados para este país.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

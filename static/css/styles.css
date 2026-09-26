@@ -1,0 +1,645 @@
+/* ==========================================================
+   DARK FOOTBALL THEME - FutbolSim
+   ========================================================== */
+
+   :root {
+    /* Paleta de colores principal */
+    --bg-dark-main: #0b1320;       /* Fondo general de la app */
+    --bg-card: #111c2e;            /* Fondo de tarjetas y contenedores */
+    --bg-card-hover: #18263e;      /* Hover en elementos interactivos */
+    --border-color: #35497a;       /* Bordes de tarjetas/paneles, con contraste suficiente contra --bg-card */
+    
+    /* Acentos Verdes Futboleros */
+    --green-pitch: #10b981;        /* Verde césped principal */
+    --green-neon: #00ff88;         /* Verde Neón para marcadores/destacados */
+    --green-dark: #047857;         /* Verde para hover o badges */
+    
+    /* Textos */
+    --text-main: #f1f5f9;
+    --text-muted: #acb1b9;
+}
+
+/* Nombre de jugador resaltado dentro de la descripción de un evento de partido (cronología,
+   minuto a minuto, en-vivo) -- ver resaltar_jugadores_en_descripcion en services/juegos_service.py. */
+.evento-jugador {
+    font-weight: 700;
+    color: var(--green-neon);
+}
+
+/* Estilos Generales */
+body {
+    background-color: var(--bg-dark-main) !important;
+    color: var(--text-main) !important;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    /* Atmósfera de estadio: luces radiales sutiles + textura de líneas de cancha */
+    background-image:
+        radial-gradient(ellipse 900px 500px at 15% -10%, rgba(16, 185, 129, 0.10), transparent 60%),
+        radial-gradient(ellipse 900px 500px at 85% 0%, rgba(0, 255, 136, 0.06), transparent 60%),
+        repeating-linear-gradient(120deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 64px);
+    background-attachment: fixed;
+}
+
+/* Ancho de trabajo compartido por navbar, contenido y footer.
+   Bootstrap .container topa en ~1320px; para un dashboard de simulación con
+   tablas/grillas anchas se usa .container-fluid + este límite propio, más
+   generoso, en vez del contenedor angosto por defecto. */
+.app-main {
+    max-width: 1680px;
+    margin-inline: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+}
+
+@media (max-width: 576px) {
+    .app-main {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+/* Reemplazar fondos claros por dark */
+.bg-light {
+    background-color: var(--bg-dark-main) !important;
+}
+
+/* Modificación de Tarjetas y Paneles */
+.card {
+    background-color: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-main) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.card-header {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+}
+
+/* Reemplazo de Textos Secundarios */
+.text-dark {
+    color: var(--text-main) !important;
+}
+
+.text-muted, .text-secondary {
+    color: var(--text-muted) !important;
+}
+
+/* Tablas */
+.table {
+    color: var(--text-main) !important;
+    border-color: var(--border-color) !important;
+}
+
+.table-light {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: var(--text-muted) !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: var(--bg-card-hover) !important;
+    color: var(--text-main) !important;
+}
+
+/* Listas */
+.list-group-item {
+    background-color: transparent !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-main) !important;
+}
+
+/* Inputs y Formularios */
+.form-control {
+    background-color: #0d1624 !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-main) !important;
+}
+
+.form-control:focus {
+    border-color: var(--green-pitch) !important;
+    box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.25) !important;
+}
+
+.form-control::placeholder {
+    color: #64748b !important;
+}
+
+/* ==========================================================
+   ACENTOS VERDES FUTBOLEROS (Reemplazo de Amarillos)
+   ========================================================== */
+
+/* Marcadores y números principales */
+.text-warning, .score-green {
+    color: var(--green-neon) !important;
+    text-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+}
+
+/* Barras de progreso verdes */
+.bg-warning, .progress-bar-green {
+    background-color: var(--green-pitch) !important;
+}
+
+/* Botones principales */
+.btn-primary, .btn-success {
+    background-color: var(--green-pitch) !important;
+    border-color: var(--green-pitch) !important;
+    color: #000000 !important;
+    font-weight: bold;
+}
+
+.btn-primary:hover, .btn-success:hover {
+    background-color: var(--green-neon) !important;
+    border-color: var(--green-neon) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 255, 136, 0.3) !important;
+}
+
+/* Badges / Etiquetas destacadas */
+.badge.bg-warning {
+    background-color: var(--green-pitch) !important;
+    color: #000000 !important;
+}
+
+.bg-warning-subtle {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+    color: var(--green-neon) !important;
+}
+
+/* Utilidades adicionales */
+.fs-7 { font-size: 0.85rem; }
+.fs-8 { font-size: 0.75rem; }
+
+.minute-badge {
+    background-color: var(--green-pitch) !important;
+    color: #000 !important;
+    font-weight: bold;
+    min-width: 45px;
+    text-align: center;
+}
+
+/* Colores de Rating al estilo Sofascore */
+.rating-top { background-color: #00875a; color: white; } /* 8.0 - 10.0 */
+.rating-good { background-color: #57d9a3; color: black; } /* 7.0 - 7.9 */
+.rating-average { background-color: #ffab00; color: black; } /* 6.0 - 6.9 */
+.rating-bad { background-color: #de350b; color: white; } /* < 6.0 */
+
+/* ==========================================================
+   NAVBAR / FOOTER - Identidad de "panel de transmisión"
+   ========================================================== */
+
+.navbar {
+    background: linear-gradient(180deg, #0d1a2e 0%, var(--bg-dark-main) 100%) !important;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 0 0 var(--green-dark), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.navbar-brand {
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-size: 1.15rem;
+}
+
+.brand-ball {
+    display: inline-block;
+    filter: drop-shadow(0 0 6px rgba(0, 255, 136, 0.6));
+}
+
+.navbar .nav-link {
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--text-muted) !important;
+    position: relative;
+    transition: color 0.2s ease;
+}
+
+.navbar .nav-link:hover,
+.navbar .nav-link.active {
+    color: var(--text-main) !important;
+}
+
+.navbar .nav-link.active::after {
+    content: "";
+    position: absolute;
+    left: 0.25rem;
+    right: 0.25rem;
+    bottom: -2px;
+    height: 2px;
+    background: var(--green-neon);
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.7);
+    border-radius: 2px;
+}
+
+.app-footer {
+    background-color: var(--bg-card) !important;
+    color: var(--text-muted) !important;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+}
+
+/* ==========================================================
+   TARJETAS INTERACTIVAS (grillas de países / jugadores / partidos)
+   ========================================================== */
+
+.card-hover {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    /* No se toca border-left a propósito: algunas tarjetas (border-start, .match-banner)
+       usan el borde izquierdo como acento de color y no debe perderse en reposo. */
+    border-top: 1px solid transparent !important;
+    border-right: 1px solid transparent !important;
+    border-bottom: 1px solid transparent !important;
+}
+
+.card-hover:hover {
+    transform: translateY(-4px);
+    border-top-color: var(--green-pitch) !important;
+    border-right-color: var(--green-pitch) !important;
+    border-bottom-color: var(--green-pitch) !important;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(16, 185, 129, 0.25) !important;
+}
+
+/* ==========================================================
+   TABLAS ESTILO PANEL DE ESTADÍSTICAS
+   ========================================================== */
+
+.table > thead > tr > th {
+    letter-spacing: 0.04em;
+    font-weight: 700;
+}
+
+/* ==========================================================
+   COMPONENTES COMPARTIDOS DE ESTADÍSTICAS (stat-card / match-banner)
+   ========================================================== */
+
+.stat-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--green-pitch);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+.stat-icon {
+    flex: 0 0 auto;
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: rgba(16, 185, 129, 0.12);
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+/* ==========================================================
+   ENCABEZADOS DE SECCIÓN (paneles de resumen / estadísticas)
+   ========================================================== */
+
+.section-heading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-main);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--green-pitch);
+}
+
+.match-banner {
+    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-dark-main) 100%);
+    border-left: 4px solid var(--green-pitch);
+}
+
+/* ==========================================================
+   SUPERFICIE SUAVE (paneles dentro de una .card ya oscura)
+   ========================================================== */
+
+.surface-soft {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 0.75rem;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* ==========================================================
+   FICHA TÉCNICA DE PARTIDO (ubicación / fecha / clima / aforo)
+   ========================================================== */
+
+.match-info-chip {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    padding: 0.5rem 0;
+}
+
+.match-info-chip .match-info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    background-color: rgba(16, 185, 129, 0.12);
+    color: var(--green-neon);
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+/* Color propio por tipo de dato de la ficha técnica */
+.match-info-chip .match-info-icon.icon-sede { color: #38bdf8; background-color: rgba(56, 189, 248, 0.14); }
+.match-info-chip .match-info-icon.icon-aforo { color: #f59e0b; background-color: rgba(245, 158, 11, 0.14); }
+.match-info-chip .match-info-icon.icon-marcador { color: #facc15; background-color: rgba(250, 204, 21, 0.14); }
+
+/* Color propio por condición climática */
+.match-info-chip .match-info-icon.icon-clima-soleado { color: #fbbf24; background-color: rgba(251, 191, 36, 0.14); }
+.match-info-chip .match-info-icon.icon-clima-despejado { color: #818cf8; background-color: rgba(129, 140, 248, 0.14); }
+.match-info-chip .match-info-icon.icon-clima-calor { color: #f87171; background-color: rgba(248, 113, 113, 0.14); }
+.match-info-chip .match-info-icon.icon-clima-lluvia { color: #38bdf8; background-color: rgba(56, 189, 248, 0.14); }
+.match-info-chip .match-info-icon.icon-clima-frio { color: #67e8f9; background-color: rgba(103, 232, 249, 0.14); }
+
+.match-info-chip .match-info-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    display: block;
+}
+
+.match-info-chip .match-info-value {
+    font-weight: 700;
+    color: var(--text-main);
+    display: block;
+    line-height: 1.25;
+}
+
+/* ==========================================================
+   CALENDARIO DE PARTIDOS (FullCalendar) - piel oscura
+   ========================================================== */
+
+.calendar-legend-dot {
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+}
+
+.fc {
+    --fc-border-color: var(--border-color);
+    --fc-page-bg-color: transparent;
+    --fc-neutral-bg-color: rgba(255, 255, 255, 0.04);
+    --fc-list-event-hover-bg-color: var(--bg-card-hover);
+    --fc-today-bg-color: rgba(16, 185, 129, 0.12);
+    --fc-event-text-color: #0b1320;
+    --fc-button-text-color: var(--text-main);
+    --fc-button-bg-color: var(--bg-card);
+    --fc-button-border-color: var(--border-color);
+    --fc-button-hover-bg-color: var(--bg-card-hover);
+    --fc-button-hover-border-color: var(--green-pitch);
+    --fc-button-active-bg-color: var(--green-pitch);
+    --fc-button-active-border-color: var(--green-pitch);
+    color: var(--text-main);
+}
+
+.fc .fc-toolbar.fc-header-toolbar {
+    background-color: var(--bg-card) !important;
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem !important;
+}
+
+.fc .fc-toolbar-title {
+    color: var(--text-main);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-size: 1.1rem;
+}
+
+/* Fila de encabezado de días de la semana (Dom, Lun, Mar...) */
+.fc .fc-col-header,
+.fc .fc-col-header-cell,
+.fc .fc-scrollgrid-section-header > td,
+.fc .fc-scrollgrid-section-header > th {
+    background-color: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+}
+
+.fc .fc-button {
+    text-transform: capitalize;
+    box-shadow: none !important;
+}
+
+.fc .fc-button-primary:focus,
+.fc .fc-button-primary:not(:disabled).fc-button-active:focus {
+    box-shadow: 0 0 0 0.2rem rgba(16, 185, 129, 0.35) !important;
+}
+
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number,
+.fc .fc-list-day-text,
+.fc .fc-list-day-side-text {
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+    color: var(--green-neon);
+    font-weight: 700;
+}
+
+.fc-event {
+    cursor: pointer;
+    border: none !important;
+    font-size: 0.72rem;
+    padding: 1px 4px;
+}
+
+.fc-list-day-cushion {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+.fc-daygrid-more-link {
+    color: var(--green-neon) !important;
+    font-weight: 600;
+}
+
+/* ==========================================================
+   Feed "Últimos Partidos" estilo X/Twitter (ver templates/home.html)
+   ========================================================== */
+.x-post-avatar {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    border-radius: 50%;
+    background-color: #494949;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+}
+
+.x-post {
+    transition: background-color 0.15s ease-in-out;
+}
+
+.x-post:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+.x-post-avatar-sm {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 50%;
+    background-color: #494949;
+    color: #c2a48a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.55rem;
+}
+
+.x-post-replies {
+    border-color: #e2e8f0 !important;
+}
+
+.x-post-toggle {
+    cursor: pointer;
+}
+
+.x-post-chevron {
+    transition: transform 0.15s ease-in-out;
+}
+
+.x-post-toggle[aria-expanded="true"] .x-post-chevron {
+    transform: rotate(180deg);
+}
+
+/* ==========================================================
+   Tarjetas de "Eliminatorias por Confederación" (ver templates/home.html) --
+   estilo "dashboard deportivo premium": fondo pulido translúcido, borde fino
+   con resplandor en hover, badges de estado tipo pill con glow, mini-grid de
+   métricas en cajas semi-transparentes (labels en gris neutro, nunca azul) y
+   una barra de progreso propia, delgada, en vez de la de Bootstrap.
+   ========================================================== */
+.conf-card,
+.conf-card:visited,
+.conf-card:hover,
+.conf-card:active {
+    /* !important porque es un <a> -- si no, el azul de link por defecto de Bootstrap
+       (var(--bs-link-color)) se cuela en cualquier texto de la tarjeta que no tenga ya
+       su propia clase de color explícita (text-white/text-muted/etc). Mismo criterio que
+       el resto del tema oscuro de este archivo (.card, .text-dark, .text-muted...). */
+    color: var(--text-main) !important;
+}
+
+.conf-card {
+    background-color: #131924;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.75rem;
+    padding: 1.1rem 1.2rem;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.conf-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(16, 185, 129, 0.15);
+}
+
+/* Badge de estado -- pill translúcido con resplandor sutil, reemplaza el texto azul plano */
+.conf-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.conf-status-finalizado {
+    background-color: rgba(52, 211, 153, 0.10);
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.35);
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.15);
+}
+
+.conf-status-curso {
+    background-color: rgba(96, 165, 250, 0.10);
+    color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.35);
+    box-shadow: 0 0 10px rgba(96, 165, 250, 0.15);
+}
+
+.conf-status-pendiente {
+    background-color: rgba(148, 163, 184, 0.10);
+    color: #cbd5e1;
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+/* Mini-grid 2x2 de métricas (países miembros / cupos / partidos jugados / pendientes) */
+.conf-metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.conf-metric-box {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.conf-metric-value {
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 1.05rem;
+    line-height: 1.2;
+}
+
+.conf-metric-label {
+    font-size: 0.66rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* Barra de progreso delgada y propia (no depende de .progress-bar-green) */
+.conf-progress {
+    height: 5px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.conf-progress-bar {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--green-dark), var(--green-pitch));
+    transition: width 0.3s ease;
+}
+
+.conf-card-footer-border {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}

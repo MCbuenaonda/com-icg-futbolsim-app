@@ -1,0 +1,38 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secretos / configuración local
+.env
+.env.*
+!.env.example
+
+# Editores / IDE
+.vscode/
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Claude Code (configuración y planes locales; CLAUDE.md de la raíz SÍ se versiona)
+.claude/
+
+# Logs
+*.log
+
+# Dump de datos de depuración (partido real exportado para análisis)
+juego.json

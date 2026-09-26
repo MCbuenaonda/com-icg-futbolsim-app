@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}{{ jugador.nombre }} (#{{ jugador.numero }}) - Ficha Técnica{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+
+    <!-- Volver y Encabezado de Perfil -->
+    <div class="mb-4">
+        <a href="/jugadores/pais/{{ jugador.pais_id }}" class="btn btn-sm btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left me-1"></i> Volver a la Plantilla
+        </a>
+
+        <div class="card border-0 shadow-lg p-4 bg-dark overflow-hidden position-relative">
+            <!-- Camiseta de fondo -->
+            <div class="position-absolute top-0 end-0 me-4 mt-1 display-1 fw-bold text-white opacity-10 user-select-none">
+                #{{ jugador.numero }}
+            </div>
+
+            <div class="row align-items-center position-relative z-1">
+                <div class="col-auto">
+                    <div class="bg-success bg-opacity-25 border border-success p-3 rounded-circle text-success text-center" style="width: 80px; height: 80px;">
+                        <i class="bi bi-person-badge fs-1"></i>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <h1 class="display-5 fw-bold text-white mb-0">{{ jugador.nombre }}</h1>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle fs-6">
+                            {{ jugador.posicion }}
+                        </span>
+                        {% if jugador.titular == 1 %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Titular</span>
+                        {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Suplente</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted mb-0 fs-6">
+                        <i class="bi bi-flag-fill me-1 text-success"></i>{{ jugador.pais }} | 
+                        <i class="bi bi-journal-check me-1 ms-2"></i>Juegos Jugados: {{ jugador.juegos_jugados }}
+                    </p>
+                </div>
+                <div class="col-auto text-end mt-3 mt-md-0">
+                    <div class="d-flex gap-2">
+                        <div class="p-3 bg-black bg-opacity-40 rounded-3 border border-secondary border-opacity-25 text-center">
+                            <span class="fs-8 text-muted text-uppercase d-block fw-semibold">Valoración General</span>
+                            <span class="display-6 fw-bold text-warning">{{ jugador.overall }}</span>
+                        </div>
+                        <div class="p-3 bg-black bg-opacity-40 rounded-3 border border-secondary border-opacity-25 text-center">
+                            <span class="fs-8 text-muted text-uppercase d-block fw-semibold">Rendimiento</span>
+                            <span class="display-6 fw-bold text-info">{{ jugador.rendimiento }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicadores Generales de Estado -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <span class="text-muted fs-8 text-uppercase fw-semibold">Estado de Forma</span>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <h3 class="fw-bold text-white mb-0">{{ jugador.forma_actual }}%</h3>
+                        <i class="bi bi-heart-pulse-fill fs-3 text-danger"></i>
+                    </div>
+                    <div class="progress bg-dark mt-2" style="height: 6px;">
+                        <div class="progress-bar bg-danger" style="width: {{ jugador.forma_actual }}%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <span class="text-muted fs-8 text-uppercase fw-semibold">Moral del Jugador</span>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <h3 class="fw-bold text-white mb-0">{{ jugador.moral }}%</h3>
+                        <i class="bi bi-emoji-smile-fill fs-3 text-warning"></i>
+                    </div>
+                    <div class="progress bg-dark mt-2" style="height: 6px;">
+                        <div class="progress-bar bg-warning" style="width: {{ jugador.moral }}%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <span class="text-muted fs-8 text-uppercase fw-semibold">Pie Hábil</span>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <h4 class="fw-bold text-white mb-0 text-capitalize">{{ jugador.pie_habil }}</h4>
+                        <i class="bi bi-lightning-fill fs-3 text-success"></i>
+                    </div>
+                    <span class="fs-8 text-muted d-block mt-2">Perfil natural</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <span class="text-muted fs-8 text-uppercase fw-semibold">Especialidades</span>
+                    <div class="mt-2">
+                        {% if jugador.especialista_penales %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle fs-8 mb-1">Penales</span>
+                        {% endif %}
+                        {% if jugador.especialista_tiros_libres %}
+                            <span class="badge bg-info-subtle text-info border border-info-subtle fs-8 mb-1">Tiros Libres</span>
+                        {% endif %}
+                        {% if not jugador.especialista_penales and not jugador.especialista_tiros_libres %}
+                            <span class="text-muted fs-7">Ninguna destacada</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bloque de Atributos Técnicos (Radar Chart) & Estadísticas de Competencia -->
+    <div class="row g-4 mb-4">
+        
+        <!-- Gráfico de Radar de Atributos Técnicos -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header py-3 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title fw-bold text-white mb-0">
+                        <i class="bi bi-radar me-2 text-success"></i>Perfil de Atributos Técnicos & Físicos
+                    </h5>
+                </div>
+                <div class="card-body d-flex align-items-center justify-content-center p-3" style="min-height: 380px;">
+                    <div style="width: 100%; max-width: 480px; position: relative;">
+                        <canvas id="atributosRadarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Registro Disciplinario y Goles -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header py-3 border-0">
+                    <h5 class="card-title fw-bold text-white mb-0">
+                        <i class="bi bi-shield-lock-fill me-2 text-warning"></i>Historial Competitivo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="text-muted"><i class="bi bi-disc text-success me-2"></i>Goles Acumulados</span>
+                            <span class="fw-bold text-white fs-5">{{ jugador.goles }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="text-muted"><i class="bi bi-signpost-split-fill text-info me-2"></i>Asistencias</span>
+                            <span class="fw-bold text-white fs-5">{{ jugador.asistencias or 0 }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="text-muted"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Faltas Cometidas</span>
+                            <span class="fw-bold text-white">{{ jugador.faltas }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="text-muted">🟨 Tarjetas Amarillas</span>
+                            <span class="fw-bold text-warning">{{ jugador.amarilla }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="text-muted">🟥 Tarjetas Rojas</span>
+                            <span class="fw-bold text-danger">{{ jugador.roja }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span class="text-muted"><i class="bi bi-bandaid-fill text-info me-2"></i>Lesiones</span>
+                            <span class="fw-bold text-white">{{ jugador.lesiones }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Carga de Chart.js y Script del Gráfico -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const ctx = document.getElementById('atributosRadarChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: [
+                    'Velocidad',
+                    'Regate',
+                    'Prec. Tiro',
+                    'Prec. Pase',
+                    'Fza. Disparo',
+                    'Resistencia',
+                    'Visión',
+                    'Anticipación',
+                    'Agresividad',
+                    'Compostura'
+                ],
+                datasets: [{
+                    label: 'Atributos',
+                    data: [
+                        {{ jugador.velocidad }},
+                        {{ jugador.regate }},
+                        {{ jugador.precision_tiro }},
+                        {{ jugador.precision_pase }},
+                        {{ jugador.fuerza_disparo }},
+                        {{ jugador.resistencia|round(1) }},
+                        {{ jugador.vision_juego }},
+                        {{ jugador.anticipacion }},
+                        {{ jugador.agresividad }},
+                        {{ jugador.compostura|round(1) }}
+                    ],
+                    backgroundColor: 'rgba(25, 135, 84, 0.25)', // Verde semi-transparente estilo Bootstrap Success
+                    borderColor: '#198754',
+                    pointBackgroundColor: '#20c997',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#20c997',
+                    borderWidth: 2,
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` Value: ${context.raw}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        min: 0,
+                        max: 100,
+                        ticks: {
+                            stepSize: 20,
+                            display: false // Oculta los números internos para mayor limpieza visual
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)' // Líneas internas sutiles para tema oscuro
+                        },
+                        angleLines: {
+                            color: 'rgba(255, 255, 255, 0.15)'
+                        },
+                        pointLabels: {
+                            color: '#adb5bd', // Color claro para las etiquetas en tema oscuro
+                            font: {
+                                size: 11,
+                                family: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

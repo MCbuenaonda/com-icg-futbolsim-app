@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+
+{% block title %}Once Ideal - FutbolSim{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="display-6 fw-bold mb-1">Once Ideal — Fase {{ fase_id }}</h1>
+        <p class="text-muted mb-0">Armá tu alineación: 1 jugador por posición (ej. un solo Lateral Izquierdo), máximo 2 por selección.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
+            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
+        </span>
+        {% if alineacion %}
+            <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
+                <i class="bi bi-star-fill text-warning me-1"></i>{{ alineacion.total_points_fase }} pts fantasy
+            </span>
+        {% endif %}
+        {% if fase_iniciada %}
+            <span class="badge bg-danger px-3 py-2 fs-6"><i class="bi bi-lock-fill me-1"></i>Fase iniciada</span>
+        {% else %}
+            <span class="badge bg-success px-3 py-2 fs-6"><i class="bi bi-unlock-fill me-1"></i>Fase abierta</span>
+        {% endif %}
+        {% if fase_iniciada and alineacion %}
+            <span class="badge {% if alineacion.cambios_gratis_disponibles > 0 %}bg-info text-dark{% else %}bg-secondary{% endif %} px-3 py-2 fs-6">
+                <i class="bi bi-arrow-repeat me-1"></i>{{ alineacion.cambios_gratis_disponibles }} cambios gratis
+            </span>
+        {% endif %}
+    </div>
+</div>
+
+{% if fase_iniciada and alineacion %}
+    {% if alineacion.cambios_gratis_disponibles > 0 %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle-fill me-1"></i>
+            Esta fase ya empezó a jugarse en al menos una confederación, pero todavía tenés
+            <strong>{{ alineacion.cambios_gratis_disponibles }} cambios gratis</strong> disponibles (se renuevan
+            cada vez que una confederación termina de jugar esta fase). Si en un mismo guardado cambiás más
+            jugadores de los que tenés de crédito gratis, se cobra la penalización de <strong>20 pts</strong> por ese guardado.
+        </div>
+    {% else %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            Esta fase ya empezó a jugarse y no te quedan cambios gratis disponibles. Si modificás tu alineación ahora, se te van a cobrar <strong>20 pts</strong> de penalización.
+        </div>
+    {% endif %}
+{% endif %}
+
+{% if equipo_heredado %}
+    <div class="alert alert-primary d-flex align-items-start gap-2">
+        <i class="bi bi-arrow-repeat fs-4"></i>
+        <div>
+            Todavía no armaste un equipo para esta fase — precargamos tu alineación de la
+            <strong>Fase {{ equipo_heredado.fase_id }}</strong> como punto de partida. Revisala y apretá
+            <strong>"Guardar Alineación"</strong> para confirmarla acá (no se guarda nada hasta que lo hagas).
+        </div>
+    </div>
+{% endif %}
+
+<div id="alertaFantasy" class="alert d-none" role="alert"></div>
+
+<div class="row g-3 mb-3">
+    <div class="col-12 col-md-6">
+        <label class="form-label small text-uppercase text-muted">Formación</label>
+        <select id="selectFormacion" class="form-select">
+            <option value="4-3-3">4-3-3</option>
+            <option value="4-4-2">4-4-2</option>
+            <option value="3-5-2">3-5-2</option>
+        </select>
+    </div>
+    <div class="col-12 col-md-6 d-flex align-items-end">
+        <div class="fs-5">
+            <span id="contadorJugadores" class="fw-bold text-warning">0</span> / 11 jugadores
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-lg-7">
+        <div class="card bg-dark border-0 shadow-sm">
+            <div class="card-body p-3">
+                <h6 class="section-heading">Tu Alineación</h6>
+                <div id="bloquePortero" class="mb-3"></div>
+                <div id="bloqueDefensa" class="mb-3"></div>
+                <div id="bloqueMedio" class="mb-3"></div>
+                <div id="bloqueDelantero" class="mb-3"></div>
+            </div>
+        </div>
+
+        <button type="button" id="btnGuardarAlineacion" class="btn btn-success btn-lg fw-bold w-100 mt-3" disabled>
+            <i class="bi bi-check2-circle me-1"></i>Guardar Alineación
+        </button>
+    </div>
+
+    <div class="col-12 col-lg-5">
+        <div class="card bg-dark border-0 shadow-sm">
+            <div class="card-body p-3">
+                <h6 class="section-heading">Buscar Jugador</h6>
+                <input type="text" id="buscarJugador" class="form-control mb-2" placeholder="Nombre del jugador...">
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <select id="filtroPais" class="form-select form-select-sm">
+                            <option value="">Todos los países</option>
+                            {% for pais in paises %}
+                                <option value="{{ pais.id }}">{{ pais.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <select id="filtroPosicion" class="form-select form-select-sm">
+                            <option value="">Todas las posiciones</option>
+                            {% for posicion in posiciones %}
+                                <option value="{{ posicion.id }}">{{ posicion.nombre }} ({{ posicion.siglas }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div id="resultadosBusqueda" class="list-group" style="max-height: 480px; overflow-y: auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2 class="section-heading">Historial de Cálculo de Puntos Fantasy</h2>
+<div class="card bg-dark border-0 shadow-sm mb-4">
+    <div class="card-body p-3">
+        {% if historial_puntos %}
+            <p class="text-muted small mb-3">Cada vez que se simula un partido, si un jugador de tu alineación participó, acá queda el detalle de cómo se calcularon sus puntos.</p>
+            <div class="d-flex flex-column gap-2" style="max-height: 480px; overflow-y: auto;">
+                {% for evento in historial_puntos %}
+                    <div class="surface-soft p-2 px-3">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <span class="fw-semibold">{{ evento.jugador_nombre }}</span>
+                                {% if evento.created_at %}
+                                    <span class="text-muted small ms-2">{{ evento.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                                {% endif %}
+                            </div>
+                            <span class="fw-bold {% if evento.puntos_finales > 0 %}text-success{% elif evento.puntos_finales < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                {{ "+" if evento.puntos_finales > 0 else "" }}{{ evento.puntos_finales }} pts
+                            </span>
+                        </div>
+                        <div class="small text-muted mt-1">
+                            {% for item in evento.desglose %}
+                                <span class="d-inline-block me-3">{{ item.concepto }}: {{ item.cantidad }} × {{ item.puntos_unitarios }} = {{ "+" if item.subtotal > 0 else "" }}{{ item.subtotal }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="small mt-1 d-flex flex-wrap gap-2">
+                            {% if evento.sinergia_album_aplicada %}
+                                <span class="badge bg-dark border border-warning text-warning">
+                                    <i class="bi bi-collection-fill me-1"></i>Sinergia Álbum ×{{ evento.multiplicador }} — {{ evento.puntos_base }} → {{ evento.puntos_finales }} pts
+                                </span>
+                            {% endif %}
+                            {% if evento.monto_otorgado > 0 %}
+                                <span class="badge bg-dark border border-success text-success">
+                                    <i class="bi bi-coin me-1"></i>+{{ evento.monto_otorgado }} monto
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted text-center mb-0">Todavía no se calcularon puntos fantasy para tu alineación en esta fase — se registran automáticamente cuando se simule un partido de algún jugador tuyo.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const ETIQUETAS_BLOQUE = { PORTERO: 'Portero', DEFENSA: 'Defensas', MEDIO: 'Medios', DELANTERO: 'Delanteros' };
+    const MAX_POR_PAIS = 2;
+
+    // Catálogo real de las 11 posiciones (id/nombre/siglas/sector).
+    const POSICIONES_CATALOGO = {{ posiciones | tojson }};
+    const SLOT_PORTERO = POSICIONES_CATALOGO.find(p => p.sector === 'Portero');
+
+    // Acomodo explícito de las 10 posiciones de campo por línea, para cada formación
+    // (ver FORMACIONES_GRANULARES en services/fantasy_service.py — las 3 formaciones
+    // usan las mismas 10 posiciones, solo cambia en qué línea se agrupa cada una).
+    const FORMACIONES_GRANULARES = {{ formaciones_granulares_json | safe }};
+
+    function slotsDeFormacion(formacion) {
+        const datos = FORMACIONES_GRANULARES[formacion] || FORMACIONES_GRANULARES['4-3-3'];
+        return {
+            PORTERO: [SLOT_PORTERO],
+            DEFENSA: datos.DEFENSA,
+            MEDIO: datos.MEDIO,
+            DELANTERO: datos.DELANTERO
+        };
+    }
+
+    const usuarioId = "{{ usuario_actual._id }}";
+    const faseId = {{ fase_id }};
+    const faseIniciada = {{ "true" if fase_iniciada else "false" }};
+    const cambiosGratisDisponibles = {{ alineacion.cambios_gratis_disponibles if alineacion else 0 }};
+    const urlGuardar = "{{ url_for('fantasy_set_lineup') }}";
+    const urlBuscar = "{{ url_for('fantasy_buscar_jugadores') }}";
+
+    // Indicador de desempeño por jugador de la alineación actual ({jugador_id: {puntos_totales_fase,
+    // partidos_puntuados, rendimiento, estado}}), para decidir si conviene mantenerlo o cambiarlo.
+    const DESEMPENO_LINEUP = {{ desempeno_lineup_json | safe }};
+    const ETIQUETA_ESTADO = { alto: 'En forma', medio: 'Rindiendo', bajo: 'Bajo rendimiento' };
+    const CLASE_ESTADO = { alto: 'text-success', medio: 'text-warning', bajo: 'text-danger' };
+
+    const selectFormacion = document.getElementById('selectFormacion');
+    const contadorJugadores = document.getElementById('contadorJugadores');
+    const btnGuardar = document.getElementById('btnGuardarAlineacion');
+    const alertaFantasy = document.getElementById('alertaFantasy');
+    const inputBuscar = document.getElementById('buscarJugador');
+    const filtroPais = document.getElementById('filtroPais');
+    const filtroPosicion = document.getElementById('filtroPosicion');
+    const resultadosBusqueda = document.getElementById('resultadosBusqueda');
+
+    // seleccionados: { posicion_id: jugador | null } — una única posición granular por slot
+    // (ej. solo puede haber un jugador con posicion_id = DFD en toda la alineación).
+    let seleccionados = {};
+    POSICIONES_CATALOGO.forEach(p => { seleccionados[p.id] = null; });
+
+    function mostrarAlerta(mensaje, tipo) {
+        alertaFantasy.className = `alert alert-${tipo}`;
+        alertaFantasy.textContent = mensaje;
+        alertaFantasy.classList.remove('d-none');
+        alertaFantasy.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function jugadoresElegidos() {
+        return Object.values(seleccionados).filter(j => j !== null);
+    }
+
+    function totalSeleccionados() {
+        return jugadoresElegidos().length;
+    }
+
+    function conteoPorPais() {
+        const conteo = {};
+        jugadoresElegidos().forEach(j => {
+            conteo[j.pais_id] = (conteo[j.pais_id] || 0) + 1;
+        });
+        return conteo;
+    }
+
+    function yaSeleccionado(jugadorId) {
+        return jugadoresElegidos().some(j => j.id === jugadorId);
+    }
+
+    function renderBloques() {
+        const slots = slotsDeFormacion(selectFormacion.value);
+
+        for (const bloque of ['PORTERO', 'DEFENSA', 'MEDIO', 'DELANTERO']) {
+            const contenedor = document.getElementById(`bloque${bloque.charAt(0)}${bloque.slice(1).toLowerCase()}`);
+            const posicionesBloque = slots[bloque] || [];
+            let html = `<div class="text-muted small text-uppercase mb-2">${ETIQUETAS_BLOQUE[bloque]} (${posicionesBloque.filter(p => seleccionados[p.id]).length}/${posicionesBloque.length})</div><div class="row g-2">`;
+
+            posicionesBloque.forEach(slot => {
+                const jugador = seleccionados[slot.id];
+                if (jugador) {
+                    const desempeno = DESEMPENO_LINEUP[jugador.id];
+                    const indicadorDesempeno = desempeno ? `
+                        <div class="${CLASE_ESTADO[desempeno.estado] || 'text-muted'}" style="font-size: 0.7rem;">
+                            <i class="bi bi-graph-up-arrow me-1"></i>${ETIQUETA_ESTADO[desempeno.estado] || ''}
+                            · Rend. ${desempeno.rendimiento.toFixed(1)} · ${desempeno.puntos_totales_fase} pts fantasy esta fase
+                        </div>` : '';
+                    html += `
+                        <div class="col-12 col-sm-6">
+                            <div class="surface-soft p-2 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-semibold small">${jugador.nombre} <span class="text-muted">(${slot.siglas})</span></div>
+                                    <div class="text-muted" style="font-size: 0.75rem;">${jugador.pais_nombre} · OVR ${jugador.overall}</div>
+                                    ${indicadorDesempeno}
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-quitar" data-posicion-id="${slot.id}">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>`;
+                } else {
+                    html += `
+                        <div class="col-12 col-sm-6">
+                            <div class="surface-soft p-2 text-center text-muted small" style="border: 1px dashed var(--border-color);">
+                                <i class="bi bi-plus-circle me-1"></i>Vacío — ${slot.nombre} (${slot.siglas})
+                            </div>
+                        </div>`;
+                }
+            });
+            html += '</div>';
+            contenedor.innerHTML = html;
+        }
+
+        document.querySelectorAll('.btn-quitar').forEach(btn => {
+            btn.addEventListener('click', function () {
+                seleccionados[parseInt(btn.dataset.posicionId, 10)] = null;
+                actualizarTodo();
+            });
+        });
+    }
+
+    function actualizarTodo() {
+        renderBloques();
+        const total = totalSeleccionados();
+        contadorJugadores.textContent = total;
+        btnGuardar.disabled = total !== 11;
+        renderizarResultados(ultimosResultados);
+    }
+
+    function agregarJugador(jugador) {
+        if (!(jugador.posicion_id in seleccionados)) {
+            mostrarAlerta('Posición de jugador desconocida.', 'warning');
+            return;
+        }
+        if (yaSeleccionado(jugador.id)) {
+            mostrarAlerta('Ese jugador ya está en tu alineación.', 'warning');
+            return;
+        }
+        const conteo = conteoPorPais();
+        if ((conteo[jugador.pais_id] || 0) >= MAX_POR_PAIS) {
+            mostrarAlerta(`Ya tenés ${MAX_POR_PAIS} jugadores de ${jugador.pais_nombre} (máximo por selección).`, 'warning');
+            return;
+        }
+
+        // Cada posición granular es un único slot: si ya hay alguien ahí (ej. DFD), hay
+        // que confirmar el reemplazo — no se puede tener 2 jugadores de la misma posición.
+        const ocupante = seleccionados[jugador.posicion_id];
+        if (ocupante) {
+            const ok = confirm(
+                `Ya tenés a ${ocupante.nombre} en la posición ${jugador.posicion_nombre} (${jugador.posicion_siglas}).\n¿Reemplazarlo por ${jugador.nombre}?`
+            );
+            if (!ok) return;
+        }
+
+        seleccionados[jugador.posicion_id] = jugador;
+        alertaFantasy.classList.add('d-none');
+        actualizarTodo();
+    }
+
+    selectFormacion.addEventListener('change', actualizarTodo);
+
+    // Buscador de jugadores (debounced), con filtros de país y posición
+    let temporizadorBusqueda = null;
+    let ultimosResultados = [];
+
+    function renderizarResultados(jugadores) {
+        ultimosResultados = jugadores;
+
+        // Los jugadores de una posición granular ya cubierta se muestran al final y
+        // atenuados (no se ocultan: seguís pudiendo elegirlos para reemplazar al titular).
+        const disponibles = jugadores.filter(j => !seleccionados[j.posicion_id]);
+        const repetidos = jugadores.filter(j => seleccionados[j.posicion_id]);
+        const ordenados = disponibles.concat(repetidos);
+
+        resultadosBusqueda.innerHTML = ordenados.map(j => {
+            const posicionCubierta = !!seleccionados[j.posicion_id];
+            const clases = posicionCubierta ? 'list-group-item-action bg-dark text-white border-secondary opacity-50' : 'list-group-item-action bg-dark text-white border-secondary';
+            const aviso = posicionCubierta ? '<div class="text-warning" style="font-size: .7rem;"><i class="bi bi-exclamation-circle me-1"></i>Posición ya cubierta — click para reemplazar</div>' : '';
+            return `
+                <button type="button" class="list-group-item ${clases} btn-agregar-jugador"
+                        data-jugador='${JSON.stringify(j).replace(/'/g, "&apos;")}'>
+                    <div class="d-flex justify-content-between">
+                        <span>${j.nombre} <span class="text-muted small">(${j.posicion_nombre} · ${j.posicion_siglas})</span></span>
+                        <span class="text-muted small">${j.pais_nombre} · OVR ${j.overall}</span>
+                    </div>
+                    ${aviso}
+                </button>
+            `;
+        }).join('') || '<div class="text-muted small p-2">Sin resultados.</div>';
+
+        document.querySelectorAll('.btn-agregar-jugador').forEach(btn => {
+            btn.addEventListener('click', function () {
+                agregarJugador(JSON.parse(btn.dataset.jugador.replace(/&apos;/g, "'")));
+            });
+        });
+    }
+
+    function ejecutarBusqueda() {
+        const texto = inputBuscar.value.trim();
+        const params = new URLSearchParams({ q: texto });
+        if (filtroPais.value) params.set('pais_id', filtroPais.value);
+        if (filtroPosicion.value) params.set('posicion_id', filtroPosicion.value);
+
+        fetch(`${urlBuscar}?${params.toString()}`)
+            .then(resp => resp.json())
+            .then(renderizarResultados);
+    }
+
+    inputBuscar.addEventListener('input', function () {
+        clearTimeout(temporizadorBusqueda);
+        temporizadorBusqueda = setTimeout(ejecutarBusqueda, 300);
+    });
+    filtroPais.addEventListener('change', ejecutarBusqueda);
+    filtroPosicion.addEventListener('change', ejecutarBusqueda);
+
+    ejecutarBusqueda();
+
+    // Guardar alineación
+    btnGuardar.addEventListener('click', function () {
+        const lineup = Object.values(seleccionados).flat().map(j => j.id);
+
+        if (faseIniciada && {{ "true" if alineacion else "false" }}) {
+            // Cantidad de jugadores distintos respecto a la alineación con la que se entró a
+            // esta pantalla (misma cuenta que hace el backend en set_fantasy_lineup: jugadores
+            // que estaban antes y ya no están = jugadores nuevos, porque el tamaño es fijo en 11).
+            const cantidadCambios = LINEUP_ORIGINAL.filter(id => !lineup.includes(id)).length;
+
+            if (cantidadCambios > cambiosGratisDisponibles) {
+                if (!confirm(`Vas a cambiar ${cantidadCambios} jugador(es), pero solo tenés ${cambiosGratisDisponibles} cambios gratis disponibles. Se te van a cobrar 20 pts de penalización por este guardado. ¿Confirmás?`)) {
+                    return;
+                }
+            } else if (cantidadCambios > 0) {
+                if (!confirm(`Vas a cambiar ${cantidadCambios} jugador(es), cubierto por tus cambios gratis disponibles (${cambiosGratisDisponibles}). ¿Confirmás?`)) {
+                    return;
+                }
+            }
+        }
+
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+        fetch(urlGuardar, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario_id: usuarioId, fase_id: faseId, lineup: lineup, formacion: selectFormacion.value })
+        })
+        .then(async resp => {
+            const data = await resp.json();
+            if (!resp.ok) {
+                throw new Error(data.detail || 'No se pudo guardar la alineación.');
+            }
+            mostrarAlerta('¡Alineación guardada!', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        })
+        .catch(err => {
+            mostrarAlerta(err.message, 'danger');
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Guardar Alineación';
+        });
+    });
+
+    // Prellenar con la alineación existente de esta fase, o con la heredada de una fase
+    // anterior si todavía no armaste equipo acá (ver 'equipo_heredado' / carry-over en
+    // routes/fantasy_route.py). La formación guardada es solo la preferencia visual de
+    // agrupamiento — cambiarla después no invalida ningún jugador, porque las 3 formaciones
+    // usan las mismas 10 posiciones de campo (ver services/fantasy_service.py).
+    const jugadoresActuales = {{ jugadores_actuales_json | safe }};
+    const LINEUP_ORIGINAL = jugadoresActuales.map(j => j.id);
+    if (jugadoresActuales.length > 0) {
+        selectFormacion.value = "{{ formacion_inicial }}";
+        jugadoresActuales.forEach(j => {
+            if (j.posicion_id in seleccionados) seleccionados[j.posicion_id] = j;
+        });
+    }
+
+    actualizarTodo();
+});
+</script>
+{% endblock %}

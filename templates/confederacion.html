@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}{{ confederacion.nombre }} - Vista de Confederación{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-12">
+
+        <!-- Botón de navegación para regresar -->
+        <div class="mb-3">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver
+            </a>
+        </div>
+
+        <!-- Tarjeta Principal de la Confederación -->
+        <div class="card bg-dark text-white shadow-lg border-0 rounded-4 overflow-hidden mb-4">
+            <div class="card-body p-4 p-md-5">
+                
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="badge bg-primary text-uppercase px-3 py-2 fs-6">
+                        <i class="bi bi-globe-americas me-1"></i> {{ confederacion.region }}
+                    </span>
+                    
+                    {% if confederacion.principal == 1 %}
+                        <span class="badge bg-warning text-dark px-3 py-2 fs-6" title="Confederación Principal">
+                            <i class="bi bi-star-fill me-1"></i> Principal
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Nombre / Título de la Confederación -->
+                <h1 class="display-4 fw-bold text-warning mb-2">{{ confederacion.nombre }}</h1>
+                <p class="text-muted mb-4">ID de Registro: #{{ confederacion.id }}</p>
+
+                <hr class="border-secondary my-4">
+
+                <!-- Descripción -->
+                <div class="lh-lg text-light fs-5">
+                    <h5 class="text-secondary fw-bold mb-3">
+                        <i class="bi bi-info-circle me-2"></i> Acerca de esta Confederación
+                    </h5>
+                    <p class="mb-0">{{ confederacion.descripcion }}</p>
+                </div>
+
+            </div>
+            
+            <!-- Pie de tarjeta opcional para datos de sistema/BD -->
+            <div class="card-footer bg-secondary bg-opacity-25 border-top border-secondary text-muted text-end py-2 px-4">
+                <small class="font-monospace opacity-75">
+                    OID: {{ confederacion._id['$oid'] if confederacion._id['$oid'] is defined else confederacion._id }}
+                </small>
+            </div>
+        </div>
+
+        <!-- Sección de Países Miembros Agrupados por Fase y Grupos -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h5 class="card-title mb-0 fw-bold text-secondary">
+                    <i class="bi bi-flag me-2"></i> Países Participantes por Fase
+                </h5>
+            </div>
+            <div class="card-body py-4">
+                {% if confederacion.fases %}
+                    {% for fase_id, datos_fase in confederacion.fases.items() %}
+                        <div class="mb-5">
+                            <!-- Encabezado de la Fase -->
+                            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-warning"
+                                 {% if datos_fase.jugada %}
+                                 data-bs-toggle="collapse"
+                                 data-bs-target="#fase-grupos-{{ fase_id }}"
+                                 aria-expanded="false"
+                                 aria-controls="fase-grupos-{{ fase_id }}"
+                                 style="cursor: pointer;"
+                                 {% endif %}>
+                                <h3 class="fw-bold text-dark mb-0">
+                                    <i class="bi bi-trophy-fill me-2 text-warning"></i>
+                                    {% if datos_fase.nombre == 'Fase 8' %}
+                                        16AVOS DE FINAL
+                                    {% elif datos_fase.nombre == 'Fase 9' %}
+                                        8AVOS DE FINAL
+                                    {% elif datos_fase.nombre == 'Fase 10' %}
+                                        4TOS DE FINAL
+                                    {% elif datos_fase.nombre == 'Fase 11' %}
+                                        SEMIFINAL
+                                    {% elif datos_fase.nombre == 'Fase 12' %}
+                                        JUEGO 3ER LUGAR
+                                    {% elif datos_fase.nombre == 'Fase 13' %}
+                                        GRAN FINAL
+                                    {% else %}
+                                        {{ datos_fase.nombre }}
+                                    {% endif %}
+                                    {% if datos_fase.jugada %}
+                                        <span class="badge bg-secondary align-middle ms-2" style="font-size: 0.55em;">Finalizada</span>
+                                    {% endif %}
+                                </h3>
+                                {% if datos_fase.jugada %}
+                                    <button class="btn btn-sm btn-outline-secondary rounded-circle" type="button">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+
+                            <!-- Grupos dentro de esta Fase (plegado por defecto si la fase ya se jugó, para ahorrar espacio) -->
+                            <div class="row g-4{% if datos_fase.jugada %} collapse{% endif %}" id="fase-grupos-{{ fase_id }}">
+                                {% for letra_grupo, lista_paises in datos_fase.grupos.items() %}
+                                    <div class="col-12 col-xl-6">
+                                        <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
+                                            
+                                            <!-- Encabezado del Grupo -->
+                                            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3 px-4">
+                                                <h5 class="mb-0 fw-bold text-warning">
+                                                    <i class="bi bi-grid-3x3-gap-fill me-2"></i>Grupo {{ letra_grupo }}
+                                                </h5>
+                                                <span class="badge bg-secondary opacity-75">
+                                                    {{ lista_paises|length }} Equipos
+                                                </span>
+                                            </div>
+
+                                            <!-- Tabla Posiciones -->
+                                            <div class="table-responsive">
+                                                <table class="table table-hover table-striped table-dark align-middle mb-0">
+                                                    <thead class="table-dark text-secondary small text-uppercase">
+                                                        <tr>
+                                                            <th class="text-center" style="width: 40px;">#</th>
+                                                            <th>Equipo</th>
+                                                            <th class="text-center" title="Juegos Jugados">JJ</th>
+                                                            <th class="text-center" title="Juegos Ganados">JG</th>
+                                                            <th class="text-center" title="Juegos Empatados">JE</th>
+                                                            <th class="text-center" title="Juegos Perdidos">JP</th>
+                                                            <th class="text-center" title="Goles a Favor">GF</th>
+                                                            <th class="text-center" title="Goles en Contra">GC</th>
+                                                            <th class="text-center" title="Diferencia de Goles">DIF</th>
+                                                            <th class="text-center text-warning" title="Puntos Totales">PTS</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for pais in lista_paises | sort(attribute='estadisticas.goles_favor', reverse=True) | sort(attribute='estadisticas.diferencia_goles', reverse=True) | sort(attribute='estadisticas.puntos', reverse=True) %}
+                                                            <tr class="{% if pais.eliminado %}table-danger bg-opacity-25{% endif %}">
+                                                                <td class="text-center fw-bold text-muted small">
+                                                                    {{ loop.index }}
+                                                                </td>
+
+                                                                <!-- Nombre y Bandera -->
+                                                                <td>
+                                                                    <div class="d-flex align-items-center">
+                                                                        <span class="fs-5 me-2" title="{{ pais.nombre }}">{{ pais.bandera }}</span>
+                                                                        <div>
+                                                                            <strong class="text-white d-block lh-1">{{ pais.nombre }}</strong>
+                                                                            <small class="text-muted font-monospace opacity-75">({{ pais.siglas }})</small>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+
+                                                                <!-- Estadísticas -->
+                                                                <td class="text-center">{{ pais.estadisticas.juegos_jugados }}</td>
+                                                                <td class="text-center text-success fw-semibold">{{ pais.estadisticas.juegos_ganados }}</td>
+                                                                <td class="text-center text-muted">{{ pais.estadisticas.juegos_empatados }}</td>
+                                                                <td class="text-center text-danger">{{ pais.estadisticas.juegos_perdidos }}</td>
+                                                                <td class="text-center">{{ pais.estadisticas.goles_favor }}</td>
+                                                                <td class="text-center">{{ pais.estadisticas.goles_contra }}</td>
+                                                                
+                                                                <!-- Diferencia de Goles -->
+                                                                <td class="text-center fw-bold {% if pais.estadisticas.diferencia_goles > 0 %}text-success{% elif pais.estadisticas.diferencia_goles < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                                                    {% if pais.estadisticas.diferencia_goles > 0 %}+{% endif %}{{ pais.estadisticas.diferencia_goles }}
+                                                                </td>
+
+                                                                <!-- Puntos -->
+                                                                <td class="text-center fw-bold text-warning fs-6">
+                                                                    {{ pais.estadisticas.puntos }}
+                                                                </td>
+                                                            </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <!-- Estado vacío -->
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-diagram-3 fs-1 d-block mb-3 text-secondary opacity-50"></i>
+                        <h5 class="fw-bold text-dark mb-1">No hay grupos ni fases asignadas</h5>
+                        <p class="mb-0">Aún no se han configurado los países para esta confederación.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

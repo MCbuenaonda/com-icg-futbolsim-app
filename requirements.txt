@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+dotenv
+pymysql
+google-cloud-aiplatform
+pymongo
+certifi
+bcrypt
+itsdangerous

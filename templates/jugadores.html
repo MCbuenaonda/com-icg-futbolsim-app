@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Plantilla de Jugadores - FutbolSim{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1">
+                <i class="bi bi-people-fill text-success me-2"></i>Plantilla de Jugadores
+            </h1>
+            <p class="text-muted mb-0">Gestión de convocados, rendimiento técnico y estadísticas acumuladas.</p>
+        </div>
+        <div class="badge bg-dark border border-secondary p-3 text-start">
+            <span class="fs-7 text-muted d-block">Total Convocados</span>
+            <span class="fs-4 fw-bold text-success" id="total-jugadores">{{ jugadores|length }}</span>
+        </div>
+    </div>
+
+    <!-- Buscador y Filtros -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <div class="row g-3 align-items-center">
+                <!-- Buscador por Nombre -->
+                <div class="col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark border-secondary text-muted">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" id="searchJugador" class="form-control" placeholder="Buscar por nombre o número...">
+                    </div>
+                </div>
+
+                <!-- Filtro por Posición -->
+                <div class="col-md-5">
+                    <select id="filterPosicion" class="form-select bg-dark border-secondary text-white">
+                        <option value="TODAS">Todas las posiciones</option>
+                        <option value="Portero">Portero</option>
+                        <option value="Defensa">Defensa</option>
+                        <option value="Medio">Medio / Volante</option>
+                        <option value="Delantero">Delantero</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2 text-end">
+                    <button id="btnResetFilters" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-funnel-fill me-1"></i>Limpiar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid de Tarjetas de Jugadores -->
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3" id="jugadoresGrid">
+        {% for j in jugadores %}
+        <div class="col jugador-card-container" 
+             data-nombre="{{ j.nombre|lower }}" 
+             data-numero="{{ j.numero }}"
+             data-posicion="{{ j.posicion }}">
+            
+            <div class="card h-100 border-0 shadow-sm card-hover p-3 position-relative overflow-hidden">
+                
+                <!-- Badge de Número de Camiseta -->
+                <span class="position-absolute top-0 start-0 m-3 display-6 fw-bold text-muted opacity-25 user-select-none">
+                    #{{ j.numero }}
+                </span>
+
+                <!-- Header de Tarjeta: Overall y Nombre -->
+                <div class="d-flex justify-content-between align-items-start mb-3 position-relative z-1">
+                    <div>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle mb-1 fs-8">
+                            {{ j.posicion }}
+                        </span>
+                        <h5 class="fw-bold text-white mb-0 text-truncate" title="{{ j.nombre }}">{{ j.nombre }}</h5>
+                        <small class="text-muted"><i class="bi bi-flag-fill me-1"></i>{{ j.pais }}</small>
+                    </div>
+
+                    <!-- Overall Badge -->
+                    <div class="text-center p-2 bg-dark rounded-3 border border-secondary border-opacity-25 ms-2">
+                        <span class="fs-8 text-muted d-block fw-semibold text-uppercase">OVR</span>
+                        <span class="fw-bold text-warning fs-5">{{ j.overall|round(1) }}</span>
+                    </div>
+                </div>
+
+                <!-- Métricas Rápidas -->
+                <div class="row g-2 text-center my-2 py-2 bg-dark rounded-3 border border-secondary border-opacity-25">
+                    <div class="col-4 border-end border-secondary border-opacity-25">
+                        <span class="fs-8 text-muted d-block">Goles</span>
+                        <span class="fw-bold text-white"><i class="bi bi-disc text-success me-1"></i>{{ j.goles }}</span>
+                    </div>
+                    <div class="col-4 border-end border-secondary border-opacity-25">
+                        <span class="fs-8 text-muted d-block">Forma</span>
+                        <span class="fw-bold text-info">{{ j.forma_actual }}%</span>
+                    </div>
+                    <div class="col-4">
+                        <span class="fs-8 text-muted d-block">Tarjetas</span>
+                        <span class="fw-bold text-white">
+                            {% if j.amarilla > 0 %}<span class="text-warning">🟨 {{ j.amarilla }}</span>{% endif %}
+                            {% if j.roja > 0 %}<span class="text-danger ms-1">🟥 {{ j.roja }}</span>{% endif %}
+                            {% if j.amarilla == 0 and j.roja == 0 %}<span class="text-muted">0</span>{% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Footer / Acción -->
+                <div class="mt-auto pt-2">
+                    <a href="/jugadores/{{ j.id }}" class="btn btn-sm btn-outline-success w-100">
+                        <i class="bi bi-person-lines-fill me-1"></i>Ver Detalle Completo
+                    </a>
+                </div>
+
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Estado Vacío -->
+    <div id="noResultsJugadores" class="text-center py-5 d-none">
+        <i class="bi bi-person-x fs-1 text-muted d-block mb-3"></i>
+        <h4 class="text-white">No se encontraron jugadores</h4>
+        <p class="text-muted">Intenta ajustando el término de búsqueda o seleccionando otra posición.</p>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchJugador');
+    const filterPosicion = document.getElementById('filterPosicion');
+    const btnReset = document.getElementById('btnResetFilters');
+    const cards = document.querySelectorAll('.jugador-card-container');
+    const noResults = document.getElementById('noResultsJugadores');
+    const totalCount = document.getElementById('total-jugadores');
+
+    function filterJugadores() {
+        const query = searchInput.value.toLowerCase().trim();
+        const posicionSelected = filterPosicion.value.toLowerCase();
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+            const nombre = card.getAttribute('data-nombre');
+            const numero = card.getAttribute('data-numero');
+            const posicion = card.getAttribute('data-posicion').toLowerCase();
+
+            const matchesSearch = nombre.includes(query) || numero.includes(query);
+            const matchesPosicion = (posicionSelected === 'todas' || posicion.includes(posicionSelected));
+
+            if (matchesSearch && matchesPosicion) {
+                card.classList.remove('d-none');
+                visibleCount++;
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+
+        totalCount.textContent = visibleCount;
+        if (visibleCount === 0) {
+            noResults.classList.remove('d-none');
+        } else {
+            noResults.classList.add('d-none');
+        }
+    }
+
+    searchInput.addEventListener('input', filterJugadores);
+    filterPosicion.addEventListener('change', filterJugadores);
+
+    btnReset.addEventListener('click', function() {
+        searchInput.value = '';
+        filterPosicion.value = 'TODAS';
+        filterJugadores();
+    });
+});
+</script>
+{% endblock %}

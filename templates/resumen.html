@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Resumen: {{ partido.equipo_local.nombre }} vs {{ partido.equipo_visitante.nombre }}{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --bg-dark: #0f172a;
+        --card-bg: #1e293b;
+        --border-color: #334155;
+        --accent-gold: #f59e0b;
+        --accent-green: #10b981;
+        --accent-blue: #3b82f6;
+    }
+
+    body {
+        background-color: var(--bg-dark);
+        color: #f8fafc;
+    }
+
+    .match-header-card {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+    }
+
+    .stat-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+    }
+
+    /* Timeline de Eventos */
+    .timeline {
+        position: relative;
+        padding-left: 20px;
+        border-left: 2px solid var(--border-color);
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 16px;
+        padding-left: 15px;
+    }
+
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -27px;
+        top: 4px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: var(--accent-blue);
+        border: 2px solid var(--bg-dark);
+    }
+
+    .timeline-item.gol::before { background-color: var(--accent-green); }
+    .timeline-item.tarjeta::before { background-color: var(--accent-gold); }
+    .timeline-item.roja::before { background-color: #ef4444; }
+
+    .flag-huge {
+        font-size: 3.5rem;
+        line-height: 1;
+    }
+</style>
+
+<div class="container-fluid py-4 px-md-5">
+
+    <!-- BOTÓN REGRESAR / NAVEGACIÓN -->
+    <div class="mb-3">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">
+            ← Volver a partidos
+        </a>
+    </div>
+
+    <!-- CABECERA DEL PARTIDO (SCOREBOARD) -->
+    <div class="match-header-card p-4 text-center mb-4 shadow">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="badge bg-primary px-3 py-2 fs-6">{{ partido.jornada }} — {{ partido.grupo }}</span>
+            <span class="text-secondary fw-semibold">{{ partido.fecha }} | {{ partido.hora }}</span>
+            <span class="badge bg-success px-3 py-2 fs-6 text-uppercase">{{ partido.estado }}</span>
+        </div>
+
+        <div class="row align-items-center my-3">
+            <!-- Equipo Local -->
+            <div class="col-5 col-md-4 text-end">
+                <span class="flag-huge d-block d-md-inline mb-2 mb-md-0 me-md-2">{{ partido.equipo_local.bandera }}</span>
+                <h2 class="fw-bold d-inline text-white align-middle">{{ partido.equipo_local.nombre }}</h2>
+            </div>
+
+            <!-- Marcador -->
+            <div class="col-2 col-md-4">
+                <div class="display-4 fw-extrabold text-warning">
+                    {{ partido.equipo_local.goles }} - {{ partido.equipo_visitante.goles }}
+                </div>
+                {% if partido.tiempo_extra %}
+                    <small class="badge bg-danger">Tiempo Extra</small>
+                {% endif %}
+            </div>
+
+            <!-- Equipo Visitante -->
+            <div class="col-5 col-md-4 text-start">
+                <h2 class="fw-bold d-inline text-white align-middle me-md-2">{{ partido.equipo_visitante.nombre }}</h2>
+                <span class="flag-huge d-block d-md-inline mt-2 mt-md-0 ms-md-2">{{ partido.equipo_visitante.bandera }}</span>
+            </div>
+        </div>
+
+        <div class="border-top border-secondary pt-3 mt-3 d-flex justify-content-around text-muted fs-7">
+            <span>🏟️ {{ partido.ubicacion.estadio }} ({{ partido.ubicacion.nombre }})</span>
+            <span>🏷️ {{ partido.tag }}</span>
+        </div>
+    </div>
+
+    <!-- CRÓNICA / OPINIÓN DEL PARTIDO -->
+    {% if partido.resultado.opinion %}
+    <div class="stat-card p-4 mb-4 border-start border-4 border-warning">
+        <h5 class="text-warning fw-bold mb-2">🎙️ Resumen & Análisis del Encuentro</h5>
+        <p class="text-light mb-0 lead fs-6 fs-md-5">{{ partido.resultado.opinion }}</p>
+    </div>
+    {% endif %}
+
+    <div class="row g-4 mb-4">
+        <!-- COLUMNA IZQUIERDA: GRÁFICAS Y ESTADÍSTICAS COMPARATIVAS -->
+        <div class="col-12 col-lg-6">
+            <div class="stat-card p-4 h-100">
+                <h4 class="text-light border-bottom border-secondary pb-2 mb-3">📊 Estadísticas Comparativas</h4>
+                
+                <!-- Posesión (Barra Progresiva) -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between font-weight-bold mb-1">
+                        <span class="text-primary fw-bold">{{ partido.equipo_local.nombre }} ({{ partido.estadisticas.local.p_posesion }}%)</span>
+                        <small class="text-secondary">Posesión de Balón</small>
+                        <span class="text-danger fw-bold">{{ partido.equipo_visitante.nombre }} ({{ partido.estadisticas.visitante.p_posesion }}%)</span>
+                    </div>
+                    <div class="progress" style="height: 12px;">
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ partido.estadisticas.local.p_posesion }}%"></div>
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: {{ partido.estadisticas.visitante.p_posesion }}%"></div>
+                    </div>
+                </div>
+
+                <!-- Gráfica Radial Comparativa -->
+                <div class="my-4" style="position: relative; height:280px;">
+                    <canvas id="matchStatsChart"></canvas>
+                </div>
+
+                <!-- Árbitros del Partido -->
+                <h6 class="text-uppercase text-secondary fw-bold border-top border-secondary pt-3 mb-2 fs-7">🏁 Cuerpo Arbitral</h6>
+                <div class="row g-2 text-muted fs-7">
+                    <div class="col-6"><strong>Central:</strong> {{ partido.resultado.arbitros.central }}</div>
+                    <div class="col-6"><strong>4to Árbitro:</strong> {{ partido.resultado.arbitros.cuarto }}</div>
+                    <div class="col-6"><strong>Línea 1:</strong> {{ partido.resultado.arbitros.linea1 }}</div>
+                    <div class="col-6"><strong>Línea 2:</strong> {{ partido.resultado.arbitros.linea2 }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUMNA DERECHA: TIMELINE DE EVENTOS DEL PARTIDO -->
+        <div class="col-12 col-lg-6">
+            <div class="stat-card p-4 h-100">
+                <h4 class="text-light border-bottom border-secondary pb-2 mb-3">⏱️ Minuto a Minuto</h4>
+                
+                <div class="timeline mt-3" style="max-height: 520px; overflow-y: auto;">
+                    {% for evento in partido.resultado.eventos %}
+                        {% set class_type = '' %}
+                        {% if 'GOL' in evento.tipo %}{% set class_type = 'gol' %}
+                        {% elif 'AMARILLA' in evento.tipo %}{% set class_type = 'tarjeta' %}
+                        {% elif 'ROJA' in evento.tipo %}{% set class_type = 'roja' %}{% endif %}
+
+                        <div class="timeline-item {{ class_type }}">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="badge bg-secondary me-2">{{ evento.minuto }}'</span>
+                                <strong class="text-warning fs-7 me-auto">{{ evento.tipo }}</strong>
+                                <small class="text-muted">{{ evento.equipo }}</small>
+                            </div>
+                            <p class="text-light fs-7 mb-0 mt-1">{{ evento.descripcion | resaltar_jugadores(evento.jugadores or []) }}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- RESUMEN DE DISCIPLINA Y FALTAS -->
+    {% set eventos = partido.resultado.eventos %}
+    
+    {# Filtros para el equipo Local #}
+    {% set faltas_local = eventos | selectattr('equipo', 'equalto', partido.equipo_local.nombre) | selectattr('tipo', 'equalto', '🛑 FALTA') | list | length %}
+    {% set amarillas_local = eventos | selectattr('equipo', 'equalto', partido.equipo_local.nombre) | selectattr('tipo', 'equalto', '🟨 TARJETA AMARILLA') | list | length %}
+    {% set rojas_local = (eventos | selectattr('equipo', 'equalto', partido.equipo_local.nombre) | selectattr('tipo', 'equalto', '🟥 TARJETA ROJA') | list | length) + (eventos | selectattr('equipo', 'equalto', partido.equipo_local.nombre) | selectattr('tipo', 'equalto', '🟨🟥 DOBLE AMARILLA') | list | length) %}
+    
+    {# Filtros para el equipo Visitante #}
+    {% set faltas_visitante = eventos | selectattr('equipo', 'equalto', partido.equipo_visitante.nombre) | selectattr('tipo', 'equalto', '🛑 FALTA') | list | length %}
+    {% set amarillas_visitante = eventos | selectattr('equipo', 'equalto', partido.equipo_visitante.nombre) | selectattr('tipo', 'equalto', '🟨 TARJETA AMARILLA') | list | length %}
+    {% set rojas_visitante = (eventos | selectattr('equipo', 'equalto', partido.equipo_visitante.nombre) | selectattr('tipo', 'equalto', '🟥 TARJETA ROJA') | list | length) + (eventos | selectattr('equipo', 'equalto', partido.equipo_visitante.nombre) | selectattr('tipo', 'equalto', '🟨🟥 DOBLE AMARILLA') | list | length) %}
+    
+    <div class="stat-card p-4 mb-4">
+        <h5 class="text-light border-bottom border-secondary pb-2 mb-3">🚨 Balance Disciplinario</h5>
+        
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless align-middle mb-0 text-center fs-7">
+                <thead>
+                    <tr class="text-secondary border-bottom border-secondary">
+                        <th class="text-start" style="width: 40%;">{{ partido.equipo_local.nombre }}</th>
+                        <th style="width: 20%;">Métrica</th>
+                        <th class="text-end" style="width: 40%;">{{ partido.equipo_visitante.nombre }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-start fw-bold text-info">{{ faltas_local }}</td>
+                        <td class="text-muted">🛑 Faltas</td>
+                        <td class="text-end fw-bold text-info">{{ faltas_visitante }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-start fw-bold text-warning">{{ amarillas_local }}</td>
+                        <td class="text-muted">🟨 Tarjetas Amarillas</td>
+                        <td class="text-end fw-bold text-warning">{{ amarillas_visitante }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-start fw-bold text-danger">{{ rojas_local }}</td>
+                        <td class="text-muted">🟥 Tarjetas Rojas</td>
+                        <td class="text-end fw-bold text-danger">{{ rojas_visitante }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- INCLUSIÓN DE CHART.JS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const ctx = document.getElementById('matchStatsChart').getContext('2d');
+        
+        const data = {
+            labels: ['Efectividad Gol (%)', 'Poder Ofensivo', 'Poder Defensivo', 'Promedio Gol (x100)'],
+            datasets: [
+                {
+                    label: '{{ partido.equipo_local.nombre }}',
+                    data: [
+                        {{ partido.estadisticas.local.efectividad_gol }},
+                        {{ partido.estadisticas.local.p_ofensiva }},
+                        {{ partido.estadisticas.local.p_defensiva }},
+                        {{ partido.estadisticas.local.promedio_gol * 100 }}
+                    ],
+                    fill: true,
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    pointBackgroundColor: 'rgb(59, 130, 246)'
+                },
+                {
+                    label: '{{ partido.equipo_visitante.nombre }}',
+                    data: [
+                        {{ partido.estadisticas.visitante.efectividad_gol }},
+                        {{ partido.estadisticas.visitante.p_ofensiva }},
+                        {{ partido.estadisticas.visitante.p_defensiva }},
+                        {{ partido.estadisticas.visitante.promedio_gol * 100 }}
+                    ],
+                    fill: true,
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    borderColor: 'rgb(239, 68, 68)',
+                    pointBackgroundColor: 'rgb(239, 68, 68)'
+                }
+            ]
+        };
+
+        new Chart(ctx, {
+            type: 'radar',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        angleLines: { color: '#334155' },
+                        grid: { color: '#334155' },
+                        pointLabels: { color: '#94a3b8' },
+                        ticks: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#f8fafc' } }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}FIFAV — {{ ordinal_mundial | ordinal_torneo }} Torneo Mundial de Fútbol{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+
+    <!-- Encabezado del Dashboard -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h1 class="h2 fw-bold text-dark mb-1">
+                <i class="bi bi-trophy-fill text-warning me-2"></i>{{ ordinal_mundial | ordinal_torneo }} Torneo Mundial de Fútbol de la FIFAV{% if mundial %} — {{ mundial.pais }} {{ mundial.anio }}{% endif %}
+            </h1>
+            <p class="text-muted mb-0">Gestión global desde las Eliminatorias de Confederaciones hasta la Gran Final de la Copa del Mundo.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <form id="formReiniciarTorneo" action="/restart" method="get" class="d-inline"></form>
+            <button type="button" class="btn btn-outline-danger shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalConfirmarReinicio">
+                <i class="bi bi-arrow-counterclockwise me-1"></i> Reiniciar Torneo
+            </button>
+            <form action="/juegos" method="get" class="d-inline">
+                <button type="submit" class="btn btn-outline-secondary shadow-sm fw-bold">
+                    <i class="bi bi-play-fill me-1"></i> Ir a Partidos
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación: reiniciar el torneo borra TODO permanentemente -->
+    <div class="modal fade" id="modalConfirmarReinicio" tabindex="-1" aria-labelledby="modalConfirmarReinicioLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-white border border-danger">
+                <div class="modal-header border-secondary border-opacity-25">
+                    <h5 class="modal-title fw-bold" id="modalConfirmarReinicioLabel">
+                        <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Reiniciar el Torneo
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">Esta acción va a <strong class="text-danger">borrar de forma permanente</strong> todos los datos generados hasta ahora del Mundial actual: países clasificados, grupos, partidos, estadísticas y resultados.</p>
+                    <p class="mb-0">Se va a generar un Mundial nuevo desde cero. <strong>Esta operación no se puede deshacer.</strong> ¿Querés continuar?</p>
+                </div>
+                <div class="modal-footer border-secondary border-opacity-25">
+                    <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" form="formReiniciarTorneo" id="btnConfirmarReinicio" class="btn btn-danger fw-bold">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Sí, reiniciar todo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay de bloqueo mientras se reinicia el torneo en el backend -->
+    <div id="overlayReinicioTorneo" class="d-none position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center text-center px-3" style="background-color: rgba(11, 19, 32, 0.92); z-index: 2000;">
+        <div class="spinner-border text-success mb-3" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Reiniciando...</span>
+        </div>
+        <h5 class="text-white fw-bold mb-1">Reiniciando el Torneo...</h5>
+        <p class="text-muted mb-0">Estamos limpiando los datos y preparando un nuevo Mundial. Esto puede tardar unos segundos.</p>
+    </div>
+
+    <script>
+        (function () {
+            const formReinicio = document.getElementById('formReiniciarTorneo');
+            const overlay = document.getElementById('overlayReinicioTorneo');
+            const btnConfirmar = document.getElementById('btnConfirmarReinicio');
+            if (!formReinicio || !overlay || !btnConfirmar) return;
+
+            formReinicio.addEventListener('submit', function () {
+                overlay.classList.remove('d-none');
+                btnConfirmar.disabled = true;
+            });
+        })();
+    </script>
+
+    <!-- Banner Estado Actual del Torneo -->
+    <div class="card bg-dark text-white border-0 shadow-lg mb-4 rounded-4 overflow-hidden">
+        <div class="card-body p-4 position-relative">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge bg-warning text-dark fw-bold mb-2 px-3 py-2 text-uppercase fs-7">
+                            <i class="bi bi-broadcast me-1"></i> Fase Activa
+                        </span>
+                        <!-- AQUÍ: Información del Mundial Actual -->
+                        <span class="badge bg-primary fw-bold px-3 py-2 mb-2 text-uppercase fs-7">
+                            <i class="bi bi-geo-alt-fill me-1"></i> Mundial {{ mundial.anio }} - {{ mundial.pais }}
+                        </span>
+                    </div>
+                    <h2 class="display-6 fw-bold text-white mb-2">{{ fase_actual.nombre }}</h2>
+                    <p class="text-light mb-3 opacity-75 fs-5">{{ fase_actual.descripcion }}</p>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="w-100 max-w-400">
+                            <div class="d-flex justify-content-between text-muted fs-7 mb-1">
+                                <span>Progreso del Torneo</span>
+                                <span class="fw-bold text-warning">{{ fase_actual.progreso | round(2, 'common') }}%</span>
+                            </div>
+                            <div class="progress bg-secondary" style="height: 10px;">
+                                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ fase_actual.progreso }}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center text-md-end mt-3 mt-md-0">
+                    <div class="p-3 bg-white bg-opacity-10 rounded-3 d-inline-block text-center border border-white border-opacity-10">
+                        <div class="text-uppercase fs-7 text-warning fw-bold">Cupos Definidos</div>
+                        <div class="display-5 fw-bold text-white">{{ stats.clasificados_count }} / {{ stats.total_cupos }}</div>
+                        <span class="text-light fs-7">Equipos a la Copa del Mundo</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Métricas Rápidas (KPIs) -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted fs-7 text-uppercase fw-semibold">Partidos Jugados</span>
+                            <h3 class="fw-bold my-1 text-dark">{{ stats.partidos_jugados }}</h3>
+                            <span class="text-success fs-7 fw-semibold"><i class="bi bi-check-circle me-1"></i>En tiempo real</span>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
+                            <i class="bi bi-dribbble fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted fs-7 text-uppercase fw-semibold">Goles Anotados</span>
+                            <h3 class="fw-bold my-1 text-dark">{{ stats.goles_totales }}</h3>
+                            <span class="text-muted fs-7">Promedio: {{ stats.promedio_goles | round(2, 'common') }} / partido</span>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-3 rounded-circle text-success">
+                            <i class="bi bi-disc fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted fs-7 text-uppercase fw-semibold">Confederaciones</span>
+                            <h3 class="fw-bold my-1 text-dark">6 / 6</h3>
+                            <span class="text-muted fs-7">En competencia</span>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 p-3 rounded-circle text-warning">
+                            <i class="bi bi-globe-americas fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div id="cardGoleadorTorneo" class="card border-0 shadow-sm h-100 border-start border-4 border-info"
+                 {% if stats.top_goleadores %}
+                 data-top-goleadores='{{ stats.top_goleadores | tojson }}'
+                 style="cursor: pointer;"
+                 role="button"
+                 tabindex="0"
+                 title="Ver top 10 goleadores"
+                 {% endif %}>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted fs-7 text-uppercase fw-semibold">Goleador del Torneo</span>
+                            <h4 class="fw-bold my-1 text-dark text-truncate" style="max-width: 140px;">{{ stats.goleador_nombre }}</h4>
+                            <span class="text-info fs-7 fw-semibold">{{ stats.goleador_goles }} goles ({{ stats.goleador_pais }})</span>
+                        </div>
+                        <div class="bg-info bg-opacity-10 p-3 rounded-circle text-info">
+                            <i class="bi bi-award fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top 10 Goleadores del Torneo: modal SweetAlert2 al hacer click en la tarjeta "Goleador
+         del Torneo" de arriba (ver services/jugadores_service.obtener_top_goleadores). Mismo
+         patrón que el modal de "Historial de Enfrentamientos" de templates/simulador.html: los
+         datos ya vienen embebidos server-side en un data-* atributo, sin fetch. El script va
+         DESPUÉS de la tarjeta a propósito -- el navegador todavía no la parseó si se pone antes. -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+    (function () {
+        const cardGoleador = document.getElementById('cardGoleadorTorneo');
+        if (!cardGoleador || typeof Swal === 'undefined') return;
+
+        let topGoleadores = [];
+        try {
+            topGoleadores = JSON.parse(cardGoleador.getAttribute('data-top-goleadores') || '[]');
+        } catch (e) {
+            topGoleadores = [];
+        }
+        if (!topGoleadores.length) return;
+
+        function construirHtmlTopGoleadores() {
+            const filas = topGoleadores.map(function (jugador, indice) {
+                return `
+                    <div style="display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid rgba(255,255,255,0.08);">
+                        <strong style="width:22px; text-align:center; color:#94a3b8;">${indice + 1}</strong>
+                        <span style="font-size:1.3rem;">${jugador.bandera || ''}</span>
+                        <span style="flex:1; text-align:left;">${jugador.nombre || '?'}</span>
+                        <strong style="color:#f59e0b; white-space:nowrap;">${jugador.goles} ⚽</strong>
+                    </div>`;
+            }).join('');
+            return `<div style="text-align:left; max-height:380px; overflow-y:auto;">${filas}</div>`;
+        }
+
+        function mostrarTopGoleadores() {
+            Swal.fire({
+                title: '🥇 Top 10 Goleadores del Torneo',
+                html: construirHtmlTopGoleadores(),
+                background: '#111c2e',
+                color: '#f1f5f9',
+                confirmButtonText: 'Cerrar',
+                confirmButtonColor: '#10b981',
+                width: 560
+            });
+        }
+
+        cardGoleador.addEventListener('click', mostrarTopGoleadores);
+        cardGoleador.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                mostrarTopGoleadores();
+            }
+        });
+    })();
+    </script>
+
+    <!-- Sección Principal: Confederaciones + Partidos Recientes -->
+    <div class="row g-4 mb-4">
+        
+        <!-- Estado de Eliminatorias por Confederación -->
+        <div class="col-lg-7">
+            <div class="card card-dark-wrapper border-0 shadow-sm h-100 rounded-4">
+                <div class="card-header bg-transparent py-3 px-4 d-flex justify-content-between align-items-center border-bottom border-white border-opacity-10">
+                    <h5 class="card-title fw-bold text-white mb-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-diagram-3-fill text-success"></i> Eliminatorias por Confederación
+                    </h5>
+                    <a href="/confederaciones" class="btn btn-xs btn-outline-light rounded-pill px-3">Ver Detalle</a>
+                </div>
+                
+                <div class="card-body p-3" style="max-height: 600px; overflow-y: auto;">
+                    <div class="row row-cols-1 row-cols-md-2 g-3">
+                        {% for conf in confederaciones %}
+                        <div class="col">
+                            <a href="/confederacion/{{ conf.id }}" class="conf-card-v2 d-flex flex-column justify-content-between p-3 rounded-3 text-decoration-none h-100 position-relative overflow-hidden">
+                                
+                                <!-- Parte Superior: Marca, Nombre y Pill de Estado -->
+                                <div>
+                                    <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
+                                        <div class="min-w-0">
+                                            <span class="h4 fw-extrabold text-white mb-0 d-block lh-1">{{ conf.sigla }}</span>
+                                            <span class="fs-8 text-muted text-truncate d-block fw-medium mt-1">{{ conf.nombre }}</span>
+                                        </div>
+                                        {% if conf.estado == 'Finalizado' %}
+                                            <span class="conf-status-pill conf-status-finalizado"><i class="bi bi-check-circle-fill me-1"></i>Finalizada</span>
+                                        {% elif conf.estado == 'En Curso' %}
+                                            <span class="conf-status-pill conf-status-curso"><i class="bi bi-lightning-charge-fill me-1"></i>En Curso</span>
+                                        {% else %}
+                                            <span class="conf-status-pill conf-status-pendiente"><i class="bi bi-hourglass-split me-1"></i>Pendiente</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Grid compacto de métricas (2x2) con jerarquía limpia -->
+                                    <div class="row g-2 my-2">
+                                        <div class="col-6">
+                                            <div class="conf-metric-tile">
+                                                <span class="metric-num text-white">{{ conf.paises_miembros }}</span>
+                                                <span class="metric-lbl text-muted">Países</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="conf-metric-tile">
+                                                <span class="metric-num text-warning">{{ conf.cupos }}</span>
+                                                <span class="metric-lbl text-muted">Cupos Directos</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="conf-metric-tile">
+                                                <span class="metric-num text-white">{{ conf.partidos_jugados }}</span>
+                                                <span class="metric-lbl text-muted">Jugados</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="conf-metric-tile">
+                                                <span class="metric-num text-white">{{ conf.partidos_pendientes }}</span>
+                                                <span class="metric-lbl text-muted">Pendientes</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Parte Inferior: Barra + Líder -->
+                                <div class="mt-2 pt-2 border-top border-white border-opacity-10">
+                                    <div class="d-flex justify-content-between align-items-center fs-8 mb-1">
+                                        <span class="text-muted">Progreso</span>
+                                        <span class="fw-bold text-white">{{ conf.progreso }}%</span>
+                                    </div>
+                                    <div class="progress bg-black bg-opacity-40 mb-2" style="height: 5px;">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ conf.progreso }}%;"></div>
+                                    </div>
+
+                                    <div class="d-flex align-items-center gap-2 fs-8 text-truncate">
+                                        <i class="bi bi-trophy-fill text-warning fs-9"></i>
+                                        <span class="text-muted">Líder:</span>
+                                        <span class="fw-semibold text-light text-truncate">{{ conf.lider if conf.lider else 'Por definir' }}</span>
+                                    </div>
+                                </div>
+
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Últimos Partidos Simulados: feed estilo X/Twitter -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-0">
+                    <h5 class="card-title fw-bold text-dark mb-0">
+                        <i class="bi bi-clock-history me-2 text-danger"></i>Últimos Partidos
+                    </h5>
+                    <a href="/juegos" class="badge bg-light text-dark border fs-7">Partidos</a>
+                </div>
+                <div class="card-body pt-0">
+                    {% for partido in ultimos_partidos %}
+                    <div class="x-post py-3 {% if not loop.last %}border-bottom{% endif %}">
+                        <!-- Header: cuenta que publica (FIFAV) + fecha -- también actúa como toggle
+                             para colapsar/expandir el post (solo el más reciente arranca expandido,
+                             para ahorrar espacio en el resto del feed) -->
+                        <div class="d-flex x-post-toggle" role="button" tabindex="0"
+                             data-bs-toggle="collapse" data-bs-target="#xpost-body-{{ loop.index }}"
+                             aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="xpost-body-{{ loop.index }}">
+                            <div class="x-post-avatar me-2">{{ partido.autor_avatar }}</div>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                    <span class="fw-bold text-dark">{{ partido.autor_nombre }}</span>
+                                    <i class="bi bi-patch-check-fill text-primary fs-8" title="Cuenta Oficial Verificada"></i>
+                                    <span class="text-muted fs-8">{{ partido.autor_handle }}</span>
+                                    <span class="text-muted fs-8">·</span>
+                                    <span class="text-muted fs-8">{{ partido.fecha }}</span>
+                                    <span class="badge bg-light text-secondary border fs-8 ms-auto">{{ partido.competicion }}</span>
+                                    <i class="bi bi-chevron-down text-muted x-post-chevron"></i>
+                                </div>
+                                <div class="fs-7 text-dark mt-1">
+                                    <span class="fw-semibold">{{ partido.local.bandera }} {{ partido.local.nombre }}</span>
+                                    <i class="bi bi-patch-check-fill text-primary fs-8" title="Selección Verificada"></i>
+                                    <span class="fw-bold">{{ partido.goles_local }} - {{ partido.goles_visitante }}</span>
+                                    <span class="fw-semibold">{{ partido.visitante.nombre }} {{ partido.visitante.bandera }}</span>
+                                    <i class="bi bi-patch-check-fill text-primary fs-8" title="Selección Verificada"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="collapse {% if loop.first %}show{% endif %}" id="xpost-body-{{ loop.index }}">
+                            <a href="/juegos/{{ partido.match_id }}" class="d-block text-decoration-none text-reset mt-2">
+                                <!-- Texto narrativo del post -->
+                                {% if partido.texto_narrativo %}
+                                <div class="text-dark fs-7 mb-2">{{ partido.texto_narrativo }}</div>
+                                {% endif %}
+
+                                <!-- Marcador destacado, con bandera de ambos equipos -->
+                                <div class="mb-2">
+                                    <span class="fw-bold text-dark fs-6">{{ partido.local.bandera }} {{ partido.local.nombre }} {{ partido.goles_local }} - {{ partido.goles_visitante }} {{ partido.visitante.nombre }} {{ partido.visitante.bandera }}</span>
+                                    {% if partido.goles_local > partido.goles_visitante %}
+                                        <span class="ms-1">🎉</span>
+                                    {% elif partido.goles_visitante > partido.goles_local %}
+                                        <span class="ms-1">😔</span>
+                                    {% else %}
+                                        <span class="ms-1">🤝</span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Resumen de eventos, en viñetas breves -->
+                                {% if partido.resumen_eventos %}
+                                <div class="fs-8 text-secondary mb-2">
+                                    {% for linea in partido.resumen_eventos %}
+                                        <span class="d-inline-block me-2">{{ linea }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                {% if partido.tag %}
+                                    <div class="mb-2">
+                                        <span class="text-primary fw-semibold fs-7">{{ partido.tag }}</span>
+                                    </div>
+                                {% endif %}
+
+                                <!-- Footer de interacción -->
+                                <div class="d-flex gap-3 text-muted fs-8">
+                                    <span><i class="bi bi-chat me-1"></i>{{ partido.comentarios | numero_compacto }}</span>
+                                    <span><i class="bi bi-arrow-repeat me-1"></i>{{ partido.retweets | numero_compacto }}</span>
+                                    <span class="text-danger"><i class="bi bi-heart-fill me-1"></i>{{ partido.likes | numero_compacto }}</span>
+                                    <span><i class="bi bi-bar-chart-line me-1"></i>{{ partido.visualizaciones | numero_compacto }}</span>
+                                </div>
+                            </a>
+
+                            <!-- Comentarios de jugadores y, en ocasiones, de la cuenta oficial de
+                                 alguna selección, como hilo de respuestas del post -->
+                            {% if partido.comentarios_jugadores %}
+                            <div class="x-post-replies mt-2 ms-5 ps-2 border-start">
+                                {% for comentario in partido.comentarios_jugadores %}
+                                <div class="d-flex align-items-start gap-2 mb-2">
+                                    <div class="x-post-avatar x-post-avatar-sm">
+                                        {% if comentario.es_seleccion %}
+                                            {{ comentario.bandera or '🛡️' }}
+                                        {% else %}
+                                            <i class="bi bi-person-fill"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <div class="d-flex align-items-center gap-1 flex-wrap">
+                                            <span class="fw-semibold text-dark fs-8">{{ comentario.nombre }}</span>
+                                            {% if comentario.es_seleccion %}
+                                                <i class="bi bi-patch-check-fill text-primary fs-8" title="Cuenta Oficial Verificada"></i>
+                                            {% else %}
+                                                <span class="text-muted fs-8">· {{ comentario.equipo }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-secondary fs-8">
+                                            {% if comentario.es_seleccion %}
+                                                {{ comentario.comentario }}
+                                            {% else %}
+                                                {{ icono_estado_animo.get(comentario.estado_animo, '💬') }} {{ comentario.estado_animo }}, {{ comentario.comentario }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-4 mb-0">Todavía no se simuló ningún partido.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Sección Inferior: Equipos Clasificados a la Copa del Mundo -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-0">
+            <div>
+                <h5 class="card-title fw-bold text-dark mb-0">
+                    <i class="bi bi-flag-fill me-2 text-warning"></i>Equipos Clasificados al Mundial
+                </h5>
+                <small class="text-muted">Países que obtuvieron su boleto a la Fase Final de la Copa Mundial</small>
+            </div>
+            <a href="/paises" class="btn btn-sm btn-outline-light">Ver Todos los Paises</a>
+            <a href="/clasificados" class="btn btn-sm btn-outline-light">Ver Todos los Clasificados</a>
+        </div>
+        <div class="card-body">
+            <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
+                {% for equipo in clasificados %}
+                <div class="col">
+                    <div class="p-3 bg-light rounded-3 text-center border h-100 d-flex flex-column justify-content-center align-items-center">
+                        <span class="fs-3 mb-1">{{ equipo.bandera }}</span>
+                        <div class="fw-bold text-dark text-truncate w-100">{{ equipo.nombre }}</div>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-8 mt-1">{{ equipo.confederacion }}</span>
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-12 text-center py-4 text-muted">
+                    <i class="bi bi-info-circle fs-2 d-block mb-2"></i>
+                    Aún no hay equipos clasificados. ¡Comienza a simular las eliminatorias!
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

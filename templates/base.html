@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Simulador de Fútbol{% endblock %}</title>
+    
+    <!-- Bootstrap 5 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Iconos de Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <!-- Tu archivo CSS propio -->
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-light d-flex flex-column min-vh-100">
+
+    <!-- Navbar / Menú de navegación -- sin sesión activa, las únicas vistas alcanzables son
+         /login y /registro (ver services/auth_service.py::exigir_sesion_activa, aplicada a
+         todos los routers de página en main.py), así que se muestra solo el logo, sin los
+         links del sistema ni el menú de usuario. -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid app-main">
+            <a class="navbar-brand fw-bold text-white" href="{{ url_for('home') if usuario_actual else url_for('login') }}">
+                <span class="brand-ball">⚽</span> FutbolSim
+            </a>
+            {% if usuario_actual %}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-lg-center">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == url_for('home') %}active{% endif %}" href="{{ url_for('home') }}">Inicio</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.url.path == url_for('estadisticas') %}active{% endif %}" href="{{ url_for('estadisticas') }}">Estadísticas</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('live_match_view') }}">Simulación en Vivo</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('fanbase_ranking_view') }}">Ver Popularidad</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle me-1"></i>{{ usuario_actual.nombre }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+                            <li>
+                                <span class="dropdown-item-text text-muted small">
+                                    <i class="bi bi-coin me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
+                                </span>
+                            </li>
+                            <li><a class="dropdown-item" href="{{ url_for('cuenta') }}"><i class="bi bi-person-badge me-2"></i>Mi cuenta</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('quinielas_home') }}"><i class="bi bi-ticket-perforated me-2"></i>Quinielas</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('quinielas_mias') }}"><i class="bi bi-list-check me-2"></i>Mis Quinielas</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('ownership_mercado_vista') }}"><i class="bi bi-shop me-2"></i>Mercado de Selecciones</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('ownership_portafolio_vista') }}"><i class="bi bi-briefcase-fill me-2"></i>Mi Portafolio</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('fantasy_home') }}"><i class="bi bi-stars me-2"></i>Once Ideal</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('album_sobres_vista') }}"><i class="bi bi-gift-fill me-2"></i>Abrir Sobres</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('album_coleccion_vista') }}"><i class="bi bi-collection-fill me-2"></i>Mi Colección</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('venues_directorio_vista') }}"><i class="bi bi-geo-alt-fill me-2"></i>Directorio de Sedes</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('venues_portafolio_vista') }}"><i class="bi bi-building me-2"></i>Mis Estadios</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('misiones_vista') }}"><i class="bi bi-calendar-check-fill me-2"></i>Misiones Diarias</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form action="{{ url_for('logout') }}" method="post" class="px-3 py-1">
+                                    <button type="submit" class="btn btn-sm btn-outline-light w-100">Cerrar sesión</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Contenido dinámico principal -->
+    <main class="container-fluid app-main py-4 flex-grow-1">
+        {% block content %}
+        <!-- Aquí se inyectará el contenido de las distintas vistas -->
+        {% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer text-center py-3 mt-auto">
+        <div class="container-fluid app-main">
+            <p class="mb-0">&copy; 2026 FutbolSim. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- Badge flotante de "Simulación en Vivo": se muestra en cualquier vista que NO sea /en-vivo
+         cuando hay un partido en curso, con el marcador y el minuto actualizados en tiempo real
+         (mismo patrón que el badge de "partido en vivo" de una app de resultados en el celular) -->
+    {% if not request.url.path.startswith('/en-vivo') %}
+    <a id="liveScoreBadge" href="{{ url_for('live_match_view') }}" class="live-score-badge d-none">
+        <div class="live-score-badge-fila">
+            <span class="live-score-badge-dot"></span>
+            <span class="live-score-badge-equipo" id="liveScoreBadgeLocal">
+                <span class="live-score-badge-bandera">🏳️</span><span class="live-score-badge-siglas"></span>
+            </span>
+            <span class="live-score-badge-marcador" id="liveScoreBadgeMarcador">0-0</span>
+            <span class="live-score-badge-equipo" id="liveScoreBadgeVisita">
+                <span class="live-score-badge-bandera">🏳️</span><span class="live-score-badge-siglas"></span>
+            </span>
+            <span class="live-score-badge-minuto" id="liveScoreBadgeMinuto">0'</span>
+        </div>
+        <div id="liveScoreBadgeInfoExtra" class="live-score-badge-info-extra d-none">
+            <span id="liveScoreBadgeGrupo"></span><span id="liveScoreBadgeSep" class="d-none"> · </span><span id="liveScoreBadgeEstadio"></span>
+        </div>
+    </a>
+    <div id="liveGoalLine" class="live-goal-line"></div>
+    <style>
+        .live-score-badge {
+            position: fixed;
+            top: 76px; /* fallback antes de que el JS mida la altura real del navbar */
+            right: 20px;
+            z-index: 1030;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            background: linear-gradient(135deg, #1a1a2e, #16161f);
+            border: 1px solid rgba(220, 53, 69, 0.5);
+            box-shadow: 0 4px 18px rgba(220, 53, 69, 0.35);
+            border-radius: 18px;
+            padding: 8px 16px;
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: box-shadow 0.15s ease;
+        }
+        .live-score-badge:hover {
+            color: #fff;
+            box-shadow: 0 4px 22px rgba(220, 53, 69, 0.55);
+        }
+        .live-score-badge-fila {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .live-score-badge-info-extra {
+            width: 100%;
+            text-align: center;
+            font-size: 0.65rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.55);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+        .live-score-badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #dc3545;
+            animation: live-score-badge-blink 1s infinite;
+        }
+        @keyframes live-score-badge-blink {
+            50% { opacity: 0.2; }
+        }
+        .live-score-badge-equipo {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: rgba(255, 255, 255, 0.85);
+            cursor: default;
+        }
+        .live-score-badge-equipo .live-score-badge-bandera {
+            font-size: 1.15rem;
+            line-height: 1;
+        }
+        .live-score-badge-marcador {
+            color: #ffc107;
+            font-weight: 800;
+        }
+        .live-score-badge-minuto {
+            color: #dc3545;
+            border-left: 1px solid rgba(255, 255, 255, 0.15);
+            padding-left: 8px;
+        }
+
+        /* Línea de "¡GOL!" con el jugador que anotó + su bandera -- aparece debajo del badge
+           principal (posicionada en JS, mismo anclaje 'right' que el badge) por ~1.5s cuando se
+           revela un gol nuevo. */
+        .live-goal-line {
+            position: fixed;
+            right: 20px;
+            z-index: 1030;
+            background: linear-gradient(135deg, #1a1a2e, #16161f);
+            border: 1px solid rgba(255, 193, 7, 0.6);
+            box-shadow: 0 4px 16px rgba(255, 193, 7, 0.3);
+            border-radius: 50px;
+            padding: 6px 14px;
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: 600;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-4px);
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+        }
+        .live-goal-line.live-goal-line--visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        /* Animación de gol: flash dorado + rebote, disparada por JS cuando cambia el marcador */
+        .live-score-badge.live-score-badge-gol {
+            animation: live-score-badge-gol-pulso 1.4s ease;
+        }
+        @keyframes live-score-badge-gol-pulso {
+            0% { transform: scale(1); box-shadow: 0 4px 18px rgba(220, 53, 69, 0.35); border-color: rgba(220, 53, 69, 0.5); }
+            20% { transform: scale(1.18); box-shadow: 0 0 32px 8px rgba(255, 193, 7, 0.85); border-color: #ffc107; }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px 4px rgba(255, 193, 7, 0.55); border-color: #ffc107; }
+            100% { transform: scale(1); box-shadow: 0 4px 18px rgba(220, 53, 69, 0.35); border-color: rgba(220, 53, 69, 0.5); }
+        }
+    </style>
+    <script>
+    (function () {
+        const POLL_MS = 6000;
+        const GOL_ANIM_MS = 1400;
+        const GOL_LINE_MS = 2500;
+
+        // Reproducción automática (toggle en /en-vivo/, templates/live_match.html): la
+        // preferencia se guarda en localStorage porque esta página (el badge) corre en TODAS
+        // las vistas menos /en-vivo/ -- así el encadenado de partidos sigue solo aunque el
+        // usuario esté navegando por el resto del sitio, no solo mientras mira esa pantalla.
+        const AUTOPLAY_STORAGE_KEY = 'futbolsim_autoplay_live';
+        const AUTO_PLAY_DELAY_MS = 10000;
+        let autoPlayTimeoutId = null;
+
+        function autoPlayEstaActivo() {
+            try {
+                return localStorage.getItem(AUTOPLAY_STORAGE_KEY) === '1';
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function cancelarAutoPlayProgramado() {
+            if (autoPlayTimeoutId) { clearTimeout(autoPlayTimeoutId); autoPlayTimeoutId = null; }
+        }
+
+        function programarAutoPlaySiCorresponde() {
+            if (!autoPlayEstaActivo() || autoPlayTimeoutId) return;
+            autoPlayTimeoutId = setTimeout(async () => {
+                autoPlayTimeoutId = null;
+                if (!autoPlayEstaActivo()) return;
+                try {
+                    const resp = await fetch('/matches/simulate-next-auto', { method: 'POST' });
+                    if (resp.status === 401) {
+                        // Sesión cerrada en algún momento con la preferencia todavía prendida --
+                        // se apaga sola para no reintentar cada 10s sin sentido.
+                        try { localStorage.removeItem(AUTOPLAY_STORAGE_KEY); } catch (e) {}
+                    }
+                } catch (e) {
+                    // Error de red: el próximo poll de consultarLiveBadge, si sigue sin haber
+                    // partido en curso, vuelve a programar el intento.
+                }
+            }, AUTO_PLAY_DELAY_MS);
+        }
+        // Prefijos de descripción que arma el motor de simulación para cada tipo de gol (ver
+        // services/simular_service.py) -- no hay un campo estructurado de jugador en el evento,
+        // así que se extrae el nombre de acá. Si el texto no matchea ninguno (formato distinto),
+        // se degrada a mostrar "¡GOL!" sin nombre.
+        const GOL_DESCRIPCION_PATRONES = [
+            /¡Golazo de ([^!]+)!/,
+            /¡Gol de ([^!]+) en la tanda de penaltis!/,
+        ];
+
+        const nav = document.querySelector('nav.navbar');
+        const badge = document.getElementById('liveScoreBadge');
+        const elLocal = document.getElementById('liveScoreBadgeLocal');
+        const elVisita = document.getElementById('liveScoreBadgeVisita');
+        const elLocalBandera = elLocal.querySelector('.live-score-badge-bandera');
+        const elLocalSiglas = elLocal.querySelector('.live-score-badge-siglas');
+        const elVisitaBandera = elVisita.querySelector('.live-score-badge-bandera');
+        const elVisitaSiglas = elVisita.querySelector('.live-score-badge-siglas');
+        const elMarcador = document.getElementById('liveScoreBadgeMarcador');
+        const elMinuto = document.getElementById('liveScoreBadgeMinuto');
+        const infoExtra = document.getElementById('liveScoreBadgeInfoExtra');
+        const elGrupo = document.getElementById('liveScoreBadgeGrupo');
+        const elEstadio = document.getElementById('liveScoreBadgeEstadio');
+        const elInfoSep = document.getElementById('liveScoreBadgeSep');
+        const golLine = document.getElementById('liveGoalLine');
+        let estadoAnterior = null; // { matchId, marcador } -- para detectar cambios de gol sin confundir partidos distintos
+        let golLineTimeout = null;
+
+        function posicionarBadge() {
+            if (!nav) return;
+            const top = nav.getBoundingClientRect().bottom + 10;
+            badge.style.top = `${top}px`;
+            golLine.style.top = `${badge.getBoundingClientRect().bottom + 8}px`;
+        }
+
+        function flashGol() {
+            badge.classList.remove('live-score-badge-gol');
+            void badge.offsetWidth; // fuerza reflow para poder re-disparar la animación si hay 2 goles seguidos
+            badge.classList.add('live-score-badge-gol');
+            setTimeout(() => badge.classList.remove('live-score-badge-gol'), GOL_ANIM_MS);
+        }
+
+        function extraerNombreJugador(descripcion) {
+            for (const patron of GOL_DESCRIPCION_PATRONES) {
+                const match = descripcion.match(patron);
+                if (match) return match[1].trim();
+            }
+            return null;
+        }
+
+        function mostrarLineaGol(bandera, nombreJugador) {
+            golLine.textContent = nombreJugador ? `${bandera} ¡GOL! ${nombreJugador}` : `${bandera} ¡GOL!`;
+            posicionarBadge();
+            golLine.classList.add('live-goal-line--visible');
+            clearTimeout(golLineTimeout);
+            golLineTimeout = setTimeout(() => golLine.classList.remove('live-goal-line--visible'), GOL_LINE_MS);
+        }
+
+        function notificarGolSiCorresponde(data) {
+            // Del más reciente al más antiguo -- el último evento de gol "real" (excluye goles
+            // anulados por VAR, que llevan otro emoji) es, casi siempre, el que acaba de
+            // revelarse y causó el cambio de marcador detectado por el caller.
+            // Simplificación aceptada: si dos goles se revelan en el mismo polling (~6s), solo
+            // se muestra este último -- mismo criterio que ya usa el proyecto para eventos que
+            // comparten minuto en la revelación en vivo.
+            const eventoGol = [...data.eventos].reverse().find(e => e.tipo.startsWith('⚽'));
+            if (!eventoGol) return;
+            const bandera = eventoGol.equipo === data.local ? data.bandera_local : data.bandera_visitante;
+            mostrarLineaGol(bandera || '⚽', extraerNombreJugador(eventoGol.descripcion));
+        }
+
+        async function consultarLiveBadge() {
+            try {
+                const resp = await fetch('/matches/live');
+                if (!resp.ok) {
+                    badge.classList.add('d-none');
+                    golLine.classList.remove('live-goal-line--visible');
+                    estadoAnterior = null;
+                    programarAutoPlaySiCorresponde();
+                    return;
+                }
+                const data = await resp.json();
+                if (data.finalizado) {
+                    badge.classList.add('d-none');
+                    golLine.classList.remove('live-goal-line--visible');
+                    estadoAnterior = null;
+                    programarAutoPlaySiCorresponde();
+                    return;
+                }
+
+                elLocalBandera.textContent = data.bandera_local || '🏳️';
+                elLocalSiglas.textContent = data.siglas_local || data.local;
+                elLocal.title = data.local;
+                elVisitaBandera.textContent = data.bandera_visitante || '🏳️';
+                elVisitaSiglas.textContent = data.siglas_visitante || data.visitante;
+                elVisita.title = data.visitante;
+                elMarcador.textContent = `${data.goles_local}-${data.goles_visitante}`;
+                elMinuto.textContent = `${data.minuto_actual}'`;
+
+                if (data.grupo || data.estadio) {
+                    elGrupo.textContent = data.grupo || '';
+                    elEstadio.textContent = data.estadio || '';
+                    elInfoSep.classList.toggle('d-none', !(data.grupo && data.estadio));
+                    infoExtra.classList.remove('d-none');
+                } else {
+                    infoExtra.classList.add('d-none');
+                }
+
+                const marcadorActual = `${data.goles_local}-${data.goles_visitante}`;
+                if (estadoAnterior && estadoAnterior.matchId === data.match_id && estadoAnterior.marcador !== marcadorActual) {
+                    flashGol();
+                    notificarGolSiCorresponde(data);
+                }
+                estadoAnterior = { matchId: data.match_id, marcador: marcadorActual };
+
+                posicionarBadge();
+                badge.classList.remove('d-none');
+                cancelarAutoPlayProgramado(); // ya hay un partido en curso, nada que encadenar todavía
+            } catch (e) {
+                badge.classList.add('d-none');
+                golLine.classList.remove('live-goal-line--visible');
+                estadoAnterior = null;
+                programarAutoPlaySiCorresponde();
+            }
+        }
+
+        posicionarBadge();
+        window.addEventListener('resize', posicionarBadge);
+        consultarLiveBadge();
+        setInterval(consultarLiveBadge, POLL_MS);
+    })();
+    </script>
+    {% endif %}
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const filterBuscar = document.getElementById('filterBuscar');
+            const filterGrupo = document.getElementById('filterGrupo');
+            const filterFecha = document.getElementById('filterFecha');
+            const filterJornada = document.getElementById('filterJornada');
+            const filterConfederacion = document.getElementById('filterConfederacion');
+            const btnReset = document.getElementById('btnResetFilters');
+            const juegos = document.querySelectorAll('.juego-item');
+            const noResultsMsg = document.getElementById('noResultsMessage');
+
+            // Este filtro es específico de la vista de partidos (juegos.html);
+            // en el resto de las páginas estos elementos no existen, así que no hay nada que inicializar.
+            if (!filterBuscar || !filterGrupo || !filterFecha || !filterJornada || !filterConfederacion || !btnReset) {
+                return;
+            }
+
+            function aplicarFiltros() {
+                const textoBusqueda = filterBuscar.value.toLowerCase().trim();
+                const grupoSeleccionado = filterGrupo.value;
+                const fechaSeleccionada = filterFecha.value;
+                const jornadaSeleccionada = filterJornada.value;
+                const confederacionSeleccionada = filterConfederacion.value;
+        
+                let visibles = 0;
+        
+                juegos.forEach(juego => {
+                    const local = juego.getAttribute('data-local');
+                    const visita = juego.getAttribute('data-visita');
+                    const grupo = juego.getAttribute('data-grupo');
+                    const fecha = juego.getAttribute('data-fecha');
+                    const jornada = juego.getAttribute('data-jornada');
+                    const confederacion = juego.getAttribute('data-confederacion');
+        
+                    const coincideTexto = !textoBusqueda || local.includes(textoBusqueda) || visita.includes(textoBusqueda);
+                    const coincideGrupo = !grupoSeleccionado || grupo === grupoSeleccionado;
+                    const coincideFecha = !fechaSeleccionada || fecha === fechaSeleccionada;
+                    const coincideJornada = !jornadaSeleccionada || jornada === jornadaSeleccionada;
+                    const coincideConfederacion = !confederacionSeleccionada || confederacion === confederacionSeleccionada;
+        
+                    if (coincideTexto && coincideGrupo && coincideFecha && coincideJornada && coincideConfederacion) {
+                        juego.classList.remove('d-none');
+                        visibles++;
+                    } else {
+                        juego.classList.add('d-none');
+                    }
+                });
+        
+                // Mostrar u ocultar mensaje de "sin resultados"
+                if (noResultsMsg) {
+                    if (visibles === 0 && juegos.length > 0) {
+                        noResultsMsg.classList.remove('d-none');
+                    } else {
+                        noResultsMsg.classList.add('d-none');
+                    }
+                }
+            }
+        
+            // Listeners de eventos
+            filterBuscar.addEventListener('input', aplicarFiltros);
+            filterGrupo.addEventListener('change', aplicarFiltros);
+            filterFecha.addEventListener('change', aplicarFiltros);
+            filterJornada.addEventListener('change', aplicarFiltros);
+            filterConfederacion.addEventListener('change', aplicarFiltros);
+        
+            btnReset.addEventListener('click', function () {
+                filterBuscar.value = '';
+                filterGrupo.value = '';
+                filterFecha.value = '';
+                filterJornada.value = '';
+                filterConfederacion.value = '';
+                aplicarFiltros();
+            });
+        });
+    </script>
+    {% endblock %}
+</body>
+</html>

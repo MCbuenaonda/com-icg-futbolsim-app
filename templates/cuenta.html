@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Cuenta - FutbolSim{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mb-4">
+    <div class="col-12 col-sm-8 col-md-6 col-lg-5">
+        <div class="card bg-dark text-white shadow-lg border-0 rounded-4 overflow-hidden mt-4">
+            <div class="card-body p-4 p-md-5 text-center">
+                <div class="mb-3">
+                    <span class="stat-icon mx-auto" style="width: 4.5rem; height: 4.5rem; font-size: 2rem;">
+                        <i class="bi bi-person-circle"></i>
+                    </span>
+                </div>
+                <h1 class="h3 fw-bold mb-0">{{ usuario_actual.nombre }}</h1>
+                <p class="text-muted mb-4">@{{ usuario_actual.username }}</p>
+
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="surface-soft p-3">
+                            <div class="text-muted small text-uppercase">Saldo</div>
+                            <div class="fs-4 fw-bold text-warning">
+                                <i class="bi bi-coin me-1"></i>{{ "{:,}".format(usuario_actual.monto) }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="surface-soft p-3">
+                            <div class="text-muted small text-uppercase">Estado</div>
+                            <div class="fs-4 fw-bold {% if usuario_actual.activo %}text-success{% else %}text-danger{% endif %}">
+                                {{ "Activo" if usuario_actual.activo else "Inactivo" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if usuario_actual.fecha_registro %}
+                    <p class="text-muted small mt-4 mb-0">
+                        <i class="bi bi-calendar-check me-1"></i>Miembro desde {{ usuario_actual.fecha_registro.strftime('%d/%m/%Y') }}
+                    </p>
+                {% endif %}
+
+                <form action="{{ url_for('logout') }}" method="post" class="mt-4">
+                    <button type="submit" class="btn btn-outline-light">
+                        <i class="bi bi-box-arrow-right me-1"></i>Cerrar sesión
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not resumen %}
+    <div class="alert alert-warning text-center">No se pudo cargar el resumen de tu actividad en este momento.</div>
+{% else %}
+
+<h2 class="section-heading">Resumen de Actividad</h2>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="stat-card p-3">
+            <div class="text-muted small text-uppercase"><i class="bi bi-flag-fill me-1"></i>Selecciones</div>
+            <div class="fs-4 fw-bold">{{ resumen.selecciones.cantidad_activas }}</div>
+            <div class="text-muted small">{{ "{:,}".format(resumen.selecciones.total_invertido) }} pts invertidos</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="stat-card p-3">
+            <div class="text-muted small text-uppercase"><i class="bi bi-geo-alt-fill me-1"></i>Sedes</div>
+            <div class="fs-4 fw-bold">{{ resumen.sedes.cantidad_activas }}</div>
+            <div class="text-muted small">{{ "{:,}".format(resumen.sedes.total_regalias) }} pts en regalías</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="stat-card p-3">
+            <div class="text-muted small text-uppercase"><i class="bi bi-ticket-perforated me-1"></i>Quinielas</div>
+            <div class="fs-4 fw-bold">{{ resumen.quinielas.cantidad }}</div>
+            <div class="text-muted small">{{ resumen.quinielas.ganadas }} ganadas · {{ resumen.quinielas.pendientes }} pendientes</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="stat-card p-3">
+            <div class="text-muted small text-uppercase"><i class="bi bi-stars me-1"></i>Once Ideal</div>
+            <div class="fs-4 fw-bold">{{ resumen.fantasy.alineaciones_armadas }}</div>
+            <div class="text-muted small">{{ "{:,}".format(resumen.fantasy.puntos_totales) }} pts fantasy</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="stat-card p-3">
+            <div class="text-muted small text-uppercase"><i class="bi bi-collection-fill me-1"></i>Álbum</div>
+            <div class="fs-4 fw-bold">{{ resumen.album.jugadores + resumen.album.paises + resumen.album.ciudades }}</div>
+            <div class="text-muted small">{{ resumen.album.sobres_comprados }} sobres comprados</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="stat-card p-3">
+            <div class="text-muted small text-uppercase"><i class="bi bi-calendar-check-fill me-1"></i>Racha</div>
+            <div class="fs-4 fw-bold">{{ resumen.rewards.racha_actual }} días</div>
+            <div class="text-muted small">{{ resumen.rewards.trivia_sesiones_jugadas }} trivias jugadas</div>
+        </div>
+    </div>
+</div>
+
+<h2 class="section-heading">Gráficas</h2>
+<div class="row g-3 mb-4">
+    <div class="col-12 col-lg-4">
+        <div class="card bg-dark border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small fw-bold mb-3">Gasto por Categoría</h6>
+                {% if resumen.graficas.gasto_por_categoria %}
+                    <canvas id="chartGastos" height="220"></canvas>
+                {% else %}
+                    <p class="text-muted text-center py-4 mb-0">Todavía no tenés gastos registrados.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card bg-dark border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small fw-bold mb-3">Ingresos por Categoría</h6>
+                {% if resumen.graficas.ingreso_por_categoria %}
+                    <canvas id="chartIngresos" height="220"></canvas>
+                {% else %}
+                    <p class="text-muted text-center py-4 mb-0">Todavía no tenés ingresos registrados.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card bg-dark border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small fw-bold mb-1">Balance de Actividad</h6>
+                <p class="text-muted small mb-3" style="font-size: .72rem;">Neto acumulado de la actividad registrada (no es el historial contable completo de tu saldo).</p>
+                {% if resumen.graficas.evolucion_saldo %}
+                    <canvas id="chartEvolucion" height="220"></canvas>
+                {% else %}
+                    <p class="text-muted text-center py-4 mb-0">Todavía no hay actividad para graficar.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2 class="section-heading">Historial de Transacciones</h2>
+<div class="card bg-dark border-0 shadow-sm mb-4">
+    <div class="card-body p-0">
+        {% if resumen.feed %}
+            <div class="table-responsive" style="max-height: 420px;">
+                <table class="table table-dark table-hover align-middle mb-0">
+                    <thead class="text-muted fs-7 text-uppercase border-bottom border-secondary border-opacity-25" style="position: sticky; top: 0; background-color: var(--bg-card, #161f2e); z-index: 1;">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Categoría</th>
+                            <th>Descripción</th>
+                            <th class="text-end">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in resumen.feed %}
+                            <tr>
+                                <td class="text-muted small">{{ item.fecha.strftime('%d/%m/%Y %H:%M') }}</td>
+                                <td><span class="badge bg-secondary bg-opacity-25 border border-secondary">{{ item.categoria }}</span></td>
+                                <td>{{ item.descripcion }}</td>
+                                <td class="text-end fw-bold {% if item.monto > 0 %}text-success{% elif item.monto < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                    {{ "+" if item.monto > 0 else "" }}{{ "{:,}".format(item.monto) }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted text-center py-4 mb-0">Todavía no tenés ninguna transacción registrada.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const paletaCategorias = {
+        'Selección': '#00ff88', 'Sede': '#f59e0b', 'Quiniela': '#0dcaf0',
+        'Álbum': '#dc3545', 'Recompensas': '#6f42c1'
+    };
+    function coloresPara(labels) {
+        return labels.map(l => paletaCategorias[l] || '#6c757d');
+    }
+
+    const gastoPorCategoria = {{ resumen.graficas.gasto_por_categoria | tojson }};
+    const ingresoPorCategoria = {{ resumen.graficas.ingreso_por_categoria | tojson }};
+    const evolucionSaldo = {{ resumen.graficas.evolucion_saldo | tojson }};
+
+    const opcionesDoughnut = {
+        responsive: true,
+        plugins: { legend: { position: 'bottom', labels: { color: '#adb5bd', boxWidth: 12 } } }
+    };
+
+    const ctxGastos = document.getElementById('chartGastos');
+    if (ctxGastos) {
+        const labels = Object.keys(gastoPorCategoria);
+        new Chart(ctxGastos, {
+            type: 'doughnut',
+            data: { labels: labels, datasets: [{ data: Object.values(gastoPorCategoria), backgroundColor: coloresPara(labels) }] },
+            options: opcionesDoughnut
+        });
+    }
+
+    const ctxIngresos = document.getElementById('chartIngresos');
+    if (ctxIngresos) {
+        const labels = Object.keys(ingresoPorCategoria);
+        new Chart(ctxIngresos, {
+            type: 'doughnut',
+            data: { labels: labels, datasets: [{ data: Object.values(ingresoPorCategoria), backgroundColor: coloresPara(labels) }] },
+            options: opcionesDoughnut
+        });
+    }
+
+    const ctxEvolucion = document.getElementById('chartEvolucion');
+    if (ctxEvolucion) {
+        new Chart(ctxEvolucion, {
+            type: 'line',
+            data: {
+                labels: evolucionSaldo.map(e => e.fecha),
+                datasets: [{
+                    label: 'Balance acumulado',
+                    data: evolucionSaldo.map(e => e.saldo_acumulado),
+                    borderColor: '#00ff88',
+                    backgroundColor: 'rgba(0,255,136,.15)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: '#adb5bd', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,.05)' } },
+                    y: { ticks: { color: '#adb5bd' }, grid: { color: 'rgba(255,255,255,.05)' } }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

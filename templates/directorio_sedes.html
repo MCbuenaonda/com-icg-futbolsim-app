@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Directorio de Sedes - FutbolSim{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="display-6 fw-bold mb-1">Directorio de Sedes</h1>
+        <p class="text-muted mb-0">Patrociná ciudades sede y cobrá regalías cada vez que se juegue un partido ahí.</p>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
+            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
+        </span>
+        <a href="{{ url_for('venues_portafolio_vista') }}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-building me-1"></i>Mi Portafolio
+        </a>
+    </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <input type="text" id="buscarCiudad" class="form-control" style="max-width: 280px;" placeholder="Buscar por ciudad o país...">
+    <select id="filtroEstado" class="form-select" style="max-width: 220px;">
+        <option value="">Todos los estados</option>
+        <option value="disponible">Disponibles</option>
+        <option value="mias">Mis sedes</option>
+        <option value="ocupada">De otros usuarios</option>
+    </select>
+</div>
+
+<div id="alertaDirectorio" class="alert d-none" role="alert"></div>
+
+<div class="row g-3" id="listaCiudades"></div>
+<p id="sinResultados" class="text-muted text-center py-4 d-none">No se encontraron ciudades con esos criterios.</p>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const urlBuscar = "{{ url_for('venues_buscar') }}";
+    const urlComprarTemplate = "{{ url_for('venues_buy', ciudad_id='__CIUDAD_ID__') }}";
+
+    const listaCiudades = document.getElementById('listaCiudades');
+    const sinResultados = document.getElementById('sinResultados');
+    const alertaDirectorio = document.getElementById('alertaDirectorio');
+    const buscarCiudad = document.getElementById('buscarCiudad');
+    const filtroEstado = document.getElementById('filtroEstado');
+
+    let ciudadesActuales = {{ ciudades | tojson }};
+    let temporizadorBusqueda = null;
+
+    function mostrarAlerta(mensaje, tipo) {
+        alertaDirectorio.className = `alert alert-${tipo}`;
+        alertaDirectorio.textContent = mensaje;
+        alertaDirectorio.classList.remove('d-none');
+        alertaDirectorio.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function tarjetaCiudad(c) {
+        let estadoBadge = '<span class="badge bg-success">Disponible</span>';
+        let botonHtml = `<button type="button" class="btn btn-success btn-sm w-100 fw-bold btn-comprar" data-ciudad-id="${c.ciudad_id}"><i class="bi bi-bag-plus-fill me-1"></i>Patrocinar (${c.costo} pts)</button>`;
+
+        if (c.es_mia) {
+            estadoBadge = '<span class="badge bg-info text-dark">Tuya</span>';
+            botonHtml = `<a href="{{ url_for('venues_portafolio_vista') }}" class="btn btn-outline-info btn-sm w-100 fw-bold"><i class="bi bi-building me-1"></i>Ver en mi portafolio</a>`;
+        } else if (c.tiene_dueno) {
+            estadoBadge = '<span class="badge bg-secondary">Ocupada</span>';
+            botonHtml = `<button type="button" class="btn btn-outline-secondary btn-sm w-100" disabled>No disponible</button>`;
+        }
+
+        return `
+            <div class="col-12 col-md-6 col-xl-4">
+                <div class="card bg-dark border-0 shadow-sm h-100">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <div class="fw-bold text-white">${c.nombre}</div>
+                                <small class="text-muted"><i class="bi bi-flag-fill me-1"></i>${c.pais_nombre || '-'}</small>
+                            </div>
+                            ${estadoBadge}
+                        </div>
+                        <div class="text-muted small mb-3"><i class="bi bi-building-fill me-1"></i>${c.estadio || 'Estadio sin nombre'}</div>
+                        ${botonHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderizarCiudades(lista) {
+        const filtroTexto = (buscarCiudad.value || '').toLowerCase().trim();
+        const filtroEst = filtroEstado.value;
+
+        const filtradas = lista.filter(c => {
+            const coincideTexto = !filtroTexto || c.nombre.toLowerCase().includes(filtroTexto) || (c.pais_nombre || '').toLowerCase().includes(filtroTexto);
+            let coincideEstado = true;
+            if (filtroEst === 'disponible') coincideEstado = !c.tiene_dueno;
+            else if (filtroEst === 'mias') coincideEstado = c.es_mia;
+            else if (filtroEst === 'ocupada') coincideEstado = c.tiene_dueno && !c.es_mia;
+            return coincideTexto && coincideEstado;
+        });
+
+        listaCiudades.innerHTML = filtradas.map(tarjetaCiudad).join('');
+        sinResultados.classList.toggle('d-none', filtradas.length > 0);
+        vincularBotonesComprar();
+    }
+
+    function vincularBotonesComprar() {
+        document.querySelectorAll('.btn-comprar').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const ciudadId = btn.dataset.ciudadId;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+                fetch(urlComprarTemplate.replace('__CIUDAD_ID__', ciudadId), { method: 'POST' })
+                    .then(async resp => {
+                        const data = await resp.json();
+                        if (!resp.ok) {
+                            throw new Error(data.detail || 'No se pudo completar la compra.');
+                        }
+                        mostrarAlerta('¡Sede patrocinada! Redirigiendo a tu portafolio...', 'success');
+                        setTimeout(() => { window.location.href = "{{ url_for('venues_portafolio_vista') }}"; }, 1200);
+                    })
+                    .catch(err => {
+                        mostrarAlerta(err.message, 'danger');
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-bag-plus-fill me-1"></i>Patrocinar';
+                    });
+            });
+        });
+    }
+
+    function buscarEnServidor() {
+        const texto = buscarCiudad.value.trim();
+        fetch(`${urlBuscar}?q=${encodeURIComponent(texto)}&limite=50`)
+            .then(resp => resp.json())
+            .then(data => {
+                ciudadesActuales = data;
+                renderizarCiudades(ciudadesActuales);
+            })
+            .catch(() => mostrarAlerta('No se pudo actualizar la búsqueda.', 'danger'));
+    }
+
+    buscarCiudad.addEventListener('input', function () {
+        clearTimeout(temporizadorBusqueda);
+        temporizadorBusqueda = setTimeout(buscarEnServidor, 350);
+    });
+    filtroEstado.addEventListener('change', () => renderizarCiudades(ciudadesActuales));
+
+    renderizarCiudades(ciudadesActuales);
+});
+</script>
+{% endblock %}

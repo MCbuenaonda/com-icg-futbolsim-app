@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Sobres - FutbolSim{% endblock %}
+
+{% block extra_head %}
+<style>
+    .sobre-slot {
+        perspective: 1000px;
+        height: 200px;
+    }
+    .sobre-carta {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+        transform-style: preserve-3d;
+    }
+    .sobre-carta.revelada {
+        transform: rotateY(180deg);
+    }
+    .sobre-cara {
+        position: absolute;
+        inset: 0;
+        backface-visibility: hidden;
+        border-radius: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 0.75rem;
+    }
+    .sobre-dorso {
+        background: linear-gradient(145deg, var(--green-dark), var(--bg-card));
+        border: 2px solid var(--green-pitch);
+        font-size: 2.5rem;
+    }
+    .sobre-frente {
+        transform: rotateY(180deg);
+        background-color: var(--bg-card);
+        border: 2px solid var(--border-color);
+    }
+    .sobre-frente.duplicado {
+        border-color: var(--green-neon);
+    }
+    @keyframes aparecer-sobre {
+        from { opacity: 0; transform: translateY(20px) scale(0.9); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .sobre-slot.aparecer {
+        animation: aparecer-sobre 0.4s ease forwards;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="display-6 fw-bold mb-1">Sobres de Estampas</h1>
+        <p class="text-muted mb-0">Cada sobre trae 5 estampas: jugadores, ciudades y países.</p>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
+            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
+        </span>
+        <a href="{{ url_for('album_coleccion_vista') }}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-collection-fill me-1"></i>Mi Colección
+        </a>
+    </div>
+</div>
+
+<div id="alertaSobre" class="alert d-none" role="alert"></div>
+
+<div class="text-center mb-4">
+    <button type="button" id="btnAbrirSobre" class="btn btn-success btn-lg fw-bold px-5 py-3">
+        <i class="bi bi-gift-fill me-2"></i>Abrir Sobre ({{ costo_sobre }} pts)
+    </button>
+</div>
+
+<div class="row g-3 justify-content-center" id="contenedorSobres"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const urlAbrir = "{{ url_for('album_open_pack') }}";
+    const btnAbrir = document.getElementById('btnAbrirSobre');
+    const alertaSobre = document.getElementById('alertaSobre');
+    const contenedorSobres = document.getElementById('contenedorSobres');
+
+    const ICONOS_TIPO = { JUGADOR: 'bi-person-fill', CIUDAD: 'bi-building', PAIS: 'bi-flag-fill' };
+
+    function mostrarAlerta(mensaje, tipo) {
+        alertaSobre.className = `alert alert-${tipo}`;
+        alertaSobre.textContent = mensaje;
+        alertaSobre.classList.remove('d-none');
+    }
+
+    btnAbrir.addEventListener('click', function () {
+        btnAbrir.disabled = true;
+        btnAbrir.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Abriendo...';
+        alertaSobre.classList.add('d-none');
+        contenedorSobres.innerHTML = '';
+
+        fetch(urlAbrir, { method: 'POST' })
+            .then(async resp => {
+                const data = await resp.json();
+                if (!resp.ok) {
+                    throw new Error(data.detail || 'No se pudo abrir el sobre.');
+                }
+                renderizarSobre(data.estampas_obtenidas);
+                btnAbrir.disabled = false;
+                btnAbrir.innerHTML = '<i class="bi bi-gift-fill me-2"></i>Abrir Otro Sobre ({{ costo_sobre }} pts)';
+            })
+            .catch(err => {
+                mostrarAlerta(err.message, 'danger');
+                btnAbrir.disabled = false;
+                btnAbrir.innerHTML = '<i class="bi bi-gift-fill me-2"></i>Abrir Sobre ({{ costo_sobre }} pts)';
+            });
+    });
+
+    function renderizarSobre(estampas) {
+        estampas.forEach((estampa, index) => {
+            const col = document.createElement('div');
+            col.className = 'col-6 col-md-4 col-lg-2 sobre-slot aparecer';
+            col.style.animationDelay = `${index * 0.08}s`;
+
+            col.innerHTML = `
+                <div class="sobre-carta" data-index="${index}">
+                    <div class="sobre-cara sobre-dorso">⚽</div>
+                    <div class="sobre-cara sobre-frente ${estampa.duplicado ? 'duplicado' : ''}">
+                        <i class="bi ${ICONOS_TIPO[estampa.tipo] || 'bi-question-lg'} fs-2 mb-2 ${estampa.duplicado ? 'text-warning' : 'text-success'}"></i>
+                        <div class="fw-bold small">${estampa.nombre || '?'}</div>
+                        <div class="text-muted" style="font-size: 0.7rem;">${estampa.tipo}</div>
+                        ${estampa.duplicado ? `<span class="badge bg-warning text-dark mt-1">Duplicado +${estampa.bonus_puntos} pts</span>` : '<span class="badge bg-success mt-1">¡Nueva!</span>'}
+                    </div>
+                </div>
+            `;
+            contenedorSobres.appendChild(col);
+
+            // Revelado escalonado
+            setTimeout(() => {
+                col.querySelector('.sobre-carta').classList.add('revelada');
+            }, 500 + index * 250);
+        });
+    }
+});
+</script>
+{% endblock %}

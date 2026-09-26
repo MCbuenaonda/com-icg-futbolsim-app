@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Próximos Juegos - Simulador de Fútbol{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h1 class="h2 fw-bold text-dark mb-1">
+                <i class="bi bi-calendar-week-fill text-primary me-2"></i>Fixture de Partidos Programados
+            </h1>
+            <p class="text-muted mb-0">Listado de encuentros pendientes por simular ordenados por fecha y hora.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm">
+                <i class="bi bi-hourglass-split me-1"></i> Partidos Pendientes: {{ juegos|length }}
+            </span>
+            <a href="{{ url_for('calendario') }}" class="btn btn-sm btn-outline-success shadow-sm">
+                <i class="bi bi-calendar3-range me-1"></i> Ver Calendario
+            </a>
+        </div>
+    </div>
+
+    <!-- Panel de Filtros -->
+    <div class="card border-0 shadow-sm mb-4 rounded-3">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <!-- Buscar por Nombre de Equipo -->
+                <div class="col-12 col-md-6 col-xl-3">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light text-muted border-end-0">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" id="filterBuscar" class="form-control border-start-0" placeholder="Buscar equipo...">
+                    </div>
+                </div>
+
+                <!-- Filtrar por Confederacion -->
+                <div class="col-6 col-md-3 col-xl-2">
+                    <select id="filterConfederacion" class="form-select form-select-sm bg-dark text-light">
+                        <option value="">Todas las Confederaciones</option>
+                        <option value="1">UEFA</option>
+                        <option value="2">CONMEBOL</option>
+                        <option value="3">CONCACAF</option>
+                        <option value="4">CAF</option>
+                        <option value="5">OFC</option>
+                        <option value="6">AFC</option>
+                    </select>
+                </div>
+
+                <!-- Filtrar por Grupo -->
+                <div class="col-6 col-md-3 col-xl-2">
+                    <select id="filterGrupo" class="form-select form-select-sm bg-dark text-light">
+                        <option value="">Todos los Grupos</option>
+                        {% for grupo in grupos %}
+                            <option value="{{ grupo }}">{{ grupo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtrar por Fecha -->
+                <div class="col-6 col-md-3 col-xl-2">
+                    <select id="filterFecha" class="form-select form-select-sm bg-dark text-light">
+                        <option value="">Todas las Fechas</option>
+                        {% for fecha in fechas %}
+                            <option value="{{ fecha }}">{{ fecha }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtrar por Jornada -->
+                <div class="col-6 col-md-3 col-xl-2">
+                    <select id="filterJornada" class="form-select form-select-sm bg-dark text-light">
+                        <option value="">Todas las Jornadas</option>
+                        {% for jornada in jornadas %}
+                            <option value="{{ jornada }}">{{ jornada }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Botón Limpiar -->
+                <div class="col-12 col-md-3 col-xl-1 text-end">
+                    <button type="button" id="btnResetFilters" class="btn btn-sm btn-outline-secondary w-100" title="Limpiar filtros">
+                        <i class="bi bi-x-circle me-1 me-xl-0"></i><span class="d-xl-none">Limpiar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Juegos -->
+    <div class="row g-3">
+        {% for juego in juegos %}
+        <div class="col-12 col-sm-6 col-lg-4 col-xl-3 juego-item"
+            data-local="{{ juego.equipo_local.nombre|lower }}" 
+            data-visita="{{ juego.equipo_visitante.nombre|lower }}"
+            data-grupo="{{ juego.grupo }}" 
+            data-fecha="{{ juego.fecha }}"
+            data-jornada="{{ juego.jornada }}"
+            data-confederacion="{{ juego.confederacion_id }}">
+
+            <div class="card border-0 shadow-sm h-100 rounded-3 overflow-hidden border-start border-4 border-primary">
+                
+                <!-- Card Header: Fecha, Hora y Tag -->
+                <div class="card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center border-0">
+                    <span class="badge bg-dark text-warning fw-bold fs-7">
+                        <i class="bi bi-calendar-event me-1"></i> {{ juego.fecha }} | <i class="bi bi-clock me-1"></i> {{ juego.hora }}
+                    </span>
+                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fs-8">
+                        {{ juego.tag }}
+                    </span>
+                </div>
+
+                <!-- Card Body: Enfrentamiento -->
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-8">
+                            {{ juego.grupo }}
+                        </span>
+                        <span class="text-muted fs-8 text-uppercase fw-semibold">
+                            {{ juego.jornada }} ({{ juego.tipo|upper }})
+                        </span>
+                    </div>
+
+                    <!-- Equipos y Marcador -->
+                    <div class="row align-items-center text-center my-3">
+                        <!-- Local -->
+                        <div class="col-5">
+                            <!-- Bandera del Equipo Local -->
+                            <div class="display-3 my-2">
+                                {% if juego.equipo_local.bandera %}
+                                    {% if juego.equipo_local.bandera.startswith('bi-') %}
+                                        <i class="bi {{ juego.equipo_local.bandera }}"></i>
+                                    {% else %}
+                                        {{ juego.equipo_local.bandera }}
+                                    {% endif %}
+                                {% else %}
+                                    <i class="bi bi-flag-fill text-secondary"></i>
+                                {% endif %}
+                            </div>
+
+                            <div class="fw-bold text-dark fs-6 text-truncate" title="{{ juego.equipo_local.nombre }}">
+                                {{ juego.equipo_local.nombre }}
+                            </div>
+                            <small class="text-muted d-block fs-8">
+                                {{ juego.equipo_local.siglas }} · Rank #{{ juego.equipo_local.rankin }}
+                            </small>
+                        </div>
+
+                        <!-- Verses / Score -->
+                        <div class="col-2 px-0">
+                            <span class="badge bg-light text-dark border fs-6 px-2 py-1 shadow-xs fw-bold">
+                                VS
+                            </span>
+                        </div>
+
+                        <!-- Visitante -->
+                        <div class="col-5">
+                            <!-- Bandera del Equipo Visitante -->
+                            <div class="display-3 my-2">
+                                {% if juego.equipo_visitante.bandera %}
+                                    {% if juego.equipo_visitante.bandera.startswith('bi-') %}
+                                        <i class="bi {{ juego.equipo_visitante.bandera }}"></i>
+                                    {% else %}
+                                        {{ juego.equipo_visitante.bandera }}
+                                    {% endif %}
+                                {% else %}
+                                    <i class="bi bi-flag-fill text-secondary"></i>
+                                {% endif %}
+                            </div>                            
+                            <div class="fw-bold text-dark fs-6 text-truncate" title="{{ juego.equipo_visitante.nombre }}">
+                                {{ juego.equipo_visitante.nombre }}
+                            </div>
+                            <small class="text-muted d-block fs-8">
+                                {{ juego.equipo_visitante.siglas }} · Rank #{{ juego.equipo_visitante.rankin }}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Ubicación y Estadio -->
+                    {% if juego.ubicacion %}
+                    <div class="bg-light p-2 rounded-2 fs-7 text-muted border border-light-subtle d-flex align-items-center gap-2 mt-2">
+                        <i class="bi bi-geo-alt-fill text-danger fs-6"></i>
+                        <div class="text-truncate">
+                            <strong class="text-dark">{{ juego.ubicacion.estadio }}</strong> 
+                            <span class="d-block fs-8">{{ juego.ubicacion.nombre }}, {{ juego.ubicacion.pais }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Card Footer: Estado -->
+                <div class="card-footer bg-dark py-2 px-3 border-0 d-flex justify-content-between align-items-center">
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill fs-8">
+                        <i class="bi bi-circle-fill fs-9 me-1"></i> Programado
+                    </span>
+                    <small class="text-muted fs-8">Fase {{ juego.fase_id }}</small>
+                </div>
+
+                <!-- Botón directo al Simulador -->
+                <a href="/simulador?id={{ juego._id }}&id_local={{ juego.equipo_local.id }}&id_visita={{ juego.equipo_visitante.id }}&te={{ juego.tiempo_extra }}"  class="btn btn-sm btn-primary fw-bold shadow-sm d-inline-flex align-items-center gap-1">
+                    <i class="bi bi-play-fill fs-6"></i> Detalles del juego
+                </a>
+
+            </div>
+        </div>
+        <!-- Mensaje de sin resultados por filtro -->
+        <div id="noResultsMessage" class="col-12 text-center py-5 d-none">
+            <div class="p-4 bg-light rounded-4 border d-inline-block">
+                <i class="bi bi-funnel text-muted fs-1 d-block mb-2"></i>
+                <h5 class="fw-bold text-dark">No se encontraron coincidencias</h5>
+                <p class="text-muted mb-0">Intenta cambiar los parámetros de búsqueda o limpiar los filtros.</p>
+            </div>
+        </div>
+        {% else %}
+        <!-- Caso sin juegos programados -->
+        <div class="col-12 text-center py-5">
+            <div class="p-4 bg-light rounded-4 border d-inline-block">
+                <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-2"></i>
+                <h4 class="fw-bold text-dark">No hay partidos pendientes</h4>
+                <p class="text-muted mb-0">No se encontraron juegos con estado "creado". Todos los juegos han sido simulados o no se han generado aún.</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,2 @@
+gcloud builds submit --tag gcr.io/soy-radius-332400/com-icg-futbolsim:20260925-1930-420ad9b
+gcloud run deploy com-icg-futbolsim --image gcr.io/soy-radius-332400/com-icg-futbolsim:20260925-1930-420ad9b --platform managed --region us-central1 --project soy-radius-332400 --allow-unauthenticated

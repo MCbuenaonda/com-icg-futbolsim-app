@@ -112,11 +112,16 @@ def hay_revision_var(prob: float = 0.05) -> bool:
 
 # funcion para obtener un jugador oponente segun la zona del balon
 def obtener_oponente_segun_zona(equipo_defensor: dict, zona_balon: str):
+    # Por 'linea_partido' (1 POR, 2 DEF, 3 MED, 4 DEL, ver FORMACIONES), NO por 'posicion_id':
+    # ese es el puesto granular 1-11 de la colección 'posiciones', y cada titular ocupa uno
+    # distinto. Antes se filtraba por posicion_id == 2/3/4, así que siempre marcaban los mismos
+    # tres jugadores (todos defensas): concentraban ~40 recuperaciones y ~10 faltas por partido
+    # y los medios/delanteros prácticamente nunca disputaban la pelota.
     plantilla = equipo_defensor["plantilla"]
-    defensas = [j for j in plantilla if j["posicion_id"] == 2]
-    medios = [j for j in plantilla if j["posicion_id"] == 3]
-    delanteros = [j for j in plantilla if j["posicion_id"] == 4]
-    todos_menos_portero = [j for j in plantilla if j["posicion_id"] != 1]
+    defensas = [j for j in plantilla if j.get("linea_partido") == 2]
+    medios = [j for j in plantilla if j.get("linea_partido") == 3]
+    delanteros = [j for j in plantilla if j.get("linea_partido") == 4]
+    todos_menos_portero = [j for j in plantilla if j.get("linea_partido") != 1]
 
     if zona_balon == "ataque":
         candidatos = defensas if defensas else todos_menos_portero
@@ -702,98 +707,115 @@ def generar_opinion_partido(resultado: dict, stats_jugadores: dict) -> str:
     return opinion_final
 
 # funcion para calcular el rating de un jugador en un partido
-def calcular_rating_partido(stats: dict) -> float:
-    rating = 6.0
+# ---------------------------------------------------------------------------------------------
+# RATING DE PARTIDO (escala 3.0-10.0)
+#
+# Antes se sumaba un valor fijo por CADA acción (ej. +0.08 por pase completado, +0.50 por
+# recuperación de un defensor). Esos pesos eran de cuando el motor generaba ~120 acciones por
+# partido; con el motor de segundos genera varias veces más (un delantero titular hace ~25 pases y
+# ~7 regates por partido) y casi todos terminaban topados en 10: delanteros 9.8 de media, 67% con
+# 9.5+. Eso además rompía todo lo que depende del rating (crecimiento de atributos en
+# jugadores_service, estado de ánimo, 'rendimiento' de carrera, efecto estrella de aficionados,
+# figura del partido).
+#
+# Ahora cada estadística de volumen se mide CONTRA LO NORMAL de su posición: un partido promedio
+# para un titular de su puesto da ~6.7 (como las calificaciones de las apps de resultados), y se
+# sube o baja según cuánto se aparte de eso. Los eventos decisivos y poco frecuentes (goles,
+# asistencias, tarjetas, errores, atajadas) siguen sumando/restando por evento. Distribución
+# buscada: media ~6.7, 8.0+ para ~1 de cada 10 actuaciones, 9.0+ excepcional, <6.0 ~1 de cada 7.
+#
+# REFERENCIA_STATS_POR_POSICION = promedio por partido de un TITULAR de cada posición, medido con
+# el motor actual (60 partidos simulados). Si el motor cambia mucho el volumen de acciones, hay que
+# volver a medirlo -- si no, el rating se corre hacia arriba o hacia abajo.
+# ---------------------------------------------------------------------------------------------
+RATING_BASE = 6.8
+
+REFERENCIA_STATS_POR_POSICION = {
+    "PORTERO":   {"atajadas": 2.72, "desvios": 1.12, "goles_encajados": 1.68, "pases_completados": 17.0, "pases_fallados": 2.5},
+    "DEFENSA":   {"recuperaciones": 8.65, "pases_completados": 6.2, "pases_fallados": 0.88, "regates_exitosos": 1.47,
+                  "pérdidas": 0.98, "faltas": 2.17, "tiros_puerta": 0.40, "tiros_desviados": 0.32,
+                  "goles": 0.11, "asistencias": 0.07},
+    "MEDIO":     {"recuperaciones": 4.56, "pases_completados": 14.4, "pases_fallados": 2.07, "regates_exitosos": 2.68,
+                  "pérdidas": 1.63, "faltas": 1.02, "tiros_puerta": 0.02, "tiros_desviados": 0.04,
+                  "goles": 0.01, "asistencias": 0.08},
+    "DELANTERO": {"recuperaciones": 0.76, "pases_completados": 28.5, "pases_fallados": 4.28, "regates_exitosos": 8.72,
+                  "pérdidas": 5.77, "faltas": 0.23, "tiros_puerta": 1.44, "tiros_desviados": 2.36,
+                  # (en realidad promedian ~0.50 goles / 0.20 asistencias: se usa la mitad a
+                  # propósito, para que un partido sin gol baje un poco pero no lo hunda)
+                  "goles": 0.25, "asistencias": 0.10},
+}
+
+# Peso por unidad de diferencia contra la referencia (positivo = suma si hace MÁS que lo normal).
+# Calibrados para que la dispersión típica de cada estadística mueva el rating unas décimas, no
+# puntos enteros: ej. un medio con una desviación típica más de recuperaciones (~+2.3) suma ~+0.28.
+PESOS_RATING_POR_POSICION = {
+    "DEFENSA":   {"recuperaciones": 0.09, "pases_completados": 0.04, "pases_fallados": -0.10, "regates_exitosos": 0.08,
+                  "pérdidas": -0.14, "faltas": -0.14, "tiros_puerta": 0.30, "tiros_desviados": -0.08},
+    "MEDIO":     {"recuperaciones": 0.12, "pases_completados": 0.05, "pases_fallados": -0.14, "regates_exitosos": 0.10,
+                  "pérdidas": -0.18, "faltas": -0.18, "tiros_puerta": 0.35, "tiros_desviados": -0.08},
+    "DELANTERO": {"recuperaciones": 0.20, "pases_completados": 0.03, "pases_fallados": -0.06, "regates_exitosos": 0.09,
+                  "pérdidas": -0.08, "faltas": -0.15, "tiros_puerta": 0.25, "tiros_desviados": -0.06},
+}
+
+# Un suplente que entró juega bastante menos (~40% del partido): se compara contra esa fracción del
+# volumen normal de un titular, no contra el partido entero (si no, siempre saldría "por debajo").
+FRACCION_PARTIDO_SUPLENTE = 0.45
+
+BONO_GOL_POR_POSICION = {"DEFENSA": 1.3, "MEDIO": 1.1, "DELANTERO": 0.85}
+BONO_ASISTENCIA = 0.6
+PENALIZACION_AMARILLA = 0.4
+
+# Resultado del equipo: un poco para todos, y los que defienden (arquero y defensas) además
+# responden por los goles recibidos.
+BONO_RESULTADO = {"victoria": 0.25, "empate": 0.0, "derrota": -0.25}
+GOLES_CONTRA_REFERENCIA = 1.7
+PESO_GOLES_CONTRA_DEFENSA = -0.15
+
+RATING_MAXIMO_EXPULSADO = 4.5
+
+
+def calcular_rating_partido(stats: dict, goles_favor_equipo: int = 0, goles_contra_equipo: int = 0) -> float:
     posicion = stats.get("posicion", "MEDIO")
+    fraccion = FRACCION_PARTIDO_SUPLENTE if stats.get("entro_de_cambio") else 1.0
+    ref = REFERENCIA_STATS_POR_POSICION.get(posicion, REFERENCIA_STATS_POR_POSICION["MEDIO"])
 
-    # LÓGICA EXCLUSIVA PARA EL PORTERO
+    def desvio(clave):
+        return stats.get(clave, 0) - ref.get(clave, 0) * fraccion
+
+    rating = RATING_BASE
+
+    if goles_favor_equipo > goles_contra_equipo:
+        rating += BONO_RESULTADO["victoria"]
+    elif goles_favor_equipo < goles_contra_equipo:
+        rating += BONO_RESULTADO["derrota"]
+
     if posicion == "PORTERO":
-        # 1. Acciones Positivas
-        rating += stats.get("atajadas", 0) * 0.60     # +0.6 por cada atajada determinante
-        rating += stats.get("desvios", 0) * 0.35      # +0.35 por desvío/rechace
-        rating += stats.get("goles", 0) * 3.0         # Si un portero anota un gol
-        rating += stats.get("asistencias", 0) * 1.0   # Asistencia de portero (saque largo, etc.)
-
-        # 2. Juego con los pies
-        rating += stats["pases_completados"] * 0.04
-
-        # 3. Acciones Negativas
-        rating -= stats.get("goles_encajados", 0) * 0.40  # -0.40 por gol recibido
-        rating -= stats.get("errores_graves", 0) * 1.20   # -1.20 por falla garrafal
-        rating -= stats["pases_fallados"] * 0.08
-        rating -= stats["amarillas"] * 0.60
-        rating -= stats["rojas"] * 2.50
-
-        return round(max(3.0, min(10.0, rating)), 1)
-
-    # 1. GOLES Y ASISTENCIAS
-    if posicion in ["DEFENSA"]:
-        rating += stats["goles"] * 2.0
-        rating += stats.get("asistencias", 0) * 1.2
-    elif posicion == "MEDIO":
-        rating += stats["goles"] * 1.6
-        rating += stats.get("asistencias", 0) * 1.0
+        rating += desvio("atajadas") * 0.30
+        rating += desvio("desvios") * 0.15
+        rating -= desvio("goles_encajados") * 0.35
+        if stats.get("goles_encajados", 0) == 0 and not stats.get("entro_de_cambio"):
+            rating += 0.4  # valla invicta
+        rating += desvio("pases_completados") * 0.02
+        rating -= desvio("pases_fallados") * 0.05
+        rating -= stats.get("errores_graves", 0) * 1.0
+        rating += stats.get("goles", 0) * 2.0
+        rating += stats.get("asistencias", 0) * BONO_ASISTENCIA
     else:
-        rating += stats["goles"] * 1.3
-        rating += stats.get("asistencias", 0) * 0.8
+        for clave, peso in PESOS_RATING_POR_POSICION.get(posicion, PESOS_RATING_POR_POSICION["MEDIO"]).items():
+            rating += desvio(clave) * peso
+        # También contra lo esperado: un delantero mete ~0.5 goles por partido, así que no anotar
+        # es "estar por debajo"; anotar lo sube claramente. Sin esto los delanteros quedaban
+        # medio punto por encima del resto de las posiciones en promedio.
+        rating += desvio("goles") * BONO_GOL_POR_POSICION.get(posicion, 1.1)
+        rating += desvio("asistencias") * BONO_ASISTENCIA
+        if posicion == "DEFENSA":
+            rating += (goles_contra_equipo - GOLES_CONTRA_REFERENCIA) * PESO_GOLES_CONTRA_DEFENSA
 
-    # 2. IMPACTO OFENSIVO
-    rating += stats["tiros_puerta"] * 0.40
-    rating += stats["regates_exitosos"] * 0.35
+    rating -= stats.get("amarillas", 0) * PENALIZACION_AMARILLA
 
-    # 3. PASES (Jerarquía: MEDIOS > DEFENSA > DELANTERO)
-    pases_totales = stats["pases_completados"] + stats["pases_fallados"]
-    if posicion == "MEDIO":
-        rating += stats["pases_completados"] * 0.15
-    elif posicion == "DEFENSA":
-        rating += stats["pases_completados"] * 0.10
-    else:
-        rating += stats["pases_completados"] * 0.08
-
-    # Bono de efectividad en pases
-    if pases_totales >= 3:
-        precision_pases = stats["pases_completados"] / pases_totales
-        if precision_pases >= 0.80:
-            rating += 0.5
-        elif precision_pases >= 0.65:
-            rating += 0.2
-
-    # 4. RECUPERACIONES Y TRABAJO DEFENSIVO
-    if posicion == "DEFENSA":
-        rating += stats["recuperaciones"] * 0.50
-    elif posicion == "MEDIO":
-        rating += stats["recuperaciones"] * 0.40
-    else:
-        rating += stats["recuperaciones"] * 0.25
-
-    # 5. BONO DE PARTICIPACIÓN (Premia el volumen de juego)
-    acciones_totales = pases_totales + stats["regates_exitosos"] + stats["recuperaciones"] + stats["tiros_puerta"]
-    if acciones_totales >= 8:
-        rating += 0.6
-    elif acciones_totales >= 5:
-        rating += 0.3
-
-    # 5. PENALIZACIONES
-    if posicion == "DEFENSA":
-        rating -= stats["pérdidas"] * 0.35
-        rating -= stats["pases_fallados"] * 0.12
-    elif posicion == "MEDIO":
-        rating -= stats["pérdidas"] * 0.25
-        rating -= stats["pases_fallados"] * 0.08
-    else:
-        rating -= stats["pérdidas"] * 0.15
-        rating -= stats["pases_fallados"] * 0.05
-
-    rating -= stats["tiros_desviados"] * 0.10
-    rating -= stats["faltas"] * 0.12
-    rating -= stats["amarillas"] * 0.60
-    rating -= stats["rojas"] * 2.50
-
-    # ⚠️ CASTIGO Y TOPE POR TARJETA ROJA
+    # Expulsado: tope duro, sin importar lo que haya hecho antes de la roja
     if stats.get("rojas", 0) > 0:
-        rating -= 3.5
-        # Garantiza que el rating máximo para un expulsado sea 4.5
-        return round(max(3.0, min(4.5, rating)), 1)
+        return round(max(3.0, min(RATING_MAXIMO_EXPULSADO, rating - 2.0)), 1)
 
     return round(max(3.0, min(10.0, rating)), 1)
 
@@ -1150,8 +1172,6 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                 jugador_con_balon = candidatos[0] if random.random() < 0.70 else random.choice(candidatos)
 
             else:
-                stats_jugadores[jugador_con_balon["id"]]["pases_fallados"] += 1
-                stats_jugadores[defensor_marcador["id"]]["recuperaciones"] += 1
                 posible_asistente = None
 
                 # La probabilidad de falta sube si el defensor es muy agresivo o tiene poca compostura
@@ -1165,7 +1185,17 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                 prob_falta = 0.15 + ((agresividad_def - compostura_def) / 200.0) + mod_faltas
                 prob_falta = max(0.06, min(0.32, prob_falta))  # Mantener dentro de rangos cuerdos
 
-                if random.random() < prob_falta:
+                # "Pase fallido" del atacante y "recuperación" del defensor solo cuando NO hubo
+                # falta: con falta el equipo atacante conserva el balón (ver el 'continue' más
+                # abajo), así que ni se perdió ni se recuperó nada. Antes se sumaban siempre, y
+                # cada falta le daba al infractor una recuperación (+0.25 a +0.50 de rating, más
+                # que lo que le resta la falta): cometer faltas SUBÍA el rating del defensor.
+                hay_falta = random.random() < prob_falta
+                if not hay_falta:
+                    stats_jugadores[jugador_con_balon["id"]]["pases_fallados"] += 1
+                    stats_jugadores[defensor_marcador["id"]]["recuperaciones"] += 1
+
+                if hay_falta:
                     stats_jugadores[defensor_marcador["id"]]["faltas"] += 1
                     # 'jugador_con_balon' acá todavía es el atacante que sufrió la falta -- la
                     # reasignación a 'defensor_marcador' pasa más abajo, después de este bloque.
@@ -1342,14 +1372,19 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                         [jugador_con_balon["nombre"]], zona_balon
                     ))
             else:
-                stats_jugadores[jugador_con_balon["id"]]["pérdidas"] += 1
-                stats_jugadores[defensor_marcador["id"]]["recuperaciones"] += 1
                 posible_asistente = None
 
                 # Calibrado empíricamente -- ver diagnostico_tarjetas.py -- mismo motivo que
                 # 'prob_falta' en la rama de pase fallido.
                 prob_falta_regate = max(0.07, min(0.42, 0.24 + mod_faltas))
-                if random.random() < prob_falta_regate:
+                # Mismo criterio que en la rama de pase fallido: si el atacante fue derribado,
+                # su equipo conserva el balón -- no es una pérdida ni una recuperación.
+                hay_falta = random.random() < prob_falta_regate
+                if not hay_falta:
+                    stats_jugadores[jugador_con_balon["id"]]["pérdidas"] += 1
+                    stats_jugadores[defensor_marcador["id"]]["recuperaciones"] += 1
+
+                if hay_falta:
                     stats_jugadores[defensor_marcador["id"]]["faltas"] += 1
                     # Mismo caso que en la rama de "pase fallido": 'jugador_con_balon' todavía
                     # es el atacante derribado -- la reasignación pasa más abajo.
@@ -1646,7 +1681,9 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
     # Cálculo final de calificaciones (Ratings)
     for stat in stats_jugadores.values():
-        stat["rating"] = calcular_rating_partido(stat)
+        goles_favor = goles_local if stat.get("lado") == "L" else goles_visitante
+        goles_contra = goles_visitante if stat.get("lado") == "L" else goles_local
+        stat["rating"] = calcular_rating_partido(stat, goles_favor, goles_contra)
 
     resultado = {
         "local": equipo_local['nombre'],

@@ -102,3 +102,9 @@ class PlantillasLiveOut(BaseModel):
     jugadores: Dict[str, str]  # nombre del jugador -> sigla de posición granular
     titulares_local: List[str] = []
     titulares_visitante: List[str] = []
+    dorsales: Dict[str, int] = {}  # nombre del jugador -> número de camiseta
+    tactica_local: Optional[str] = None
+    tactica_visitante: Optional[str] = None
+    # Línea (1 POR, 2 DEF, 3 MED, 4 DEL) de cada titular, alineada por índice con titulares_*
+    lineas_local: List[int] = []
+    lineas_visitante: List[int] = []

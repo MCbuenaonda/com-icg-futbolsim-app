@@ -56,116 +56,141 @@
                     <i class="bi bi-circle-fill me-1 blink-dot"></i>EN VIVO
                 </span>
             </div>
-            <!-- Marcador + Cancha en Vivo unificados en una sola card (antes eran dos cards
-                 apiladas con su propio heading cada una) -- en pantallas anchas van lado a lado
-                 para ahorrar el espacio vertical que ocupaba la cancha debajo del marcador; en
-                 mobile (<lg) el grid de Bootstrap las apila igual que antes. -->
-            <div class="row g-4">
-                <div class="col-lg-5">
-                    <div class="row align-items-center text-center g-2">
-                        <div class="col-5">
-                            <h4 id="nombreLocal" class="fw-bold text-white mb-0">—</h4>
-                        </div>
-                        <div class="col-2">
-                            <span id="marcador" class="display-6 fw-bold text-warning">0 - 0</span>
-                            <div id="minutoActual" class="text-danger fw-bold small mt-1">0'</div>
-                        </div>
-                        <div class="col-5">
-                            <h4 id="nombreVisitante" class="fw-bold text-white mb-0">—</h4>
-                        </div>
+            <!-- Marcador arriba (centrado, ancho acotado), Cancha en Vivo a ancho completo
+                 debajo -- la cancha ahora muestra los 22 jugadores, necesita espacio -- y las
+                 cards de "Jugadores en Cancha" al final, lado a lado. -->
+            <div class="mx-auto" style="max-width: 760px;">
+                <div class="row align-items-center text-center g-2">
+                    <div class="col-5">
+                        <h4 id="nombreLocal" class="fw-bold text-white mb-0">—</h4>
                     </div>
-                    <div class="progress mt-4" style="height: 8px; background-color: rgba(255,255,255,0.08);">
-                        <div id="barraTiempo" class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
+                    <div class="col-2">
+                        <span id="marcador" class="display-6 fw-bold text-warning">0 - 0</span>
+                        <div id="minutoActual" class="text-danger fw-bold small mt-1">0'</div>
                     </div>
-                    <p class="text-muted small text-center mt-2 mb-0">
-                        <span id="segundosRestantes">300</span>s restantes de transmisión
-                    </p>
-                    <div id="infoPartido" class="d-flex flex-wrap justify-content-center gap-3 mt-3 pt-3 border-top border-secondary small text-muted">
-                        <span id="infoPartidoGrupo" class="d-none"></span>
-                        <span id="infoPartidoEstadio" class="d-none"></span>
-                        <span id="infoPartidoFecha" class="d-none"></span>
-                        <span id="infoPartidoAforo" class="d-none"></span>
-                    </div>
-
-                    <!-- Jugadores en Cancha: 11 (o menos, si hay expulsados) por equipo, con un
-                         rating en vivo calculado a partir de las acciones ya reveladas -- ver
-                         calcularEstadoJugadoresEnCancha()/renderJugadoresEnCancha(). Se
-                         actualiza en cada poll junto con el resto de la vista. -->
-                    <h6 class="text-uppercase text-muted fw-bold mt-4 mb-2" style="font-size: .8rem; letter-spacing: .03em;">👥 Jugadores en Cancha</h6>
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <div class="card bg-dark border border-secondary border-opacity-25 h-100">
-                                <div class="card-header bg-dark d-flex flex-column align-items-center gap-1 py-2 px-2 border-secondary border-opacity-25">
-                                    <span id="onceNombreLocal" class="fw-bold small text-truncate" style="color:#3987e5; max-width:100%;">Local</span>
-                                    <div class="d-flex align-items-center gap-2 w-100">
-                                        <span id="onceMomentumLocal" class="badge rounded-pill bg-secondary">0</span>
-                                        <canvas id="onceMomentumChartLocal" height="24" style="flex:1; min-width:0;"></canvas>
-                                    </div>
-                                </div>
-                                <div id="onceListaLocal" class="list-group list-group-flush"></div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="card bg-dark border border-secondary border-opacity-25 h-100">
-                                <div class="card-header bg-dark d-flex flex-column align-items-center gap-1 py-2 px-2 border-secondary border-opacity-25">
-                                    <span id="onceNombreVisitante" class="fw-bold small text-truncate" style="color:#e66767; max-width:100%;">Visitante</span>
-                                    <div class="d-flex align-items-center gap-2 w-100">
-                                        <span id="onceMomentumVisitante" class="badge rounded-pill bg-secondary">0</span>
-                                        <canvas id="onceMomentumChartVisitante" height="24" style="flex:1; min-width:0;"></canvas>
-                                    </div>
-                                </div>
-                                <div id="onceListaVisitante" class="list-group list-group-flush"></div>
-                            </div>
-                        </div>
+                    <div class="col-5">
+                        <h4 id="nombreVisitante" class="fw-bold text-white mb-0">—</h4>
                     </div>
                 </div>
-                <div class="col-lg-7">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-                        <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: .8rem; letter-spacing: .03em;">🎯 Cancha en Vivo</h6>
+                <div class="progress mt-4" style="height: 8px; background-color: rgba(255,255,255,0.08);">
+                    <div id="barraTiempo" class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
+                </div>
+                <p class="text-muted small text-center mt-2 mb-0">
+                    <span id="segundosRestantes">300</span>s restantes de transmisión
+                </p>
+                <div id="infoPartido" class="d-flex flex-wrap justify-content-center gap-3 mt-3 pt-3 border-top border-secondary small text-muted">
+                    <span id="infoPartidoGrupo" class="d-none"></span>
+                    <span id="infoPartidoEstadio" class="d-none"></span>
+                    <span id="infoPartidoFecha" class="d-none"></span>
+                    <span id="infoPartidoAforo" class="d-none"></span>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                    <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: .8rem; letter-spacing: .03em;">🎯 Cancha en Vivo</h6>
+                    <div class="d-flex align-items-center flex-wrap gap-3">
                         <div class="btn-group btn-group-sm" role="group" aria-label="Modo de vista de la cancha">
                             <button type="button" id="btnCanchaModoVivo" class="btn btn-outline-danger active">🔴 Modo Vivo</button>
                             <button type="button" id="btnCanchaModoCalor" class="btn btn-outline-warning">🔥 Mapa de Calor</button>
                         </div>
-                    </div>
-                    <div class="cancha-wrapper" id="canchaWrapper">
-                        <svg class="cancha-svg" viewBox="0 0 105 68" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                            <rect class="cancha-pasto" x="0" y="0" width="105" height="68"></rect>
-                            <g class="cancha-lineas">
-                                <rect x="0.4" y="0.4" width="104.2" height="67.2"></rect>
-                                <line x1="52.5" y1="0.4" x2="52.5" y2="67.6"></line>
-                                <circle cx="52.5" cy="34" r="9.15"></circle>
-                                <circle class="cancha-punto" cx="52.5" cy="34" r="0.4"></circle>
-                                <!-- Área grande y chica izquierda -->
-                                <rect x="0.4" y="13.84" width="16.1" height="40.32"></rect>
-                                <rect x="0.4" y="24.84" width="5.1" height="18.32"></rect>
-                                <circle class="cancha-punto" cx="11" cy="34" r="0.4"></circle>
-                                <path d="M 16.5 25.5 A 9.15 9.15 0 0 1 16.5 42.5"></path>
-                                <!-- Área grande y chica derecha -->
-                                <rect x="88.5" y="13.84" width="16.1" height="40.32"></rect>
-                                <rect x="99.5" y="24.84" width="5.1" height="18.32"></rect>
-                                <circle class="cancha-punto" cx="94" cy="34" r="0.4"></circle>
-                                <path d="M 88.5 25.5 A 9.15 9.15 0 0 0 88.5 42.5"></path>
-                                <!-- Arcos de esquina -->
-                                <path d="M 1.4 0.4 A 1 1 0 0 1 0.4 1.4" class="cancha-corner"></path>
-                                <path d="M 104.6 0.4 A 1 1 0 0 0 105.6 1.4" class="cancha-corner"></path>
-                                <path d="M 0.4 66.6 A 1 1 0 0 1 1.4 67.6" class="cancha-corner"></path>
-                                <path d="M 105.6 66.6 A 1 1 0 0 0 104.6 67.6" class="cancha-corner"></path>
-                            </g>
-                            <g id="canchaTrazos" class="cancha-trazos"></g>
-                        </svg>
-                        <div id="canchaEtiquetaLocal" class="cancha-etiqueta cancha-etiqueta--local">Local</div>
-                        <div id="canchaEtiquetaVisitante" class="cancha-etiqueta cancha-etiqueta--visitante">Visitante</div>
-                        <div id="canchaBalon" class="cancha-balon" style="left: 50%; top: 50%;" title="Posición del balón"></div>
-                        <div id="canchaEtiquetaJugador" class="cancha-etiqueta-jugador" style="left: 50%; top: 50%;">
-                            <span id="canchaEtiquetaJugadorEquipo" class="cancha-etiqueta-jugador__equipo"></span>
-                            <span id="canchaEtiquetaJugadorNombre" class="cancha-etiqueta-jugador__nombre"></span>
-                            <span id="canchaEtiquetaJugadorTipo" class="cancha-etiqueta-jugador__tipo"></span>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch" id="toggleMarcadorCancha">
+                            <label class="form-check-label small" for="toggleMarcadorCancha">🏟️ Marcador en cancha</label>
                         </div>
-                        <canvas id="canchaHeatmapCanvas" class="cancha-heatmap-canvas d-none"></canvas>
                     </div>
-                    <p id="canchaLeyenda" class="text-muted text-center mb-0 mt-2" style="font-size: .75rem;">
-                        Posición aproximada del balón según el último evento revelado
-                    </p>
+                </div>
+                <div class="cancha-wrapper" id="canchaWrapper">
+                    <svg class="cancha-svg" viewBox="0 0 105 68" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                        <rect class="cancha-pasto" x="0" y="0" width="105" height="68"></rect>
+                        <g class="cancha-lineas">
+                            <rect x="0.4" y="0.4" width="104.2" height="67.2"></rect>
+                            <line x1="52.5" y1="0.4" x2="52.5" y2="67.6"></line>
+                            <circle cx="52.5" cy="34" r="9.15"></circle>
+                            <circle class="cancha-punto" cx="52.5" cy="34" r="0.4"></circle>
+                            <!-- Área grande y chica izquierda -->
+                            <rect x="0.4" y="13.84" width="16.1" height="40.32"></rect>
+                            <rect x="0.4" y="24.84" width="5.1" height="18.32"></rect>
+                            <circle class="cancha-punto" cx="11" cy="34" r="0.4"></circle>
+                            <path d="M 16.5 25.5 A 9.15 9.15 0 0 1 16.5 42.5"></path>
+                            <!-- Área grande y chica derecha -->
+                            <rect x="88.5" y="13.84" width="16.1" height="40.32"></rect>
+                            <rect x="99.5" y="24.84" width="5.1" height="18.32"></rect>
+                            <circle class="cancha-punto" cx="94" cy="34" r="0.4"></circle>
+                            <path d="M 88.5 25.5 A 9.15 9.15 0 0 0 88.5 42.5"></path>
+                            <!-- Arcos de esquina -->
+                            <path d="M 1.4 0.4 A 1 1 0 0 1 0.4 1.4" class="cancha-corner"></path>
+                            <path d="M 104.6 0.4 A 1 1 0 0 0 105.6 1.4" class="cancha-corner"></path>
+                            <path d="M 0.4 66.6 A 1 1 0 0 1 1.4 67.6" class="cancha-corner"></path>
+                            <path d="M 105.6 66.6 A 1 1 0 0 0 104.6 67.6" class="cancha-corner"></path>
+                        </g>
+                        <g id="canchaTrazos" class="cancha-trazos"></g>
+                    </svg>
+                    <!-- Marcador como marca de agua (toggle "Marcador en cancha"): de fondo, debajo de
+                         jugadores/balón; cada equipo en su mitad (el local siempre ataca a la derecha) -->
+                    <div id="canchaMarcadorAgua" class="cancha-marcador-agua d-none" aria-hidden="true">
+                        <div class="cancha-marcador-agua__lado cancha-marcador-agua__lado--local">
+                            <span id="canchaAguaBanderaLocal" class="cancha-marcador-agua__bandera"></span>
+                            <span id="canchaAguaGolesLocal" class="cancha-marcador-agua__goles">0</span>
+                        </div>
+                        <div class="cancha-marcador-agua__lado cancha-marcador-agua__lado--visitante">
+                            <span id="canchaAguaGolesVisitante" class="cancha-marcador-agua__goles">0</span>
+                            <span id="canchaAguaBanderaVisitante" class="cancha-marcador-agua__bandera"></span>
+                        </div>
+                    </div>
+                    <!-- 22 jugadores (fichas con el dorsal), ver renderJugadoresCancha() -->
+                    <div id="canchaJugadores" class="cancha-jugadores"></div>
+                    <div id="canchaEtiquetaLocal" class="cancha-etiqueta cancha-etiqueta--local">Local</div>
+                    <div id="canchaEtiquetaVisitante" class="cancha-etiqueta cancha-etiqueta--visitante">Visitante</div>
+                    <div id="canchaBalon" class="cancha-balon" style="left: 50%; top: 50%;" title="Posición del balón"></div>
+                    <div id="canchaEtiquetaJugador" class="cancha-etiqueta-jugador" style="left: 50%; top: 50%;">
+                        <span id="canchaEtiquetaJugadorEquipo" class="cancha-etiqueta-jugador__equipo"></span>
+                        <span id="canchaEtiquetaJugadorNombre" class="cancha-etiqueta-jugador__nombre"></span>
+                        <span id="canchaEtiquetaJugadorTipo" class="cancha-etiqueta-jugador__tipo"></span>
+                    </div>
+                    <canvas id="canchaHeatmapCanvas" class="cancha-heatmap-canvas d-none"></canvas>
+                    <!-- Ventana de aviso (sustituciones y decisiones del árbitro/VAR): aparece sobre la
+                         cancha en vez de mover el balón, ver mostrarAvisosNuevos -->
+                    <div id="canchaAviso" class="cancha-aviso" aria-live="polite">
+                        <div id="canchaAvisoEncabezado" class="cancha-aviso__equipo"></div>
+                        <div id="canchaAvisoTitulo" class="cancha-aviso__titulo"></div>
+                        <div id="canchaAvisoCuerpo"></div>
+                    </div>
+                </div>
+                <p id="canchaLeyenda" class="text-muted text-center mb-0 mt-2" style="font-size: .75rem;">
+                    Posición aproximada del balón según el último evento revelado
+                </p>
+            </div>
+
+            <!-- Jugadores en Cancha: 11 (o menos, si hay expulsados) por equipo, con un
+                 rating en vivo calculado a partir de las acciones ya reveladas -- ver
+                 calcularEstadoJugadoresEnCancha()/renderJugadoresEnCancha(). Se
+                 actualiza en cada poll junto con el resto de la vista. -->
+            <h6 class="text-uppercase text-muted fw-bold mt-3 mb-2" style="font-size: .8rem; letter-spacing: .03em;">👥 Jugadores en Cancha</h6>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <div class="card bg-dark border border-secondary border-opacity-25 h-100">
+                        <div class="card-header bg-dark d-flex flex-column align-items-center gap-1 py-2 px-2 border-secondary border-opacity-25">
+                            <span id="onceNombreLocal" class="fw-bold small text-truncate" style="color:#3987e5; max-width:100%;">Local</span>
+                            <div class="d-flex align-items-center gap-2 w-100">
+                                <span id="onceMomentumLocal" class="badge rounded-pill bg-secondary">0</span>
+                                <canvas id="onceMomentumChartLocal" height="24" style="flex:1; min-width:0;"></canvas>
+                            </div>
+                        </div>
+                        <div id="onceListaLocal" class="list-group list-group-flush"></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-dark border border-secondary border-opacity-25 h-100">
+                        <div class="card-header bg-dark d-flex flex-column align-items-center gap-1 py-2 px-2 border-secondary border-opacity-25">
+                            <span id="onceNombreVisitante" class="fw-bold small text-truncate" style="color:#e66767; max-width:100%;">Visitante</span>
+                            <div class="d-flex align-items-center gap-2 w-100">
+                                <span id="onceMomentumVisitante" class="badge rounded-pill bg-secondary">0</span>
+                                <canvas id="onceMomentumChartVisitante" height="24" style="flex:1; min-width:0;"></canvas>
+                            </div>
+                        </div>
+                        <div id="onceListaVisitante" class="list-group list-group-flush"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -311,7 +336,7 @@
 .cancha-wrapper {
     position: relative;
     width: 100%;
-    max-width: 640px;
+    max-width: 1100px;
     margin: 0 auto;
     aspect-ratio: 105 / 68;
     border-radius: 8px;
@@ -324,6 +349,44 @@
     width: 100%;
     height: 100%;
     display: block;
+}
+/* Marcador como marca de agua: tamaños en cqw (ancho de la cancha) para que escale igual en
+   escritorio y celular; translúcido y sin eventos de mouse para no tapar la jugada */
+.cancha-wrapper { container-type: inline-size; }
+.cancha-marcador-agua {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    pointer-events: none;
+    user-select: none;
+    opacity: 0.2;
+    z-index: 0;
+}
+.cancha-marcador-agua__lado {
+    display: flex;
+    align-items: center;
+    gap: 3cqw;
+    padding: 0 5cqw;
+}
+.cancha-marcador-agua__lado--local { justify-content: flex-end; }
+.cancha-marcador-agua__lado--visitante { justify-content: flex-start; }
+.cancha-marcador-agua__goles {
+    font-size: 21cqw;
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+.cancha-marcador-agua__bandera {
+    font-size: 12cqw;
+    line-height: 1;
+}
+.cancha-marcador-agua__goles--cambio { animation: cancha-agua-gol 1.2s ease; }
+@keyframes cancha-agua-gol {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.25); text-shadow: 0 0 4cqw rgba(255, 255, 255, 0.9); }
+    100% { transform: scale(1); }
 }
 .cancha-pasto {
     fill: #17492b;
@@ -408,6 +471,105 @@
 .cancha-etiqueta-jugador.cancha-etiqueta-jugador--visible {
     opacity: 1;
 }
+/* Ventana de aviso (sustitución / árbitro / VAR): tarjeta centrada arriba de la cancha que entra deslizándose */
+.cancha-aviso {
+    position: absolute;
+    top: 8%;
+    left: 50%;
+    transform: translate(-50%, -12px) scale(0.96);
+    min-width: 220px;
+    max-width: calc(100% - 24px);
+    padding: 8px 14px 10px;
+    border-radius: 10px;
+    border-top: 4px solid #b9c2cc;
+    background: rgba(12, 16, 22, 0.92);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    color: #fff;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    z-index: 6;
+}
+.cancha-aviso.cancha-aviso--visible {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+}
+.cancha-aviso--local { border-top-color: #3987e5; }
+.cancha-aviso--arbitro { border-top-color: #f2c94c; }
+.cancha-aviso--var { border-top-color: #a78bfa; }
+.cancha-aviso--arbitro .cancha-aviso__equipo { color: #f2c94c; }
+.cancha-aviso--var .cancha-aviso__equipo { color: #c4b5fd; }
+.cancha-aviso__descripcion {
+    max-width: 320px;
+    font-size: 0.8rem;
+    line-height: 1.3;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s ease 0.25s;
+}
+.cancha-aviso--visible .cancha-aviso__descripcion { opacity: 1; }
+.cancha-aviso--visitante { border-top-color: #e66767; }
+.cancha-aviso__equipo {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cancha-aviso--local .cancha-aviso__equipo { color: #6ea8f0; }
+.cancha-aviso--visitante .cancha-aviso__equipo { color: #f08c8c; }
+.cancha-aviso__titulo {
+    font-size: 0.72rem;
+    color: #b9c2cc;
+    text-align: center;
+    margin-bottom: 6px;
+}
+.cancha-aviso__fila {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 2px 0;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.cancha-aviso--visible .cancha-aviso__fila { opacity: 1; transform: none; }
+.cancha-aviso--visible .cancha-aviso__fila--entra { transition-delay: 0.25s; }
+.cancha-aviso--visible .cancha-aviso__fila--sale { transition-delay: 0.45s; }
+.cancha-aviso__fila--entra i { color: #3ecf74; }
+.cancha-aviso__fila--sale i { color: #e66767; }
+.cancha-aviso__fila--sale .cancha-aviso__nombre { color: #c9d1d9; font-weight: 500; }
+.cancha-aviso__dorsal {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.cancha-aviso__dorsal:empty { display: none; }
+.cancha-aviso__nombre {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+@media (max-width: 576px) {
+    .cancha-aviso { top: 4%; min-width: 0; padding: 4px 8px 5px; border-top-width: 3px; border-radius: 8px; }
+    .cancha-aviso__equipo { font-size: 0.56rem; }
+    .cancha-aviso__titulo { font-size: 0.58rem; margin-bottom: 2px; }
+    .cancha-aviso__fila { font-size: 0.64rem; gap: 5px; padding: 1px 0; }
+    .cancha-aviso__dorsal { min-width: 16px; height: 16px; font-size: 0.58rem; }
+    .cancha-aviso__descripcion { font-size: 0.64rem; max-width: 240px; }
+}
 .cancha-etiqueta-jugador__equipo {
     font-size: 0.56rem;
     font-weight: 700;
@@ -480,6 +642,85 @@
     100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0), 0 2px 4px rgba(0, 0, 0, 0.5); }
 }
 
+/* Jugadores en la Cancha en Vivo: una ficha redonda con el dorsal por jugador en cancha,
+   posicionada en left/top % (mismo sistema que el balón) -- ver renderJugadoresCancha(). Se
+   centran con la propiedad 'translate' (no 'transform') para que las animaciones puedan usar
+   'scale' sin pisar el centrado. Quedan debajo del balón (z-index 1 vs 2). */
+.cancha-jugadores {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+.cancha-jugador {
+    position: absolute;
+    width: 3.1%;
+    min-width: 18px;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(9px, 1.05vw, 13px);
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+    pointer-events: auto;
+    cursor: default;
+    user-select: none;
+    transition: left 0.8s ease, top 0.8s ease, opacity 0.45s ease, scale 0.3s ease;
+}
+.cancha-jugador--local { background: #3987e5; }
+/* Dorsal en el listado de "Jugadores en Cancha" (mismos colores que las fichas de la cancha) */
+.once-dorsal {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #fff;
+    border: 1.5px solid rgba(255, 255, 255, 0.8);
+}
+.once-dorsal--local { background: #3987e5; }
+.once-dorsal--visitante { background: #e66767; }
+.cancha-jugador--visitante { background: #e66767; }
+/* El arquero se distingue con otro tono y borde dorado, como un uniforme distinto */
+.cancha-jugador--local.cancha-jugador--portero { background: #1d4f8c; border-color: #ffc107; }
+.cancha-jugador--visitante.cancha-jugador--portero { background: #8e2f2f; border-color: #ffc107; }
+.cancha-jugador--oculto { opacity: 0; scale: 0.4; }
+.cancha-jugador--activo {
+    z-index: 3;
+    scale: 1.3;
+    animation: cancha-jugador-pulso 1s ease-out 2;
+}
+.cancha-jugador--secundario { z-index: 2; scale: 1.12; }
+.cancha-jugador--gol {
+    z-index: 3;
+    scale: 1.35;
+    animation: cancha-jugador-gol 0.55s ease-in-out 4;
+}
+.cancha-jugador--amarilla { animation: cancha-jugador-tarjeta 0.5s ease-in-out 4; --cancha-tarjeta-color: #ffc107; }
+.cancha-jugador--roja { animation: cancha-jugador-tarjeta 0.5s ease-in-out 4; --cancha-tarjeta-color: #dc3545; }
+@keyframes cancha-jugador-pulso {
+    0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.85), 0 2px 4px rgba(0, 0, 0, 0.45); }
+    100% { box-shadow: 0 0 0 12px rgba(255, 255, 255, 0), 0 2px 4px rgba(0, 0, 0, 0.45); }
+}
+@keyframes cancha-jugador-gol {
+    0%, 100% { translate: -50% -50%; box-shadow: 0 0 10px 3px rgba(255, 193, 7, 0.9); }
+    50% { translate: -50% -95%; box-shadow: 0 0 18px 7px rgba(255, 193, 7, 0.6); }
+}
+@keyframes cancha-jugador-tarjeta {
+    0%, 100% { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45); }
+    50% { box-shadow: 0 0 0 5px var(--cancha-tarjeta-color), 0 0 14px 4px var(--cancha-tarjeta-color); }
+}
+
 </style>
 
 <script>
@@ -506,16 +747,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const canchaWrapperEl = document.getElementById('canchaWrapper');
     const canchaBalon = document.getElementById('canchaBalon');
     const canchaEtiquetaJugador = document.getElementById('canchaEtiquetaJugador');
+    const canchaAviso = document.getElementById('canchaAviso');
     const canchaEtiquetaJugadorEquipo = document.getElementById('canchaEtiquetaJugadorEquipo');
     const canchaEtiquetaJugadorNombre = document.getElementById('canchaEtiquetaJugadorNombre');
     const canchaEtiquetaJugadorTipo = document.getElementById('canchaEtiquetaJugadorTipo');
     const canchaTrazos = document.getElementById('canchaTrazos');
     const canchaHeatmapCanvas = document.getElementById('canchaHeatmapCanvas');
+    const canchaJugadoresCapa = document.getElementById('canchaJugadores');
     const canchaLeyenda = document.getElementById('canchaLeyenda');
     const canchaEtiquetaLocal = document.getElementById('canchaEtiquetaLocal');
     const canchaEtiquetaVisitante = document.getElementById('canchaEtiquetaVisitante');
     const btnCanchaModoVivo = document.getElementById('btnCanchaModoVivo');
     const btnCanchaModoCalor = document.getElementById('btnCanchaModoCalor');
+    const toggleMarcadorCancha = document.getElementById('toggleMarcadorCancha');
+    const canchaMarcadorAgua = document.getElementById('canchaMarcadorAgua');
 
     const infoPartidoGrupo = document.getElementById('infoPartidoGrupo');
     const infoPartidoEstadio = document.getElementById('infoPartidoEstadio');
@@ -690,6 +935,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let canchaPlantillasMatchId = null;
     let canchaTitularesLocal = [];
     let canchaTitularesVisitante = [];
+    let canchaDorsales = {};
+    let canchaLineasLocal = [];
+    let canchaLineasVisitante = [];
 
     async function actualizarPlantillasSiCorresponde(matchId) {
         if (!matchId || matchId === canchaPlantillasMatchId) return;
@@ -700,6 +948,9 @@ document.addEventListener('DOMContentLoaded', function () {
             canchaPlantillas = data.jugadores || {};
             canchaTitularesLocal = data.titulares_local || [];
             canchaTitularesVisitante = data.titulares_visitante || [];
+            canchaDorsales = data.dorsales || {};
+            canchaLineasLocal = data.lineas_local || [];
+            canchaLineasVisitante = data.lineas_visitante || [];
             canchaPlantillasMatchId = matchId;
         } catch (e) {
             // Sin conexión momentánea o partido recién terminado -- la etiqueta simplemente
@@ -762,6 +1013,305 @@ document.addEventListener('DOMContentLoaded', function () {
     // (dimensiones reales de cancha en metros) -- se reescala solo para el trazo. y ya es 0-68,
     // coincide 1 a 1 con el alto del viewBox.
     function canchaXaSvg(x) { return (x / 100) * 105; }
+
+    // ---------------------------------------------------------------------------------------
+    // Jugadores en la Cancha en Vivo: 22 fichas (círculo con el dorsal) que se reacomodan con
+    // cada evento revelado. No hay posiciones reales de jugadores en el motor (trabaja por zonas),
+    // así que es una coreografía derivada de los datos que sí existen: la formación de cada
+    // equipo (lineas_* de /matches/live/plantillas, alineadas con titulares_*), la zona y la
+    // posición del balón del último evento, y sus protagonistas (jugadores[0], jugadores[1]).
+    // Todo se calcula en el "marco de ataque" de cada equipo (x 0-100 hacia el arco rival) y
+    // después se espeja el visitante, igual que el balón (el local siempre ataca a la derecha).
+    // ---------------------------------------------------------------------------------------
+    const CANCHA_X_POR_LINEA = { 1: 5, 2: 21, 3: 40, 4: 58 };
+    // Cuánto empuja hacia adelante el equipo con la pelota según la zona del balón (y cuánto
+    // retrocede el rival: CANCHA_FACTOR_REPLIEGUE de eso)
+    const CANCHA_EMPUJE_POR_ZONA = { defensiva: 0, mediocampo: 10, ataque: 20 };
+    const CANCHA_FACTOR_REPLIEGUE = 0.6;
+    const CANCHA_TIPOS_EXPULSION = new Set(['🟥 TARJETA ROJA', '🟨🟥 DOBLE AMARILLA']);
+    const CANCHA_TIPO_SUSTITUCION = '🔄 SUSTITUCIÓN';
+    // Decisiones del árbitro / VAR: igual que la sustitución, se muestran en una ventana y no como jugada
+    const CANCHA_TIPOS_ARBITRO = new Set([
+        '👉 SILBATO INICIAL', '🚩 FINAL DEL PRIMER TIEMPO', '⏱️ TIEMPO EXTRA', '🥅 TANDA DE PENALTIS', '🏁 PITIDO FINAL'
+    ]);
+    function esEventoVar(ev) { return (ev.tipo || '').startsWith('🖥️ VAR'); }
+    function esEventoAviso(ev) {
+        return ev.tipo === CANCHA_TIPO_SUSTITUCION || CANCHA_TIPOS_ARBITRO.has(ev.tipo) || esEventoVar(ev);
+    }
+    // Margen para que ninguna ficha quede cortada contra el borde de la cancha (radio ~1.6 u.)
+    const CANCHA_X_MIN = 2.5, CANCHA_X_MAX = 97.5, CANCHA_Y_MIN = 2.5, CANCHA_Y_MAX = 65.5;
+
+    const canchaFichas = new Map();        // clave "lado|nombre" -> elemento
+    let canchaJugadoresUltimaClave = null;
+    let canchaJugadoresUltimaJugadaClave = null; // última jugada (no aviso) a la que se acomodaron las fichas
+
+    // Quién está en cancha y en qué "slot" de la formación (índice del titular al que ocupa):
+    // arranca del 11 inicial y reproduce TODOS los eventos revelados -- el que entra hereda el
+    // slot del que sale (mismo criterio que el motor con 'linea_saliente'), el expulsado se va
+    // sin reemplazo. Se recalcula desde cero cada vez, igual que calcularEstadoJugadoresEnCancha.
+    function calcularAlineacionEnCancha(data) {
+        const alineacion = { local: new Map(), visitante: new Map() };
+        canchaTitularesLocal.forEach((nombre, i) => alineacion.local.set(nombre, i));
+        canchaTitularesVisitante.forEach((nombre, i) => alineacion.visitante.set(nombre, i));
+
+        (data.eventos || []).forEach(ev => {
+            const lado = ev.equipo === data.local ? 'local' : (ev.equipo === data.visitante ? 'visitante' : null);
+            const jugadores = ev.jugadores || [];
+            if (!lado) return;
+            const enCancha = alineacion[lado];
+            if (ev.tipo === CANCHA_TIPO_SUSTITUCION && jugadores.length >= 2 && enCancha.has(jugadores[1])) {
+                const slot = enCancha.get(jugadores[1]);
+                enCancha.delete(jugadores[1]);
+                enCancha.set(jugadores[0], slot);
+            } else if (CANCHA_TIPOS_EXPULSION.has(ev.tipo) && jugadores.length >= 1) {
+                enCancha.delete(jugadores[0]);
+            }
+        });
+        return alineacion;
+    }
+
+    // Posición "de pizarra" de cada slot de la formación, en el marco de ataque del equipo: cada
+    // línea a su profundidad (CANCHA_X_POR_LINEA), repartida pareja a lo ancho; en líneas de 4+
+    // los de las puntas (laterales / carrileros / extremos) van un poco más adelantados.
+    function posicionesBaseFormacion(lineas) {
+        const porLinea = {};
+        lineas.forEach((linea, slot) => { (porLinea[linea] = porLinea[linea] || []).push(slot); });
+        const base = [];
+        Object.entries(porLinea).forEach(([linea, slots]) => {
+            const n = slots.length;
+            slots.forEach((slot, k) => {
+                const esPunta = n >= 4 && (k === 0 || k === n - 1);
+                base[slot] = {
+                    x: CANCHA_X_POR_LINEA[linea] + (esPunta ? 3 : 0),
+                    y: (68 * (k + 1)) / (n + 1),
+                    linea: Number(linea)
+                };
+            });
+        });
+        return base;
+    }
+
+    function limitar(valor, min, max) { return Math.max(min, Math.min(max, valor)); }
+
+    // Calcula dónde va cada ficha para un evento dado. Devuelve [{ clave, lado, nombre, slot,
+    // x, y, portero, rol }] en coordenadas VISUALES (x 0-100 izquierda->derecha, y 0-68).
+    function calcularFichasCancha(data, evento, alineacion) {
+        const pos = canchaPosicionVisual(evento);
+        const atacaLocal = esCanchaAtacanteLocal(evento);
+        const empuje = CANCHA_EMPUJE_POR_ZONA[evento.zona] ?? CANCHA_EMPUJE_POR_ZONA.mediocampo;
+        // Una sustitución no es una jugada: el que entra aparece en su posición, no corre al balón
+        const protagonistas = evento.tipo === CANCHA_TIPO_SUSTITUCION ? [] : (evento.jugadores || []);
+        const fichas = [];
+
+        [['local', canchaLineasLocal], ['visitante', canchaLineasVisitante]].forEach(([lado, lineas]) => {
+            const base = posicionesBaseFormacion(lineas);
+            const esLocal = lado === 'local';
+            const tieneLaPelota = esLocal === atacaLocal;
+            const desplazamiento = tieneLaPelota ? empuje : -empuje * CANCHA_FACTOR_REPLIEGUE;
+
+            alineacion[lado].forEach((slot, nombre) => {
+                const b = base[slot];
+                if (!b) return;
+                const portero = b.linea === 1;
+                // El arquero casi no sale de su área; el resto del equipo se mueve en bloque y se
+                // "cierra" un poco hacia el lado de la cancha donde está la pelota.
+                let x = b.x + desplazamiento * (portero ? 0.15 : 1);
+                let y = portero ? b.y : b.y + (pos.y - b.y) * 0.15;
+                // Pequeño movimiento aleatorio para que no se vean estáticos entre eventos
+                if (!portero) { x += (Math.random() - 0.5) * 3; y += (Math.random() - 0.5) * 3; }
+                x = limitar(x, 2, 97);
+                y = limitar(y, 3, 65);
+                const xVisual = esLocal ? x : 100 - x;
+
+                let rol = null;
+                let xFinal = xVisual, yFinal = y;
+                if (nombre === protagonistas[0]) {
+                    // El protagonista va a la pelota, un paso detrás de ella (mirando al arco
+                    // rival) para que el balón quede "en sus pies" sin taparle el dorsal
+                    rol = 'activo';
+                    xFinal = pos.x + (esLocal ? -2.5 : 2.5); yFinal = pos.y;
+                } else if (protagonistas.length > 1 && protagonistas.slice(1).includes(nombre)) {
+                    // Quien disputa / asiste se acerca a unos metros de la jugada
+                    rol = 'secundario';
+                    xFinal = pos.x + (esLocal ? -4 : 4);
+                    yFinal = pos.y + (y < pos.y ? -3 : 3);
+                }
+                fichas.push({
+                    clave: `${lado}|${nombre}`, lado, nombre, slot, portero, rol, linea: b.linea,
+                    x: limitar(xFinal, CANCHA_X_MIN, CANCHA_X_MAX), y: limitar(yFinal, CANCHA_Y_MIN, CANCHA_Y_MAX)
+                });
+            });
+        });
+        separarFichas(fichas);
+        if (evento.tipo === '🚩 FUERA DE LUGAR') {
+            // Separar puede volver a adelantar a alguien: se repite una vez y se vuelve a fijar la línea
+            acomodarFueraDeLugar(fichas, atacaLocal);
+            separarFichas(fichas);
+            acomodarFueraDeLugar(fichas, atacaLocal);
+        }
+        return fichas;
+    }
+
+    // Fuera de lugar: el infractor (protagonista, sobre la pelota) tiene que quedar adelantado.
+    // La línea defensiva rival se arma unos metros por detrás de él y nadie más -- compañeros y
+    // rivales, salvo el arquero rival que sigue en su arco -- queda más adelante que esa línea.
+    // Todo en x visual: 'adelante' es hacia el arco que ataca el equipo del infractor.
+    const CANCHA_DISTANCIA_LINEA_FUERA_DE_LUGAR = 4;
+    function acomodarFueraDeLugar(fichas, atacaLocal) {
+        const infractor = fichas.find(f => f.rol === 'activo');
+        if (!infractor) return;
+        const sentido = atacaLocal ? 1 : -1;
+        const linea = infractor.x - sentido * CANCHA_DISTANCIA_LINEA_FUERA_DE_LUGAR;
+        const ladoAtacante = atacaLocal ? 'local' : 'visitante';
+        fichas.forEach(f => {
+            if (f === infractor || f.portero) return;
+            const esDefensaRival = f.lado !== ladoAtacante && f.linea === 2;
+            if (esDefensaRival) {
+                // Línea defensiva casi recta, apenas desalineada para que se vea natural
+                f.x = linea - sentido * (f.xLineaJitter ??= Math.random() * 1.2);
+            } else if ((f.x - linea) * sentido > -1.5) {
+                // Quien estaba a la altura de la línea o más adelante, vuelve atrás de ella
+                f.x = linea - sentido * (1.5 + (f.xAtrasJitter ??= Math.random() * 3));
+            }
+            f.x = limitar(f.x, CANCHA_X_MIN, CANCHA_X_MAX);
+        });
+    }
+
+    // Separa las fichas que quedaron encimadas (típico: un delantero y el defensor que lo marca),
+    // para que se lea el dorsal de cada una. Unas pocas pasadas de "empujar" cada par que esté a
+    // menos de CANCHA_SEPARACION_MINIMA; el protagonista (sobre la pelota) no se mueve, empuja el
+    // otro. x viene en % del ancho (105 m) e y en metros (68), de ahí el 1.05 para medir parejo.
+    const CANCHA_SEPARACION_MINIMA = 3.6;
+    function separarFichas(fichas) {
+        for (let pasada = 0; pasada < 8; pasada++) {
+            let huboAjuste = false;
+            for (let i = 0; i < fichas.length; i++) {
+                for (let j = i + 1; j < fichas.length; j++) {
+                    const a = fichas[i], b = fichas[j];
+                    let dx = (b.x - a.x) * 1.05, dy = b.y - a.y;
+                    let d = Math.hypot(dx, dy);
+                    if (d >= CANCHA_SEPARACION_MINIMA) continue;
+                    if (d < 0.01) { dx = 0.01; dy = (i % 2 ? 1 : -1); d = Math.hypot(dx, dy); }
+                    const faltante = CANCHA_SEPARACION_MINIMA - d;
+                    const ux = dx / d, uy = dy / d;
+                    const fijaA = a.rol === 'activo', fijaB = b.rol === 'activo';
+                    const partA = fijaA ? 0 : (fijaB ? 1 : 0.5);
+                    const partB = 1 - partA;
+                    a.x -= (ux * faltante * partA) / 1.05; a.y -= uy * faltante * partA;
+                    b.x += (ux * faltante * partB) / 1.05; b.y += uy * faltante * partB;
+                    huboAjuste = true;
+                }
+            }
+            fichas.forEach(f => { f.x = limitar(f.x, CANCHA_X_MIN, CANCHA_X_MAX); f.y = limitar(f.y, CANCHA_Y_MIN, CANCHA_Y_MAX); });
+            if (!huboAjuste) break;
+        }
+    }
+
+    function claseAnimacionFicha(tipo, rol) {
+        if (rol !== 'activo') return null;
+        if (tipo.startsWith('⚽')) return 'cancha-jugador--gol';
+        if (tipo === '🟨 TARJETA AMARILLA') return 'cancha-jugador--amarilla';
+        return null;
+    }
+
+    function renderJugadoresCancha(data) {
+        if (!canchaJugadoresCapa || !canchaLineasLocal.length || !canchaLineasVisitante.length) return;
+        const eventos = data.eventos || [];
+        // 'evento' = el último revelado; 'jugada' = la última que no es aviso (sustitución /
+        // árbitro / VAR), que es a la que se acomodan las fichas, igual que el balón
+        let evento = null, jugada = null;
+        for (let i = eventos.length - 1; i >= 0; i--) {
+            if (!eventos[i].posicion_balon) continue;
+            if (!evento) evento = eventos[i];
+            if (!esEventoAviso(eventos[i])) { jugada = eventos[i]; break; }
+        }
+        if (!evento) return;
+
+        // Mismo criterio que renderCancha: solo se reacomoda cuando hay un evento nuevo, no en
+        // cada poll de 3s (si no, el movimiento aleatorio haría "temblar" a las fichas).
+        const clave = `${data.match_id}-${evento.segundos_acumulados ?? evento.minuto}-${evento.tipo}-${eventos.length}`;
+        if (clave === canchaJugadoresUltimaClave) return;
+        canchaJugadoresUltimaClave = clave;
+
+        // Si lo nuevo es solo un aviso (la jugada ya estaba dibujada), nadie se mueve; en una
+        // sustitución, además, el que entra aparece justo donde estaba el que sale. Si en el mismo
+        // poll llegó una jugada nueva y después un aviso, las fichas sí se acomodan a esa jugada.
+        const claveJugada = jugada ? `${data.match_id}-${jugada.segundos_acumulados ?? jugada.minuto}-${jugada.tipo}` : null;
+        const esAviso = esEventoAviso(evento) && (!jugada || claveJugada === canchaJugadoresUltimaJugadaClave);
+        canchaJugadoresUltimaJugadaClave = claveJugada;
+        const eventoBase = esAviso ? evento : jugada;
+        const esSustitucion = esAviso && evento.tipo === CANCHA_TIPO_SUSTITUCION;
+        const [entraSust, saleSust] = esSustitucion ? (evento.jugadores || []) : [];
+
+        const alineacion = calcularAlineacionEnCancha(data);
+        const fichas = calcularFichasCancha(data, eventoBase, alineacion);
+        const vigentes = new Set();
+
+        fichas.forEach(f => {
+            vigentes.add(f.clave);
+            let el = canchaFichas.get(f.clave);
+            const esNueva = !el;
+            if (esNueva) {
+                el = document.createElement('div');
+                // Entra invisible en su lugar y aparece (sustituto o primer render del partido)
+                el.className = `cancha-jugador cancha-jugador--${f.lado} cancha-jugador--oculto`;
+                const fichaSale = esSustitucion && f.nombre === entraSust ? canchaFichas.get(`${f.lado}|${saleSust}`) : null;
+                if (fichaSale) {
+                    f.x = parseFloat(fichaSale.style.left);
+                    f.y = (parseFloat(fichaSale.style.top) / 100) * 68;
+                }
+                el.style.left = `${f.x}%`;
+                el.style.top = `${(f.y / 68) * 100}%`;
+                canchaJugadoresCapa.appendChild(el);
+                canchaFichas.set(f.clave, el);
+            }
+            el.classList.toggle('cancha-jugador--portero', f.portero);
+            el.textContent = canchaDorsales[f.nombre] ?? '';
+            const posicion = canchaPlantillas[f.nombre] ? ` · ${canchaPlantillas[f.nombre]}` : '';
+            el.title = `${f.nombre}${posicion}`;
+
+            el.classList.remove('cancha-jugador--activo', 'cancha-jugador--secundario', 'cancha-jugador--gol', 'cancha-jugador--amarilla');
+            void el.offsetWidth; // reinicia la animación si el mismo jugador repite protagonismo
+            if (f.rol) el.classList.add(`cancha-jugador--${f.rol}`);
+            const animacion = claseAnimacionFicha(eventoBase.tipo, f.rol);
+            if (animacion) el.classList.add(animacion);
+
+            const aplicarPosicion = () => {
+                el.style.left = `${f.x}%`;
+                el.style.top = `${(f.y / 68) * 100}%`;
+                el.classList.remove('cancha-jugador--oculto');
+            };
+            if (esNueva && esSustitucion) setTimeout(aplicarPosicion, 700); // aparece cuando el que sale ya se fue
+            else if (esNueva) requestAnimationFrame(() => requestAnimationFrame(aplicarPosicion));
+            else if (!esAviso) aplicarPosicion();
+        });
+
+        // Los que ya no están en cancha (sustituidos o expulsados) se desvanecen y salen; si la
+        // salida es justo por la roja de este evento, primero parpadean en rojo.
+        canchaFichas.forEach((el, claveFicha) => {
+            if (vigentes.has(claveFicha)) return;
+            canchaFichas.delete(claveFicha);
+            const nombre = claveFicha.slice(claveFicha.indexOf('|') + 1);
+            const esExpulsionAhora = CANCHA_TIPOS_EXPULSION.has(eventoBase.tipo) && (eventoBase.jugadores || [])[0] === nombre;
+            const retraso = esExpulsionAhora ? 1200 : 0;
+            if (esExpulsionAhora) el.classList.add('cancha-jugador--roja');
+            setTimeout(() => {
+                el.classList.add('cancha-jugador--oculto');
+                setTimeout(() => el.remove(), 500);
+            }, retraso);
+        });
+    }
+
+    // Partido nuevo (otro match_id): se limpian las fichas del anterior para no mezclar planteles
+    function reiniciarJugadoresCanchaSiCambioPartido(matchId) {
+        if (canchaFichas.size && canchaJugadoresCapa && canchaJugadoresCapa.dataset.matchId !== String(matchId)) {
+            canchaFichas.clear();
+            canchaJugadoresCapa.innerHTML = '';
+            canchaJugadoresUltimaClave = null;
+            canchaJugadoresUltimaJugadaClave = null;
+        }
+        if (canchaJugadoresCapa) canchaJugadoresCapa.dataset.matchId = String(matchId);
+    }
 
     // Ubica la etiqueta flotante del jugador siguiendo al balón, pero sin dejar que se corte
     // contra los bordes de la cancha cuando la jugada ocurre cerca de una línea de banda/fondo.
@@ -869,7 +1419,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const ctx = canchaHeatmapCanvas.getContext('2d');
         ctx.clearRect(0, 0, ancho, alto);
 
-        const puntos = (eventos || []).filter(e => e.posicion_balon);
+        // Un aviso (sustitución / árbitro / VAR) no es una jugada: no marca zona de juego
+        const puntos = (eventos || []).filter(e => e.posicion_balon && !esEventoAviso(e));
         if (!puntos.length) return;
 
         // Buffer intermedio en escala de grises: cada evento dibuja un degradado radial suave
@@ -917,6 +1468,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (canchaBalon) canchaBalon.classList.toggle('d-none', esCalor);
         if (canchaTrazos) canchaTrazos.classList.toggle('d-none', esCalor);
         if (canchaEtiquetaJugador) canchaEtiquetaJugador.classList.toggle('d-none', esCalor);
+        if (canchaJugadoresCapa) canchaJugadoresCapa.classList.toggle('d-none', esCalor);
         if (canchaHeatmapCanvas) canchaHeatmapCanvas.classList.toggle('d-none', !esCalor);
         if (btnCanchaModoVivo) btnCanchaModoVivo.classList.toggle('active', !esCalor);
         if (btnCanchaModoCalor) btnCanchaModoCalor.classList.toggle('active', esCalor);
@@ -928,11 +1480,142 @@ document.addEventListener('DOMContentLoaded', function () {
         if (esCalor) renderHeatmap(canchaUltimosEventos);
     }
 
+    // Marcador en cancha (marca de agua): preferencia por visitante en localStorage, envuelta en
+    // try/catch -- si el navegador lo bloquea, el toggle igual funciona, solo no se recuerda.
+    const MARCADOR_CANCHA_STORAGE_KEY = 'liveMatchMarcadorEnCancha';
+    function leerPreferenciaMarcadorCancha() {
+        try { return localStorage.getItem(MARCADOR_CANCHA_STORAGE_KEY) === '1'; } catch (e) { return false; }
+    }
+    function aplicarMarcadorCancha(activo) {
+        if (canchaMarcadorAgua) canchaMarcadorAgua.classList.toggle('d-none', !activo);
+    }
+    if (toggleMarcadorCancha) {
+        toggleMarcadorCancha.checked = leerPreferenciaMarcadorCancha();
+        aplicarMarcadorCancha(toggleMarcadorCancha.checked);
+        toggleMarcadorCancha.addEventListener('change', () => {
+            aplicarMarcadorCancha(toggleMarcadorCancha.checked);
+            try { localStorage.setItem(MARCADOR_CANCHA_STORAGE_KEY, toggleMarcadorCancha.checked ? '1' : '0'); } catch (e) { /* sin persistencia */ }
+        });
+    }
+
+    // Actualiza goles y banderas de la marca de agua; si un número cambia, "late" una vez.
+    function renderMarcadorAgua(data) {
+        if (!canchaMarcadorAgua) return;
+        [['Local', data.goles_local, data.bandera_local], ['Visitante', data.goles_visitante, data.bandera_visitante]].forEach(([lado, goles, bandera]) => {
+            const elGoles = document.getElementById(`canchaAguaGoles${lado}`);
+            const elBandera = document.getElementById(`canchaAguaBandera${lado}`);
+            const texto = String(goles ?? 0);
+            if (elGoles.textContent !== texto) {
+                const esCambio = elGoles.dataset.matchId === String(data.match_id);
+                elGoles.textContent = texto;
+                if (esCambio) {
+                    elGoles.classList.remove('cancha-marcador-agua__goles--cambio');
+                    void elGoles.offsetWidth;
+                    elGoles.classList.add('cancha-marcador-agua__goles--cambio');
+                }
+            }
+            elGoles.dataset.matchId = String(data.match_id);
+            elBandera.textContent = bandera || '🏳️';
+        });
+    }
+
     if (btnCanchaModoVivo) {
         btnCanchaModoVivo.addEventListener('click', () => { canchaModo = 'vivo'; actualizarModoCancha(); });
     }
     if (btnCanchaModoCalor) {
         btnCanchaModoCalor.addEventListener('click', () => { canchaModo = 'calor'; actualizarModoCancha(); });
+    }
+
+    // Sustituciones y decisiones del árbitro / VAR: en vez de tratarlas como jugada (mover el balón
+    // y la etiqueta), se muestra una ventana sobre la cancha con la info del evento. Si se revelan
+    // varias juntas (un mismo poll), se muestran en cola, una detrás de otra.
+    const CANCHA_AVISO_DURACION_MS = 3500;
+    // Al entrar a un partido ya empezado (o recargar), solo se muestran los avisos de los últimos
+    // eventos -- "lo que acaba de pasar", ej. el silbato inicial -- y no todo lo anterior.
+    const CANCHA_AVISO_EVENTOS_RECIENTES = 3;
+    const canchaAvisosVistos = new Set();
+    let canchaAvisosMatchId = null;
+    const canchaAvisosCola = [];
+    let canchaAvisoMostrando = false;
+
+    function claveAviso(ev) {
+        return `${ev.segundos_acumulados ?? ev.minuto}|${ev.tipo}|${ev.equipo}|${(ev.jugadores || []).join('|')}`;
+    }
+
+    function mostrarAvisosNuevos(data) {
+        if (!canchaAviso) return;
+        const eventos = data.eventos || [];
+        const esPrimerRender = canchaAvisosMatchId !== data.match_id;
+        if (esPrimerRender) {
+            canchaAvisosMatchId = data.match_id;
+            canchaAvisosVistos.clear();
+            canchaAvisosCola.length = 0;
+        }
+        const desdeIndice = esPrimerRender ? eventos.length - CANCHA_AVISO_EVENTOS_RECIENTES : 0;
+        eventos.forEach((ev, i) => {
+            if (!esEventoAviso(ev)) return;
+            if (ev.tipo === CANCHA_TIPO_SUSTITUCION && (ev.jugadores || []).length < 2) return;
+            const clave = claveAviso(ev);
+            if (canchaAvisosVistos.has(clave)) return;
+            canchaAvisosVistos.add(clave);
+            if (i >= desdeIndice) canchaAvisosCola.push({ ev, local: data.local, visitante: data.visitante });
+        });
+        if (!canchaAvisoMostrando) mostrarSiguienteAviso();
+    }
+
+    // Arma el contenido de la ventana según el tipo de aviso; devuelve la clase de color.
+    function armarContenidoAviso(ev, local, visitante) {
+        const encabezado = document.getElementById('canchaAvisoEncabezado');
+        const titulo = document.getElementById('canchaAvisoTitulo');
+        const cuerpo = document.getElementById('canchaAvisoCuerpo');
+        const minuto = `${Math.round(ev.minuto)}'`;
+        cuerpo.innerHTML = '';
+
+        if (ev.tipo === CANCHA_TIPO_SUSTITUCION) {
+            const [entra, sale] = ev.jugadores;
+            const conPosicion = nombre => canchaPlantillas[nombre] ? `${nombre} · ${canchaPlantillas[nombre]}` : nombre;
+            encabezado.textContent = ev.equipo || '';
+            titulo.textContent = `🔄 Sustitución · ${minuto}`;
+            [['entra', 'bi-arrow-up-circle-fill', entra], ['sale', 'bi-arrow-down-circle-fill', sale]].forEach(([clase, icono, nombre]) => {
+                const fila = document.createElement('div');
+                fila.className = `cancha-aviso__fila cancha-aviso__fila--${clase}`;
+                fila.innerHTML = `<i class="bi ${icono}"></i><span class="cancha-aviso__dorsal"></span><span class="cancha-aviso__nombre"></span>`;
+                fila.querySelector('.cancha-aviso__dorsal').textContent = canchaDorsales[nombre] ?? '';
+                fila.querySelector('.cancha-aviso__nombre').textContent = conPosicion(nombre);
+                cuerpo.appendChild(fila);
+            });
+            return ev.equipo === local ? 'local' : 'visitante';
+        }
+
+        // Árbitro / VAR: el tipo de evento como título y la descripción del motor como cuerpo (ya
+        // trae el nombre del árbitro, el jugador y el marcador cuando corresponde)
+        const esVar = esEventoVar(ev);
+        const esEquipo = ev.equipo === local || ev.equipo === visitante;
+        encabezado.textContent = esVar ? (esEquipo ? `VAR · ${ev.equipo}` : 'VAR') : 'Árbitro';
+        titulo.textContent = `${ev.tipo} · ${minuto}`;
+        const descripcion = document.createElement('div');
+        descripcion.className = 'cancha-aviso__descripcion';
+        descripcion.textContent = ev.descripcion || '';
+        cuerpo.appendChild(descripcion);
+        return esVar ? 'var' : 'arbitro';
+    }
+
+    function mostrarSiguienteAviso() {
+        const siguiente = canchaAvisosCola.shift();
+        if (!siguiente) { canchaAvisoMostrando = false; return; }
+        canchaAvisoMostrando = true;
+        const { ev, local, visitante } = siguiente;
+        const clase = armarContenidoAviso(ev, local, visitante);
+
+        canchaAviso.classList.remove('cancha-aviso--local', 'cancha-aviso--visitante', 'cancha-aviso--arbitro', 'cancha-aviso--var', 'cancha-aviso--visible');
+        canchaAviso.classList.add(`cancha-aviso--${clase}`);
+        void canchaAviso.offsetWidth; // reinicia la animación de entrada
+        canchaAviso.classList.add('cancha-aviso--visible');
+
+        setTimeout(() => {
+            canchaAviso.classList.remove('cancha-aviso--visible');
+            setTimeout(mostrarSiguienteAviso, 400); // deja terminar la salida antes de la próxima
+        }, CANCHA_AVISO_DURACION_MS);
     }
 
     function renderCancha(data) {
@@ -951,12 +1634,15 @@ document.addEventListener('DOMContentLoaded', function () {
             renderHeatmap(eventos);
         }
 
+        mostrarAvisosNuevos(data);
+
         // Partidos simulados antes de este campo no traen 'posicion_balon' en sus eventos --
         // se busca el más reciente que sí lo tenga; si ninguno lo tiene, el balón se queda en
         // su posición por defecto (centro de la cancha) sin romper nada.
+        // Los avisos se saltean: el balón se queda donde estaba (ver mostrarAvisosNuevos)
         let ultimoConPosicion = null;
         for (let i = eventos.length - 1; i >= 0; i--) {
-            if (eventos[i].posicion_balon) { ultimoConPosicion = eventos[i]; break; }
+            if (eventos[i].posicion_balon && !esEventoAviso(eventos[i])) { ultimoConPosicion = eventos[i]; break; }
         }
         if (!ultimoConPosicion) return;
 
@@ -1230,29 +1916,40 @@ document.addEventListener('DOMContentLoaded', function () {
     // para no arrastrar estado inconsistente si se recarga la página a mitad de partido.
     //
     // EVENTO_PESO_JUGADOR es un primo chico de EVENTO_PESO_MOMENTUM: misma idea (qué tipos de
-    // evento suman/restan mérito), pero reescalado para la escala 3.0-10.0 con base 6.0 de
-    // 'calcular_rating_partido' (services/simular_service.py) -- los pesos de momentum están
-    // pensados para una escala de equipo sin techo real (hasta ±20, con decaimiento) y saturarían
-    // el rating de un jugador con un solo evento si se reusaran tal cual.
+    // evento suman/restan mérito), pero en la escala 3.0-10.0 de 'calcular_rating_partido'
+    // (services/simular_service.py). Pesos calibrados con 40 partidos simulados para que el rating
+    // en vivo al final del partido se acerque al rating real que guarda el motor, por posición
+    // (el motor además cuenta pases, regates y recuperaciones que no generan evento visible, así
+    // que nunca va a coincidir exacto -- solo en promedio y tendencia).
     const EVENTO_PESO_JUGADOR = {
-        '⚽ GOL': 2.2,
-        '⚽ GOL DE PENAL': 2.2,
-        '⚽ GOL DE TIRO LIBRE': 2.2,
-        '⚽ GOL DE CÓRNER': 2.2,
-        '❌ PENAL FALLADO': 1.5,
-        '🧤 ATAJADA ESPECTACULAR': 1.0,
-        '🖐️ DESVÍO A CÓRNER': 0.5,
-        '⚡ REGATE DESTACADO': 0.4,
-        '🧠 ROBO DE BALÓN': 0.35,
-        '🎯 DISPARO DESVIADO': 0.15,
-        '🚩 FUERA DE LUGAR': -0.2,
-        '🛑 FALTA': -0.25,
-        '🟨 TARJETA AMARILLA': -0.8,
+        '⚽ GOL': 1.4,
+        '⚽ GOL DE PENAL': 1.4,
+        '⚽ GOL DE TIRO LIBRE': 1.4,
+        '⚽ GOL DE CÓRNER': 1.4,
+        '❌ PENAL FALLADO': 0.8,  // el protagonista es el arquero que lo atajó (ver ejecutar_penal)
+        '🧤 ATAJADA ESPECTACULAR': 0.3,
+        '🖐️ DESVÍO A CÓRNER': 0.15,
+        '⚡ REGATE DESTACADO': 0.25,
+        '🧠 ROBO DE BALÓN': 0.3,
+        '🎯 DISPARO DESVIADO': 0,  // se lista como acción, pero no mueve el rating (el motor tampoco lo castiga casi)
+        '🚩 FUERA DE LUGAR': -0.05,
+        '🛑 FALTA': -0.15,
+        '🟨 TARJETA AMARILLA': -0.4,
         '🟥 TARJETA ROJA': -3.0,
         '🟨🟥 DOBLE AMARILLA': -3.0,
-        '⚠️ ERROR DE PORTERÍA': -1.2
+        '⚠️ ERROR DE PORTERÍA': -1.0
     };
-    const RATING_BASE = 6.0;
+    // '⚡ EN TRANSICIÓN' (pérdida de balón sin falta, jugadores = [defensor, atacante]) no tiene un
+    // único protagonista: le suma un poco al que recuperó y le resta un poco al que la perdió.
+    // Peso chico a propósito -- pasa decenas de veces por partido, es la acción defensiva más común.
+    const EVENTO_TRANSICION = '⚡ EN TRANSICIÓN';
+    const PESO_RECUPERACION_JUGADOR = 0.04;
+    const PESO_PERDIDA_JUGADOR = -0.08;
+    // Gol recibido: se lo resta al arquero en cancha del equipo que lo recibe (el motor hace lo
+    // mismo con 'goles_encajados'; los penales no cuentan, igual que allá).
+    const TIPOS_GOL_ENCAJADO_PORTERO = new Set(['⚽ GOL', '⚽ GOL DE TIRO LIBRE', '⚽ GOL DE CÓRNER']);
+    const PESO_GOL_ENCAJADO_PORTERO = -0.4;
+    const RATING_BASE = 6.7; // mismo RATING_BASE "partido normal" que calcular_rating_partido
     const RATING_MIN = 3.0;
     const RATING_MAX = 10.0;
     const RATING_MAX_EXPULSADO = 4.5; // mismo tope que calcular_rating_partido para un jugador expulsado
@@ -1284,6 +1981,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const ratings = new Map();
         const acciones = new Map(); // nombre -> [{ tipo, minuto, peso }], en orden cronológico
         const expulsados = new Set();
+        // Arquero en cancha de cada equipo: el titular de línea 1, actualizado si sale de cambio
+        const porteros = {
+            [data.local]: canchaTitularesLocal[canchaLineasLocal.indexOf(1)],
+            [data.visitante]: canchaTitularesVisitante[canchaLineasVisitante.indexOf(1)]
+        };
 
         function onceDe(equipo) {
             if (equipo === data.local) return onceLocal;
@@ -1300,19 +2002,33 @@ document.addEventListener('DOMContentLoaded', function () {
                     once.delete(jugadores[1]);
                     once.add(jugadores[0]);
                 }
+                if (porteros[ev.equipo] === jugadores[1]) porteros[ev.equipo] = jugadores[0];
             } else if ((ev.tipo === '🟥 TARJETA ROJA' || ev.tipo === '🟨🟥 DOBLE AMARILLA') && jugadores.length >= 1) {
                 const once = onceDe(ev.equipo);
                 if (once) once.delete(jugadores[0]);
                 expulsados.add(jugadores[0]);
             }
 
+            function sumarAccion(nombre, tipo, peso) {
+                ratings.set(nombre, (ratings.has(nombre) ? ratings.get(nombre) : RATING_BASE) + peso);
+                if (!acciones.has(nombre)) acciones.set(nombre, []);
+                acciones.get(nombre).push({ tipo, minuto: ev.minuto, peso });
+            }
+
+            if (ev.tipo === EVENTO_TRANSICION && jugadores.length >= 2) {
+                sumarAccion(jugadores[0], '🧹 RECUPERACIÓN', PESO_RECUPERACION_JUGADOR);
+                sumarAccion(jugadores[1], '💨 PÉRDIDA DE BALÓN', PESO_PERDIDA_JUGADOR);
+                return;
+            }
+
+            if (TIPOS_GOL_ENCAJADO_PORTERO.has(ev.tipo)) {
+                const rival = ev.equipo === data.local ? data.visitante : data.local;
+                if (porteros[rival]) sumarAccion(porteros[rival], '🥅 GOL RECIBIDO', PESO_GOL_ENCAJADO_PORTERO);
+            }
+
             const protagonista = jugadores[0];
             const peso = protagonista ? EVENTO_PESO_JUGADOR[ev.tipo] : undefined;
-            if (peso !== undefined) {
-                ratings.set(protagonista, (ratings.has(protagonista) ? ratings.get(protagonista) : RATING_BASE) + peso);
-                if (!acciones.has(protagonista)) acciones.set(protagonista, []);
-                acciones.get(protagonista).push({ tipo: ev.tipo, minuto: ev.minuto, peso });
-            }
+            if (peso !== undefined) sumarAccion(protagonista, ev.tipo, peso);
         });
 
         function filaDe(nombre) {
@@ -1431,12 +2147,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const idAcciones = `once-acciones-${lado}-${slugJugador(jugador.nombre)}`;
         const expandido = jugadoresExpandidos.has(jugador.nombre);
         const posicionTexto = jugador.posicion ? ` <span class="text-muted">· ${jugador.posicion}</span>` : '';
+        // Mismo dorsal y color de equipo que su ficha en la cancha, para ubicarlo de un vistazo
+        const dorsal = canchaDorsales[jugador.nombre];
+        const dorsalHtml = dorsal != null ? `<span class="once-dorsal once-dorsal--${lado}">${dorsal}</span>` : '';
 
         const accionesHtml = jugador.acciones.length
             ? jugador.acciones.slice().reverse().map(a => {
                 const signo = a.peso > 0 ? '+' : '';
                 const clase = a.peso > 0 ? 'text-success' : (a.peso < 0 ? 'text-danger' : 'text-muted');
-                return `<div class="${clase}">${signo}${a.peso.toFixed(1)} &nbsp;${a.tipo} &nbsp;<span class="text-muted">· ${Math.round(a.minuto)}'</span></div>`;
+                return `<div class="${clase}">${signo}${a.peso.toFixed(2)} &nbsp;${a.tipo} &nbsp;<span class="text-muted">· ${Math.round(a.minuto)}'</span></div>`;
             }).join('')
             : '<div class="text-muted fst-italic">Todavía no tiene acciones que hayan afectado su rendimiento.</div>';
 
@@ -1444,7 +2163,9 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="d-flex justify-content-between align-items-center py-1 px-3" style="cursor:pointer;"
                  data-bs-toggle="collapse" data-bs-target="#${idAcciones}"
                  aria-expanded="${expandido}" aria-controls="${idAcciones}">
-                <span class="text-truncate">${jugador.nombre}${posicionTexto}</span>
+                <span class="d-flex align-items-center gap-2" style="min-width: 0;">
+                    ${dorsalHtml}<span class="text-truncate">${jugador.nombre}${posicionTexto}</span>
+                </span>
                 <span class="d-flex align-items-center gap-1">
                     <span class="badge rounded-pill ${claseBadgeRating(jugador.rating)}">${jugador.rating.toFixed(1)}</span>
                     <i class="bi bi-chevron-down text-muted" style="font-size:.65rem;"></i>
@@ -1656,10 +2377,13 @@ document.addEventListener('DOMContentLoaded', function () {
         nombreLocal.textContent = data.local;
         nombreVisitante.textContent = data.visitante;
         marcador.textContent = `${data.goles_local} - ${data.goles_visitante}`;
+        renderMarcadorAgua(data);
         minutoActual.textContent = `${data.minuto_actual}'`;
         renderEventos(data.eventos);
         await actualizarPlantillasSiCorresponde(data.match_id);
         renderCancha(data);
+        reiniciarJugadoresCanchaSiCambioPartido(data.match_id);
+        renderJugadoresCancha(data);
         renderJugadoresEnCancha(data);
         actualizarInfoPartido(data);
         await actualizarTablaGrupoSiCorresponde(data);

@@ -34,6 +34,7 @@ from config.settings import MONGODB_URI
 from services.juegos_service import obtener_juego_activo, simular_y_registrar_resultado, aplicar_efectos_secundarios
 from services.clasificacion_service import obtener_tabla_grupo_de_equipo
 from services.fecha_service import formatear_fecha_es
+from services.simular_service import FORMACIONES
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -349,12 +350,22 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
     posiciones_por_id = {
         p["id"]: p.get("siglas", "") for p in db["posiciones"].find({}, {"id": 1, "siglas": 1})
     }
-    jugadores = db["jugadores"].find(
-        {"pais_id": {"$in": [id_local, id_visita]}}, {"nombre": 1, "posicion_id": 1}
-    )
+    jugadores = list(db["jugadores"].find(
+        {"pais_id": {"$in": [id_local, id_visita]}}, {"nombre": 1, "posicion_id": 1, "numero": 1}
+    ))
     resultado = juego.get("resultado") or {}
+    # Táctica persistida por registrar_resultado_juego; el 11 titular viene en el orden de
+    # FORMACIONES[tactica] (ver seleccionar_plantilla_titular), así que la línea de cada titular
+    # (1 POR, 2 DEF, 3 MED, 4 DEL) es la del mismo índice en esa formación.
+    tactica_local = (juego.get("equipo_local") or {}).get("tactica") or "4-3-3"
+    tactica_visitante = (juego.get("equipo_visitante") or {}).get("tactica") or "4-3-3"
     return {
         "jugadores": {j["nombre"]: posiciones_por_id.get(j.get("posicion_id"), "") for j in jugadores},
+        "dorsales": {j["nombre"]: j.get("numero") for j in jugadores if j.get("numero") is not None},
         "titulares_local": resultado.get("titulares_local", []),
         "titulares_visitante": resultado.get("titulares_visitante", []),
+        "tactica_local": tactica_local,
+        "tactica_visitante": tactica_visitante,
+        "lineas_local": FORMACIONES.get(tactica_local, FORMACIONES["4-3-3"]),
+        "lineas_visitante": FORMACIONES.get(tactica_visitante, FORMACIONES["4-3-3"]),
     }

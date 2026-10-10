@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -6,7 +6,7 @@ from config.settings import PREFIX_HOME_PATH
 from services.mundial_service import crear_nuevo_mundial, restart_mundial, get_data_dashboard_stats, obtener_ordinal_mundial_actual, formatear_ordinal_torneo
 from services.juegos_service import get_data_dashboard_last_games, get_data_fase_actual_dashboard, get_data_clasificados_mundial, formatear_numero_compacto, ICONO_ESTADO_ANIMO
 from services.confederacion_service import get_data_confederaciones_dashboard
-from services.auth_service import context_usuario_actual
+from services.auth_service import context_usuario_actual, requiere_permiso
 import logging
 import uuid
 
@@ -55,7 +55,9 @@ async def inicio(request: Request):
         }
     )
 
-@route.get("/restart", name="home_restart")
+# POST (antes GET: cualquier link o prefetch podía borrar el torneo) y solo con permiso
+# 'reiniciar_torneo' -- borra torneo, partidos y saldos (ver mundial_service.restart_mundial).
+@route.post("/restart", name="home_restart", dependencies=[Depends(requiere_permiso("reiniciar_torneo"))])
 async def reinicio(request: Request):
     # limpieza de tablas
     restart_mundial()

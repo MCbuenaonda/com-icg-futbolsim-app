@@ -1,0 +1,43 @@
+{#
+  Resumen del historial entre dos selecciones (services/cara_a_cara_service.py::obtener_cara_a_cara).
+  Espera la variable 'h2h'. Lo usan /cara-a-cara/ y el Scouter pre-partido.
+#}
+<div class="stat-card p-3 p-md-4">
+    <div class="row align-items-center text-center g-2">
+        <div class="col-4">
+            <div class="fs-1">{{ h2h.a.bandera }}</div>
+            <div class="fw-bold text-white text-truncate" title="{{ h2h.a.nombre }}">{{ h2h.a.nombre }}</div>
+            <div class="display-6 fw-bold text-accent">{{ h2h.a.ganados }}</div>
+            <small class="text-muted">victorias</small>
+        </div>
+        <div class="col-4">
+            <div class="text-muted small text-uppercase">{{ h2h.total }} partido{{ 's' if h2h.total != 1 }}</div>
+            <div class="display-6 fw-bold text-white">{{ h2h.empates }}</div>
+            <small class="text-muted">empates</small>
+            <div class="small mt-2 text-muted">Goles {{ h2h.a.goles }} - {{ h2h.b.goles }}</div>
+        </div>
+        <div class="col-4">
+            <div class="fs-1">{{ h2h.b.bandera }}</div>
+            <div class="fw-bold text-white text-truncate" title="{{ h2h.b.nombre }}">{{ h2h.b.nombre }}</div>
+            <div class="display-6 fw-bold text-danger">{{ h2h.b.ganados }}</div>
+            <small class="text-muted">victorias</small>
+        </div>
+    </div>
+    <div class="progress mt-3" style="height: 10px;" role="img"
+         aria-label="{{ h2h.a.nombre }} {{ h2h.pct_a }}%, empate {{ h2h.pct_empate }}%, {{ h2h.b.nombre }} {{ h2h.pct_b }}%">
+        <div class="progress-bar bg-accent" style="width: {{ h2h.pct_a }}%"></div>
+        <div class="progress-bar bg-secondary" style="width: {{ h2h.pct_empate }}%"></div>
+        <div class="progress-bar bg-danger" style="width: {{ h2h.pct_b }}%"></div>
+    </div>
+    {% if h2h.ultimos %}
+    <div class="d-flex justify-content-center align-items-center gap-1 mt-3 flex-wrap">
+        <small class="text-muted me-1">Últimos:</small>
+        {% for p in h2h.ultimos %}
+        {% set r = 'G' if p.ganador_id == h2h.a.id else ('P' if p.ganador_id == h2h.b.id else 'E') %}
+        <a href="/juegos/{{ p.id }}" class="badge rounded-pill text-decoration-none {{ 'bg-accent' if r == 'G' else ('bg-danger' if r == 'P' else 'bg-secondary') }}"
+           title="{{ p.local.nombre }} {{ p.local.goles }}-{{ p.visitante.goles }} {{ p.visitante.nombre }}">{{ r }}</a>
+        {% endfor %}
+        <small class="text-muted ms-1">(desde {{ h2h.a.nombre }})</small>
+    </div>
+    {% endif %}
+</div>

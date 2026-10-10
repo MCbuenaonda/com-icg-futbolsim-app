@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from bson.errors import InvalidId
 from schemas.ownership_schema import SeleccionMercadoOut, InversionOut
 from services.ownership_service import obtener_mercado, buy_team, sell_team, obtener_portafolio
-from services.auth_service import obtener_usuario_actual, context_usuario_actual
+from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
@@ -80,8 +80,9 @@ async def sell(request: Request, pais_id: int):
 
 
 @route.get("/my-portfolio/{user_id}", response_model=List[InversionOut], name="ownership_portfolio")
-async def my_portfolio(user_id: str):
+async def my_portfolio(user_id: str, request: Request):
     """Selecciones activas del usuario, con valor de compra, valor actual y plusvalía."""
+    exigir_mismo_usuario_o_admin(request, user_id)
     try:
         return obtener_portafolio(user_id)
     except InvalidId:

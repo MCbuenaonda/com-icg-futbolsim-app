@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Palmarés - FutbolSim{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-trophy text-accent me-2"></i>Palmarés</h1>
+    <p class="text-muted mb-0">Archivo de todos los Mundiales simulados: campeones, finales y goleadores.</p>
+</div>
+
+<div class="row g-4">
+    <!-- Ediciones -->
+    <div class="col-12 col-xl-8">
+        <div class="d-flex flex-column gap-3">
+            {% for e in palmares.ediciones %}
+            <div class="stat-card p-3 {{ 'border-accent' if e.activo }}">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                    <div>
+                        <h2 class="h5 fw-bold text-white mb-0">Mundial {{ e.anio }}
+                            {% if e.activo %}<span class="badge bg-danger ms-1 align-middle">En curso</span>{% endif %}</h2>
+                        <small class="text-muted">Sede: {{ e.sede.bandera if e.sede }} {{ e.sede.nombre if e.sede else '—' }}
+                            · {{ e.partidos }} partidos · {{ e.goles }} goles (prom. {{ e.promedio_goles }})</small>
+                    </div>
+                    {% if e.campeon %}
+                    <div class="text-end">
+                        <small class="text-muted d-block">Campeón</small>
+                        <span class="fs-5 fw-bold text-accent">🏆 {{ e.campeon.bandera }} {{ e.campeon.nombre }}</span>
+                    </div>
+                    {% elif e.activo %}
+                    <span class="badge bg-secondary">{{ e.fase_actual or 'Por comenzar' }}</span>
+                    {% endif %}
+                </div>
+                <div class="row g-2 small">
+                    <div class="col-12 col-md-4">
+                        <div class="surface-soft p-2 h-100">
+                            <span class="text-muted d-block">🥈 Subcampeón</span>
+                            <span class="fw-semibold">{{ (e.finalista.bandera ~ ' ' ~ e.finalista.nombre) if e.finalista else 'Por definir' }}</span>
+                            {% if e.marcador_final %}<a href="/juegos/{{ e.id_final }}" class="d-block text-muted">Final: {{ e.marcador_final }}</a>{% endif %}
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="surface-soft p-2 h-100">
+                            <span class="text-muted d-block">🥉 Tercer puesto</span>
+                            <span class="fw-semibold">{{ (e.tercero.bandera ~ ' ' ~ e.tercero.nombre) if e.tercero else 'Por definir' }}</span>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="surface-soft p-2 h-100">
+                            <span class="text-muted d-block">👟 Goleador{{ ' (hasta ahora)' if e.activo }}</span>
+                            {% if e.goleador %}
+                            <span class="fw-semibold">{{ e.goleador.nombre }}</span> <span class="text-muted">({{ e.goleador.equipo }}) · {{ e.goleador.goles }} goles</span>
+                            {% else %}<span class="fw-semibold">—</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="stat-card p-5 text-center text-muted">Todavía no hay mundiales registrados.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Títulos por país -->
+    <div class="col-12 col-xl-4">
+        <div class="stat-card p-3">
+            <h2 class="h6 text-uppercase text-secondary fw-bold mb-3">🏆 Títulos por selección</h2>
+            {% if palmares.tabla_titulos %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr class="small text-muted"><th>#</th><th>Selección</th><th class="text-center">Títulos</th><th class="text-center">Finales</th></tr></thead>
+                    <tbody>
+                        {% for f in palmares.tabla_titulos %}
+                        <tr>
+                            <td class="text-muted">{{ loop.index }}</td>
+                            <td>{{ f.bandera }} {{ f.nombre }}</td>
+                            <td class="text-center fw-bold text-accent">{{ f.titulos }}</td>
+                            <td class="text-center">{{ f.finales }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted small mb-0">Ningún Mundial terminó todavía: el primer campeón aparecerá acá cuando se juegue la Gran Final.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

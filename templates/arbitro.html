@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}{{ nombre }} - Árbitros{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('arbitros') }}" class="btn btn-outline-secondary btn-sm mb-3"><i class="bi bi-arrow-left me-1"></i>Volver a Árbitros</a>
+
+{% if not arbitro %}
+<div class="stat-card p-5 text-center text-muted">No hay partidos registrados para «{{ nombre }}».</div>
+{% else %}
+{% set c = arbitro.central %}
+<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+    <div class="stat-icon">🧑‍⚖️</div>
+    <div>
+        <h1 class="h2 fw-bold text-white mb-0">{{ arbitro.nombre }}</h1>
+        <p class="text-muted mb-0">{{ arbitro.pais or 'País desconocido' }}{% if arbitro.puesto %} · {{ arbitro.puesto }}{% endif %} · {{ arbitro.total_partidos }} partido{{ 's' if arbitro.total_partidos != 1 }}</p>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100 text-center">
+        <small class="text-secondary text-uppercase fw-semibold">Como central</small>
+        <div class="display-6 fw-bold text-white">{{ c.partidos }}</div><small class="text-muted">partidos</small>
+    </div></div>
+    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100 text-center">
+        <small class="text-secondary text-uppercase fw-semibold">Faltas por partido</small>
+        <div class="display-6 fw-bold text-white">{{ c.faltas_prom }}</div><small class="text-muted">{{ c.faltas }} en total</small>
+    </div></div>
+    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100 text-center">
+        <small class="text-secondary text-uppercase fw-semibold">Tarjetas por partido</small>
+        <div class="display-6 fw-bold text-warning">{{ c.tarjetas_prom }}</div><small class="text-muted">{{ c.tarjetas }} en total · {{ c.expulsiones }} expulsión{{ 'es' if c.expulsiones != 1 }}</small>
+    </div></div>
+    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100">
+        <small class="text-secondary text-uppercase fw-semibold d-block text-center">Resultados que dirigió</small>
+        {% if c.partidos %}
+        <div class="progress mt-3" style="height: 18px;" role="img" aria-label="Local {{ c.pct_gana_local }}%, empate {{ c.pct_empate }}%, visitante {{ c.pct_gana_visitante }}%">
+            <div class="progress-bar bg-primary" style="width: {{ c.pct_gana_local }}%">{{ c.pct_gana_local }}%</div>
+            <div class="progress-bar bg-secondary" style="width: {{ c.pct_empate }}%">{{ c.pct_empate }}%</div>
+            <div class="progress-bar bg-danger" style="width: {{ c.pct_gana_visitante }}%">{{ c.pct_gana_visitante }}%</div>
+        </div>
+        <div class="d-flex justify-content-between small text-muted mt-1"><span>Local</span><span>Empate</span><span>Visitante</span></div>
+        {% else %}<p class="text-muted small text-center mt-3 mb-0">Nunca fue central.</p>{% endif %}
+    </div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-lg-4">
+        <div class="stat-card p-3">
+            <h2 class="h6 text-uppercase text-secondary fw-bold mb-3">Partidos por rol</h2>
+            {% for r in arbitro.por_rol %}
+            <div class="d-flex justify-content-between py-1 border-bottom border-secondary border-opacity-25">
+                <span>{{ r.rol }}</span><span class="fw-bold">{{ r.partidos }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-12 col-lg-8">
+        <div class="stat-card p-3">
+            <h2 class="h6 text-uppercase text-secondary fw-bold mb-3">Partidos dirigidos</h2>
+            {% for p in arbitro.partidos %}
+            <a href="/juegos/{{ p.id }}" class="d-block text-decoration-none text-reset surface-soft p-2 px-3 mb-2">
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                    <span class="text-truncate">{{ p.local.bandera }} {{ p.local.nombre }}</span>
+                    <span class="fw-bold text-nowrap">{{ p.local.goles }} - {{ p.visitante.goles }}</span>
+                    <span class="text-truncate text-end">{{ p.visitante.nombre }} {{ p.visitante.bandera }}</span>
+                </div>
+                <small class="text-muted">{{ p.fase }} · {{ p.fecha }} · <span class="{{ 'text-accent' if p.es_central }}">{{ p.rol }}</span>{% if p.es_central %} · {{ p.faltas }} faltas · {{ p.tarjetas }} tarjetas{% endif %}</small>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

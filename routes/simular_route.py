@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -6,7 +6,7 @@ from pymongo.mongo_client import MongoClient
 from config.settings import PREFIX_SIMULADOR_PATH, MONGODB_URI
 from services.juegos_service import obtener_juego_activo, obtener_ultimo_partido, obtener_resultado_equipo, calcular_asistencia, generar_clima_partido, guardar_aforo_clima_juego, obtener_marcador_ida_grupo_dos_equipos, obtener_historial_enfrentamientos, ejecutar_simulacion_completa, resaltar_jugadores_en_descripcion
 from services.international_service import get_pais_internacional
-from services.auth_service import context_usuario_actual, obtener_usuario_actual
+from services.auth_service import context_usuario_actual, requiere_permiso, obtener_usuario_actual
 from services.quinielas_service import contar_selecciones_pendientes_usuario
 from services.match_badges_service import obtener_marcas_partido
 from services.fecha_service import formatear_fecha_es
@@ -54,6 +54,12 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
     # validamos si es el juego activo
     partido_sel, juego_activo = obtener_juego_activo(id)
 
+    # Un partido ya jugado tiene una sola vista: el resumen (/juegos/{id}). Antes este mismo
+    # partido se veía distinto según se entrara por acá o por el resumen. Esta vista queda para
+    # "antes de jugar" y para el resultado recién simulado (/simulador/simular).
+    if partido_sel and partido_sel.get("estado") == "finalizado":
+        return RedirectResponse(url=f"/juegos/{id}", status_code=303)
+
     # validar si el juego ya tiene aforo/clima calculados; si no, generarlos y persistirlos
     if juego_activo and ('aforo' not in partido_sel or 'clima' not in partido_sel):
         aforo = calcular_asistencia(partido_sel["fase_id"], partido_sel["equipo_local"]["rankin"], partido_sel["equipo_visitante"]["rankin"])
@@ -76,7 +82,7 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
         "id_local": id_local,
         "id_visita": id_visita,
         "activo": juego_activo,
-        "ubicaion": partido_sel["ubicacion"],
+        "ubicacion": partido_sel["ubicacion"],
         "fecha": partido_sel["fecha"],
         "hora": partido_sel["hora"],
         "tag": partido_sel["tag"],
@@ -128,7 +134,8 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
     )
 
 # endpoint para simular un partido de fútbol
-@route.get("/simular", response_class=HTMLResponse)
+# Simula y PERSISTE el partido (avanza el torneo): solo con permiso 'simular_partidos'.
+@route.get("/simular", response_class=HTMLResponse, dependencies=[Depends(requiere_permiso("simular_partidos"))])
 async def simular(request: Request, id: str, id_local: int, id_visita: int, tiempo_extra: bool = False):
     # Todo el motor + los efectos secundarios (jugadores, país, aficionados, quinielas,
     # selecciones/ownership, fantasy, sedes, ranking, avance de fase) vive en

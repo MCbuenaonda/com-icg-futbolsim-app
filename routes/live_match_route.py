@@ -1,9 +1,9 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from schemas.live_match_schema import StartAutoSimulationResponse, StartedMatchOut, LiveMatchOut, TablaGrupoOut, PlantillasLiveOut
 from services.live_match_service import iniciar_simulacion_automatica, obtener_estado_live, obtener_tabla_grupo_partido_en_vivo, obtener_posiciones_plantillas_en_vivo
-from services.auth_service import obtener_usuario_actual, context_usuario_actual
+from services.auth_service import obtener_usuario_actual, context_usuario_actual, requiere_permiso
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
@@ -35,7 +35,8 @@ def _serializar_started_match(juego: dict) -> StartedMatchOut:
     )
 
 
-@route.post("/simulate-next-auto", response_model=StartAutoSimulationResponse, name="matches_simulate_next_auto")
+@route.post("/simulate-next-auto", response_model=StartAutoSimulationResponse, name="matches_simulate_next_auto",
+            dependencies=[Depends(requiere_permiso("simular_partidos"))])
 async def simulate_next_auto(request: Request):
     """
     Busca el próximo partido pendiente ('creado'), lo simula y persiste el resultado (motor +

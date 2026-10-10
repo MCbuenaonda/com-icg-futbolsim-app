@@ -1,0 +1,36 @@
+{#
+  Macros compartidos de la interfaz. Uso: {% import "partials/macros.html" as m %} y luego
+  {{ m.bandera(pais.bandera) }}, {{ m.badge_confederacion(pais.confederacion) }},
+  {{ m.estado_vacio('bi-inbox', 'Título', 'Texto opcional') }}.
+#}
+
+{# Bandera de un país: emoji, ícono de Bootstrap ('bi-...') o un ícono genérico si falta #}
+{% macro bandera(valor) -%}
+{%- if valor -%}
+  {%- if valor.startswith('bi-') %}<i class="bi {{ valor }}" aria-hidden="true"></i>{% else %}{{ valor }}{% endif -%}
+{%- else -%}<i class="bi bi-flag-fill text-secondary" aria-hidden="true"></i>{%- endif -%}
+{%- endmacro %}
+
+{# Badge de confederación con un color fijo por confederación (mismo criterio en todo el sitio) #}
+{% macro badge_confederacion(nombre, extra='') -%}
+{%- set colores = {
+    'CONMEBOL': 'bg-info-subtle text-info-emphasis border-info-subtle',
+    'UEFA': 'bg-primary-subtle text-primary-emphasis border-primary-subtle',
+    'CONCACAF': 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
+    'CAF': 'bg-success-subtle text-success-emphasis border-success-subtle',
+    'AFC': 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
+    'OFC': 'bg-secondary-subtle text-secondary-emphasis border-secondary-subtle',
+} -%}
+<span class="badge border {{ colores.get(nombre, 'bg-secondary-subtle text-secondary-emphasis border-secondary-subtle') }} {{ extra }}">{{ nombre }}</span>
+{%- endmacro %}
+
+{# Estado vacío: ícono grande + título + texto, centrado #}
+{% macro estado_vacio(icono, titulo, texto='') -%}
+<div class="text-center py-5">
+    <div class="p-4 bg-body-tertiary rounded-4 border d-inline-block">
+        <i class="bi {{ icono }} text-muted fs-1 d-block mb-2" aria-hidden="true"></i>
+        <h5 class="fw-bold text-body-emphasis mb-1">{{ titulo }}</h5>
+        {% if texto %}<p class="text-muted mb-0">{{ texto }}</p>{% endif %}
+    </div>
+</div>
+{%- endmacro %}

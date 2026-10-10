@@ -357,7 +357,7 @@ def simular_y_registrar_resultado(juego_id: str, id_local: int, id_visita: int, 
     # trae los datos calculados del PARTIDO EN SÍ (goles, eventos, tácticas, etc.), no estos
     # campos de calendario/torneo, que solo existen en 'juegos' (juego_doc).
     if juego_doc:
-        partido["ubicaion"] = juego_doc.get("ubicacion")
+        partido["ubicacion"] = juego_doc.get("ubicacion")
         partido["aforo"] = juego_doc.get("aforo")
         partido["clima"] = clima
         partido["fecha"] = juego_doc.get("fecha")

@@ -1,0 +1,63 @@
+/* Juego en Vivo: selector de país/riesgo (static/js/juego_en_vivo_selector.js, usado en
+   /juegos y en /en-vivo/) y panel de juego de /en-vivo/. */
+.jev-equipos { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.jev-equipo {
+    border: 2px solid rgba(128, 128, 128, .25);
+    border-radius: .75rem;
+    padding: .75rem .5rem;
+    text-align: center;
+    cursor: pointer;
+    background: transparent;
+    color: inherit;
+    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+    min-width: 0;
+}
+.jev-equipo:hover:not(:disabled) { transform: translateY(-2px); }
+.jev-equipo.jev-equipo--activo { border-color: #198754; box-shadow: 0 0 0 .2rem rgba(25, 135, 84, .25); }
+.jev-equipo:disabled { cursor: not-allowed; opacity: .6; }
+.jev-equipo__bandera { font-size: 2.2rem; line-height: 1.1; }
+.jev-equipo__nombre { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jev-equipo__cuota { font-size: 1.15rem; font-weight: 800; }
+.jev-riesgos { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; }
+.jev-riesgo { font-weight: 700; line-height: 1.1; padding: .4rem .25rem; }
+.jev-riesgo small { display: block; font-weight: 500; font-size: .68rem; opacity: .85; }
+.jev-aviso-riesgo { font-size: .78rem; }
+@media (max-width: 576px) {
+    .jev-riesgos { grid-template-columns: repeat(2, 1fr); }
+    .jev-equipo__bandera { font-size: 1.8rem; }
+}
+
+/* Panel de /en-vivo/ */
+.jev-saldo { font-size: 2.4rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; transition: color .3s ease; }
+.jev-saldo--sube { animation: jev-sube .9s ease; }
+.jev-saldo--baja { animation: jev-baja .9s ease; }
+@keyframes jev-sube { 0% { transform: scale(1); } 30% { transform: scale(1.12); color: #3ecf74; } 100% { transform: scale(1); } }
+@keyframes jev-baja { 0% { transform: scale(1); } 30% { transform: scale(0.92); color: #e66767; } 100% { transform: scale(1); } }
+.jev-multiplicador { font-size: 1.1rem; font-weight: 800; }
+.jev-multiplicador--alto { box-shadow: 0 0 0 .2rem rgba(253, 126, 20, .35); }
+.jev-multiplicador--extremo { box-shadow: 0 0 0 .2rem rgba(220, 53, 69, .45); animation: jev-pulso 1.4s ease-in-out infinite; }
+@keyframes jev-pulso { 50% { box-shadow: 0 0 0 .35rem rgba(220, 53, 69, .15); } }
+.jev-feed { max-height: 220px; overflow-y: auto; font-size: .82rem; }
+.jev-feed__item { display: flex; justify-content: space-between; gap: .5rem; padding: .25rem 0; border-bottom: 1px solid rgba(128, 128, 128, .15); }
+.jev-feed__item:last-child { border-bottom: 0; }
+.jev-feed__texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.jev-feed__puntos { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.jev-toasts { position: fixed; right: 16px; bottom: 16px; z-index: 1080; display: flex; flex-direction: column; gap: .5rem; max-width: min(340px, calc(100vw - 32px)); }
+.jev-toast {
+    padding: .55rem .8rem; border-radius: .6rem; color: #fff; font-size: .85rem; font-weight: 600;
+    background: rgba(12, 16, 22, .94); border-left: 4px solid #6c757d; box-shadow: 0 6px 18px rgba(0, 0, 0, .4);
+    animation: jev-toast-entra .3s ease;
+}
+.jev-toast--positivo { border-left-color: #3ecf74; }
+.jev-toast--negativo { border-left-color: #e66767; }
+@keyframes jev-toast-entra { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.jev-grafico { position: relative; height: 170px; }
+.jev-resumen-cifra { font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* Naranja propio para el riesgo x2: el tema del sitio (static/css/styles.css) pinta
+   .bg-warning/.text-warning de verde, y "riesgo alto" tiene que verse como advertencia. */
+.jev-btn-x2 { color: #fd9a3c; border: 1px solid #fd9a3c; background: transparent; }
+.jev-btn-x2:hover:not(:disabled), .jev-btn-x2.jev-btn-x2--activo { background: #fd7e14; border-color: #fd7e14; color: #000; }
+.jev-badge-x2 { background-color: #fd7e14 !important; color: #000 !important; }
+.jev-texto-x2 { color: #fd9a3c !important; }
+.jev-badge-underdog { background-color: #0dcaf0 !important; color: #000 !important; }

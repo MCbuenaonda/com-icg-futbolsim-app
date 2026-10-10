@@ -1,14 +1,14 @@
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi import APIRouter, HTTPException, Request, Query, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from bson.errors import InvalidId
 from schemas.venue_schema import SedeOut, CiudadDisponibleOut
 from services.venue_service import (
-    obtener_ciudades_disponibles, buscar_ciudades_directorio,
+    obtener_ciudades_disponibles, buscar_ciudades_directorio, contar_ciudades_directorio,
     buy_city_venue, sell_city_venue, obtener_portafolio_sedes
 )
-from services.auth_service import obtener_usuario_actual, context_usuario_actual
+from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
@@ -71,8 +71,9 @@ async def sell(request: Request, ciudad_id: int):
 
 
 @route.get("/my-portfolio/{user_id}", response_model=List[SedeOut], name="venues_portfolio")
-async def my_portfolio(user_id: str):
+async def my_portfolio(user_id: str, request: Request):
     """Sedes activas del usuario, con partidos alojados y ganancias totales."""
+    exigir_mismo_usuario_o_admin(request, user_id)
     try:
         return obtener_portafolio_sedes(user_id)
     except InvalidId:
@@ -80,7 +81,9 @@ async def my_portfolio(user_id: str):
 
 
 @route.get("/buscar", response_model=List[CiudadDisponibleOut], name="venues_buscar")
-async def buscar(request: Request, q: str = Query("", description="Texto a buscar por ciudad o país"), limite: int = Query(50, le=200)):
+async def buscar(request: Request, response: Response, q: str = Query("", description="Texto a buscar por ciudad o país"),
+                 limite: int = Query(50, le=200), estado: str = Query("", description="'', disponible, mias u ocupada"),
+                 saltar: int = Query(0, ge=0, description="Cuántos resultados saltear (paginación)")):
     """
     Endpoint adicional (no pedido explícitamente) que alimenta el buscador de la
     vista de Directorio: con >4000 ciudades no es viable mandarlas todas al
@@ -89,7 +92,9 @@ async def buscar(request: Request, q: str = Query("", description="Texto a busca
     """
     usuario = obtener_usuario_actual(request)
     usuario_id = usuario["_id"] if usuario else None
-    return buscar_ciudades_directorio(q, usuario_id, limite)
+    # Total de coincidencias en un header, para "Mostrando N de TOTAL" sin cambiar el contrato de la respuesta
+    response.headers["X-Total-Count"] = str(contar_ciudades_directorio(q, usuario_id, estado))
+    return buscar_ciudades_directorio(q, usuario_id, limite, estado, saltar)
 
 
 # ==========================================================================
@@ -102,11 +107,12 @@ async def directorio_vista(request: Request):
         return RedirectResponse(url=request.url_for("login"), status_code=303)
 
     ciudades = buscar_ciudades_directorio("", usuario["_id"], limite=50)
+    total = contar_ciudades_directorio("", usuario["_id"])
 
     return templates.TemplateResponse(
         request=request,
         name="directorio_sedes.html",
-        context={"ciudades": ciudades}
+        context={"ciudades": ciudades, "total_ciudades": total}
     )
 
 

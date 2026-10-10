@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Cuadro de Eliminación - FutbolSim{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Cuadro: una columna por ronda; las llaves se reparten verticalmente (space-around) para
+       que cada una quede a la altura de las dos que la alimentan. Scroll horizontal en celular. */
+    .cuadro-scroll { overflow-x: auto; padding-bottom: .5rem; }
+    .cuadro { display: flex; gap: 1rem; min-width: 1080px; }
+    .cuadro-ronda { flex: 1 1 0; display: flex; flex-direction: column; min-width: 190px; }
+    .cuadro-ronda-titulo { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 700; text-align: center; margin-bottom: .5rem; }
+    .cuadro-llaves { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: .5rem; }
+    .llave { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: .5rem; padding: .35rem .5rem; font-size: .8rem; }
+    .llave a { color: inherit; text-decoration: none; }
+    .llave--pendiente { border-style: dashed; color: var(--text-muted); }
+    .llave-equipo { display: flex; justify-content: space-between; gap: .4rem; padding: .1rem 0; }
+    .llave-equipo span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .llave-equipo--ganador { font-weight: 700; color: var(--green-neon); }
+    .llave-meta { font-size: .65rem; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-diagram-3 text-accent me-2"></i>Cuadro de Eliminación{% if cuadro.anio %} · Mundial {{ cuadro.anio }}{% endif %}</h1>
+        <p class="text-muted mb-0">De 16vos a la Gran Final. Las llaves sin jugar muestran de dónde sale cada rival.</p>
+    </div>
+    {% if cuadro.campeon %}
+    <div class="stat-card px-3 py-2 d-flex align-items-center gap-2 border-accent">
+        <span class="fs-2">🏆</span>
+        <div><small class="text-muted d-block">Campeón</small><span class="fw-bold text-accent">{{ cuadro.campeon.bandera }} {{ cuadro.campeon.nombre }}</span></div>
+    </div>
+    {% endif %}
+</div>
+
+{% if not cuadro.hay_datos %}
+<div class="alert alert-info d-flex align-items-center gap-2">
+    <i class="bi bi-hourglass-split"></i>
+    <span>La eliminación directa todavía no empezó: el cuadro se completa a medida que se juegan los 16vos de final.</span>
+</div>
+{% endif %}
+
+{% macro equipo_llave(equipo, ganador_id, pendiente_texto=None) %}
+<div class="llave-equipo {{ 'llave-equipo--ganador' if ganador_id is not none and equipo and equipo.id == ganador_id }}">
+    {% if equipo and equipo.nombre %}
+    <span title="{{ equipo.nombre }}">{{ equipo.bandera }} {{ equipo.nombre }}</span>
+    <span>{{ equipo.goles if equipo.goles is not none else '' }}</span>
+    {% else %}
+    <span>{{ pendiente_texto or 'Por definir' }}</span><span></span>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% macro llave_html(llave) %}
+<div class="llave {{ 'llave--pendiente' if not llave.id }}">
+    {% if llave.id %}
+    <a href="/juegos/{{ llave.id }}" title="Ver partido">
+        {{ equipo_llave(llave.local, llave.ganador_id) }}
+        {{ equipo_llave(llave.visitante, llave.ganador_id) }}
+        <div class="llave-meta">Llave {{ llave.letra }}{% if llave.penales %} · pen. {{ llave.penales }}{% elif not llave.jugado %} · {{ llave.fecha or 'pendiente' }}{% endif %}</div>
+    </a>
+    {% else %}
+    {{ equipo_llave(None, None, llave.pendiente[0]) }}
+    {{ equipo_llave(None, None, llave.pendiente[1]) }}
+    <div class="llave-meta">Llave {{ llave.letra }}</div>
+    {% endif %}
+</div>
+{% endmacro %}
+
+<div class="cuadro-scroll" tabindex="0" aria-label="Cuadro de eliminación (desplazable)">
+    <div class="cuadro">
+        {% for ronda in cuadro.rondas %}
+        <div class="cuadro-ronda">
+            <div class="cuadro-ronda-titulo">{{ ronda.nombre }}</div>
+            <div class="cuadro-llaves">
+                {% for llave in ronda.llaves %}{{ llave_html(llave) }}{% endfor %}
+                {% if ronda.fase_id == 13 %}
+                <div class="mt-3">
+                    <div class="cuadro-ronda-titulo">Tercer puesto</div>
+                    {% if cuadro.tercer_lugar %}{{ llave_html(dict(cuadro.tercer_lugar, letra='A')) }}
+                    {% else %}{{ llave_html({'id': None, 'letra': 'A', 'pendiente': ('Perdedor Semis A', 'Perdedor Semis B')}) }}{% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

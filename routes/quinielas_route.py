@@ -10,10 +10,11 @@ from schemas.quiniela_schema import QuinielaConfigOut, CrearBoletoIn, BoletoOut
 from services.quinielas_service import (
     obtener_configs_activas,
     crear_boleto_quiniela,
-    obtener_boletos_usuario
+    obtener_boletos_usuario,
+    obtener_rendimiento_quinielas
 )
 from services.juegos_service import obtener_juegos_programados
-from services.auth_service import obtener_usuario_actual, context_usuario_actual
+from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 import certifi
 import logging
 
@@ -40,11 +41,14 @@ async def listar_configs():
 
 
 @route.post("/tickets", response_model=BoletoOut, status_code=201, name="quinielas_crear_boleto")
-async def crear_boleto(payload: CrearBoletoIn):
-    """Compra/registra un boleto de quiniela: valida saldo, partidos y descuenta los puntos."""
+async def crear_boleto(payload: CrearBoletoIn, request: Request):
+    """Compra/registra un boleto de quiniela: valida saldo, partidos y descuenta los puntos.
+    El boleto es SIEMPRE del usuario de la sesión: el 'usuario_id' del body se ignora (antes se
+    usaba tal cual y permitía gastar el saldo de otra cuenta)."""
+    usuario = obtener_usuario_actual(request)
     try:
         return crear_boleto_quiniela(
-            usuario_id=payload.usuario_id,
+            usuario_id=usuario["_id"],
             quiniela_config_id=payload.quiniela_config_id,
             selecciones=[s.model_dump() for s in payload.selecciones]
         )
@@ -58,8 +62,9 @@ async def crear_boleto(payload: CrearBoletoIn):
 
 
 @route.get("/tickets/user/{user_id}", response_model=List[BoletoOut], name="quinielas_boletos_usuario")
-async def boletos_usuario(user_id: str):
+async def boletos_usuario(user_id: str, request: Request):
     """Lista las quinielas de un usuario y su estado (PENDIENTE / GANADA / PERDIDA)."""
+    exigir_mismo_usuario_o_admin(request, user_id)
     try:
         return obtener_boletos_usuario(user_id)
     except InvalidId:
@@ -133,4 +138,17 @@ async def quinielas_mias(request: Request):
         request=request,
         name="mis_quinielas.html",
         context={"boletos": boletos}
+    )
+
+
+
+@route_vistas.get("/rendimiento", response_class=HTMLResponse, name="quinielas_rendimiento")
+async def quinielas_rendimiento(request: Request):
+    """Rendimiento del usuario como pronosticador (services/quinielas_service.obtener_rendimiento_quinielas)."""
+    usuario = obtener_usuario_actual(request)
+    if not usuario:
+        return RedirectResponse(url=request.url_for("login"), status_code=303)
+    return templates.TemplateResponse(
+        request=request, name="quinielas_rendimiento.html",
+        context={"rendimiento": obtener_rendimiento_quinielas(usuario["_id"])}
     )

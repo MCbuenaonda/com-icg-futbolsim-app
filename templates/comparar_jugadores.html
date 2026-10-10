@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Comparar Jugadores - FutbolSim{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-people text-accent me-2"></i>Comparar Jugadores</h1>
+    <p class="text-muted mb-0">Atributos y números de carrera de dos jugadores, lado a lado.</p>
+</div>
+
+<!-- Buscadores: el input visible busca por nombre y el hidden lleva el id elegido -->
+<form method="get" class="stat-card p-3 mb-4" id="formComparar">
+    <div class="row g-2 align-items-end">
+        {% for lado, etiqueta, ficha in [('a', 'Jugador 1', comparacion.a if comparacion else None), ('b', 'Jugador 2', comparacion.b if comparacion else None)] %}
+        <div class="col-12 col-md-5 position-relative">
+            <label class="form-label small text-muted" for="buscar_{{ lado }}">{{ etiqueta }}</label>
+            <input type="search" class="form-control buscador-jugador" id="buscar_{{ lado }}" data-lado="{{ lado }}" autocomplete="off"
+                   placeholder="Escribí al menos 2 letras..." value="{{ ficha.nombre if ficha else '' }}" role="combobox"
+                   aria-expanded="false" aria-controls="sugerencias_{{ lado }}">
+            <input type="hidden" name="{{ lado }}" id="id_{{ lado }}" value="{{ ficha.id if ficha else '' }}">
+            <div class="list-group position-absolute w-100 shadow" style="z-index: 1050;" id="sugerencias_{{ lado }}" role="listbox"></div>
+        </div>
+        {% endfor %}
+        <div class="col-12 col-md-2 d-grid">
+            <button type="submit" class="btn btn-success fw-bold"><i class="bi bi-arrow-left-right me-1"></i>Comparar</button>
+        </div>
+    </div>
+</form>
+
+{% if comparacion %}
+{% set A = comparacion.a %}{% set B = comparacion.b %}
+<div class="row g-3 mb-3">
+    {% for f, color in [(A, 'text-accent'), (B, 'text-danger')] %}
+    <div class="col-6">
+        <a href="/jugadores/{{ f.id }}" class="text-decoration-none text-reset">
+            <div class="stat-card card-hover p-3 h-100">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div style="min-width: 0;">
+                        <div class="fs-5 fw-bold text-white text-truncate">{{ f.nombre }}</div>
+                        <small class="text-muted d-block text-truncate">{{ f.bandera }} {{ f.pais }} · {{ f.posicion }}</small>
+                        <small class="text-muted">{{ f.edad or '?' }} años · pie {{ f.pie_habil or '—' }}{% if f.numero %} · #{{ f.numero }}{% endif %}</small>
+                    </div>
+                    <div class="text-end flex-shrink-0">
+                        <div class="fs-2 fw-bold {{ color }} lh-1">{{ f.overall }}</div><small class="text-muted">OVR</small>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-lg-6">
+        <div class="stat-card p-3 h-100">
+            <h2 class="h6 text-uppercase text-secondary fw-bold mb-2">Atributos</h2>
+            <div style="position: relative; height: 340px;"><canvas id="radarComparacion" aria-label="Radar comparativo de atributos" role="img"></canvas></div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="stat-card p-3 h-100">
+            <h2 class="h6 text-uppercase text-secondary fw-bold mb-2">Números de carrera (torneo actual)</h2>
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr class="small text-muted"><th class="text-end">{{ A.nombre.split(' ')[-1] }}</th><th class="text-center"></th><th>{{ B.nombre.split(' ')[-1] }}</th></tr></thead>
+                <tbody>
+                    <tr><td class="text-end fw-bold {{ 'text-accent' if A.rendimiento > B.rendimiento }}">{{ A.rendimiento }}</td><td class="text-center text-muted small">Rendimiento</td><td class="fw-bold {{ 'text-danger' if B.rendimiento > A.rendimiento }}">{{ B.rendimiento }}</td></tr>
+                    {% for fila in comparacion.filas %}
+                    <tr>
+                        <td class="text-end {{ 'fw-bold text-accent' if fila.mejor == 'a' }}">{{ fila.a }}</td>
+                        <td class="text-center text-muted small">{{ fila.etiqueta }}</td>
+                        <td class="{{ 'fw-bold text-danger' if fila.mejor == 'b' }}">{{ fila.b }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <small class="text-muted d-block mt-2">Resaltado: el mejor de cada fila (en faltas y tarjetas, menos es mejor).</small>
+        </div>
+    </div>
+</div>
+{% elif a or b %}
+<div class="alert alert-warning">Elegí los dos jugadores de las sugerencias para compararlos.</div>
+{% else %}
+<div class="stat-card p-5 text-center text-muted"><div class="display-5 mb-2">⚖️</div>Buscá dos jugadores para compararlos.</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Buscador con sugerencias (GET /jugadores/api/buscar); al elegir, guarda el id en el hidden
+    document.querySelectorAll('.buscador-jugador').forEach(input => {
+        const lado = input.dataset.lado;
+        const lista = document.getElementById(`sugerencias_${lado}`);
+        const oculto = document.getElementById(`id_${lado}`);
+        let temporizador = null, consulta = 0;
+        input.addEventListener('input', () => {
+            oculto.value = '';
+            clearTimeout(temporizador);
+            temporizador = setTimeout(async () => {
+                const n = ++consulta;
+                if (input.value.trim().length < 2) { lista.innerHTML = ''; input.setAttribute('aria-expanded', 'false'); return; }
+                try {
+                    const resp = await fetch(`/jugadores/api/buscar?q=${encodeURIComponent(input.value.trim())}`);
+                    const jugadores = await resp.json();
+                    if (n !== consulta) return;
+                    lista.innerHTML = jugadores.length ? jugadores.map(j => `
+                        <button type="button" class="list-group-item list-group-item-action bg-dark text-white border-secondary" role="option" data-id="${j.id}" data-nombre="${UI.escapar(j.nombre)}">
+                            ${UI.escapar(j.bandera)} ${UI.escapar(j.nombre)} <small class="text-muted">(${UI.escapar(j.pais)} · OVR ${j.overall})</small>
+                        </button>`).join('') : '<div class="list-group-item bg-dark text-muted border-secondary small">Sin resultados</div>';
+                    input.setAttribute('aria-expanded', 'true');
+                } catch (e) { lista.innerHTML = '<div class="list-group-item bg-dark text-danger border-secondary small">No se pudo buscar</div>'; }
+            }, 250);
+        });
+        lista.addEventListener('click', ev => {
+            const opcion = ev.target.closest('[data-id]');
+            if (!opcion) return;
+            oculto.value = opcion.dataset.id;
+            input.value = opcion.dataset.nombre;
+            lista.innerHTML = ''; input.setAttribute('aria-expanded', 'false');
+        });
+    });
+</script>
+{% if comparacion %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const c = {{ comparacion | tojson }};
+        new Chart(document.getElementById('radarComparacion'), {
+            type: 'radar',
+            data: {
+                labels: c.etiquetas_radar,
+                datasets: [
+                    { label: c.a.nombre, data: c.a.atributos, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.2)', pointBackgroundColor: '#10b981', borderWidth: 2 },
+                    { label: c.b.nombre, data: c.b.atributos, borderColor: '#e66767', backgroundColor: 'rgba(230,103,103,.2)', pointBackgroundColor: '#e66767', borderWidth: 2 },
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#e2e8f0' } } },
+                scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 20 },
+                               grid: { color: 'rgba(255,255,255,.1)' }, angleLines: { color: 'rgba(255,255,255,.15)' },
+                               pointLabels: { color: '#cbd5e1', font: { size: 11 } } } }
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

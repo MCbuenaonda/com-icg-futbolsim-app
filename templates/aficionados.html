@@ -18,7 +18,7 @@
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-dark table-hover mb-0 align-middle">
+                <table class="table table-dark table-hover mb-0 align-middle" id="tablaAficionados">
                     <thead>
                         <tr class="small text-uppercase text-muted">
                             <th>#</th>
@@ -51,4 +51,11 @@
     </div>
 
 </div>
+<script>
+    // Ranking de hasta 250 selecciones: de a 50 filas ("Mostrar más")
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabla = document.getElementById('tablaAficionados');
+        if (tabla) UI.paginador({ items: () => tabla.querySelectorAll('tbody tr'), porPagina: 50, despuesDe: tabla.closest('.card'), etiqueta: 'selecciones' });
+    });
+</script>
 {% endblock %}

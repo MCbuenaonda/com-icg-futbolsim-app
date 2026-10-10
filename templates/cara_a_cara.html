@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Cara a Cara - FutbolSim{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-arrow-left-right text-accent me-2"></i>Cara a Cara</h1>
+    <p class="text-muted mb-0">Historial completo de enfrentamientos entre dos selecciones, en todos los mundiales y eliminatorias.</p>
+</div>
+
+<!-- Selección de países -->
+<form method="get" class="stat-card p-3 mb-4">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-5">
+            <label class="form-label small text-muted" for="paisA">Selección 1</label>
+            <select class="form-select" id="paisA" name="a" required>
+                <option value="">Elegí un país…</option>
+                {% for p in paises %}<option value="{{ p.id }}" {{ 'selected' if a == p.id }}>{{ p.bandera }} {{ p.nombre }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-5">
+            <label class="form-label small text-muted" for="paisB">Selección 2</label>
+            <select class="form-select" id="paisB" name="b" required>
+                <option value="">Elegí un país…</option>
+                {% for p in paises %}<option value="{{ p.id }}" {{ 'selected' if b == p.id }}>{{ p.bandera }} {{ p.nombre }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-2 d-grid">
+            <button class="btn btn-success fw-bold" type="submit"><i class="bi bi-search me-1"></i>Comparar</button>
+        </div>
+    </div>
+</form>
+
+{% if a is not none and b is not none and not h2h %}
+<div class="alert alert-warning">Elegí dos selecciones distintas.</div>
+{% elif h2h %}
+    {% if h2h.total == 0 %}
+    <div class="stat-card p-5 text-center">
+        <div class="display-5 mb-2">🤝</div>
+        <h2 class="h5 text-white fw-bold">{{ h2h.a.bandera }} {{ h2h.a.nombre }} y {{ h2h.b.bandera }} {{ h2h.b.nombre }} todavía no se enfrentaron</h2>
+        <p class="text-muted mb-0">Cuando jueguen, su historial va a aparecer acá.</p>
+    </div>
+    {% else %}
+    {% include "partials/cara_a_cara_resumen.html" %}
+
+    <div class="row g-3 mt-1">
+        <div class="col-12 col-lg-8">
+            <div class="stat-card p-3 h-100">
+                <h2 class="h6 text-uppercase text-secondary fw-bold mb-3">Todos los partidos ({{ h2h.total }})</h2>
+                {% for p in h2h.partidos %}
+                <a href="/juegos/{{ p.id }}" class="d-block text-decoration-none text-reset surface-soft p-2 px-3 mb-2">
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        <span class="text-truncate {{ 'fw-bold text-accent' if p.ganador_id == p.local.id }}">{{ p.local.bandera }} {{ p.local.nombre }}</span>
+                        <span class="fw-bold text-nowrap">{{ p.local.goles }} - {{ p.visitante.goles }}{% if p.penales %} <small class="text-muted">({{ p.penales }} pen.)</small>{% endif %}</span>
+                        <span class="text-truncate text-end {{ 'fw-bold text-accent' if p.ganador_id == p.visitante.id }}">{{ p.visitante.nombre }} {{ p.visitante.bandera }}</span>
+                    </div>
+                    <small class="text-muted">{{ p.fase }}{% if p.anio_mundial %} · Mundial {{ p.anio_mundial }}{% endif %}{% if p.fecha %} · {{ p.fecha }}{% endif %}</small>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="col-12 col-lg-4 d-flex flex-column gap-3">
+            {% if h2h.mayor_goleada %}{% set mg = h2h.mayor_goleada %}
+            <a href="/juegos/{{ mg.id }}" class="text-decoration-none text-reset">
+                <div class="stat-card card-hover p-3">
+                    <small class="text-secondary text-uppercase fw-semibold">💥 Mayor goleada</small>
+                    <div class="fw-bold text-white mt-1">{{ mg.local.bandera }} {{ mg.local.nombre }} {{ mg.local.goles }} - {{ mg.visitante.goles }} {{ mg.visitante.nombre }} {{ mg.visitante.bandera }}</div>
+                    <small class="text-muted">{{ mg.fase }} · diferencia de {{ mg.diferencia }}</small>
+                </div>
+            </a>
+            {% endif %}
+            <div class="stat-card p-3">
+                <small class="text-secondary text-uppercase fw-semibold d-block mb-2">⚽ Goleadores del clásico</small>
+                {% for g in h2h.goleadores %}
+                <div class="d-flex justify-content-between small py-1 border-bottom border-secondary border-opacity-25">
+                    <span>{{ g.nombre }} <span class="text-muted">({{ g.equipo }})</span></span>
+                    <span class="fw-bold">{{ g.goles }}</span>
+                </div>
+                {% else %}
+                <span class="text-muted small">Sin goles registrados.</span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% else %}
+<div class="stat-card p-5 text-center text-muted">
+    <div class="display-5 mb-2">⚔️</div>
+    Elegí dos selecciones para ver su historial.
+</div>
+{% endif %}
+{% endblock %}

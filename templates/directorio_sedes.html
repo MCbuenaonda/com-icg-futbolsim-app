@@ -9,9 +9,6 @@
         <p class="text-muted mb-0">Patrociná ciudades sede y cobrá regalías cada vez que se juegue un partido ahí.</p>
     </div>
     <div class="d-flex align-items-center gap-3">
-        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-        </span>
         <a href="{{ url_for('venues_portafolio_vista') }}" class="btn btn-outline-success btn-sm">
             <i class="bi bi-building me-1"></i>Mi Portafolio
         </a>
@@ -30,122 +27,124 @@
 
 <div id="alertaDirectorio" class="alert d-none" role="alert"></div>
 
+<p id="contadorCiudades" class="text-muted small mb-2" aria-live="polite"></p>
 <div class="row g-3" id="listaCiudades"></div>
 <p id="sinResultados" class="text-muted text-center py-4 d-none">No se encontraron ciudades con esos criterios.</p>
+<div class="text-center mt-3">
+    <button type="button" id="btnCargarMas" class="btn btn-outline-light d-none"><i class="bi bi-arrow-down-circle me-1"></i>Cargar más ciudades</button>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const urlBuscar = "{{ url_for('venues_buscar') }}";
     const urlComprarTemplate = "{{ url_for('venues_buy', ciudad_id='__CIUDAD_ID__') }}";
+    const urlPortafolio = "{{ url_for('venues_portafolio_vista') }}";
+    const POR_PAGINA = 50;
 
     const listaCiudades = document.getElementById('listaCiudades');
     const sinResultados = document.getElementById('sinResultados');
     const alertaDirectorio = document.getElementById('alertaDirectorio');
     const buscarCiudad = document.getElementById('buscarCiudad');
     const filtroEstado = document.getElementById('filtroEstado');
+    const contador = document.getElementById('contadorCiudades');
+    const btnCargarMas = document.getElementById('btnCargarMas');
 
-    let ciudadesActuales = {{ ciudades | tojson }};
+    // Búsqueda, filtro de estado y paginación se resuelven en el servidor (hay >4000 ciudades)
+    let ciudades = {{ ciudades | tojson }};
+    let total = {{ total_ciudades }};
     let temporizadorBusqueda = null;
+    let consultaActual = 0;
 
-    function mostrarAlerta(mensaje, tipo) {
-        alertaDirectorio.className = `alert alert-${tipo}`;
-        alertaDirectorio.textContent = mensaje;
-        alertaDirectorio.classList.remove('d-none');
-        alertaDirectorio.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaDirectorio, mensaje, tipo);
 
     function tarjetaCiudad(c) {
+        const e = UI.escapar;
         let estadoBadge = '<span class="badge bg-success">Disponible</span>';
-        let botonHtml = `<button type="button" class="btn btn-success btn-sm w-100 fw-bold btn-comprar" data-ciudad-id="${c.ciudad_id}"><i class="bi bi-bag-plus-fill me-1"></i>Patrocinar (${c.costo} pts)</button>`;
-
+        let botonHtml = `<button type="button" class="btn btn-success btn-sm w-100 fw-bold btn-comprar" data-ciudad-id="${c.ciudad_id}"
+                            data-nombre="${e(c.nombre)}" data-costo="${c.costo}"><i class="bi bi-bag-plus-fill me-1"></i>Patrocinar (${c.costo} pts)</button>`;
         if (c.es_mia) {
             estadoBadge = '<span class="badge bg-info text-dark">Tuya</span>';
-            botonHtml = `<a href="{{ url_for('venues_portafolio_vista') }}" class="btn btn-outline-info btn-sm w-100 fw-bold"><i class="bi bi-building me-1"></i>Ver en mi portafolio</a>`;
+            botonHtml = `<a href="${urlPortafolio}" class="btn btn-outline-info btn-sm w-100 fw-bold"><i class="bi bi-building me-1"></i>Ver en mi portafolio</a>`;
         } else if (c.tiene_dueno) {
             estadoBadge = '<span class="badge bg-secondary">Ocupada</span>';
             botonHtml = `<button type="button" class="btn btn-outline-secondary btn-sm w-100" disabled>No disponible</button>`;
         }
-
         return `
             <div class="col-12 col-md-6 col-xl-4">
                 <div class="card bg-dark border-0 shadow-sm h-100">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
-                                <div class="fw-bold text-white">${c.nombre}</div>
-                                <small class="text-muted"><i class="bi bi-flag-fill me-1"></i>${c.pais_nombre || '-'}</small>
+                                <div class="fw-bold text-white">${e(c.nombre)}</div>
+                                <small class="text-muted"><i class="bi bi-flag-fill me-1"></i>${e(c.pais_nombre || '-')}</small>
                             </div>
                             ${estadoBadge}
                         </div>
-                        <div class="text-muted small mb-3"><i class="bi bi-building-fill me-1"></i>${c.estadio || 'Estadio sin nombre'}</div>
+                        <div class="text-muted small mb-3"><i class="bi bi-building-fill me-1"></i>${e(c.estadio || 'Estadio sin nombre')}</div>
                         ${botonHtml}
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
     }
 
-    function renderizarCiudades(lista) {
-        const filtroTexto = (buscarCiudad.value || '').toLowerCase().trim();
-        const filtroEst = filtroEstado.value;
+    function renderizar() {
+        listaCiudades.innerHTML = ciudades.map(tarjetaCiudad).join('');
+        sinResultados.classList.toggle('d-none', ciudades.length > 0);
+        contador.textContent = ciudades.length ? `Mostrando ${ciudades.length.toLocaleString('en-US')} de ${total.toLocaleString('en-US')} ciudades` : '';
+        btnCargarMas.classList.toggle('d-none', ciudades.length >= total);
+    }
 
-        const filtradas = lista.filter(c => {
-            const coincideTexto = !filtroTexto || c.nombre.toLowerCase().includes(filtroTexto) || (c.pais_nombre || '').toLowerCase().includes(filtroTexto);
-            let coincideEstado = true;
-            if (filtroEst === 'disponible') coincideEstado = !c.tiene_dueno;
-            else if (filtroEst === 'mias') coincideEstado = c.es_mia;
-            else if (filtroEst === 'ocupada') coincideEstado = c.tiene_dueno && !c.es_mia;
-            return coincideTexto && coincideEstado;
+    async function buscar(agregar) {
+        const consulta = ++consultaActual;
+        const params = new URLSearchParams({ q: buscarCiudad.value.trim(), estado: filtroEstado.value, limite: POR_PAGINA, saltar: agregar ? ciudades.length : 0 });
+        btnCargarMas.disabled = true;
+        if (!agregar) contador.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Buscando…';
+        try {
+            const resp = await fetch(`${urlBuscar}?${params}`);
+            if (!resp.ok) throw new Error();
+            const data = await resp.json();
+            if (consulta !== consultaActual) return; // llegó tarde: hay una búsqueda más nueva
+            total = Number(resp.headers.get('X-Total-Count') || data.length);
+            ciudades = agregar ? ciudades.concat(data) : data;
+            renderizar();
+        } catch (e) {
+            mostrarAlerta('No se pudo actualizar la búsqueda.', 'danger');
+        } finally {
+            btnCargarMas.disabled = false;
+        }
+    }
+
+    // Delegación: un solo listener para los botones de compra (las tarjetas se re-renderizan)
+    listaCiudades.addEventListener('click', async ev => {
+        const btn = ev.target.closest('.btn-comprar');
+        if (!btn) return;
+        const ok = await UI.confirmar({
+            titulo: `Patrocinar ${btn.dataset.nombre}`,
+            mensaje: `Se descontarán ${btn.dataset.costo} pts de tu saldo. Cobrás regalías cada vez que se juegue un partido en esta sede.`,
+            textoConfirmar: `Patrocinar por ${btn.dataset.costo} pts`,
         });
-
-        listaCiudades.innerHTML = filtradas.map(tarjetaCiudad).join('');
-        sinResultados.classList.toggle('d-none', filtradas.length > 0);
-        vincularBotonesComprar();
-    }
-
-    function vincularBotonesComprar() {
-        document.querySelectorAll('.btn-comprar').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const ciudadId = btn.dataset.ciudadId;
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-                fetch(urlComprarTemplate.replace('__CIUDAD_ID__', ciudadId), { method: 'POST' })
-                    .then(async resp => {
-                        const data = await resp.json();
-                        if (!resp.ok) {
-                            throw new Error(data.detail || 'No se pudo completar la compra.');
-                        }
-                        mostrarAlerta('¡Sede patrocinada! Redirigiendo a tu portafolio...', 'success');
-                        setTimeout(() => { window.location.href = "{{ url_for('venues_portafolio_vista') }}"; }, 1200);
-                    })
-                    .catch(err => {
-                        mostrarAlerta(err.message, 'danger');
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-bag-plus-fill me-1"></i>Patrocinar';
-                    });
-            });
-        });
-    }
-
-    function buscarEnServidor() {
-        const texto = buscarCiudad.value.trim();
-        fetch(`${urlBuscar}?q=${encodeURIComponent(texto)}&limite=50`)
-            .then(resp => resp.json())
-            .then(data => {
-                ciudadesActuales = data;
-                renderizarCiudades(ciudadesActuales);
-            })
-            .catch(() => mostrarAlerta('No se pudo actualizar la búsqueda.', 'danger'));
-    }
-
-    buscarCiudad.addEventListener('input', function () {
-        clearTimeout(temporizadorBusqueda);
-        temporizadorBusqueda = setTimeout(buscarEnServidor, 350);
+        if (!ok) return;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        try {
+            const resp = await fetch(urlComprarTemplate.replace('__CIUDAD_ID__', btn.dataset.ciudadId), { method: 'POST' });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || 'No se pudo completar la compra.');
+            UI.refrescarSaldo();
+            mostrarAlerta('¡Sede patrocinada! Redirigiendo a tu portafolio...', 'success');
+            setTimeout(() => { window.location.href = urlPortafolio; }, 1200);
+        } catch (err) {
+            mostrarAlerta(err.message, 'danger');
+            btn.disabled = false;
+            btn.innerHTML = `<i class="bi bi-bag-plus-fill me-1"></i>Patrocinar (${btn.dataset.costo} pts)`;
+        }
     });
-    filtroEstado.addEventListener('change', () => renderizarCiudades(ciudadesActuales));
 
-    renderizarCiudades(ciudadesActuales);
+    buscarCiudad.addEventListener('input', () => { clearTimeout(temporizadorBusqueda); temporizadorBusqueda = setTimeout(() => buscar(false), 350); });
+    filtroEstado.addEventListener('change', () => buscar(false));
+    btnCargarMas.addEventListener('click', () => buscar(true));
+
+    renderizar();
 });
 </script>
 {% endblock %}

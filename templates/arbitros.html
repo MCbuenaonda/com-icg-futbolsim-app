@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Árbitros - FutbolSim{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-person-badge text-accent me-2"></i>Árbitros</h1>
+        <p class="text-muted mb-0">Quiénes dirigieron como árbitro central y cómo dirigen: faltas, tarjetas y expulsiones por partido.</p>
+    </div>
+    <input type="search" id="buscarArbitro" class="form-control" style="max-width: 260px;" placeholder="Buscar árbitro o país..." aria-label="Buscar árbitro">
+</div>
+
+{% if arbitros %}
+<div class="card bg-dark border-secondary" id="tarjetaArbitros">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0" id="tablaArbitros">
+            <thead>
+                <tr class="small text-muted">
+                    <th>Árbitro</th><th>País</th><th class="text-center">Partidos</th>
+                    <th class="text-center" title="Faltas por partido">Faltas/PJ</th>
+                    <th class="text-center" title="Tarjetas por partido">Tarjetas/PJ</th>
+                    <th class="text-center">Expulsiones</th>
+                    <th class="text-center d-none d-md-table-cell" title="% de partidos que ganó el local">Gana local</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in arbitros %}
+                <tr data-busqueda="{{ (a.nombre ~ ' ' ~ a.pais) | lower }}">
+                    <td><a href="{{ url_for('arbitro_perfil') }}?nombre={{ a.nombre | urlencode }}" class="link-light fw-semibold">{{ a.nombre }}</a></td>
+                    <td class="text-muted">{{ a.pais or '—' }}</td>
+                    <td class="text-center fw-bold">{{ a.partidos }}</td>
+                    <td class="text-center">{{ a.faltas_prom }}</td>
+                    <td class="text-center">{{ a.tarjetas_prom }}</td>
+                    <td class="text-center">{% if a.expulsiones %}<span class="badge bg-danger">{{ a.expulsiones }}</span>{% else %}<span class="text-muted">0</span>{% endif %}</td>
+                    <td class="text-center d-none d-md-table-cell">{{ a.pct_gana_local }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<p id="sinArbitros" class="text-muted text-center py-4 d-none">Ningún árbitro coincide con la búsqueda.</p>
+{% else %}
+<div class="stat-card p-5 text-center text-muted">Todavía no se jugó ningún partido.</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabla = document.getElementById('tablaArbitros');
+        if (!tabla) return;
+        const filas = tabla.querySelectorAll('tbody tr');
+        const paginador = UI.paginador({ items: () => filas, porPagina: 40, despuesDe: document.getElementById('tarjetaArbitros'), etiqueta: 'árbitros' });
+        document.getElementById('buscarArbitro').addEventListener('input', ev => {
+            const texto = ev.target.value.toLowerCase().trim();
+            let visibles = 0;
+            filas.forEach(f => { const ok = f.dataset.busqueda.includes(texto); f.classList.toggle('d-none', !ok); visibles += ok; });
+            document.getElementById('sinArbitros').classList.toggle('d-none', visibles > 0);
+            paginador.reiniciar();
+        });
+    });
+</script>
+{% endblock %}

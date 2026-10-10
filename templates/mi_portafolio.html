@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Mi Portafolio - FutbolSim{% endblock %}
 
@@ -9,9 +10,6 @@
         <p class="text-muted mb-0">Tus inversiones activas y su rendimiento.</p>
     </div>
     <div class="d-flex align-items-center gap-3">
-        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-        </span>
         <a href="{{ url_for('ownership_mercado_vista') }}" class="btn btn-success btn-sm fw-bold">
             <i class="bi bi-plus-circle me-1"></i>Comprar Selección
         </a>
@@ -27,15 +25,7 @@
                 <div class="card bg-dark border-0 shadow-sm h-100">
                     <div class="card-body p-3 text-center">
                         <div class="display-5 mb-1">
-                            {% if inversion.pais_bandera %}
-                                {% if inversion.pais_bandera.startswith('bi-') %}
-                                    <i class="bi {{ inversion.pais_bandera }}"></i>
-                                {% else %}
-                                    {{ inversion.pais_bandera }}
-                                {% endif %}
-                            {% else %}
-                                <i class="bi bi-flag-fill text-secondary"></i>
-                            {% endif %}
+                            {{ m.bandera(inversion.pais_bandera) }}
                         </div>
                         <div class="fw-bold text-white fs-5">{{ inversion.pais_nombre }}</div>
 
@@ -49,7 +39,7 @@
                             <div class="col-6">
                                 <div class="surface-soft p-2">
                                     <div class="text-muted small text-uppercase">Actual</div>
-                                    <div class="fw-bold text-warning">{{ "{:,}".format(inversion.current_value) }}</div>
+                                    <div class="fw-bold text-accent">{{ "{:,}".format(inversion.current_value) }}</div>
                                 </div>
                             </div>
                         </div>
@@ -66,7 +56,8 @@
                             </div>
                         {% endif %}
 
-                        <button type="button" class="btn btn-outline-danger btn-sm w-100 fw-bold btn-vender" data-pais-id="{{ inversion.pais_id }}">
+                        <button type="button" class="btn btn-outline-danger btn-sm w-100 fw-bold btn-vender" data-pais-id="{{ inversion.pais_id }}"
+                            data-nombre-pais="{{ inversion.pais_nombre }}" data-valor="{{ inversion.current_value }}">
                             <i class="bi bi-bag-dash-fill me-1"></i>Vender
                         </button>
                     </div>
@@ -89,18 +80,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlVenderTemplate = "{{ url_for('ownership_sell', pais_id='__PAIS_ID__') }}";
     const alertaPortafolio = document.getElementById('alertaPortafolio');
 
-    function mostrarAlerta(mensaje, tipo) {
-        alertaPortafolio.className = `alert alert-${tipo}`;
-        alertaPortafolio.textContent = mensaje;
-        alertaPortafolio.classList.remove('d-none');
-        alertaPortafolio.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaPortafolio, mensaje, tipo);
 
     document.querySelectorAll('.btn-vender').forEach(btn => {
-        btn.addEventListener('click', function () {
-            if (!confirm('¿Confirmás que querés vender esta selección al valor de mercado actual?')) {
-                return;
-            }
+        btn.addEventListener('click', async function () {
+            const valor = Number(btn.dataset.valor || 0).toLocaleString('en-US');
+            const ok = await UI.confirmar({
+                titulo: `Vender ${btn.dataset.nombrePais}`,
+                mensaje: `Se venderá al valor de mercado actual (${valor} pts) y dejarás de cobrar sus dividendos.`,
+                textoConfirmar: 'Vender', peligro: true,
+            });
+            if (!ok) return;
 
             const paisId = btn.dataset.paisId;
             btn.disabled = true;

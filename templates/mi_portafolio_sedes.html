@@ -9,9 +9,6 @@
         <p class="text-muted mb-0">Tus sedes patrocinadas y las ganancias acumuladas por taquilla.</p>
     </div>
     <div class="d-flex align-items-center gap-3">
-        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-        </span>
         <a href="{{ url_for('venues_directorio_vista') }}" class="btn btn-success btn-sm fw-bold">
             <i class="bi bi-plus-circle me-1"></i>Patrocinar Sede
         </a>
@@ -30,7 +27,7 @@
         </div>
         <div class="col-6 col-lg-3">
             <div class="stat-card p-3 text-center">
-                <div class="fs-4 fw-bold text-warning">{{ "{:,}".format(sedes | sum(attribute="total_revenue_earned")) }}</div>
+                <div class="fs-4 fw-bold text-accent">{{ "{:,}".format(sedes | sum(attribute="total_revenue_earned")) }}</div>
                 <div class="text-muted small text-uppercase">Ganancias Totales</div>
             </div>
         </div>
@@ -94,18 +91,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlVenderTemplate = "{{ url_for('venues_sell', ciudad_id='__CIUDAD_ID__') }}";
     const alertaPortafolio = document.getElementById('alertaPortafolio');
 
-    function mostrarAlerta(mensaje, tipo) {
-        alertaPortafolio.className = `alert alert-${tipo}`;
-        alertaPortafolio.textContent = mensaje;
-        alertaPortafolio.classList.remove('d-none');
-        alertaPortafolio.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaPortafolio, mensaje, tipo);
 
     document.querySelectorAll('.btn-vender').forEach(btn => {
-        btn.addEventListener('click', function () {
-            if (!confirm('¿Confirmás que querés vender esta sede? Recuperás el 80% de lo que pagaste.')) {
-                return;
-            }
+        btn.addEventListener('click', async function () {
+            const ok = await UI.confirmar({
+                titulo: 'Vender sede',
+                mensaje: 'Recuperás el 80% de lo que pagaste y dejás de cobrar sus regalías.',
+                textoConfirmar: 'Vender', peligro: true,
+            });
+            if (!ok) return;
 
             const ciudadId = btn.dataset.ciudadId;
             btn.disabled = true;

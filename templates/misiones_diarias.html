@@ -57,9 +57,6 @@
         <h1 class="display-6 fw-bold mb-1">Misiones Diarias</h1>
         <p class="text-muted mb-0">Reclamá tu recompensa diaria y jugá la Trivia Express del Mundial.</p>
     </div>
-    <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-        <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-    </span>
 </div>
 
 <div id="alertaMisiones" class="alert d-none" role="alert"></div>
@@ -84,7 +81,7 @@
                 </div>
                 <p class="text-center text-muted small mb-3">
                     Racha actual: <strong class="text-white">{{ estado.racha_actual }}</strong> días ·
-                    Faltan <strong class="text-warning">{{ estado.dias_para_bono_especial }}</strong> para el bono especial de +150 pts
+                    Faltan <strong class="text-accent">{{ estado.dias_para_bono_especial }}</strong> para el bono especial de +150 pts
                 </p>
                 <button type="button" id="btnCheckin" class="btn btn-success w-100 fw-bold" {% if estado.ya_reclamo_checkin_hoy %}disabled{% endif %}>
                     <i class="bi bi-gift-fill me-1"></i>
@@ -98,7 +95,7 @@
     <div class="col-12 col-lg-5">
         <div class="card bg-dark border-0 shadow-sm h-100">
             <div class="card-header py-3 border-0">
-                <h5 class="card-title fw-bold text-white mb-0"><i class="bi bi-life-preserver me-2 text-warning"></i>Beca de Emergencia</h5>
+                <h5 class="card-title fw-bold text-white mb-0"><i class="bi bi-life-preserver me-2 text-accent"></i>Beca de Emergencia</h5>
             </div>
             <div class="card-body d-flex flex-column">
                 <p class="text-muted small">Si tu saldo llegó a 0 y no tenés inversiones ni quinielas activas, podés pedir un rescate de +100 pts (una vez por fase).</p>
@@ -154,12 +151,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const urlSubmitTrivia = "{{ url_for('trivia_submit') }}";
 
     const alertaMisiones = document.getElementById('alertaMisiones');
-    function mostrarAlerta(mensaje, tipo) {
-        alertaMisiones.className = `alert alert-${tipo}`;
-        alertaMisiones.textContent = mensaje;
-        alertaMisiones.classList.remove('d-none');
-        alertaMisiones.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaMisiones, mensaje, tipo);
 
     // ---------- Check-in ----------
     const btnCheckin = document.getElementById('btnCheckin');
@@ -234,12 +226,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
         preguntasContainer.innerHTML = preguntasActuales.map((p, i) => `
             <div class="mb-4">
-                <p class="fw-bold text-white">${i + 1}. ${p.enunciado}</p>
-                <div class="row g-2" data-pregunta="${i}">
+                <p class="fw-bold text-white" id="enunciado-${i}">${i + 1}. ${UI.escapar(p.enunciado)}</p>
+                <div class="row g-2" data-pregunta="${i}" role="radiogroup" aria-labelledby="enunciado-${i}">
                     ${p.opciones.map((op, j) => `
                         <div class="col-12 col-md-6">
-                            <div class="card bg-secondary bg-opacity-10 border opcion-trivia p-2 px-3" data-opcion="${j}">
-                                <span>${op}</span>
+                            <div class="card bg-secondary bg-opacity-10 border opcion-trivia p-2 px-3" data-opcion="${j}"
+                                 role="radio" aria-checked="false" tabindex="${j === 0 ? 0 : -1}">
+                                <span>${UI.escapar(op)}</span>
                                 <i class="bi bi-check-circle-fill check-icon"></i>
                             </div>
                         </div>
@@ -248,13 +241,24 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
         `).join('');
 
+        // Opciones como radios accesibles: click, Enter/Espacio para elegir y flechas para moverse
+        function elegirOpcion(el) {
+            const grupo = el.closest('[data-pregunta]');
+            const numPregunta = parseInt(grupo.dataset.pregunta, 10);
+            grupo.querySelectorAll('.opcion-trivia').forEach(o => {
+                o.classList.remove('seleccionada'); o.setAttribute('aria-checked', 'false'); o.tabIndex = -1;
+            });
+            el.classList.add('seleccionada'); el.setAttribute('aria-checked', 'true'); el.tabIndex = 0;
+            respuestasSeleccionadas[numPregunta] = parseInt(el.dataset.opcion, 10);
+        }
         preguntasContainer.querySelectorAll('.opcion-trivia').forEach(el => {
-            el.addEventListener('click', function () {
-                const grupo = this.closest('[data-pregunta]');
-                const numPregunta = parseInt(grupo.dataset.pregunta, 10);
-                grupo.querySelectorAll('.opcion-trivia').forEach(o => o.classList.remove('seleccionada'));
-                this.classList.add('seleccionada');
-                respuestasSeleccionadas[numPregunta] = parseInt(this.dataset.opcion, 10);
+            el.addEventListener('click', () => elegirOpcion(el));
+            el.addEventListener('keydown', ev => {
+                const opciones = [...el.closest('[data-pregunta]').querySelectorAll('.opcion-trivia')];
+                const idx = opciones.indexOf(el);
+                if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); elegirOpcion(el); }
+                else if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') { ev.preventDefault(); const sig = opciones[(idx + 1) % opciones.length]; elegirOpcion(sig); sig.focus(); }
+                else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') { ev.preventDefault(); const ant = opciones[(idx - 1 + opciones.length) % opciones.length]; elegirOpcion(ant); ant.focus(); }
             });
         });
 
@@ -307,14 +311,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const detalleHtml = data.detalle.map((d, i) => `
             <div class="mb-3">
-                <p class="fw-bold text-white mb-2">${i + 1}. ${d.enunciado}</p>
+                <p class="fw-bold text-white mb-2">${i + 1}. ${UI.escapar(d.enunciado)}</p>
                 <div class="row g-2">
                     ${d.opciones.map((op, j) => {
                         let clase = '';
                         let icono = 'bi-circle';
                         if (j === d.respuesta_correcta_idx) { clase = 'correcta'; icono = 'bi-check-circle-fill'; }
                         else if (j === d.respuesta_usuario_idx) { clase = 'incorrecta'; icono = 'bi-x-circle-fill'; }
-                        return `<div class="col-12 col-md-6"><div class="card bg-secondary bg-opacity-10 border opcion-trivia ${clase} p-2 px-3"><span>${op}</span><i class="bi ${icono} check-icon"></i></div></div>`;
+                        return `<div class="col-12 col-md-6"><div class="card bg-secondary bg-opacity-10 border opcion-trivia ${clase} p-2 px-3"><span>${UI.escapar(op)}</span><i class="bi ${icono} check-icon"></i></div></div>`;
                     }).join('')}
                 </div>
             </div>
@@ -326,9 +330,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 <p class="text-muted">${data.correct_answers} de ${data.total_questions} respuestas correctas</p>
             </div>
             ${detalleHtml}
+            <div class="text-center mt-3">
+                <button type="button" class="btn btn-success fw-bold" id="btnCerrarTrivia"><i class="bi bi-check2 me-1"></i>Listo</button>
+            </div>
         `;
         triviaResultado.classList.remove('d-none');
-        setTimeout(() => window.location.reload(), 4000);
+        UI.refrescarSaldo();
+        // Antes la página se recargaba sola a los 4s y borraba la corrección antes de poder leerla
+        document.getElementById('btnCerrarTrivia').addEventListener('click', () => window.location.reload());
     }
     {% endif %}
 });

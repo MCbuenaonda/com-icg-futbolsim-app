@@ -1,0 +1,438 @@
+/* Estilos de la Simulación en Vivo (templates/live_match.html) */
+.blink-dot {
+    animation: blink-dot-anim 1s infinite;
+}
+@keyframes blink-dot-anim {
+    50% { opacity: 0.2; }
+}
+
+/* Tabla del Grupo: fila destacada de los dos equipos que están jugando, y el flash de color
+   cuando un gol les cambia (o no) la posición proyectada -- ver renderTablaGrupo() */
+#tablaGrupoBody tr {
+    position: relative;
+}
+.tabla-grupo-fila-protagonista {
+    box-shadow: inset 2px 0 0 #ffc107;
+    background-color: rgba(255, 193, 7, 0.08);
+}
+.tabla-grupo-fila--sube {
+    animation: tabla-grupo-flash-sube 2s ease;
+}
+.tabla-grupo-fila--baja {
+    animation: tabla-grupo-flash-baja 2s ease;
+}
+.tabla-grupo-fila--igual {
+    animation: tabla-grupo-flash-igual 2s ease;
+}
+@keyframes tabla-grupo-flash-sube {
+    0%, 100% { background-color: transparent; }
+    25% { background-color: rgba(16, 185, 129, 0.35); }
+}
+@keyframes tabla-grupo-flash-baja {
+    0%, 100% { background-color: transparent; }
+    25% { background-color: rgba(220, 53, 69, 0.35); }
+}
+@keyframes tabla-grupo-flash-igual {
+    0%, 100% { background-color: transparent; }
+    25% { background-color: rgba(255, 193, 7, 0.3); }
+}
+
+/* Momentum del Partido: leyenda Local/Visitante (mismos colores que el gráfico Chart.js) */
+.momentum-legend-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+/* Cancha en Vivo: SVG reglamentario (105x68) + balón superpuesto como <div> posicionado en
+   left/top % -- responsive vía aspect-ratio en el wrapper, sin depender del tamaño real del
+   SVG. Ver renderCancha() más abajo (usa evento.posicion_balon.x/y de /matches/live). */
+.cancha-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    aspect-ratio: 105 / 68;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.cancha-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+/* Marcador como marca de agua: tamaños en cqw (ancho de la cancha) para que escale igual en
+   escritorio y celular; translúcido y sin eventos de mouse para no tapar la jugada */
+.cancha-wrapper { container-type: inline-size; }
+.cancha-marcador-agua {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    pointer-events: none;
+    user-select: none;
+    opacity: 0.2;
+    z-index: 0;
+}
+.cancha-marcador-agua__lado {
+    display: flex;
+    align-items: center;
+    gap: 3cqw;
+    padding: 0 5cqw;
+}
+.cancha-marcador-agua__lado--local { justify-content: flex-end; }
+.cancha-marcador-agua__lado--visitante { justify-content: flex-start; }
+.cancha-marcador-agua__goles {
+    font-size: 21cqw;
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+.cancha-marcador-agua__bandera {
+    font-size: 12cqw;
+    line-height: 1;
+}
+.cancha-marcador-agua__goles--cambio { animation: cancha-agua-gol 1.2s ease; }
+@keyframes cancha-agua-gol {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.25); text-shadow: 0 0 4cqw rgba(255, 255, 255, 0.9); }
+    100% { transform: scale(1); }
+}
+.cancha-pasto {
+    fill: #17492b;
+}
+.cancha-lineas {
+    fill: none;
+    stroke: rgba(232, 245, 233, 0.85);
+    stroke-width: 0.3;
+    stroke-linecap: round;
+}
+.cancha-punto {
+    fill: rgba(232, 245, 233, 0.85);
+    stroke: none;
+}
+/* Trazo entre la posición anterior y la nueva del balón -- se dibuja dinámicamente por JS
+   (renderCancha/dibujarTrazoBalon) con stroke-dasharray/dashoffset para animar el trazado
+   progresivo, sincronizado con la transición left/top del balón (~0.6s). El color indica de
+   qué EQUIPO es la jugada (mismos colores que "Momentum del Partido"/"Goles y Tarjetas");
+   "--fuerte" (más grosor/resplandor) se suma aparte cuando la jugada es un disparo. */
+.cancha-trazo {
+    fill: none;
+    stroke-width: 0.55;
+    stroke-linecap: round;
+    opacity: 0.9;
+}
+.cancha-trazo--local {
+    stroke: #3987e5;
+    filter: drop-shadow(0 0 1px rgba(57, 135, 229, 0.7));
+}
+.cancha-trazo--visitante {
+    stroke: #e66767;
+    filter: drop-shadow(0 0 1px rgba(230, 103, 103, 0.7));
+}
+.cancha-trazo--fuerte {
+    stroke-width: 1.1;
+}
+/* Etiquetas de lado: qué equipo ataca hacia cada extremo de la cancha (local siempre hacia la
+   derecha, visitante siempre hacia la izquierda -- ver canchaPosicionVisual() en el script). */
+.cancha-etiqueta {
+    position: absolute;
+    top: 6px;
+    max-width: 40%;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 2;
+}
+.cancha-etiqueta--local {
+    left: 6px;
+    color: #3987e5;
+    box-shadow: inset 2px 0 0 #3987e5;
+}
+.cancha-etiqueta--visitante {
+    right: 6px;
+    color: #e66767;
+    box-shadow: inset -2px 0 0 #e66767;
+}
+/* Nombre del jugador protagonista del último evento, siguiendo al balón -- ver
+   canchaEtiquetaJugador en el script (aparece con la jugada, se desvanece sola a los ~2.5s). */
+.cancha-etiqueta-jugador {
+    position: absolute;
+    transform: translate(-50%, -145%);
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    max-width: 220px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease, left 0.6s ease, top 0.6s ease;
+    z-index: 4;
+}
+.cancha-etiqueta-jugador.cancha-etiqueta-jugador--visible {
+    opacity: 1;
+}
+/* Ventana de aviso (sustitución / árbitro / VAR): tarjeta centrada arriba de la cancha que entra deslizándose */
+.cancha-aviso {
+    position: absolute;
+    top: 8%;
+    left: 50%;
+    transform: translate(-50%, -12px) scale(0.96);
+    min-width: 220px;
+    max-width: calc(100% - 24px);
+    padding: 8px 14px 10px;
+    border-radius: 10px;
+    border-top: 4px solid #b9c2cc;
+    background: rgba(12, 16, 22, 0.92);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    color: #fff;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    z-index: 6;
+}
+.cancha-aviso.cancha-aviso--visible {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+}
+.cancha-aviso--local { border-top-color: #3987e5; }
+.cancha-aviso--arbitro { border-top-color: #f2c94c; }
+.cancha-aviso--var { border-top-color: #a78bfa; }
+.cancha-aviso--arbitro .cancha-aviso__equipo { color: #f2c94c; }
+.cancha-aviso--var .cancha-aviso__equipo { color: #c4b5fd; }
+.cancha-aviso__descripcion {
+    max-width: 320px;
+    font-size: 0.8rem;
+    line-height: 1.3;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s ease 0.25s;
+}
+.cancha-aviso--visible .cancha-aviso__descripcion { opacity: 1; }
+.cancha-aviso--visitante { border-top-color: #e66767; }
+.cancha-aviso__equipo {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cancha-aviso--local .cancha-aviso__equipo { color: #6ea8f0; }
+.cancha-aviso--visitante .cancha-aviso__equipo { color: #f08c8c; }
+.cancha-aviso__titulo {
+    font-size: 0.72rem;
+    color: #b9c2cc;
+    text-align: center;
+    margin-bottom: 6px;
+}
+.cancha-aviso__fila {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 2px 0;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.cancha-aviso--visible .cancha-aviso__fila { opacity: 1; transform: none; }
+.cancha-aviso--visible .cancha-aviso__fila--entra { transition-delay: 0.25s; }
+.cancha-aviso--visible .cancha-aviso__fila--sale { transition-delay: 0.45s; }
+.cancha-aviso__fila--entra i { color: #3ecf74; }
+.cancha-aviso__fila--sale i { color: #e66767; }
+.cancha-aviso__fila--sale .cancha-aviso__nombre { color: #c9d1d9; font-weight: 500; }
+.cancha-aviso__dorsal {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.cancha-aviso__dorsal:empty { display: none; }
+.cancha-aviso__nombre {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+@media (max-width: 576px) {
+    .cancha-aviso { top: 4%; min-width: 0; padding: 4px 8px 5px; border-top-width: 3px; border-radius: 8px; }
+    .cancha-aviso__equipo { font-size: 0.56rem; }
+    .cancha-aviso__titulo { font-size: 0.58rem; margin-bottom: 2px; }
+    .cancha-aviso__fila { font-size: 0.64rem; gap: 5px; padding: 1px 0; }
+    .cancha-aviso__dorsal { min-width: 16px; height: 16px; font-size: 0.58rem; }
+    .cancha-aviso__descripcion { font-size: 0.64rem; max-width: 240px; }
+}
+.cancha-etiqueta-jugador__equipo {
+    font-size: 0.56rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+.cancha-etiqueta-jugador__nombre {
+    font-size: 0.68rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+.cancha-etiqueta-jugador__tipo {
+    font-size: 0.6rem;
+    font-weight: 500;
+    color: #b9c2cc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+/* Mapa de Calor: canvas transparente superpuesto al SVG de la cancha (mismo wrapper, mismo
+   position:absolute inset:0) -- ver renderHeatmap()/actualizarModoCancha() más abajo. */
+.cancha-heatmap-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+}
+.cancha-balon {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    margin-left: -7px;
+    margin-top: -7px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffffff, #d9d9d9 60%, #9a9a9a 100%);
+    border: 1px solid rgba(0, 0, 0, 0.35);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    transition: left 0.6s ease, top 0.6s ease;
+    z-index: 2;
+}
+.cancha-balon--gol {
+    animation: cancha-pulse-gol 1.1s ease-out 2;
+}
+.cancha-balon--tarjeta-amarilla {
+    animation: cancha-pulse-tarjeta 0.9s ease-out 2;
+    --cancha-pulse-color: rgba(255, 193, 7, 0.85);
+}
+.cancha-balon--tarjeta-roja {
+    animation: cancha-pulse-tarjeta 0.9s ease-out 2;
+    --cancha-pulse-color: rgba(220, 53, 69, 0.85);
+}
+@keyframes cancha-pulse-gol {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.9), 0 2px 4px rgba(0, 0, 0, 0.5); }
+    70% { box-shadow: 0 0 0 18px rgba(16, 185, 129, 0), 0 2px 4px rgba(0, 0, 0, 0.5); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), 0 2px 4px rgba(0, 0, 0, 0.5); }
+}
+@keyframes cancha-pulse-tarjeta {
+    0% { box-shadow: 0 0 0 0 var(--cancha-pulse-color), 0 2px 4px rgba(0, 0, 0, 0.5); }
+    70% { box-shadow: 0 0 0 14px rgba(0, 0, 0, 0), 0 2px 4px rgba(0, 0, 0, 0.5); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0), 0 2px 4px rgba(0, 0, 0, 0.5); }
+}
+
+/* Jugadores en la Cancha en Vivo: una ficha redonda con el dorsal por jugador en cancha,
+   posicionada en left/top % (mismo sistema que el balón) -- ver renderJugadoresCancha(). Se
+   centran con la propiedad 'translate' (no 'transform') para que las animaciones puedan usar
+   'scale' sin pisar el centrado. Quedan debajo del balón (z-index 1 vs 2). */
+.cancha-jugadores {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+.cancha-jugador {
+    position: absolute;
+    width: 3.1%;
+    min-width: 18px;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(9px, 1.05vw, 13px);
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+    pointer-events: auto;
+    cursor: default;
+    user-select: none;
+    transition: left 0.8s ease, top 0.8s ease, opacity 0.45s ease, scale 0.3s ease;
+}
+.cancha-jugador--local { background: #3987e5; }
+/* Dorsal en el listado de "Jugadores en Cancha" (mismos colores que las fichas de la cancha) */
+.once-dorsal {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #fff;
+    border: 1.5px solid rgba(255, 255, 255, 0.8);
+}
+.once-dorsal--local { background: #3987e5; }
+.once-dorsal--visitante { background: #e66767; }
+.cancha-jugador--visitante { background: #e66767; }
+/* El arquero se distingue con otro tono y borde dorado, como un uniforme distinto */
+.cancha-jugador--local.cancha-jugador--portero { background: #1d4f8c; border-color: #ffc107; }
+.cancha-jugador--visitante.cancha-jugador--portero { background: #8e2f2f; border-color: #ffc107; }
+.cancha-jugador--oculto { opacity: 0; scale: 0.4; }
+.cancha-jugador--activo {
+    z-index: 3;
+    scale: 1.3;
+    animation: cancha-jugador-pulso 1s ease-out 2;
+}
+.cancha-jugador--secundario { z-index: 2; scale: 1.12; }
+.cancha-jugador--gol {
+    z-index: 3;
+    scale: 1.35;
+    animation: cancha-jugador-gol 0.55s ease-in-out 4;
+}
+.cancha-jugador--amarilla { animation: cancha-jugador-tarjeta 0.5s ease-in-out 4; --cancha-tarjeta-color: #ffc107; }
+.cancha-jugador--roja { animation: cancha-jugador-tarjeta 0.5s ease-in-out 4; --cancha-tarjeta-color: #dc3545; }
+@keyframes cancha-jugador-pulso {
+    0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.85), 0 2px 4px rgba(0, 0, 0, 0.45); }
+    100% { box-shadow: 0 0 0 12px rgba(255, 255, 255, 0), 0 2px 4px rgba(0, 0, 0, 0.45); }
+}
+@keyframes cancha-jugador-gol {
+    0%, 100% { translate: -50% -50%; box-shadow: 0 0 10px 3px rgba(255, 193, 7, 0.9); }
+    50% { translate: -50% -95%; box-shadow: 0 0 18px 7px rgba(255, 193, 7, 0.6); }
+}
+@keyframes cancha-jugador-tarjeta {
+    0%, 100% { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45); }
+    50% { box-shadow: 0 0 0 5px var(--cancha-tarjeta-color), 0 0 14px 4px var(--cancha-tarjeta-color); }
+}
+

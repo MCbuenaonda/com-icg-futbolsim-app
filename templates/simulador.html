@@ -3,12 +3,136 @@
 {% block title %}Detalle del Partido - {{ partido.local if partido else 'Simulador' }}{% endblock %}
 
 {% block content %}
+{# Tabla de estadísticas por jugador de UN equipo (lado 'L' o 'V'); antes estaba escrita dos
+   veces, una por equipo, con diferencias de estilo entre ambas copias. #}
+{% macro tabla_jugadores(dataset_jugadores, lado, id_tbody) %}
+<div class="table-responsive">
+                        <table class="table table-hover table-dark align-middle">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Jugador</th>
+                                    <th>Posición</th>
+                                    <th>Pases (C/F)</th>
+                                    <th>Regates / Pérdidas</th>
+                                    <th>Tiros (Puerta/Desviados)</th>
+                                    <th>Robos / Faltas</th>
+                                    <th>Rating</th>
+                                </tr>
+                            </thead>
+                            <tbody id="{{ id_tbody }}">
+                                {% for stat in dataset_jugadores.values() %}
+                                    {% if stat.lado == lado %}
+                                    <tr>
+                                        <td>
+                                            <strong class="{% if stat.salio_de_cambio %}text-muted{% endif %}">
+                                                {{ stat.nombre }}
+                                            </strong>
+
+                                            {% if stat.entro_de_cambio %}
+                                                <span class="badge bg-info text-dark ms-1" title="Entró de cambio">🔄 Entró</span>
+                                            {% endif %}
+
+                                            {% if stat.salio_de_cambio %}
+                                                <span class="badge bg-secondary text-light ms-1" title="Sustituido">
+                                                    <i class="bi bi-arrow-left-short"></i> Salió
+                                                </span>
+                                            {% endif %}
+
+                                            {% if stat.amarillas > 0 %}
+                                                <span class="badge bg-warning text-dark" title="Tarjetas amarillas">🟨 {{ stat.amarillas }}</span>
+                                            {% endif %}
+                                            {% if stat.rojas > 0 %}
+                                                <span class="badge bg-danger" title="Tarjetas rojas">🟥 {{ stat.rojas }}</span>
+                                            {% endif %}
+                                            {% if stat.goles > 0 %}
+                                                <span class="badge bg-success" title="Goles">⚽ {{ stat.goles }}</span>
+                                            {% endif %}
+                                        </td>
+
+                                        <td>
+                                            {% if stat.posicion == 'PORTERO' %}
+                                                <span class="badge bg-accent text-dark">PORTERO</span>
+                                            {% elif stat.posicion == 'DEFENSA' %}
+                                                <span class="badge bg-secondary">DEFENSA</span>
+                                            {% elif stat.posicion == 'MEDIO' %}
+                                                <span class="badge bg-info text-dark">MEDIO</span>
+                                            {% elif stat.posicion == 'DELANTERO' %}
+                                                <span class="badge bg-primary">DELANTERO</span>
+                                            {% else %}
+                                                <span class="badge bg-dark">{{ stat.posicion }}</span>
+                                            {% endif %}
+                                        </td>
+
+                                        <td>{{ stat.pases_completados }} / {{ stat.pases_fallados }}</td>
+
+                                        {% if stat.posicion == 'PORTERO' %}
+                                            <td>
+                                                <span class="badge bg-success bg-opacity-25 text-light border border-success px-2 py-1" title="Atajadas limpias / Desvíos a córner">
+                                                    🧤 {{ stat.atajadas }} Ataj. / 🖐️ {{ stat.desvios }} Desv.
+                                                </span>
+                                            </td>
+
+                                            <td>
+                                                <span class="badge bg-danger bg-opacity-25 text-light border border-danger px-2 py-1" title="Goles recibidos / Fallas graves">
+                                                    ⚽ {{ stat.goles_encajados }} Enc. / ⚠️ {{ stat.errores_graves }} Err.
+                                                </span>
+                                            </td>
+
+                                            <td class="text-muted small"><em>Salidas / Saques</em></td>
+                                        {% else %}
+                                            <td>{{ stat.regates_exitosos }} / {{ stat.pérdidas }}</td>
+                                            <td>{{ stat.tiros_puerta }} / {{ stat.tiros_desviados }}</td>
+                                            <td>{{ stat.recuperaciones }} / {{ stat.faltas }}</td>
+                                        {% endif %}
+
+                                        <td>
+                                            {% if stat.rating >= 7.5 %}
+                                                <span class="badge rounded-pill bg-success fs-6">{{ "%.1f"|format(stat.rating) }}</span>
+                                            {% elif stat.rating >= 6.5 %}
+                                                <span class="badge rounded-pill bg-primary fs-6">{{ "%.1f"|format(stat.rating) }}</span>
+                                            {% elif stat.rating >= 6.0 %}
+                                                <span class="badge rounded-pill bg-secondary text-white fs-6">{{ "%.1f"|format(stat.rating) }}</span>
+                                            {% else %}
+                                                <span class="badge rounded-pill bg-danger fs-6">{{ "%.1f"|format(stat.rating) }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-group-divider border-top border-secondary">
+                                {% set jugadores_locales = dataset_jugadores.values() | selectattr("lado", "equalto", lado) | list %}
+                                {% set num_jugadores = jugadores_locales | length %}
+                                {% set suma_ratings = jugadores_locales | map(attribute="rating") | sum %}
+                                {% set rating_promedio = (suma_ratings / num_jugadores) if num_jugadores > 0 else 0.0 %}
+
+                                <tr class="table-active fw-bold">
+                                    <td colspan="6" class="text-end pe-3">
+                                        <i class="bi bi-shield-shaded me-1"></i> Rating General del Equipo:
+                                    </td>
+                                    <td>
+                                        {% if rating_promedio >= 7.5 %}
+                                            <span class="badge rounded-pill bg-success fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
+                                        {% elif rating_promedio >= 6.5 %}
+                                            <span class="badge rounded-pill bg-primary fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
+                                        {% elif rating_promedio >= 6.0 %}
+                                            <span class="badge rounded-pill bg-secondary text-white fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
+                                        {% else %}
+                                            <span class="badge rounded-pill bg-danger fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+{% endmacro %}
+
 <div class="row justify-content-center">
     <div class="col-12 col-xxl-11">
 
         <!-- Header / Título Principal -->
         <div class="text-center mb-4">
-            <h1 class="display-5 fw-bold text-dark">Detalle del Partido</h1>
+            <h1 class="display-5 fw-bold text-body-emphasis">Detalle del Partido</h1>
             
             {% if partido %}
                 <!-- Badges de información general -->
@@ -52,7 +176,7 @@
                             <div class="text-muted small text-uppercase">Quiniela activa</div>
                             {% if partidos_restantes_quiniela > 0 %}
                                 <div class="fw-bold text-white">
-                                    <span class="text-warning fs-5">{{ partidos_restantes_quiniela }}</span>
+                                    <span class="text-accent fs-5">{{ partidos_restantes_quiniela }}</span>
                                     partido{{ "s" if partidos_restantes_quiniela != 1 else "" }} restante{{ "s" if partidos_restantes_quiniela != 1 else "" }} por resolver
                                 </div>
                             {% else %}
@@ -82,7 +206,7 @@
             <!-- Ficha Técnica: Ubicación, Fecha, Clima y Aforo -->
             <div class="card-footer bg-black bg-opacity-40 border-top border-secondary text-light py-3 px-4">
                 <div class="row g-3">
-                    {% if partido.ubicaion %}
+                    {% if partido.ubicacion %}
                         <div class="col-6 col-lg-3">
                             <div class="match-info-chip row">
                                 <div class="text-center col-md-4 py-1">
@@ -95,8 +219,8 @@
                                             <span class="badge rounded-pill bg-dark border border-success text-success ms-1" title="Sos dueño de esta sede"><i class="bi bi-briefcase-fill"></i></span>
                                         {% endif %}
                                     </span>
-                                    <span class="match-info-value text-truncate d-block" title="{{ partido.ubicaion.estadio }}">{{ partido.ubicaion.estadio }}</span>
-                                    <small class="text-muted text-truncate d-block">{{ partido.ubicaion.nombre }}, {{ partido.ubicaion.pais }}</small>
+                                    <span class="match-info-value text-truncate d-block" title="{{ partido.ubicacion.estadio }}">{{ partido.ubicacion.estadio }}</span>
+                                    <small class="text-muted text-truncate d-block">{{ partido.ubicacion.nombre }}, {{ partido.ubicacion.pais }}</small>
                                 </div>
                             </div>
                         </div>
@@ -107,7 +231,7 @@
                             <div class="text-center col-md-4 py-1">
                                 <span class="match-info-icon display-5"><i class="bi bi-calendar-event"></i></span>
                             </div>
-                            <div class="text-start text-truncate col-md-8">
+                            <div class="text-start col-md-8">
                                 <span class="match-info-label">Fecha</span>
                                 <span class="match-info-value">{{ partido.fecha | fecha_es }}</span>
                                 <small class="text-muted"><i class="bi bi-clock me-1"></i>{{ partido.hora if partido.hora else '00:00' }} hrs</small>
@@ -203,9 +327,11 @@
                         <span id="btnSimularPartidoCargando" class="btn btn-warning btn-md px-5 shadow fw-bold disabled d-none">
                             <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Simulando...
                         </span>
+                        {% if puede('scouter') %}
                         <a href="/scouter/{{ partido._id }}" class="btn btn-outline-info btn-md px-4 shadow-sm fw-bold ms-2">
                             <i class="bi bi-binoculars-fill me-2"></i>Análisis Pre-Partido
                         </a>
+                        {% endif %}
                     </div>
                     <script>
                         (function () {
@@ -247,7 +373,7 @@
                                     <span class="badge rounded-pill bg-dark border border-info text-info" title="Tienes un pronóstico de quiniela por {{ partido.local }}"><i class="bi bi-ticket-perforated-fill"></i></span>
                                 {% endif %}
                                 {% if marcas_partido.local.fantasy %}
-                                    <span class="badge rounded-pill bg-dark border border-warning text-warning" title="Tienes jugadores de {{ partido.local }} en tu Once Ideal"><i class="bi bi-stars"></i></span>
+                                    <span class="badge rounded-pill bg-dark border border-accent text-accent" title="Tienes jugadores de {{ partido.local }} en tu Once Ideal"><i class="bi bi-stars"></i></span>
                                 {% endif %}
                                 {% if marcas_partido.local.dueno_pais %}
                                     <span class="badge rounded-pill bg-dark border border-success text-success" title="Sos dueño de la selección de {{ partido.local }}"><i class="bi bi-briefcase-fill"></i></span>
@@ -259,7 +385,7 @@
 
                     <!-- Marcador / Estado -->
                     <div class="col-4">
-                        <div class="display-3 fw-bold text-warning lh-1">
+                        <div class="display-3 fw-bold text-accent lh-1">
                             {{ partido.goles_local if partido.goles_local is not none else 0 }} - {{ partido.goles_visitante if partido.goles_visitante is not none else 0 }}
                         </div>
 
@@ -281,7 +407,7 @@
                         {% endif %}
 
                         {% if partido.marcador_ida and partido.marcador_global_local is defined %}
-                            <div class="small text-warning fw-bold mt-2">
+                            <div class="small text-accent fw-bold mt-2">
                                 <i class="bi bi-globe-americas me-1"></i>Global: {{ partido.marcador_global_local }} - {{ partido.marcador_global_visita }}
                             </div>
                         {% endif %}
@@ -312,7 +438,7 @@
                                     <span class="badge rounded-pill bg-dark border border-info text-info" title="Tienes un pronóstico de quiniela por {{ partido.visitante }}"><i class="bi bi-ticket-perforated-fill"></i></span>
                                 {% endif %}
                                 {% if marcas_partido.visita.fantasy %}
-                                    <span class="badge rounded-pill bg-dark border border-warning text-warning" title="Tienes jugadores de {{ partido.visitante }} en tu Once Ideal"><i class="bi bi-stars"></i></span>
+                                    <span class="badge rounded-pill bg-dark border border-accent text-accent" title="Tienes jugadores de {{ partido.visitante }} en tu Once Ideal"><i class="bi bi-stars"></i></span>
                                 {% endif %}
                                 {% if marcas_partido.visita.dueno_pais %}
                                     <span class="badge rounded-pill bg-dark border border-success text-success" title="Sos dueño de la selección de {{ partido.visitante }}"><i class="bi bi-briefcase-fill"></i></span>
@@ -332,7 +458,7 @@
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-dark text-white py-3">
                 <h5 class="card-title mb-0 fw-bold">
-                    <i class="bi bi-bar-chart-line-fill text-warning me-2"></i> Comparativa Previa y Rendimiento
+                    <i class="bi bi-bar-chart-line-fill text-accent me-2"></i> Comparativa Previa y Rendimiento
                 </h5>
             </div>
             <div class="card-body">
@@ -361,7 +487,7 @@
                         <div class="p-3 surface-soft">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <small class="fw-bold text-muted text-uppercase">Último Partido: {{ partido.local }}</small>
-                                <span class="badge {% if partido.resultado_ultimo_juego_local == 'Victoria' %}bg-success{% elif partido.resultado_ultimo_juego_local == 'Empate' %}bg-warning text-dark{% elif partido.resultado_ultimo_juego_local == 'Sin Partidos Previos' %}bg-secondary{% else %}bg-danger{% endif %}">
+                                <span class="badge {% if partido.resultado_ultimo_juego_local == 'Victoria' %}bg-success{% elif partido.resultado_ultimo_juego_local == 'Empate' %}bg-accent text-dark{% elif partido.resultado_ultimo_juego_local == 'Sin Partidos Previos' %}bg-secondary{% else %}bg-danger{% endif %}">
                                     {{ partido.resultado_ultimo_juego_local }}
                                 </span>
                             </div>
@@ -382,7 +508,7 @@
                         <div class="p-3 surface-soft">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <small class="fw-bold text-muted text-uppercase">Último Partido: {{ partido.visitante }}</small>
-                                <span class="badge {% if partido.resultado_ultimo_juego_visita == 'Victoria' %}bg-success{% elif partido.resultado_ultimo_juego_visita == 'Empate' %}bg-warning text-dark{% elif partido.resultado_ultimo_juego_visita == 'Sin Partidos Previos' %}bg-secondary{% else %}bg-danger{% endif %}">
+                                <span class="badge {% if partido.resultado_ultimo_juego_visita == 'Victoria' %}bg-success{% elif partido.resultado_ultimo_juego_visita == 'Empate' %}bg-accent text-dark{% elif partido.resultado_ultimo_juego_visita == 'Sin Partidos Previos' %}bg-secondary{% else %}bg-danger{% endif %}">
                                     {{ partido.resultado_ultimo_juego_visita }}
                                 </span>
                             </div>
@@ -408,7 +534,7 @@
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-dark text-white py-3">
                 <h5 class="card-title mb-0 fw-bold">
-                    <i class="bi bi-activity text-warning me-2"></i> Intensidad del Partido
+                    <i class="bi bi-activity text-accent me-2"></i> Intensidad del Partido
                 </h5>
             </div>
             <div class="card-body">
@@ -431,7 +557,7 @@
 
         <!-- Cronología de eventos -->
         <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center cursor-pointer"
+            <div class="card-header bg-body-tertiary py-3 d-flex justify-content-between align-items-center cursor-pointer"
                  data-bs-toggle="collapse"
                  data-bs-target="#collapseCronologia"
                  aria-expanded="false" 
@@ -456,7 +582,7 @@
                                     {% if evento.minuto == 120 and 'PENAL' in evento.tipo %}
                                         <span class="badge bg-danger rounded-pill me-3 fs-6 minute-badge">PEN</span>
                                     {% elif 'VAR' in evento.tipo %}
-                                        <span class="badge bg-dark text-warning rounded-pill me-3 fs-6 minute-badge">'{{ evento.minuto }}</span>
+                                        <span class="badge bg-dark text-accent rounded-pill me-3 fs-6 minute-badge">'{{ evento.minuto }}</span>
                                     {% elif 'SUSTITUCIÓN' in evento.tipo %}
                                         <span class="badge bg-info text-dark rounded-pill me-3 fs-6 minute-badge">'{{ evento.minuto }}</span>
                                     {% elif evento.minuto > 90 %}
@@ -466,7 +592,7 @@
                                     {% endif %}
 
                                     <div>
-                                        <strong class="text-dark">{{ evento.tipo }}</strong> 
+                                        <strong class="text-body-emphasis">{{ evento.tipo }}</strong> 
                                         <span class="text-muted">({{ evento.equipo }})</span>: 
                                         <span>{{ evento.descripcion | resaltar_jugadores(evento.jugadores or []) }}</span>
                                     </div>
@@ -489,7 +615,7 @@
         {% if dataset_jugadores %}
         <div class="card mt-4 shadow-sm border-0 mb-4">
             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-              <h5 class="mb-0"><i class="bi bi-star-fill text-warning me-2"></i> Rendimiento Individual de Jugadores</h5>
+              <h5 class="mb-0"><i class="bi bi-star-fill text-accent me-2"></i> Rendimiento Individual de Jugadores</h5>
               <span class="badge bg-primary">Rating 1-10</span>
             </div>
             <div class="card-body">
@@ -507,248 +633,12 @@
               <div class="tab-content" id="pills-tabContent">
                 <!-- Tabla Local -->
                 <div class="tab-pane fade show active" id="tab-local">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-dark align-middle">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Jugador</th>
-                                    <th>Posición</th>
-                                    <th>Pases (C/F)</th>
-                                    <th>Regates / Pérdidas</th>
-                                    <th>Tiros (Puerta/Desviados)</th>
-                                    <th>Robos / Faltas</th>
-                                    <th>Rating</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tabla-stats-local">
-                                {% for stat in dataset_jugadores.values() %}
-                                    {% if stat.lado == 'L' %}
-                                    <tr>
-                                        <td>
-                                            <strong class="{% if stat.salio_de_cambio %}text-muted{% endif %}">
-                                                {{ stat.nombre }}
-                                            </strong>
-
-                                            {% if stat.entro_de_cambio %}
-                                                <span class="badge bg-info text-dark ms-1" title="Entró de cambio">🔄 Entró</span>
-                                            {% endif %}
-
-                                            {% if stat.salio_de_cambio %}
-                                                <span class="badge bg-secondary text-light ms-1" title="Sustituido">
-                                                    <i class="bi bi-arrow-left-short"></i> Salió
-                                                </span>
-                                            {% endif %}
-
-                                            {% if stat.amarillas > 0 %}
-                                                <span class="badge bg-warning text-dark" title="Tarjetas amarillas">🟨 {{ stat.amarillas }}</span>
-                                            {% endif %}
-                                            {% if stat.rojas > 0 %}
-                                                <span class="badge bg-danger" title="Tarjetas rojas">🟥 {{ stat.rojas }}</span>
-                                            {% endif %}
-                                            {% if stat.goles > 0 %}
-                                                <span class="badge bg-success" title="Goles">⚽ {{ stat.goles }}</span>
-                                            {% endif %}
-                                        </td>
-
-                                        <td>
-                                            {% if stat.posicion == 'PORTERO' %}
-                                                <span class="badge bg-warning text-dark">PORTERO</span>
-                                            {% elif stat.posicion == 'DEFENSA' %}
-                                                <span class="badge bg-secondary">DEFENSA</span>
-                                            {% elif stat.posicion == 'MEDIO' %}
-                                                <span class="badge bg-info text-dark">MEDIO</span>
-                                            {% elif stat.posicion == 'DELANTERO' %}
-                                                <span class="badge bg-primary">DELANTERO</span>
-                                            {% else %}
-                                                <span class="badge bg-dark">{{ stat.posicion }}</span>
-                                            {% endif %}
-                                        </td>
-
-                                        <td>{{ stat.pases_completados }} / {{ stat.pases_fallados }}</td>
-
-                                        {% if stat.posicion == 'PORTERO' %}
-                                            <td>
-                                                <span class="badge bg-success bg-opacity-25 text-light border border-success px-2 py-1" title="Atajadas limpias / Desvíos a córner">
-                                                    🧤 {{ stat.atajadas }} Ataj. / 🖐️ {{ stat.desvios }} Desv.
-                                                </span>
-                                            </td>
-
-                                            <td>
-                                                <span class="badge bg-danger bg-opacity-25 text-light border border-danger px-2 py-1" title="Goles recibidos / Fallas graves">
-                                                    ⚽ {{ stat.goles_encajados }} Enc. / ⚠️ {{ stat.errores_graves }} Err.
-                                                </span>
-                                            </td>
-
-                                            <td class="text-muted small"><em>Salidas / Saques</em></td>
-                                        {% else %}
-                                            <td>{{ stat.regates_exitosos }} / {{ stat.pérdidas }}</td>
-                                            <td>{{ stat.tiros_puerta }} / {{ stat.tiros_desviados }}</td>
-                                            <td>{{ stat.recuperaciones }} / {{ stat.faltas }}</td>
-                                        {% endif %}
-
-                                        <td>
-                                            {% if stat.rating >= 7.5 %}
-                                                <span class="badge rounded-pill bg-success fs-6">{{ "%.1f"|format(stat.rating) }}</span>
-                                            {% elif stat.rating >= 6.5 %}
-                                                <span class="badge rounded-pill bg-primary fs-6">{{ "%.1f"|format(stat.rating) }}</span>
-                                            {% elif stat.rating >= 6.0 %}
-                                                <span class="badge rounded-pill bg-secondary text-dark fs-6">{{ "%.1f"|format(stat.rating) }}</span>
-                                            {% else %}
-                                                <span class="badge rounded-pill bg-danger fs-6">{{ "%.1f"|format(stat.rating) }}</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endif %}
-                                {% endfor %}
-                            </tbody>
-                            <tfoot class="table-group-divider border-top border-secondary">
-                                {% set jugadores_locales = dataset_jugadores.values() | selectattr("lado", "equalto", "L") | list %}
-                                {% set num_jugadores = jugadores_locales | length %}
-                                {% set suma_ratings = jugadores_locales | map(attribute="rating") | sum %}
-                                {% set rating_promedio = (suma_ratings / num_jugadores) if num_jugadores > 0 else 0.0 %}
-
-                                <tr class="table-active fw-bold">
-                                    <td colspan="6" class="text-end pe-3">
-                                        <i class="bi bi-shield-shaded me-1"></i> Rating General del Equipo:
-                                    </td>
-                                    <td>
-                                        {% if rating_promedio >= 7.5 %}
-                                            <span class="badge rounded-pill bg-success fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
-                                        {% elif rating_promedio >= 6.5 %}
-                                            <span class="badge rounded-pill bg-primary fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
-                                        {% elif rating_promedio >= 6.0 %}
-                                            <span class="badge rounded-pill bg-secondary text-dark fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
-                                        {% else %}
-                                            <span class="badge rounded-pill bg-danger fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                    {{ tabla_jugadores(dataset_jugadores, 'L', 'tabla-stats-local') }}
                 </div>
 
                 <!-- Tabla Visita -->
                 <div class="tab-pane fade" id="tab-visita">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-dark align-middle">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Jugador</th>
-                                    <th>Posición</th>
-                                    <th>Pases (C/F)</th>
-                                    <th>Regates / Pérdidas</th>
-                                    <th>Tiros (Puerta/Desviados)</th>
-                                    <th>Robos / Faltas</th>
-                                    <th>Rating</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tabla-stats-visita">
-                                {% for stat in dataset_jugadores.values() %}
-                                {% if stat.lado == 'V' %}
-                                    <tr>
-                                        <td>
-                                            <strong class="{% if stat.salio_de_cambio %}text-muted{% endif %}">
-                                                {{ stat.nombre }}
-                                            </strong>
-
-                                            {% if stat.entro_de_cambio %}
-                                                <span class="badge bg-info text-dark ms-1" title="Entró de cambio">🔄 Entró</span>
-                                            {% endif %}
-
-                                            {% if stat.salio_de_cambio %}
-                                                <span class="badge bg-secondary text-light ms-1" title="Sustituido">
-                                                    <i class="bi bi-arrow-left-short"></i> Salió
-                                                </span>
-                                            {% endif %}
-
-                                            {% if stat.amarillas > 0 %}
-                                                <span class="badge bg-warning text-dark" title="Tarjetas amarillas">🟨 {{ stat.amarillas }}</span>
-                                            {% endif %}
-                                            {% if stat.rojas > 0 %}
-                                                <span class="badge bg-danger" title="Tarjetas rojas">🟥 {{ stat.rojas }}</span>
-                                            {% endif %}
-                                            {% if stat.goles > 0 %}
-                                                <span class="badge bg-success" title="Goles">⚽ {{ stat.goles }}</span>
-                                            {% endif %}
-                                        </td>
-
-                                        <td>
-                                            {% if stat.posicion == 'PORTERO' %}
-                                                <span class="badge bg-warning text-dark">PORTERO</span>
-                                            {% elif stat.posicion == 'DEFENSA' %}
-                                                <span class="badge bg-secondary">DEFENSA</span>
-                                            {% elif stat.posicion == 'MEDIO' %}
-                                                <span class="badge bg-info text-dark">MEDIO</span>
-                                            {% elif stat.posicion == 'DELANTERO' %}
-                                                <span class="badge bg-primary">DELANTERO</span>
-                                            {% else %}
-                                                <span class="badge bg-dark">{{ stat.posicion }}</span>
-                                            {% endif %}
-                                        </td>
-
-                                        <td>{{ stat.pases_completados }} / {{ stat.pases_fallados }}</td>
-
-                                        {% if stat.posicion == 'PORTERO' %}
-                                            <td>
-                                                <span class="badge bg-success bg-opacity-25 text-light border border-success px-2 py-1" title="Atajadas limpias / Desvíos a córner">
-                                                    🧤 {{ stat.atajadas }} Ataj. / 🖐️ {{ stat.desvios }} Desv.
-                                                </span>
-                                            </td>
-
-                                            <td>
-                                                <span class="badge bg-danger bg-opacity-25 text-light border border-danger px-2 py-1" title="Goles recibidos / Fallas graves">
-                                                    ⚽ {{ stat.goles_encajados }} Enc. / ⚠️ {{ stat.errores_graves }} Err.
-                                                </span>
-                                            </td>
-
-                                            <td class="text-muted small"><em>Salidas / Saques</em></td>
-                                        {% else %}
-                                            <td>{{ stat.regates_exitosos }} / {{ stat.pérdidas }}</td>
-                                            <td>{{ stat.tiros_puerta }} / {{ stat.tiros_desviados }}</td>
-                                            <td>{{ stat.recuperaciones }} / {{ stat.faltas }}</td>
-                                        {% endif %}
-
-                                        <td>
-                                            {% if stat.rating >= 7.5 %}
-                                                <span class="badge rounded-pill bg-success fs-6">{{ "%.1f"|format(stat.rating) }}</span>
-                                            {% elif stat.rating >= 6.5 %}
-                                                <span class="badge rounded-pill bg-primary fs-6">{{ "%.1f"|format(stat.rating) }}</span>
-                                            {% elif stat.rating >= 6.0 %}
-                                                <span class="badge rounded-pill bg-secondary text-dark fs-6">{{ "%.1f"|format(stat.rating) }}</span>
-                                            {% else %}
-                                                <span class="badge rounded-pill bg-danger fs-6">{{ "%.1f"|format(stat.rating) }}</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endif %}
-                                {% endfor %}
-                            </tbody>
-                            <tfoot class="table-group-divider border-top border-secondary">
-                                {% set jugadores_visita = dataset_jugadores.values() | selectattr("lado", "equalto", "V") | list %}
-                                {% set num_jugadores = jugadores_visita | length %}
-                                {% set suma_ratings = jugadores_visita | map(attribute="rating") | sum %}
-                                {% set rating_promedio = (suma_ratings / num_jugadores) if num_jugadores > 0 else 0.0 %}
-
-                                <tr class="table-active fw-bold">
-                                    <td colspan="6" class="text-end pe-3">
-                                        <i class="bi bi-shield-shaded me-1"></i> Rating General del Equipo:
-                                    </td>
-                                    <td>
-                                        {% if rating_promedio >= 7.5 %}
-                                            <span class="badge rounded-pill bg-success fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
-                                        {% elif rating_promedio >= 6.5 %}
-                                            <span class="badge rounded-pill bg-primary fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
-                                        {% elif rating_promedio >= 6.0 %}
-                                            <span class="badge rounded-pill bg-warning text-dark fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
-                                        {% else %}
-                                            <span class="badge rounded-pill bg-danger fs-6 shadow-sm">{{ "%.1f"|format(rating_promedio) }}</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
+                    {{ tabla_jugadores(dataset_jugadores, 'V', 'tabla-stats-visita') }}
                 </div>
             </div>
         </div>
@@ -787,19 +677,19 @@
 
         <!-- Crónica / Opinión Periodística -->
         {% if partido and partido.opinion %}
-            <div class="card shadow-sm border-0 mb-4 bg-light border-start border-4 border-warning">
+            <div class="card shadow-sm border-0 mb-4 bg-body-tertiary border-start border-4 border-accent">
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center mb-2">
-                        <div class="badge bg-warning text-dark p-2 rounded-circle me-3">
+                        <div class="badge bg-accent text-dark p-2 rounded-circle me-3">
                             <i class="bi bi-journal-text fs-5"></i>
                         </div>
-                        <h5 class="card-title mb-0 fw-bold text-dark">
+                        <h5 class="card-title mb-0 fw-bold text-body-emphasis">
                             Crónica & Análisis Periodístico
                         </h5>
                     </div>
                     <hr class="my-2 border-secondary opacity-25">
                     <p class="card-text text-secondary lh-lg fs-6 mb-0 mt-3">
-                        <i class="bi bi-quote fs-4 text-warning me-1"></i>
+                        <i class="bi bi-quote fs-4 text-accent me-1"></i>
                         {{ partido.opinion }}
                     </p>
                 </div>

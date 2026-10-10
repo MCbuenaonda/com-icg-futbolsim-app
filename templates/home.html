@@ -8,21 +8,24 @@
     <!-- Encabezado del Dashboard -->
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-            <h1 class="h2 fw-bold text-dark mb-1">
-                <i class="bi bi-trophy-fill text-warning me-2"></i>{{ ordinal_mundial | ordinal_torneo }} Torneo Mundial de Fútbol de la FIFAV{% if mundial %} — {{ mundial.pais }} {{ mundial.anio }}{% endif %}
+            <h1 class="h2 fw-bold text-body-emphasis mb-1">
+                <i class="bi bi-trophy-fill text-accent me-2"></i>{{ ordinal_mundial | ordinal_torneo }} Torneo Mundial de Fútbol de la FIFAV{% if mundial %} — {{ mundial.pais }} {{ mundial.anio }}{% endif %}
             </h1>
             <p class="text-muted mb-0">Gestión global desde las Eliminatorias de Confederaciones hasta la Gran Final de la Copa del Mundo.</p>
         </div>
         <div class="d-flex gap-2">
-            <form id="formReiniciarTorneo" action="/restart" method="get" class="d-inline"></form>
+            {% if puede('reiniciar_torneo') %}
+            <!-- POST + permiso 'reiniciar_torneo' (antes era un GET al alcance de cualquier usuario) -->
+            <form id="formReiniciarTorneo" action="/restart" method="post" class="d-inline"></form>
             <button type="button" class="btn btn-outline-danger shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalConfirmarReinicio">
                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reiniciar Torneo
             </button>
-            <form action="/juegos" method="get" class="d-inline">
-                <button type="submit" class="btn btn-outline-secondary shadow-sm fw-bold">
-                    <i class="bi bi-play-fill me-1"></i> Ir a Partidos
-                </button>
-            </form>
+            {% endif %}
+            {% if puede('partidos') %}
+            <a href="/juegos/" class="btn btn-outline-secondary shadow-sm fw-bold">
+                <i class="bi bi-play-fill me-1"></i> Ir a Partidos
+            </a>
+            {% endif %}
         </div>
     </div>
 
@@ -79,11 +82,11 @@
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <div class="d-flex align-items-center gap-2 mb-2">
-                        <span class="badge bg-warning text-dark fw-bold mb-2 px-3 py-2 text-uppercase fs-7">
+                        <span class="badge bg-accent text-dark fw-bold mb-2 px-3 py-2 text-uppercase fs-7">
                             <i class="bi bi-broadcast me-1"></i> Fase Activa
                         </span>
                         <!-- AQUÍ: Información del Mundial Actual -->
-                        <span class="badge bg-primary fw-bold px-3 py-2 mb-2 text-uppercase fs-7">
+                        <span class="badge bg-primary fw-bold px-3 py-2 mb-2 text-uppercase fs-7 text-wrap text-start" style="max-width: 100%;">
                             <i class="bi bi-geo-alt-fill me-1"></i> Mundial {{ mundial.anio }} - {{ mundial.pais }}
                         </span>
                     </div>
@@ -93,17 +96,17 @@
                         <div class="w-100 max-w-400">
                             <div class="d-flex justify-content-between text-muted fs-7 mb-1">
                                 <span>Progreso del Torneo</span>
-                                <span class="fw-bold text-warning">{{ fase_actual.progreso | round(2, 'common') }}%</span>
+                                <span class="fw-bold text-accent">{{ fase_actual.progreso | round(2, 'common') }}%</span>
                             </div>
                             <div class="progress bg-secondary" style="height: 10px;">
-                                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ fase_actual.progreso }}%;"></div>
+                                <div class="progress-bar bg-accent" role="progressbar" style="width: {{ fase_actual.progreso }}%;"></div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4 text-center text-md-end mt-3 mt-md-0">
-                    <div class="p-3 bg-white bg-opacity-10 rounded-3 d-inline-block text-center border border-white border-opacity-10">
-                        <div class="text-uppercase fs-7 text-warning fw-bold">Cupos Definidos</div>
+                    <div class="p-3 bg-body-tertiary bg-opacity-10 rounded-3 d-inline-block text-center border border-white border-opacity-10">
+                        <div class="text-uppercase fs-7 text-accent fw-bold">Cupos Definidos</div>
                         <div class="display-5 fw-bold text-white">{{ stats.clasificados_count }} / {{ stats.total_cupos }}</div>
                         <span class="text-light fs-7">Equipos a la Copa del Mundo</span>
                     </div>
@@ -120,7 +123,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <span class="text-muted fs-7 text-uppercase fw-semibold">Partidos Jugados</span>
-                            <h3 class="fw-bold my-1 text-dark">{{ stats.partidos_jugados }}</h3>
+                            <h3 class="fw-bold my-1 text-body-emphasis">{{ stats.partidos_jugados }}</h3>
                             <span class="text-success fs-7 fw-semibold"><i class="bi bi-check-circle me-1"></i>En tiempo real</span>
                         </div>
                         <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
@@ -136,7 +139,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <span class="text-muted fs-7 text-uppercase fw-semibold">Goles Anotados</span>
-                            <h3 class="fw-bold my-1 text-dark">{{ stats.goles_totales }}</h3>
+                            <h3 class="fw-bold my-1 text-body-emphasis">{{ stats.goles_totales }}</h3>
                             <span class="text-muted fs-7">Promedio: {{ stats.promedio_goles | round(2, 'common') }} / partido</span>
                         </div>
                         <div class="bg-success bg-opacity-10 p-3 rounded-circle text-success">
@@ -147,15 +150,15 @@
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning">
+            <div class="card border-0 shadow-sm h-100 border-start border-4 border-accent">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <span class="text-muted fs-7 text-uppercase fw-semibold">Confederaciones</span>
-                            <h3 class="fw-bold my-1 text-dark">6 / 6</h3>
+                            <h3 class="fw-bold my-1 text-body-emphasis">6 / 6</h3>
                             <span class="text-muted fs-7">En competencia</span>
                         </div>
-                        <div class="bg-warning bg-opacity-10 p-3 rounded-circle text-warning">
+                        <div class="bg-accent bg-opacity-10 p-3 rounded-circle text-accent">
                             <i class="bi bi-globe-americas fs-3"></i>
                         </div>
                     </div>
@@ -172,13 +175,13 @@
                  title="Ver top 10 goleadores"
                  {% endif %}>
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        <div style="min-width: 0;">
                             <span class="text-muted fs-7 text-uppercase fw-semibold">Goleador del Torneo</span>
-                            <h4 class="fw-bold my-1 text-dark text-truncate" style="max-width: 140px;">{{ stats.goleador_nombre }}</h4>
-                            <span class="text-info fs-7 fw-semibold">{{ stats.goleador_goles }} goles ({{ stats.goleador_pais }})</span>
+                            <h4 class="fw-bold my-1 text-body-emphasis text-truncate">{{ stats.goleador_nombre }}</h4>
+                            <span class="text-info fs-7 fw-semibold d-block text-truncate">{{ stats.goleador_goles }} goles ({{ stats.goleador_pais }})</span>
                         </div>
-                        <div class="bg-info bg-opacity-10 p-3 rounded-circle text-info">
+                        <div class="bg-info bg-opacity-10 p-3 rounded-circle text-info flex-shrink-0">
                             <i class="bi bi-award fs-3"></i>
                         </div>
                     </div>
@@ -251,7 +254,7 @@
                     <h5 class="card-title fw-bold text-white mb-0 d-flex align-items-center gap-2">
                         <i class="bi bi-diagram-3-fill text-success"></i> Eliminatorias por Confederación
                     </h5>
-                    <a href="/confederaciones" class="btn btn-xs btn-outline-light rounded-pill px-3">Ver Detalle</a>
+                    {% if puede('paises') %}<a href="/paises/" class="btn btn-xs btn-outline-light rounded-pill px-3">Ver Países</a>{% endif %}
                 </div>
                 
                 <div class="card-body p-3" style="max-height: 600px; overflow-y: auto;">
@@ -286,7 +289,7 @@
                                         </div>
                                         <div class="col-6">
                                             <div class="conf-metric-tile">
-                                                <span class="metric-num text-warning">{{ conf.cupos }}</span>
+                                                <span class="metric-num text-accent">{{ conf.cupos }}</span>
                                                 <span class="metric-lbl text-muted">Cupos Directos</span>
                                             </div>
                                         </div>
@@ -316,7 +319,7 @@
                                     </div>
 
                                     <div class="d-flex align-items-center gap-2 fs-8 text-truncate">
-                                        <i class="bi bi-trophy-fill text-warning fs-9"></i>
+                                        <i class="bi bi-trophy-fill text-accent fs-9"></i>
                                         <span class="text-muted">Líder:</span>
                                         <span class="fw-semibold text-light text-truncate">{{ conf.lider if conf.lider else 'Por definir' }}</span>
                                     </div>
@@ -333,11 +336,11 @@
         <!-- Últimos Partidos Simulados: feed estilo X/Twitter -->
         <div class="col-lg-5">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-0">
-                    <h5 class="card-title fw-bold text-dark mb-0">
+                <div class="card-header bg-body-tertiary py-3 d-flex justify-content-between align-items-center border-0">
+                    <h5 class="card-title fw-bold text-body-emphasis mb-0">
                         <i class="bi bi-clock-history me-2 text-danger"></i>Últimos Partidos
                     </h5>
-                    <a href="/juegos" class="badge bg-light text-dark border fs-7">Partidos</a>
+                    <a href="/juegos" class="badge bg-body-tertiary text-body-emphasis border fs-7">Partidos</a>
                 </div>
                 <div class="card-body pt-0">
                     {% for partido in ultimos_partidos %}
@@ -351,15 +354,15 @@
                             <div class="x-post-avatar me-2">{{ partido.autor_avatar }}</div>
                             <div class="flex-grow-1 min-w-0">
                                 <div class="d-flex align-items-center gap-1 flex-wrap">
-                                    <span class="fw-bold text-dark">{{ partido.autor_nombre }}</span>
+                                    <span class="fw-bold text-body-emphasis">{{ partido.autor_nombre }}</span>
                                     <i class="bi bi-patch-check-fill text-primary fs-8" title="Cuenta Oficial Verificada"></i>
                                     <span class="text-muted fs-8">{{ partido.autor_handle }}</span>
                                     <span class="text-muted fs-8">·</span>
                                     <span class="text-muted fs-8">{{ partido.fecha }}</span>
-                                    <span class="badge bg-light text-secondary border fs-8 ms-auto">{{ partido.competicion }}</span>
+                                    <span class="badge bg-body-tertiary text-secondary border fs-8 ms-auto">{{ partido.competicion }}</span>
                                     <i class="bi bi-chevron-down text-muted x-post-chevron"></i>
                                 </div>
-                                <div class="fs-7 text-dark mt-1">
+                                <div class="fs-7 text-body-emphasis mt-1">
                                     <span class="fw-semibold">{{ partido.local.bandera }} {{ partido.local.nombre }}</span>
                                     <i class="bi bi-patch-check-fill text-primary fs-8" title="Selección Verificada"></i>
                                     <span class="fw-bold">{{ partido.goles_local }} - {{ partido.goles_visitante }}</span>
@@ -373,12 +376,12 @@
                             <a href="/juegos/{{ partido.match_id }}" class="d-block text-decoration-none text-reset mt-2">
                                 <!-- Texto narrativo del post -->
                                 {% if partido.texto_narrativo %}
-                                <div class="text-dark fs-7 mb-2">{{ partido.texto_narrativo }}</div>
+                                <div class="text-body-emphasis fs-7 mb-2">{{ partido.texto_narrativo }}</div>
                                 {% endif %}
 
                                 <!-- Marcador destacado, con bandera de ambos equipos -->
                                 <div class="mb-2">
-                                    <span class="fw-bold text-dark fs-6">{{ partido.local.bandera }} {{ partido.local.nombre }} {{ partido.goles_local }} - {{ partido.goles_visitante }} {{ partido.visitante.nombre }} {{ partido.visitante.bandera }}</span>
+                                    <span class="fw-bold text-body-emphasis fs-6">{{ partido.local.bandera }} {{ partido.local.nombre }} {{ partido.goles_local }} - {{ partido.goles_visitante }} {{ partido.visitante.nombre }} {{ partido.visitante.bandera }}</span>
                                     {% if partido.goles_local > partido.goles_visitante %}
                                         <span class="ms-1">🎉</span>
                                     {% elif partido.goles_visitante > partido.goles_local %}
@@ -427,7 +430,7 @@
                                     </div>
                                     <div class="flex-grow-1 min-w-0">
                                         <div class="d-flex align-items-center gap-1 flex-wrap">
-                                            <span class="fw-semibold text-dark fs-8">{{ comentario.nombre }}</span>
+                                            <span class="fw-semibold text-body-emphasis fs-8">{{ comentario.nombre }}</span>
                                             {% if comentario.es_seleccion %}
                                                 <i class="bi bi-patch-check-fill text-primary fs-8" title="Cuenta Oficial Verificada"></i>
                                             {% else %}
@@ -459,23 +462,23 @@
 
     <!-- Sección Inferior: Equipos Clasificados a la Copa del Mundo -->
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-0">
+        <div class="card-header bg-body-tertiary py-3 d-flex justify-content-between align-items-center border-0">
             <div>
-                <h5 class="card-title fw-bold text-dark mb-0">
-                    <i class="bi bi-flag-fill me-2 text-warning"></i>Equipos Clasificados al Mundial
+                <h5 class="card-title fw-bold text-body-emphasis mb-0">
+                    <i class="bi bi-flag-fill me-2 text-accent"></i>Equipos Clasificados al Mundial
                 </h5>
                 <small class="text-muted">Países que obtuvieron su boleto a la Fase Final de la Copa Mundial</small>
             </div>
             <a href="/paises" class="btn btn-sm btn-outline-light">Ver Todos los Paises</a>
-            <a href="/clasificados" class="btn btn-sm btn-outline-light">Ver Todos los Clasificados</a>
+            {% if puede('cuadro') %}<a href="/cuadro/" class="btn btn-sm btn-outline-light">Ver Cuadro de Eliminación</a>{% endif %}
         </div>
         <div class="card-body">
             <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
                 {% for equipo in clasificados %}
                 <div class="col">
-                    <div class="p-3 bg-light rounded-3 text-center border h-100 d-flex flex-column justify-content-center align-items-center">
+                    <div class="p-3 bg-body-tertiary rounded-3 text-center border h-100 d-flex flex-column justify-content-center align-items-center">
                         <span class="fs-3 mb-1">{{ equipo.bandera }}</span>
-                        <div class="fw-bold text-dark text-truncate w-100">{{ equipo.nombre }}</div>
+                        <div class="fw-bold text-body-emphasis text-truncate w-100">{{ equipo.nombre }}</div>
                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-8 mt-1">{{ equipo.confederacion }}</span>
                     </div>
                 </div>

@@ -26,7 +26,7 @@ flip de 'transmision.estado' a 'finished' dentro de obtener_estado_live.
 import certifi
 import logging
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo.mongo_client import MongoClient
@@ -162,6 +162,21 @@ def calcular_estado_transmision(
         "eventos_visibles": eventos_visibles,
         "finalizado_por_tiempo": finalizado_por_tiempo,
     }
+
+
+def instante_revelacion_evento(
+    indice: int, total_eventos: int, started_at: datetime, duracion_segundos: int = DURACION_TRANSMISION_SEGUNDOS
+) -> datetime:
+    """
+    Instante real en que calcular_estado_transmision revela el evento 'indice' (0-based): queda
+    visible cuando ceil(total * elapsed / duracion) >= indice + 1, es decir apenas
+    elapsed > indice * duracion / total. Lo usa el Juego en Vivo
+    (services/juego_en_vivo_service.py) para saber qué multiplicador de riesgo regía cuando
+    "ocurrió" cada evento, sin depender de cuándo hizo polling el usuario.
+    """
+    if total_eventos <= 0:
+        return started_at
+    return started_at + timedelta(seconds=indice * duracion_segundos / total_eventos)
 
 
 def _marcador_parcial(eventos_visibles: List[Dict[str, Any]], nombre_local: str, nombre_visitante: str) -> Dict[str, int]:

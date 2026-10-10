@@ -59,7 +59,7 @@
         <div class="col jugador-card-container" 
              data-nombre="{{ j.nombre|lower }}" 
              data-numero="{{ j.numero }}"
-             data-posicion="{{ j.posicion }}">
+             data-posicion="{{ j.posicion }}" data-sector="{{ j.sector }}">
             
             <div class="card h-100 border-0 shadow-sm card-hover p-3 position-relative overflow-hidden">
                 
@@ -81,7 +81,7 @@
                     <!-- Overall Badge -->
                     <div class="text-center p-2 bg-dark rounded-3 border border-secondary border-opacity-25 ms-2">
                         <span class="fs-8 text-muted d-block fw-semibold text-uppercase">OVR</span>
-                        <span class="fw-bold text-warning fs-5">{{ j.overall|round(1) }}</span>
+                        <span class="fw-bold text-accent fs-5">{{ j.overall|round(1) }}</span>
                     </div>
                 </div>
 
@@ -145,10 +145,12 @@ document.addEventListener('DOMContentLoaded', function() {
         cards.forEach(card => {
             const nombre = card.getAttribute('data-nombre');
             const numero = card.getAttribute('data-numero');
-            const posicion = card.getAttribute('data-posicion').toLowerCase();
+            // Se filtra por SECTOR (Portero/Defensa/Medio/Delantero), no por el nombre granular de
+            // la posición: "Lateral izquierdo" no contiene "Defensa" y quedaba afuera.
+            const sector = (card.getAttribute('data-sector') || card.getAttribute('data-posicion') || '').toLowerCase();
 
             const matchesSearch = nombre.includes(query) || numero.includes(query);
-            const matchesPosicion = (posicionSelected === 'todas' || posicion.includes(posicionSelected));
+            const matchesPosicion = (posicionSelected === 'todas' || sector.includes(posicionSelected));
 
             if (matchesSearch && matchesPosicion) {
                 card.classList.remove('d-none');

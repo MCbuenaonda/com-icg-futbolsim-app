@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,60 +15,123 @@
     
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-light d-flex flex-column min-vh-100">
+<body class="d-flex flex-column min-vh-100">
 
-    <!-- Navbar / Menú de navegación -- sin sesión activa, las únicas vistas alcanzables son
-         /login y /registro (ver services/auth_service.py::exigir_sesion_activa, aplicada a
-         todos los routers de página en main.py), así que se muestra solo el logo, sin los
-         links del sistema ni el menú de usuario. -->
+    <!-- Navbar: sin sesión solo se muestra el logo (la única vista alcanzable es /login). Con
+         sesión, cada ítem se muestra según los permisos del rol del usuario -- puede("codigo"),
+         ver config/secciones.py y services/auth_service.py::context_usuario_actual -- y se
+         resalta el grupo de la página actual con nav_activo("/prefijo"). -->
     <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
         <div class="container-fluid app-main">
-            <a class="navbar-brand fw-bold text-white" href="{{ url_for('home') if usuario_actual else url_for('login') }}">
+            <a class="navbar-brand fw-bold text-white" href="{{ '/' if usuario_actual else url_for('login') }}">
                 <span class="brand-ball">⚽</span> FutbolSim
             </a>
             {% if usuario_actual %}
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Abrir menú">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-lg-center">
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
+                    {% if puede('inicio') %}
                     <li class="nav-item">
-                        <a class="nav-link {% if request.url.path == url_for('home') %}active{% endif %}" href="{{ url_for('home') }}">Inicio</a>
+                        <a class="nav-link {{ 'active' if nav_activo('/') }}" href="/" {{ 'aria-current="page"' | safe if nav_activo('/') }}>Inicio</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.url.path == url_for('estadisticas') %}active{% endif %}" href="{{ url_for('estadisticas') }}">Estadísticas</a>
+                    {% endif %}
+
+                    {% if puede('partidos', 'cuadro', 'en_vivo') %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/juegos', '/simulador', '/cuadro', '/en-vivo', '/scouter') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Partidos</a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            {% if puede('partidos') %}
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/juegos/', '/simulador') and not nav_activo('/juegos/calendario') }}" href="/juegos/"><i class="bi bi-calendar-week me-2"></i>Pendientes</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/juegos/calendario') }}" href="/juegos/calendario"><i class="bi bi-calendar3 me-2"></i>Calendario</a></li>
+                            {% endif %}
+                            {% if puede('cuadro') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/cuadro') }}" href="/cuadro/"><i class="bi bi-diagram-3 me-2"></i>Cuadro de eliminación</a></li>{% endif %}
+                            {% if puede('en_vivo') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/en-vivo') }}" href="/en-vivo/"><i class="bi bi-broadcast me-2"></i>Simulación en Vivo</a></li>{% endif %}
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('live_match_view') }}">Simulación en Vivo</a>
+                    {% endif %}
+
+                    {% if puede('paises', 'estadisticas', 'cara_a_cara', 'palmares', 'aficionados', 'arbitros') %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/paises', '/jugadores', '/confederacion', '/estadisticas', '/cara-a-cara', '/palmares', '/aficionados', '/arbitros') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Torneo</a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            {% if puede('paises') %}
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/paises', '/jugadores', '/confederacion') and not nav_activo('/jugadores/comparar') }}" href="/paises/"><i class="bi bi-flag me-2"></i>Países</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/jugadores/comparar') }}" href="/jugadores/comparar"><i class="bi bi-people me-2"></i>Comparar jugadores</a></li>
+                            {% endif %}
+                            {% if puede('estadisticas') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/estadisticas') }}" href="/estadisticas/"><i class="bi bi-bar-chart-line me-2"></i>Estadísticas</a></li>{% endif %}
+                            {% if puede('cara_a_cara') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/cara-a-cara') }}" href="/cara-a-cara/"><i class="bi bi-arrow-left-right me-2"></i>Cara a Cara</a></li>{% endif %}
+                            {% if puede('palmares') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/palmares') }}" href="/palmares/"><i class="bi bi-trophy me-2"></i>Palmarés</a></li>{% endif %}
+                            {% if puede('aficionados') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/aficionados') }}" href="/aficionados/"><i class="bi bi-heart me-2"></i>Popularidad</a></li>{% endif %}
+                            {% if puede('arbitros') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/arbitros') }}" href="/arbitros/"><i class="bi bi-person-badge me-2"></i>Árbitros</a></li>{% endif %}
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('fanbase_ranking_view') }}">Ver Popularidad</a>
+                    {% endif %}
+
+                    {% if puede('quinielas', 'selecciones', 'sedes', 'once_ideal', 'album', 'misiones', 'juego_en_vivo', 'ranking_usuarios') %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/quinielas', '/selecciones', '/sedes', '/once-ideal', '/album-estampas', '/misiones', '/ranking') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Mi Juego</a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            {% if puede('juego_en_vivo', 'quinielas') %}<li><h6 class="dropdown-header">Predicciones</h6></li>{% endif %}
+                            {% if puede('juego_en_vivo') %}<li><a class="dropdown-item" href="/juegos/"><i class="bi bi-controller me-2"></i>Juego en Vivo (elegir país)</a></li>{% endif %}
+                            {% if puede('quinielas') %}
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/quinielas/') and not nav_activo('/quinielas/mis', '/quinielas/rendimiento') }}" href="/quinielas/"><i class="bi bi-ticket-perforated me-2"></i>Quinielas</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/quinielas/mis') }}" href="{{ url_for('quinielas_mias') }}"><i class="bi bi-list-check me-2"></i>Mis Quinielas</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/quinielas/rendimiento') }}" href="/quinielas/rendimiento"><i class="bi bi-graph-up-arrow me-2"></i>Mi rendimiento</a></li>
+                            {% endif %}
+                            {% if puede('selecciones', 'sedes') %}<li><h6 class="dropdown-header">Inversiones</h6></li>{% endif %}
+                            {% if puede('selecciones') %}
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/selecciones/mercado') }}" href="{{ url_for('ownership_mercado_vista') }}"><i class="bi bi-shop me-2"></i>Mercado de Selecciones</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/selecciones/portafolio') }}" href="{{ url_for('ownership_portafolio_vista') }}"><i class="bi bi-briefcase-fill me-2"></i>Mis Selecciones</a></li>
+                            {% endif %}
+                            {% if puede('sedes') %}
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/sedes/directorio') }}" href="{{ url_for('venues_directorio_vista') }}"><i class="bi bi-geo-alt-fill me-2"></i>Directorio de Sedes</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/sedes/portafolio') }}" href="{{ url_for('venues_portafolio_vista') }}"><i class="bi bi-building me-2"></i>Mis Sedes</a></li>
+                            {% endif %}
+                            {% if puede('album', 'once_ideal') %}<li><h6 class="dropdown-header">Colección y Fantasy</h6></li>{% endif %}
+                            {% if puede('album') %}
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/album-estampas/sobres') }}" href="{{ url_for('album_sobres_vista') }}"><i class="bi bi-gift-fill me-2"></i>Abrir Sobres</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/album-estampas/coleccion') }}" href="{{ url_for('album_coleccion_vista') }}"><i class="bi bi-collection-fill me-2"></i>Mi Álbum</a></li>
+                            {% endif %}
+                            {% if puede('once_ideal') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/once-ideal') }}" href="/once-ideal/"><i class="bi bi-stars me-2"></i>Once Ideal (Fantasy)</a></li>{% endif %}
+                            {% if puede('misiones', 'ranking_usuarios') %}<li><hr class="dropdown-divider"></li>{% endif %}
+                            {% if puede('ranking_usuarios') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/ranking') }}" href="/ranking/"><i class="bi bi-bar-chart-steps me-2"></i>Ranking de usuarios</a></li>{% endif %}
+                            {% if puede('misiones') %}
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/misiones') }}" href="/misiones/"><i class="bi bi-calendar-check-fill me-2"></i>Misiones Diarias</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    {% if puede('gestion_usuarios') %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/admin') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Admin</a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/admin/usuarios') }}" href="/admin/usuarios"><i class="bi bi-people-fill me-2"></i>Usuarios</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/admin/roles') }}" href="/admin/roles"><i class="bi bi-shield-lock-fill me-2"></i>Roles y permisos</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- Saldo siempre visible (antes escondido dentro del menú del usuario) -->
+                    <li class="nav-item ms-lg-2 my-2 my-lg-0">
+                        <span class="saldo-pill" id="saldoUsuarioNavbar" title="Tu saldo" data-monto="{{ usuario_actual.monto or 0 }}" aria-live="polite">
+                            <i class="bi bi-coin me-1"></i>{{ "{:,}".format(usuario_actual.monto or 0) }} pts
+                        </span>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/cuenta') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-person-circle me-1"></i>{{ usuario_actual.nombre }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
-                            <li>
-                                <span class="dropdown-item-text text-muted small">
-                                    <i class="bi bi-coin me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-                                </span>
-                            </li>
-                            <li><a class="dropdown-item" href="{{ url_for('cuenta') }}"><i class="bi bi-person-badge me-2"></i>Mi cuenta</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('quinielas_home') }}"><i class="bi bi-ticket-perforated me-2"></i>Quinielas</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('quinielas_mias') }}"><i class="bi bi-list-check me-2"></i>Mis Quinielas</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('ownership_mercado_vista') }}"><i class="bi bi-shop me-2"></i>Mercado de Selecciones</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('ownership_portafolio_vista') }}"><i class="bi bi-briefcase-fill me-2"></i>Mi Portafolio</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('fantasy_home') }}"><i class="bi bi-stars me-2"></i>Once Ideal</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('album_sobres_vista') }}"><i class="bi bi-gift-fill me-2"></i>Abrir Sobres</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('album_coleccion_vista') }}"><i class="bi bi-collection-fill me-2"></i>Mi Colección</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('venues_directorio_vista') }}"><i class="bi bi-geo-alt-fill me-2"></i>Directorio de Sedes</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('venues_portafolio_vista') }}"><i class="bi bi-building me-2"></i>Mis Estadios</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('misiones_vista') }}"><i class="bi bi-calendar-check-fill me-2"></i>Misiones Diarias</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/cuenta') and not nav_activo('/cuenta/password') }}" href="{{ url_for('cuenta') }}"><i class="bi bi-person-badge me-2"></i>Mi cuenta</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/cuenta/password') }}" href="{{ url_for('cambiar_password') }}"><i class="bi bi-key me-2"></i>Cambiar contraseña</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form action="{{ url_for('logout') }}" method="post" class="px-3 py-1">
-                                    <button type="submit" class="btn btn-sm btn-outline-light w-100">Cerrar sesión</button>
+                                    <button type="submit" class="btn btn-sm btn-outline-light w-100"><i class="bi bi-box-arrow-right me-1"></i>Cerrar sesión</button>
                                 </form>
                             </li>
                         </ul>
@@ -119,7 +182,7 @@
             position: fixed;
             top: 76px; /* fallback antes de que el JS mida la altura real del navbar */
             right: 20px;
-            z-index: 1030;
+            z-index: 1015; /* debajo del navbar (1020): el menú del usuario abierto queda por encima */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -195,7 +258,7 @@
         .live-goal-line {
             position: fixed;
             right: 20px;
-            z-index: 1030;
+            z-index: 1015;
             background: linear-gradient(135deg, #1a1a2e, #16161f);
             border: 1px solid rgba(255, 193, 7, 0.6);
             box-shadow: 0 4px 16px rgba(255, 193, 7, 0.3);
@@ -237,6 +300,8 @@
         // preferencia se guarda en localStorage porque esta página (el badge) corre en TODAS
         // las vistas menos /en-vivo/ -- así el encadenado de partidos sigue solo aunque el
         // usuario esté navegando por el resto del sitio, no solo mientras mira esa pantalla.
+        // La reproducción automática simula partidos: solo para quien tiene 'simular_partidos'
+        const PUEDE_SIMULAR = {{ 'true' if puede('simular_partidos') else 'false' }};
         const AUTOPLAY_STORAGE_KEY = 'futbolsim_autoplay_live';
         const AUTO_PLAY_DELAY_MS = 10000;
         let autoPlayTimeoutId = null;
@@ -254,7 +319,7 @@
         }
 
         function programarAutoPlaySiCorresponde() {
-            if (!autoPlayEstaActivo() || autoPlayTimeoutId) return;
+            if (!PUEDE_SIMULAR || !autoPlayEstaActivo() || autoPlayTimeoutId) return;
             autoPlayTimeoutId = setTimeout(async () => {
                 autoPlayTimeoutId = null;
                 if (!autoPlayEstaActivo()) return;
@@ -406,82 +471,8 @@
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    {% block extra_scripts %}
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const filterBuscar = document.getElementById('filterBuscar');
-            const filterGrupo = document.getElementById('filterGrupo');
-            const filterFecha = document.getElementById('filterFecha');
-            const filterJornada = document.getElementById('filterJornada');
-            const filterConfederacion = document.getElementById('filterConfederacion');
-            const btnReset = document.getElementById('btnResetFilters');
-            const juegos = document.querySelectorAll('.juego-item');
-            const noResultsMsg = document.getElementById('noResultsMessage');
-
-            // Este filtro es específico de la vista de partidos (juegos.html);
-            // en el resto de las páginas estos elementos no existen, así que no hay nada que inicializar.
-            if (!filterBuscar || !filterGrupo || !filterFecha || !filterJornada || !filterConfederacion || !btnReset) {
-                return;
-            }
-
-            function aplicarFiltros() {
-                const textoBusqueda = filterBuscar.value.toLowerCase().trim();
-                const grupoSeleccionado = filterGrupo.value;
-                const fechaSeleccionada = filterFecha.value;
-                const jornadaSeleccionada = filterJornada.value;
-                const confederacionSeleccionada = filterConfederacion.value;
-        
-                let visibles = 0;
-        
-                juegos.forEach(juego => {
-                    const local = juego.getAttribute('data-local');
-                    const visita = juego.getAttribute('data-visita');
-                    const grupo = juego.getAttribute('data-grupo');
-                    const fecha = juego.getAttribute('data-fecha');
-                    const jornada = juego.getAttribute('data-jornada');
-                    const confederacion = juego.getAttribute('data-confederacion');
-        
-                    const coincideTexto = !textoBusqueda || local.includes(textoBusqueda) || visita.includes(textoBusqueda);
-                    const coincideGrupo = !grupoSeleccionado || grupo === grupoSeleccionado;
-                    const coincideFecha = !fechaSeleccionada || fecha === fechaSeleccionada;
-                    const coincideJornada = !jornadaSeleccionada || jornada === jornadaSeleccionada;
-                    const coincideConfederacion = !confederacionSeleccionada || confederacion === confederacionSeleccionada;
-        
-                    if (coincideTexto && coincideGrupo && coincideFecha && coincideJornada && coincideConfederacion) {
-                        juego.classList.remove('d-none');
-                        visibles++;
-                    } else {
-                        juego.classList.add('d-none');
-                    }
-                });
-        
-                // Mostrar u ocultar mensaje de "sin resultados"
-                if (noResultsMsg) {
-                    if (visibles === 0 && juegos.length > 0) {
-                        noResultsMsg.classList.remove('d-none');
-                    } else {
-                        noResultsMsg.classList.add('d-none');
-                    }
-                }
-            }
-        
-            // Listeners de eventos
-            filterBuscar.addEventListener('input', aplicarFiltros);
-            filterGrupo.addEventListener('change', aplicarFiltros);
-            filterFecha.addEventListener('change', aplicarFiltros);
-            filterJornada.addEventListener('change', aplicarFiltros);
-            filterConfederacion.addEventListener('change', aplicarFiltros);
-        
-            btnReset.addEventListener('click', function () {
-                filterBuscar.value = '';
-                filterGrupo.value = '';
-                filterFecha.value = '';
-                filterJornada.value = '';
-                filterConfederacion.value = '';
-                aplicarFiltros();
-            });
-        });
-    </script>
-    {% endblock %}
+    <!-- Utilidades compartidas: UI.escapar, UI.confirmar (modal propio), UI.refrescarSaldo, accesibilidad -->
+    <script src="{{ url_for('static', path='/js/ui.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>

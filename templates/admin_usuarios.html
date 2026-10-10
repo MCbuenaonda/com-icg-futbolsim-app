@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios - Administración{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-people-fill text-accent me-2"></i>Usuarios</h1>
+        <p class="text-muted mb-0">Crea cuentas, asigna roles y restablece contraseñas.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('admin_roles') }}" class="btn btn-outline-light btn-sm"><i class="bi bi-shield-lock me-1"></i>Roles y permisos</a>
+        <button class="btn btn-success btn-sm fw-bold" data-bs-toggle="collapse" data-bs-target="#formNuevoUsuario" aria-expanded="false" aria-controls="formNuevoUsuario">
+            <i class="bi bi-person-plus-fill me-1"></i>Nuevo usuario
+        </button>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger d-flex align-items-center gap-2" role="alert"><i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span></div>
+{% endif %}
+{% if exito %}
+<div class="alert alert-success d-flex align-items-center gap-2" role="status"><i class="bi bi-check-circle-fill"></i><span>{{ exito }}</span></div>
+{% endif %}
+{% if password_mostrada %}
+<div class="alert alert-warning" role="alert">
+    <div class="fw-bold mb-1"><i class="bi bi-key-fill me-1"></i>Contraseña de {{ password_mostrada.username }}</div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <code id="passwordMostrada" class="fs-5 px-2 py-1 rounded bg-black text-warning">{{ password_mostrada.password }}</code>
+        <button type="button" class="btn btn-sm btn-outline-warning" id="btnCopiarPassword"><i class="bi bi-clipboard me-1"></i>Copiar</button>
+    </div>
+    <small class="d-block mt-2">Se muestra solo esta vez: compártela con el usuario por un canal seguro. Al ingresar se le pedirá cambiarla.</small>
+</div>
+{% endif %}
+
+<!-- Alta -->
+<div class="collapse {{ 'show' if error and not password_mostrada }}" id="formNuevoUsuario">
+    <div class="card bg-dark border-secondary mb-4">
+        <div class="card-body">
+            <h2 class="h6 fw-bold text-white mb-3">Nuevo usuario</h2>
+            <form method="post" action="{{ url_for('admin_crear_usuario') }}" class="row g-3">
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted" for="nuevoUsername">Usuario</label>
+                    <input class="form-control" id="nuevoUsername" name="username" minlength="3" required autocomplete="off">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted" for="nuevoNombre">Nombre</label>
+                    <input class="form-control" id="nuevoNombre" name="nombre" autocomplete="off">
+                </div>
+                <div class="col-12 col-md-2">
+                    <label class="form-label small text-muted" for="nuevoRol">Rol</label>
+                    <select class="form-select" id="nuevoRol" name="rol" required>
+                        {% for r in roles %}<option value="{{ r.codigo }}" {{ 'selected' if r.codigo == 'jugador' }}>{{ r.nombre }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted" for="nuevoPassword">Contraseña inicial</label>
+                    <div class="input-group">
+                        <input class="form-control" id="nuevoPassword" name="password" type="text" minlength="6" placeholder="Vacía = generar una" autocomplete="new-password">
+                        <button class="btn btn-success fw-bold" type="submit"><i class="bi bi-check-lg me-1"></i>Crear</button>
+                    </div>
+                    <small class="text-muted">El usuario deberá cambiarla en su primer ingreso.</small>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Listado -->
+<div class="card bg-dark border-secondary">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+            <thead>
+                <tr class="small text-muted">
+                    <th>Usuario</th><th>Nombre</th><th>Rol</th><th class="text-center">Estado</th>
+                    <th class="text-end">Saldo</th><th class="d-none d-md-table-cell">Alta</th><th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios %}
+                <tr>
+                    <td class="fw-semibold">
+                        {{ u.username }}
+                        {% if u._id == usuario_actual._id %}<span class="badge bg-secondary ms-1">Tú</span>{% endif %}
+                        {% if u.debe_cambiar_password %}<span class="badge bg-warning text-dark ms-1" title="Debe cambiar la contraseña">🔑</span>{% endif %}
+                    </td>
+                    <td>{{ u.nombre }}</td>
+                    <td><span class="badge {{ 'bg-danger' if u.rol == 'admin' else 'bg-primary' if u.rol else 'bg-secondary' }}">{{ u.rol_nombre }}</span></td>
+                    <td class="text-center">
+                        {% if u.activo is not sameas false %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}
+                    </td>
+                    <td class="text-end">{{ "{:,}".format(u.monto or 0) }}</td>
+                    <td class="d-none d-md-table-cell small text-muted">{{ u.fecha_registro.strftime('%d/%m/%Y') if u.fecha_registro else '—' }}</td>
+                    <td class="text-end text-nowrap">
+                        <button type="button" class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#modalEditarUsuario"
+                                data-id="{{ u._id }}" data-username="{{ u.username }}" data-nombre="{{ u.nombre }}" data-rol="{{ u.rol or '' }}"
+                                data-activo="{{ 'si' if u.activo is not sameas false else 'no' }}" aria-label="Editar {{ u.username }}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalPassword"
+                                data-id="{{ u._id }}" data-username="{{ u.username }}" aria-label="Restablecer contraseña de {{ u.username }}">
+                            <i class="bi bi-key"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: editar usuario -->
+<div class="modal fade" id="modalEditarUsuario" tabindex="-1" aria-labelledby="modalEditarUsuarioTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content bg-dark text-white border border-secondary" method="post" id="formEditarUsuario">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold" id="modalEditarUsuarioTitulo">Editar usuario</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small text-muted" for="editarNombre">Nombre</label>
+                    <input class="form-control" id="editarNombre" name="nombre">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-muted" for="editarRol">Rol</label>
+                    <select class="form-select" id="editarRol" name="rol" required>
+                        {% for r in roles %}<option value="{{ r.codigo }}">{{ r.nombre }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="editarActivo" name="activo" value="si">
+                    <label class="form-check-label" for="editarActivo">Cuenta activa (puede ingresar)</label>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success fw-bold">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: restablecer contraseña -->
+<div class="modal fade" id="modalPassword" tabindex="-1" aria-labelledby="modalPasswordTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content bg-dark text-white border border-secondary" method="post" id="formPassword">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold" id="modalPasswordTitulo">Restablecer contraseña</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="username" id="passwordUsername">
+                <label class="form-label small text-muted" for="passwordNueva">Nueva contraseña</label>
+                <input class="form-control" id="passwordNueva" name="password" type="text" minlength="6" placeholder="Vacía = generar una aleatoria" autocomplete="new-password">
+                <small class="text-muted d-block mt-2">El usuario deberá cambiarla en su próximo ingreso.</small>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-warning fw-bold">Restablecer</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ super() }}
+<script>
+    (function () {
+        document.getElementById('modalEditarUsuario').addEventListener('show.bs.modal', ev => {
+            const d = ev.relatedTarget.dataset;
+            document.getElementById('formEditarUsuario').action = `/admin/usuarios/${d.id}`;
+            document.getElementById('modalEditarUsuarioTitulo').textContent = `Editar ${d.username}`;
+            document.getElementById('editarNombre').value = d.nombre;
+            document.getElementById('editarRol').value = d.rol;
+            document.getElementById('editarActivo').checked = d.activo === 'si';
+        });
+        document.getElementById('modalPassword').addEventListener('show.bs.modal', ev => {
+            const d = ev.relatedTarget.dataset;
+            document.getElementById('formPassword').action = `/admin/usuarios/${d.id}/password`;
+            document.getElementById('modalPasswordTitulo').textContent = `Restablecer contraseña de ${d.username}`;
+            document.getElementById('passwordUsername').value = d.username;
+            document.getElementById('passwordNueva').value = '';
+        });
+        const btnCopiar = document.getElementById('btnCopiarPassword');
+        if (btnCopiar) btnCopiar.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(document.getElementById('passwordMostrada').textContent.trim());
+                btnCopiar.innerHTML = '<i class="bi bi-check2 me-1"></i>Copiada';
+            } catch (e) { /* el usuario puede copiarla a mano */ }
+        });
+    })();
+</script>
+{% endblock %}

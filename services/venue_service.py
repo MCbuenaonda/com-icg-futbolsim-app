@@ -31,6 +31,7 @@ Notas de diseño / decisiones sobre ambigüedades del pedido original:
        poseer la estampa).
 """
 import certifi
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from bson import ObjectId
@@ -106,23 +107,43 @@ def obtener_ciudades_disponibles(pais_id: int) -> List[dict]:
     ]
 
 
-def buscar_ciudades_directorio(texto: str = "", usuario_id: Optional[str] = None, limite: int = 50) -> List[dict]:
+SIN_DUENO = [0, "0", None, ""]
+
+
+def _filtro_directorio(texto: str = "", usuario_id: Optional[str] = None, estado: str = "") -> Dict[str, Any]:
     """
-    Búsqueda para la vista de "Directorio de Sedes" (buscador por país/ciudad).
-    No filtra por estado de propiedad acá: el frontend filtra client-side entre
-    los resultados devueltos (misma lógica que buscar_jugadores en fantasy_service.py).
+    Filtro de Mongo del Directorio de Sedes. 'estado': "" (todas), "disponible", "mias" u
+    "ocupada" (de otros usuarios). Se resuelve en el servidor -- antes se filtraba en el navegador
+    sobre las primeras 50 ciudades, así que "Mis sedes" no encontraba las tuyas si no estaban ahí.
+    El texto se escapa: es input del usuario usado como regex.
     """
     filtro: Dict[str, Any] = {}
     if texto:
+        patron = re.escape(texto)
         filtro["$or"] = [
-            {"nombre": {"$regex": texto, "$options": "i"}},
-            {"pais": {"$regex": texto, "$options": "i"}}
+            {"nombre": {"$regex": patron, "$options": "i"}},
+            {"pais": {"$regex": patron, "$options": "i"}}
         ]
+    if estado == "disponible":
+        filtro["owner_user_id"] = {"$in": SIN_DUENO}
+    elif estado == "mias":
+        filtro["owner_user_id"] = str(usuario_id) if usuario_id else "__nadie__"
+    elif estado == "ocupada":
+        filtro["owner_user_id"] = {"$nin": SIN_DUENO + ([str(usuario_id)] if usuario_id else [])}
+    return filtro
 
+
+def contar_ciudades_directorio(texto: str = "", usuario_id: Optional[str] = None, estado: str = "") -> int:
+    return db['ciudades'].count_documents(_filtro_directorio(texto, usuario_id, estado))
+
+
+def buscar_ciudades_directorio(texto: str = "", usuario_id: Optional[str] = None, limite: int = 50,
+                               estado: str = "", saltar: int = 0) -> List[dict]:
+    """Página de resultados del Directorio de Sedes (ver _filtro_directorio), ordenada por país y ciudad."""
     ciudades = list(db['ciudades'].find(
-        filtro,
+        _filtro_directorio(texto, usuario_id, estado),
         {"id": 1, "nombre": 1, "estadio": 1, "tipo": 1, "pais_id": 1, "pais": 1, "owner_user_id": 1}
-    ).limit(limite))
+    ).sort([("pais", 1), ("nombre", 1)]).skip(max(0, saltar)).limit(limite))
 
     resultado = []
     for c in ciudades:

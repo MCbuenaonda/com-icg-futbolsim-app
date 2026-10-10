@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Países Afiliados FIFAV - FutbolSim{% endblock %}
 
@@ -35,7 +36,7 @@
 
                 <!-- Botones de Filtrado por Confederación -->
                 <div class="col-md-8">
-                    <div class="d-flex gap-2 flex-wrap justify-md-end" id="filter-buttons">
+                    <div class="d-flex gap-2 flex-wrap justify-content-md-end" id="filter-buttons">
                         <button class="btn btn-sm btn-success filter-btn active" data-filter="TODOS">Todos</button>
                         <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="2">CONMEBOL</button>
                         <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="1">UEFA</button>
@@ -68,19 +69,7 @@
 
                 <!-- Badge de Confederación -->
                 <div class="mt-1 mb-3">
-                    {% if pais.confederacion == 'CONMEBOL' %}
-                        <span class="badge bg-primary-subtle text-info border border-info-subtle">{{ pais.confederacion }}</span>
-                    {% elif pais.confederacion == 'UEFA' %}
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ pais.confederacion }}</span>
-                    {% elif pais.confederacion == 'CONCACAF' %}
-                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle">{{ pais.confederacion }}</span>
-                    {% elif pais.confederacion == 'CAF' %}
-                        <span class="badge bg-success-subtle text-success border border-success-subtle">{{ pais.confederacion }}</span>
-                    {% elif pais.confederacion == 'AFC' %}
-                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">{{ pais.confederacion }}</span>
-                    {% else %}
-                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">{{ pais.confederacion }}</span>
-                    {% endif %}
+                    {{ m.badge_confederacion(pais.confederacion) }}
                 </div>
 
                 <!-- Aficionados (independiente del ranking FIFA) -->
@@ -122,6 +111,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const totalCount = document.getElementById('total-count');
 
     let currentFilter = 'TODOS';
+    // 211 tarjetas: se muestran de a 36 ("Mostrar más"), respetando búsqueda y filtro
+    const paginador = UI.paginador({ items: () => cards, porPagina: 36, despuesDe: document.getElementById('paisesGrid'), etiqueta: 'países' });
 
     function filterCountries() {
         const query = searchInput.value.toLowerCase().trim();
@@ -143,6 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         totalCount.textContent = visibleCount;
+        paginador.reiniciar();
 
         if (visibleCount === 0) {
             noResults.classList.remove('d-none');

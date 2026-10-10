@@ -46,7 +46,7 @@ class SeleccionIn(BaseModel):
 
 
 class CrearBoletoIn(BaseModel):
-    usuario_id: str
+    usuario_id: Optional[str] = None  # ignorado: se usa el usuario de la sesión (routes/quinielas_route.py)
     quiniela_config_id: str
     selecciones: List[SeleccionIn]
 

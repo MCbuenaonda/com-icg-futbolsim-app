@@ -9,12 +9,9 @@
         <p class="text-muted mb-0">Armá tu alineación: 1 jugador por posición (ej. un solo Lateral Izquierdo), máximo 2 por selección.</p>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
-        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-        </span>
         {% if alineacion %}
             <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-                <i class="bi bi-star-fill text-warning me-1"></i>{{ alineacion.total_points_fase }} pts fantasy
+                <i class="bi bi-star-fill text-accent me-1"></i>{{ alineacion.total_points_fase }} pts fantasy
             </span>
         {% endif %}
         {% if fase_iniciada %}
@@ -71,7 +68,7 @@
     </div>
     <div class="col-12 col-md-6 d-flex align-items-end">
         <div class="fs-5">
-            <span id="contadorJugadores" class="fw-bold text-warning">0</span> / 11 jugadores
+            <span id="contadorJugadores" class="fw-bold text-accent">0</span> / 11 jugadores
         </div>
     </div>
 </div>
@@ -148,7 +145,7 @@
                         </div>
                         <div class="small mt-1 d-flex flex-wrap gap-2">
                             {% if evento.sinergia_album_aplicada %}
-                                <span class="badge bg-dark border border-warning text-warning">
+                                <span class="badge bg-dark border border-accent text-accent">
                                     <i class="bi bi-collection-fill me-1"></i>Sinergia Álbum ×{{ evento.multiplicador }} — {{ evento.puntos_base }} → {{ evento.puntos_finales }} pts
                                 </span>
                             {% endif %}
@@ -218,12 +215,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let seleccionados = {};
     POSICIONES_CATALOGO.forEach(p => { seleccionados[p.id] = null; });
 
-    function mostrarAlerta(mensaje, tipo) {
-        alertaFantasy.className = `alert alert-${tipo}`;
-        alertaFantasy.textContent = mensaje;
-        alertaFantasy.classList.remove('d-none');
-        alertaFantasy.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaFantasy, mensaje, tipo);
 
     function jugadoresElegidos() {
         return Object.values(seleccionados).filter(j => j !== null);
@@ -266,11 +258,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         <div class="col-12 col-sm-6">
                             <div class="surface-soft p-2 d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div class="fw-semibold small">${jugador.nombre} <span class="text-muted">(${slot.siglas})</span></div>
-                                    <div class="text-muted" style="font-size: 0.75rem;">${jugador.pais_nombre} · OVR ${jugador.overall}</div>
+                                    <div class="fw-semibold small">${UI.escapar(jugador.nombre)} <span class="text-muted">(${slot.siglas})</span></div>
+                                    <div class="text-muted" style="font-size: 0.75rem;">${UI.escapar(jugador.pais_nombre)} · OVR ${jugador.overall}</div>
                                     ${indicadorDesempeno}
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger btn-quitar" data-posicion-id="${slot.id}">
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-quitar" data-posicion-id="${slot.id}" aria-label="Quitar a ${UI.escapar(jugador.nombre)}" title="Quitar">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             </div>
@@ -304,7 +296,7 @@ document.addEventListener('DOMContentLoaded', function () {
         renderizarResultados(ultimosResultados);
     }
 
-    function agregarJugador(jugador) {
+    async function agregarJugador(jugador) {
         if (!(jugador.posicion_id in seleccionados)) {
             mostrarAlerta('Posición de jugador desconocida.', 'warning');
             return;
@@ -323,9 +315,11 @@ document.addEventListener('DOMContentLoaded', function () {
         // que confirmar el reemplazo — no se puede tener 2 jugadores de la misma posición.
         const ocupante = seleccionados[jugador.posicion_id];
         if (ocupante) {
-            const ok = confirm(
-                `Ya tenés a ${ocupante.nombre} en la posición ${jugador.posicion_nombre} (${jugador.posicion_siglas}).\n¿Reemplazarlo por ${jugador.nombre}?`
-            );
+            const ok = await UI.confirmar({
+                titulo: 'Reemplazar jugador',
+                mensaje: `Ya tenés a ${ocupante.nombre} en la posición ${jugador.posicion_nombre} (${jugador.posicion_siglas}). ¿Reemplazarlo por ${jugador.nombre}?`,
+                textoConfirmar: 'Reemplazar',
+            });
             if (!ok) return;
         }
 
@@ -349,16 +343,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const repetidos = jugadores.filter(j => seleccionados[j.posicion_id]);
         const ordenados = disponibles.concat(repetidos);
 
-        resultadosBusqueda.innerHTML = ordenados.map(j => {
+        resultadosBusqueda.innerHTML = ordenados.map((j, indice) => {
             const posicionCubierta = !!seleccionados[j.posicion_id];
             const clases = posicionCubierta ? 'list-group-item-action bg-dark text-white border-secondary opacity-50' : 'list-group-item-action bg-dark text-white border-secondary';
             const aviso = posicionCubierta ? '<div class="text-warning" style="font-size: .7rem;"><i class="bi bi-exclamation-circle me-1"></i>Posición ya cubierta — click para reemplazar</div>' : '';
             return `
-                <button type="button" class="list-group-item ${clases} btn-agregar-jugador"
-                        data-jugador='${JSON.stringify(j).replace(/'/g, "&apos;")}'>
+                <button type="button" class="list-group-item ${clases} btn-agregar-jugador" data-indice="${indice}">
                     <div class="d-flex justify-content-between">
-                        <span>${j.nombre} <span class="text-muted small">(${j.posicion_nombre} · ${j.posicion_siglas})</span></span>
-                        <span class="text-muted small">${j.pais_nombre} · OVR ${j.overall}</span>
+                        <span>${UI.escapar(j.nombre)} <span class="text-muted small">(${UI.escapar(j.posicion_nombre)} · ${UI.escapar(j.posicion_siglas)})</span></span>
+                        <span class="text-muted small">${UI.escapar(j.pais_nombre)} · OVR ${j.overall}</span>
                     </div>
                     ${aviso}
                 </button>
@@ -367,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         document.querySelectorAll('.btn-agregar-jugador').forEach(btn => {
             btn.addEventListener('click', function () {
-                agregarJugador(JSON.parse(btn.dataset.jugador.replace(/&apos;/g, "'")));
+                agregarJugador(ordenados[Number(btn.dataset.indice)]);
             });
         });
     }
@@ -378,10 +371,20 @@ document.addEventListener('DOMContentLoaded', function () {
         if (filtroPais.value) params.set('pais_id', filtroPais.value);
         if (filtroPosicion.value) params.set('posicion_id', filtroPosicion.value);
 
+        // Estado de carga y de error (antes, si la búsqueda fallaba, la lista quedaba congelada sin aviso)
+        const contenedor = document.getElementById('resultadosBusqueda');
+        if (contenedor) contenedor.innerHTML = '<div class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Buscando jugadores…</div>';
+        const consulta = ++numeroBusqueda;
         fetch(`${urlBuscar}?${params.toString()}`)
-            .then(resp => resp.json())
-            .then(renderizarResultados);
+            .then(resp => { if (!resp.ok) throw new Error(); return resp.json(); })
+            .then(datos => { if (consulta === numeroBusqueda) renderizarResultados(datos); })
+            .catch(() => {
+                if (consulta === numeroBusqueda && contenedor) {
+                    contenedor.innerHTML = '<div class="text-danger small py-3 text-center"><i class="bi bi-exclamation-triangle me-1"></i>No se pudo buscar. Revisá tu conexión e intentá de nuevo.</div>';
+                }
+            });
     }
+    let numeroBusqueda = 0; // descarta respuestas de búsquedas viejas que llegan tarde
 
     inputBuscar.addEventListener('input', function () {
         clearTimeout(temporizadorBusqueda);
@@ -393,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function () {
     ejecutarBusqueda();
 
     // Guardar alineación
-    btnGuardar.addEventListener('click', function () {
+    btnGuardar.addEventListener('click', async function () {
         const lineup = Object.values(seleccionados).flat().map(j => j.id);
 
         if (faseIniciada && {{ "true" if alineacion else "false" }}) {
@@ -403,11 +406,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const cantidadCambios = LINEUP_ORIGINAL.filter(id => !lineup.includes(id)).length;
 
             if (cantidadCambios > cambiosGratisDisponibles) {
-                if (!confirm(`Vas a cambiar ${cantidadCambios} jugador(es), pero solo tenés ${cambiosGratisDisponibles} cambios gratis disponibles. Se te van a cobrar 20 pts de penalización por este guardado. ¿Confirmás?`)) {
+                if (!await UI.confirmar({ titulo: 'Guardar con penalización',
+                        mensaje: `Vas a cambiar ${cantidadCambios} jugador(es), pero solo tenés ${cambiosGratisDisponibles} cambios gratis disponibles. Se te van a cobrar 20 pts de penalización por este guardado.`,
+                        textoConfirmar: 'Guardar y pagar 20 pts', peligro: true })) {
                     return;
                 }
             } else if (cantidadCambios > 0) {
-                if (!confirm(`Vas a cambiar ${cantidadCambios} jugador(es), cubierto por tus cambios gratis disponibles (${cambiosGratisDisponibles}). ¿Confirmás?`)) {
+                if (!await UI.confirmar({ titulo: 'Guardar cambios',
+                        mensaje: `Vas a cambiar ${cantidadCambios} jugador(es), cubierto por tus cambios gratis disponibles (${cambiosGratisDisponibles}).`,
+                        textoConfirmar: 'Guardar' })) {
                     return;
                 }
             }

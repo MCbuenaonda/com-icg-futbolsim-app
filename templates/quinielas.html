@@ -9,9 +9,6 @@
         <p class="text-muted mb-0">Pronosticá resultados y ganá puntos.</p>
     </div>
     <div class="d-flex align-items-center gap-3">
-        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-        </span>
         <a href="{{ url_for('quinielas_mias') }}" class="btn btn-outline-success btn-sm">
             <i class="bi bi-ticket-perforated me-1"></i>Mis Quinielas
         </a>
@@ -33,7 +30,7 @@
                     <h5 class="fw-bold text-white mb-1">{{ config.nombre }}</h5>
                     <div class="text-muted small mb-3">{{ config.cantidad_partidos }} pronósticos</div>
 
-                    <div class="display-6 fw-bold text-warning mb-3">
+                    <div class="display-6 fw-bold text-accent mb-3">
                         <i class="bi bi-coin"></i> {{ config.costo_puntos }}
                     </div>
 
@@ -74,7 +71,7 @@
 
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div class="fs-5">
-            <span id="contadorSeleccion" class="fw-bold text-warning">0</span> / <span id="cantidadRequerida">0</span> partidos seleccionados
+            <span id="contadorSeleccion" class="fw-bold text-accent">0</span> / <span id="cantidadRequerida">0</span> partidos seleccionados
         </div>
         <input type="text" id="buscarPartido" class="form-control" style="max-width: 280px;" placeholder="Buscar equipo...">
     </div>
@@ -146,11 +143,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let configActual = null;
 
-    function mostrarAlerta(mensaje, tipo) {
-        alertaBoleto.className = `alert alert-${tipo}`;
-        alertaBoleto.textContent = mensaje;
-        alertaBoleto.classList.remove('d-none');
-    }
+    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaBoleto, mensaje, tipo);
 
     function actualizarContador() {
         const marcados = document.querySelectorAll('.chk-partido:checked').length;

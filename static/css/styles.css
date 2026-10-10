@@ -17,6 +17,67 @@
     /* Textos */
     --text-main: #f1f5f9;
     --text-muted: #acb1b9;
+
+    /* Acento de marca (verde césped). Antes se lograba redefiniendo .text-warning/.bg-warning,
+       lo que hacía que toda "advertencia" de Bootstrap se viera verde; ahora el acento tiene sus
+       propias utilidades (.text-accent, .bg-accent, .border-accent) y warning vuelve a ser ámbar. */
+    --accent: #10b981;
+    --accent-rgb: 16, 185, 129;
+}
+
+/* Tema oscuro nativo de Bootstrap 5.3 (<html data-bs-theme="dark"> en base.html) con la paleta
+   del sitio: así form-select, alertas, tablas, modales y dropdowns salen oscuros sin overrides. */
+[data-bs-theme="dark"] {
+    --bs-body-bg: var(--bg-dark-main);
+    --bs-body-color: var(--text-main);
+    --bs-emphasis-color: #ffffff;
+    --bs-secondary-color: var(--text-muted);
+    --bs-secondary-bg: var(--bg-card);
+    --bs-tertiary-bg: #0d1624;
+    --bs-border-color: var(--border-color);
+    --bs-link-color: var(--accent);
+    --bs-link-color-rgb: var(--accent-rgb);
+    --bs-link-hover-color: var(--green-neon);
+}
+
+/* Utilidades de acento (respetan bg-opacity / border-opacity de Bootstrap) */
+.text-accent {
+    color: var(--green-neon) !important;
+    text-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+}
+.bg-accent, .progress-bar-green {
+    background-color: rgba(var(--accent-rgb), var(--bs-bg-opacity, 1)) !important;
+}
+.badge.bg-accent { color: #000000 !important; }
+.border-accent {
+    border-color: rgba(var(--accent-rgb), var(--bs-border-opacity, 1)) !important;
+}
+
+/* Saldo del usuario siempre visible en el navbar */
+.saldo-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--green-neon);
+    background: rgba(var(--accent-rgb), 0.12);
+    border: 1px solid rgba(var(--accent-rgb), 0.45);
+    white-space: nowrap;
+}
+.saldo-pill--cambio { animation: saldo-cambio 1s ease; }
+@keyframes saldo-cambio { 30% { transform: scale(1.12); box-shadow: 0 0 14px rgba(0, 255, 136, 0.55); } }
+.navbar .dropdown-header {
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+}
+.navbar .dropdown-item.active,
+.navbar .dropdown-item:active {
+    background-color: rgba(var(--accent-rgb), 0.18);
+    color: #ffffff;
 }
 
 /* Nombre de jugador resaltado dentro de la descripción de un evento de partido (cronología,
@@ -57,10 +118,6 @@ body {
     }
 }
 
-/* Reemplazar fondos claros por dark */
-.bg-light {
-    background-color: var(--bg-dark-main) !important;
-}
 
 /* Modificación de Tarjetas y Paneles */
 .card {
@@ -75,10 +132,6 @@ body {
     border-bottom: 1px solid var(--border-color) !important;
 }
 
-/* Reemplazo de Textos Secundarios */
-.text-dark {
-    color: var(--text-main) !important;
-}
 
 .text-muted, .text-secondary {
     color: var(--text-muted) !important;
@@ -119,6 +172,17 @@ body {
     box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.25) !important;
 }
 
+.form-select {
+    background-color: #0d1624;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+
+.form-select:focus {
+    border-color: var(--green-pitch);
+    box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.25);
+}
+
 .form-control::placeholder {
     color: #64748b !important;
 }
@@ -127,16 +191,6 @@ body {
    ACENTOS VERDES FUTBOLEROS (Reemplazo de Amarillos)
    ========================================================== */
 
-/* Marcadores y números principales */
-.text-warning, .score-green {
-    color: var(--green-neon) !important;
-    text-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
-}
-
-/* Barras de progreso verdes */
-.bg-warning, .progress-bar-green {
-    background-color: var(--green-pitch) !important;
-}
 
 /* Botones principales */
 .btn-primary, .btn-success {
@@ -153,16 +207,6 @@ body {
     box-shadow: 0 6px 20px rgba(0, 255, 136, 0.3) !important;
 }
 
-/* Badges / Etiquetas destacadas */
-.badge.bg-warning {
-    background-color: var(--green-pitch) !important;
-    color: #000000 !important;
-}
-
-.bg-warning-subtle {
-    background-color: rgba(16, 185, 129, 0.15) !important;
-    color: var(--green-neon) !important;
-}
 
 /* Utilidades adicionales */
 .fs-7 { font-size: 0.85rem; }
@@ -497,7 +541,7 @@ body {
 }
 
 .x-post:hover {
-    background-color: rgba(0, 0, 0, 0.03);
+    background-color: rgba(255, 255, 255, 0.03);
 }
 
 .x-post-avatar-sm {
@@ -514,7 +558,7 @@ body {
 }
 
 .x-post-replies {
-    border-color: #e2e8f0 !important;
+    border-color: var(--border-color) !important;
 }
 
 .x-post-toggle {
@@ -643,3 +687,39 @@ body {
 .conf-card-footer-border {
     border-color: rgba(255, 255, 255, 0.08) !important;
 }
+/* ==========================================================
+   Utilidades y tarjetas que usaban los templates pero no existían (home.html, etc.)
+   ========================================================== */
+.fs-9 { font-size: 0.65rem; }
+.fw-extrabold { font-weight: 800; }
+.shadow-xs { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+.max-w-400 { max-width: 400px; }
+.btn-xs { padding: 0.15rem 0.6rem; font-size: 0.75rem; border-radius: 0.3rem; }
+
+/* Tarjeta de confederación del dashboard (home.html) */
+.conf-card-v2 {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.conf-card-v2:hover {
+    transform: translateY(-3px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    color: var(--text-main);
+}
+.conf-metric-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.4rem 0.25rem;
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.metric-num { font-size: 1.1rem; font-weight: 800; line-height: 1.1; }
+.metric-lbl { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Paginador "Mostrar más" de static/js/ui.js */
+.ui-pag-oculto { display: none !important; }

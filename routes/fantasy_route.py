@@ -11,7 +11,7 @@ from services.fantasy_service import (
     obtener_equipo_mas_reciente_anterior, FORMACION_DEFAULT
 )
 from services.juegos_service import obtener_juego_activo
-from services.auth_service import obtener_usuario_actual, context_usuario_actual
+from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 import logging
 import json
 
@@ -33,10 +33,13 @@ logger = logging.getLogger(__name__)
 # API JSON
 # ==========================================================================
 @route.post("/lineup", response_model=FantasyTeamOut, name="fantasy_set_lineup")
-async def set_lineup(payload: LineupIn):
-    """Guarda el Once Ideal del usuario para una fase (cobra penalización si la fase ya empezó)."""
+async def set_lineup(payload: LineupIn, request: Request):
+    """Guarda el Once Ideal del usuario para una fase (cobra penalización si la fase ya empezó).
+    Siempre para el usuario de la sesión: el 'usuario_id' del body se ignora (antes permitía
+    armar/cobrar la alineación de otra cuenta)."""
+    usuario = obtener_usuario_actual(request)
     try:
-        return set_fantasy_lineup(payload.usuario_id, payload.fase_id, payload.lineup, payload.formacion)
+        return set_fantasy_lineup(usuario["_id"], payload.fase_id, payload.lineup, payload.formacion)
     except InvalidId:
         raise HTTPException(status_code=400, detail="ID de usuario o jugador inválido")
     except ValueError as e:
@@ -47,8 +50,9 @@ async def set_lineup(payload: LineupIn):
 
 
 @route.get("/lineup/{user_id}/{fase_id}", response_model=Optional[FantasyTeamOut], name="fantasy_get_lineup")
-async def get_lineup(user_id: str, fase_id: int):
+async def get_lineup(user_id: str, fase_id: int, request: Request):
     """Devuelve el Once Ideal del usuario para esa fase (null si todavía no armó ninguno)."""
+    exigir_mismo_usuario_o_admin(request, user_id)
     try:
         return obtener_alineacion(user_id, fase_id)
     except InvalidId:
@@ -70,12 +74,13 @@ async def buscar(
 
 
 @route.get("/points-history/{user_id}/{fase_id}", response_model=List[HistorialPuntosOut], name="fantasy_points_history")
-async def points_history(user_id: str, fase_id: int):
+async def points_history(user_id: str, fase_id: int, request: Request):
     """
     Endpoint auxiliar (no pedido explícitamente, pero coherente con el resto de
     endpoints de solo lectura del módulo): historial de cómo se calcularon los
     puntos fantasy del usuario en esta fase, más reciente primero.
     """
+    exigir_mismo_usuario_o_admin(request, user_id)
     try:
         return obtener_historial_puntos_fantasy(user_id, fase_id)
     except InvalidId:

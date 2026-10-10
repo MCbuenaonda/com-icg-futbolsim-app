@@ -2,7 +2,7 @@ import certifi
 from google.api_core.exceptions import GoogleAPIError
 from pymongo.mongo_client import MongoClient
 import json
-MONGODB_URI = 'mongodb+srv://ingcarloscerati_db_user:C4rl056C@cluster0.yleznra.mongodb.net/'
+from config.settings import MONGODB_URI  # desde .env (antes estaba la URI con contraseña acá)
 
 collection_path = "collections/paises.json"
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())

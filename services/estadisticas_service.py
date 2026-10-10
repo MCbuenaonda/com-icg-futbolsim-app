@@ -11,11 +11,19 @@ db = client.get_database('mundial')
 
 def obtener_estadisticas_generales():
     """Retorna un diccionario completo con todas las métricas históricas y del torneo."""
+    # Una sola consulta (con proyección liviana) para los récords por partido y las tendencias
+    # del torneo -- ver sección 4b.
+    juegos_records = _juegos_finalizados_para_records()
+    partidos = _get_stats_partidos()
+    partidos.update(_obtener_records_primer_gol(juegos_records))
+    partidos["sede_mas_goleadora"] = _obtener_sede_mas_goleadora(juegos_records)
     return {
         "jugadores": _get_stats_jugadores(),
         "porteros": _get_stats_porteros(),
         "arbitros": _get_stats_arbitros(),
-        "partidos": _get_stats_partidos(),
+        "arbitros_avanzado": _get_stats_arbitros_avanzado(juegos_records),
+        "partidos": partidos,
+        "tendencias": _get_stats_tendencias(juegos_records),
         "paises": _get_stats_paises(),
         "torneos": _get_stats_torneos(),
         "once_ideal": _get_11_ideal()
@@ -465,14 +473,21 @@ def _get_stats_porteros():
                 "partidos_sin_recibir_gol": vallas_por_pais.get(mejor["pais_id"], 0)
             }
 
-    # Portero con mas atajados de penales, se obtiene desde jugadores
-    portero_mas_penales = jugadores_coll.find_one({}, {
-            "_id": 0,
-            "nombre": 1,
-            "pais_id": 1,
-            "penales_atajados": 1,
-            "pais": 1
-        }, sort=[("penales_atajados", -1)])
+    # Portero con más penales atajados (contador 'atajadas_penales' de jugadores, que solo crece
+    # en tandas de penales). Antes se ordenaba por 'penales_atajados' -- campo inexistente -- y
+    # se devolvía 'nombre' en vez de las claves 'portero'/'total' que lee el template.
+    portero_mas_penales = None
+    top_penales = jugadores_coll.find_one(
+        {"atajadas_penales": {"$gt": 0}}, {"nombre": 1, "pais_id": 1, "atajadas_penales": 1},
+        sort=[("atajadas_penales", -1)]
+    )
+    if top_penales:
+        pais_doc = paises_coll.find_one({"id": top_penales.get("pais_id")}, {"nombre": 1})
+        portero_mas_penales = {
+            "portero": top_penales.get("nombre"),
+            "pais": pais_doc.get("nombre", "?") if pais_doc else "?",
+            "total": top_penales.get("atajadas_penales", 0),
+        }
 
     return {
         "atajapenales": portero_mas_penales,
@@ -772,6 +787,228 @@ def _get_stats_partidos():
             "partidos": partidos_top_remontador
         }
     }
+
+# ==========================================
+# 4b. RÉCORDS POR PARTIDO Y TENDENCIAS DEL TORNEO (árbitros, primer gol, sede más goleadora,
+#     promedios, franjas de gol, hat-tricks) -- todo derivado de 'resultado.eventos'
+# ==========================================
+TIPOS_GOL_EN_JUEGO = {"⚽ GOL", "⚽ GOL DE TIRO LIBRE", "⚽ GOL DE CÓRNER"}  # "⚽ GOL DE PENAL" solo existe en tandas
+TIPOS_TARJETA = {"🟨 TARJETA AMARILLA", "🖥️ VAR - TARJETA REVISADA", "🟥 TARJETA ROJA", "🟨🟥 DOBLE AMARILLA"}  # la revisada = roja rebajada a amarilla
+TIPOS_EXPULSION = {"🟥 TARJETA ROJA", "🟨🟥 DOBLE AMARILLA"}
+FRANJAS_GOL = [(0, 15, "0-15'"), (16, 30, "16-30'"), (31, 45, "31-45'"), (46, 60, "46-60'"),
+               (61, 75, "61-75'"), (76, 90, "76-90'"), (91, 999, "Alargue")]
+
+
+def _juegos_finalizados_para_records() -> list:
+    """Partidos finalizados con solo los campos que usan los récords y las tendencias (evita
+    traer 'estadisticas', posiciones del balón, descripciones, etc.). Solo del Mundial ACTIVO:
+    'juegos' conserva los partidos de mundiales anteriores (clean_and_update no los borra) y sin
+    este filtro los récords y tendencias mezclaban torneos."""
+    filtro = {"estado": "finalizado", "resultado": {"$exists": True}}
+    mundial = db["mundiales"].find_one({"activo": True}, {"_id": 1})
+    if mundial:
+        filtro["mundial_id"] = str(mundial["_id"])
+    return list(db["juegos"].find(
+        filtro,
+        {
+            "equipo_local": 1, "equipo_visitante": 1, "tag": 1, "fecha": 1, "ubicacion": 1,
+            "resultado.goles_local": 1, "resultado.goles_visitante": 1, "resultado.arbitros": 1,
+            "resultado.goleadores": 1, "resultado.eventos.tipo": 1, "resultado.eventos.minuto": 1,
+            "resultado.eventos.segundos_acumulados": 1, "resultado.eventos.equipo": 1,
+            "resultado.eventos.jugadores": 1,
+        }
+    ))
+
+
+def _goles_partido(juego: dict):
+    res = juego.get("resultado") or {}
+    return res.get("goles_local", 0) or 0, res.get("goles_visitante", 0) or 0
+
+
+def _resumen_partido(juego: dict) -> dict:
+    return _formatear_partido_resumen(juego, *_goles_partido(juego))
+
+
+def _contar_faltas_tarjetas(eventos: list):
+    """(faltas, tarjetas, expulsiones) de un partido, contando eventos del motor."""
+    faltas = tarjetas = expulsiones = 0
+    for e in eventos:
+        tipo = e.get("tipo", "")
+        if tipo == "🛑 FALTA":
+            faltas += 1
+        elif tipo in TIPOS_TARJETA:
+            tarjetas += 1
+            if tipo in TIPOS_EXPULSION:
+                expulsiones += 1
+    return faltas, tarjetas, expulsiones
+
+
+def _get_stats_arbitros_avanzado(juegos: list) -> dict:
+    """
+    Récords EN UN PARTIDO del árbitro central: más/menos faltas y más/menos tarjetas, con el
+    partido en cuestión. No se usa un promedio por árbitro a propósito: cada central dirige 1 a
+    4 partidos en todo el torneo, y un promedio con tan pocos partidos es ruido. Además, el
+    acumulado de expulsiones por árbitro en el torneo.
+    """
+    filas = []
+    expulsiones_por_arbitro = defaultdict(lambda: {"expulsiones": 0, "partidos": 0})
+    for j in juegos:
+        arbitro = ((j.get("resultado") or {}).get("arbitros") or {}).get("central")
+        if not arbitro:
+            continue
+        faltas, tarjetas, expulsiones = _contar_faltas_tarjetas((j.get("resultado") or {}).get("eventos", []))
+        filas.append((arbitro, faltas, tarjetas, j))
+        expulsiones_por_arbitro[arbitro]["expulsiones"] += expulsiones
+        expulsiones_por_arbitro[arbitro]["partidos"] += 1
+
+    if not filas:
+        return {}
+
+    def _armar(fila):
+        arbitro, faltas, tarjetas, juego = fila
+        return {"nombre": arbitro, "faltas": faltas, "tarjetas": tarjetas, "partido": _resumen_partido(juego)}
+
+    nombre_exp, datos_exp = max(expulsiones_por_arbitro.items(), key=lambda kv: (kv[1]["expulsiones"], -kv[1]["partidos"]))
+    return {
+        "mas_faltas": _armar(max(filas, key=lambda f: (f[1], f[2]))),
+        "mas_tarjetas": _armar(max(filas, key=lambda f: (f[2], f[1]))),
+        "menos_faltas": _armar(min(filas, key=lambda f: (f[1], f[2]))),
+        "menos_tarjetas": _armar(min(filas, key=lambda f: (f[2], f[1]))),
+        "mas_expulsiones": {"nombre": nombre_exp, "expulsiones": datos_exp["expulsiones"], "partidos_dirigidos": datos_exp["partidos"]}
+        if datos_exp["expulsiones"] > 0 else None,
+    }
+
+
+def _primer_gol(juego: dict) -> Optional[dict]:
+    """Primer gol en juego del partido (sin tanda), ordenado por segundos (o minuto si falta)."""
+    goles = [e for e in (juego.get("resultado") or {}).get("eventos", []) if e.get("tipo") in TIPOS_GOL_EN_JUEGO]
+    if not goles:
+        return None
+    return min(goles, key=lambda e: (e.get("segundos_acumulados", (e.get("minuto") or 0) * 60), e.get("minuto") or 0))
+
+
+def _obtener_records_primer_gol(juegos: list) -> dict:
+    """
+    'gol_mas_rapido': el primer gol de un partido que cayó más temprano en todo el torneo.
+    'gol_mas_tardio': el primer gol que más tarde llegó (el partido que más tardó en abrirse;
+    puede caer en el alargue). Los partidos sin goles en juego no participan.
+    """
+    primeros = []
+    for j in juegos:
+        gol = _primer_gol(j)
+        if gol:
+            primeros.append((gol.get("segundos_acumulados", (gol.get("minuto") or 0) * 60), gol, j))
+    if not primeros:
+        return {"gol_mas_rapido": None, "gol_mas_tardio": None}
+
+    def _armar(item):
+        segundos, gol, juego = item
+        jugadores = gol.get("jugadores") or []
+        return {"jugador": jugadores[0] if jugadores else "?", "equipo": gol.get("equipo"),
+                "minuto": gol.get("minuto"), "segundos": int(segundos), "partido": _resumen_partido(juego)}
+
+    return {
+        "gol_mas_rapido": _armar(min(primeros, key=lambda p: p[0])),
+        "gol_mas_tardio": _armar(max(primeros, key=lambda p: p[0])),
+    }
+
+
+def _obtener_sede_mas_goleadora(juegos: list) -> Optional[dict]:
+    """Estadio (agrupado por ciudad, 'ubicacion.id', igual que estadio_mas_frecuente) con más
+    goles en total en los partidos que albergó; desempata el promedio por partido. Los goles de
+    la tanda de penales no cuentan (resultado.goles_* no los incluye)."""
+    sedes = defaultdict(lambda: {"estadio": None, "ciudad": None, "pais": None, "goles": 0, "partidos": []})
+    for j in juegos:
+        ubicacion = j.get("ubicacion") or {}
+        if not ubicacion.get("estadio"):
+            continue
+        clave = ubicacion.get("id")
+        if clave is None:
+            clave = (ubicacion.get("estadio"), ubicacion.get("pais"))
+        sede = sedes[clave]
+        sede.update({"estadio": ubicacion.get("estadio"), "ciudad": ubicacion.get("nombre"), "pais": ubicacion.get("pais")})
+        sede["goles"] += sum(_goles_partido(j))
+        sede["partidos"].append(_resumen_partido(j))
+    if not sedes:
+        return None
+    top = max(sedes.values(), key=lambda s: (s["goles"], s["goles"] / len(s["partidos"])))
+    return {
+        "estadio": top["estadio"], "ciudad": top["ciudad"], "pais": top["pais"],
+        "total_goles": top["goles"], "total_juegos": len(top["partidos"]),
+        "promedio_goles": round(top["goles"] / len(top["partidos"]), 1),
+        "partidos": sorted(top["partidos"], key=lambda p: p.get("fecha") or ""),
+    }
+
+
+def _get_stats_tendencias(juegos: list) -> dict:
+    """Tendencias generales del torneo: promedio de goles, ambos marcan, ventaja de local,
+    mayor goleada, goles por franja de minutos y hat-tricks."""
+    total = len(juegos)
+    if not total:
+        return {"total_partidos": 0}
+
+    total_goles = ambos_marcan = gana_local = empates = gana_visitante = 0
+    mayor_goleada = None
+    franjas = [0] * len(FRANJAS_GOL)
+    hat_tricks = defaultdict(lambda: {"nombre": None, "equipo": None, "partidos": []})
+    partidos_hat_trick = []
+
+    for j in juegos:
+        gl, gv = _goles_partido(j)
+        total_goles += gl + gv
+        ambos_marcan += 1 if gl > 0 and gv > 0 else 0
+        if gl > gv:
+            gana_local += 1
+        elif gv > gl:
+            gana_visitante += 1
+        else:
+            empates += 1
+        clave_goleada = (abs(gl - gv), gl + gv)
+        if mayor_goleada is None or clave_goleada > mayor_goleada[0]:
+            mayor_goleada = (clave_goleada, j)
+
+        for e in (j.get("resultado") or {}).get("eventos", []):
+            if e.get("tipo") in TIPOS_GOL_EN_JUEGO:
+                minuto = e.get("minuto") or 0
+                for i, (desde, hasta, _) in enumerate(FRANJAS_GOL):
+                    if desde <= minuto <= hasta:
+                        franjas[i] += 1
+                        break
+
+        for g in (j.get("resultado") or {}).get("goleadores", []) or []:
+            if (g.get("goles") or 0) >= 3:
+                h = hat_tricks[g.get("jugador_id") or g.get("jugador_nombre")]
+                h["nombre"], h["equipo"] = g.get("jugador_nombre"), g.get("equipo")
+                # 'nota' la muestra el modal de "ver partidos" (templates/estadisticas.html)
+                partido = {**_resumen_partido(j), "nota": f"🎩 {g.get('jugador_nombre')} ({g.get('equipo')}): {g.get('goles')} goles"}
+                h["partidos"].append(partido)
+                partidos_hat_trick.append(partido)
+
+    goles_en_franjas = sum(franjas) or 1
+    # "Rey del hat-trick" solo si alguien tiene 2+ (con todos empatados en 1 sería arbitrario)
+    rey_hat_trick = max(hat_tricks.values(), key=lambda h: len(h["partidos"]), default=None)
+    if rey_hat_trick and len(rey_hat_trick["partidos"]) < 2:
+        rey_hat_trick = None
+    pct = lambda n: round(100 * n / total, 1)
+    return {
+        "total_partidos": total,
+        "total_goles": total_goles,
+        "promedio_goles": round(total_goles / total, 2),
+        "pct_ambos_marcan": pct(ambos_marcan),
+        "resultados": {"pct_local": pct(gana_local), "pct_empate": pct(empates), "pct_visitante": pct(gana_visitante)},
+        "mayor_goleada": {"diferencia": mayor_goleada[0][0], "partido": _resumen_partido(mayor_goleada[1])} if mayor_goleada else None,
+        "goles_por_franja": [
+            {"franja": etiqueta, "goles": franjas[i], "pct": round(100 * franjas[i] / goles_en_franjas, 1)}
+            for i, (_, _, etiqueta) in enumerate(FRANJAS_GOL)
+        ],
+        "hat_tricks": {
+            "total": len(partidos_hat_trick),
+            "partidos": sorted(partidos_hat_trick, key=lambda p: p.get("fecha") or ""),
+            "rey": {"nombre": rey_hat_trick["nombre"], "equipo": rey_hat_trick["equipo"],
+                    "cantidad": len(rey_hat_trick["partidos"]), "partidos": rey_hat_trick["partidos"]} if rey_hat_trick else None,
+        },
+    }
+
 
 # ==========================================
 # 5. ESTADÍSTICAS DE PAÍSES (Vía 'juegos', agregando todo el torneo)

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from services.paises_service import get_paises, get_pais
+from services.paises_service import get_paises, get_pais, obtener_trayectoria_pais
 from services.fanbase_service import obtener_historial_aficionados_pais, AFICIONADOS_INICIAL
 from services.auth_service import context_usuario_actual
 from config.settings import PREFIX_PAISES_PATH
@@ -40,11 +40,13 @@ async def pais(request: Request, id: str):
     try:
         pais = get_pais(id, logger)
         historial_aficionados = obtener_historial_aficionados_pais(int(id)) if pais else []
+        trayectoria = obtener_trayectoria_pais(int(id)) if pais else []
 
         return templates.TemplateResponse(
             request=request,
             name="pais.html",
-            context={"pais": pais, "historial_aficionados": historial_aficionados, "aficionados_base": AFICIONADOS_INICIAL}
+            context={"pais": pais, "historial_aficionados": historial_aficionados, "aficionados_base": AFICIONADOS_INICIAL,
+                     "trayectoria": trayectoria}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")

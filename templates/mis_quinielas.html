@@ -9,9 +9,9 @@
         <p class="text-muted mb-0">Tus boletos y su estado.</p>
     </div>
     <div class="d-flex align-items-center gap-3">
-        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-        </span>
+        <a href="{{ url_for('quinielas_rendimiento') }}" class="btn btn-outline-light btn-sm">
+            <i class="bi bi-graph-up-arrow me-1"></i>Mi rendimiento
+        </a>
         <a href="{{ url_for('quinielas_home') }}" class="btn btn-success btn-sm fw-bold">
             <i class="bi bi-plus-circle me-1"></i>Comprar Quiniela
         </a>
@@ -79,11 +79,11 @@
                                     </div>
                                     <div>
                                         {% if seleccion.estado == 'ACERTADO' %}
-                                            <span class="badge bg-success"><i class="bi bi-check-lg"></i></span>
+                                            <span class="badge bg-success" title="Acertado"><i class="bi bi-check-lg" aria-hidden="true"></i><span class="visually-hidden">Acertado</span></span>
                                         {% elif seleccion.estado == 'FALLADO' %}
-                                            <span class="badge bg-danger"><i class="bi bi-x-lg"></i></span>
+                                            <span class="badge bg-danger" title="Fallado"><i class="bi bi-x-lg" aria-hidden="true"></i><span class="visually-hidden">Fallado</span></span>
                                         {% else %}
-                                            <span class="badge bg-secondary"><i class="bi bi-hourglass-split"></i></span>
+                                            <span class="badge bg-secondary" title="Pendiente"><i class="bi bi-hourglass-split" aria-hidden="true"></i><span class="visually-hidden">Pendiente</span></span>
                                         {% endif %}
                                     </div>
                                 </div>

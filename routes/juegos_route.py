@@ -3,7 +3,8 @@ from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from services.juegos_service import obtener_juegos_programados, obtener_juego_activo, obtener_juegos_calendario, resaltar_jugadores_en_descripcion
-from services.auth_service import context_usuario_actual
+from services.auth_service import context_usuario_actual, obtener_usuario_actual, tiene_permiso
+from services.juego_en_vivo_service import sesiones_pendientes_usuario
 from config.settings import PREFIX_JUEGOS_PATH
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
@@ -11,6 +12,7 @@ import certifi
 import logging
 import uuid
 import json
+from urllib.parse import urlencode
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -24,8 +26,31 @@ logger = logging.getLogger(__name__)
 process_uuid = uuid.uuid4()
 
 
+JUEGOS_POR_PAGINA = 24
+
+
+def _filtrar_juegos(juegos: list, q: str, confederacion: str, grupo: str, fecha: str, jornada: str) -> list:
+    """Filtros de la grilla de partidos pendientes (antes se aplicaban en el navegador sobre las
+    ~700 tarjetas renderizadas de una vez)."""
+    texto = (q or "").strip().lower()
+    def coincide(j):
+        if texto and texto not in (j.get("equipo_local", {}).get("nombre", "").lower() + " " + j.get("equipo_visitante", {}).get("nombre", "").lower()):
+            return False
+        if confederacion and str(j.get("confederacion_id")) != confederacion:
+            return False
+        if grupo and j.get("grupo") != grupo:
+            return False
+        if fecha and j.get("fecha") != fecha:
+            return False
+        if jornada and j.get("jornada") != jornada:
+            return False
+        return True
+    return [j for j in juegos if coincide(j)]
+
+
 @route.get("/", response_class=HTMLResponse)
-async def juegos(request: Request):
+async def juegos(request: Request, q: str = "", confederacion: str = "", grupo: str = "", fecha: str = "",
+                 jornada: str = "", pagina: int = 1):
     try:
         # 1. Obtener el mundial activo (opcional)
         mundial_activo = db["mundiales"].find_one({"activo": True})
@@ -34,20 +59,40 @@ async def juegos(request: Request):
         # 2. Obtener los juegos programados
         juegos = obtener_juegos_programados(db, mundial_id)
         
-        # Extraer grupos y fechas únicos sin duplicados
+        # Opciones de los filtros: de TODOS los pendientes (no solo de la página actual)
         grupos = sorted(list({j["grupo"] for j in juegos if "grupo" in j}))
         fechas = sorted(list({j["fecha"] for j in juegos if "fecha" in j}))
         jornadas = sorted(list({j["jornada"] for j in juegos if "jornada" in j}))
+
+        # Filtros + paginación en el servidor
+        total_pendientes = len(juegos)
+        filtrados = _filtrar_juegos(juegos, q, confederacion, grupo, fecha, jornada)
+        total_paginas = max(1, -(-len(filtrados) // JUEGOS_POR_PAGINA))
+        pagina = min(max(1, pagina), total_paginas)
+        juegos = filtrados[(pagina - 1) * JUEGOS_POR_PAGINA: pagina * JUEGOS_POR_PAGINA]
+        filtros = {"q": q, "confederacion": confederacion, "grupo": grupo, "fecha": fecha, "jornada": jornada}
             
+        # Elecciones pendientes del Juego en Vivo del usuario (badge "Vas con X" en cada tarjeta)
+        usuario = obtener_usuario_actual(request)
+        sesiones_juego_en_vivo = sesiones_pendientes_usuario(usuario) if tiene_permiso(usuario, "juego_en_vivo") else {}
+
         return templates.TemplateResponse(
             request=request,
             name="juegos.html",
             context={
+                "sesiones_juego_en_vivo": sesiones_juego_en_vivo,
                 "juegos": juegos,
                 "mundial": mundial_activo,
                 "grupos": grupos,
                 "fechas": fechas,
                 "jornadas": jornadas,
+                "filtros": filtros,
+                "query_filtros": urlencode({k: v for k, v in filtros.items() if v}),
+                "hay_filtros": any(filtros.values()),
+                "pagina": pagina,
+                "total_paginas": total_paginas,
+                "total_filtrados": len(filtrados),
+                "total_pendientes": total_pendientes,
             }
         )
         
@@ -90,6 +135,7 @@ async def calendario(request: Request):
                     "id": j.get("_id"),
                     "id_local": local.get("id"),
                     "id_visita": visita.get("id"),
+                    "tiempo_extra": j.get("tiempo_extra"),
                     "estado": j.get("estado"),
                     "tag": j.get("tag"),
                     "grupo": j.get("grupo"),

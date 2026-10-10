@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class LineupIn(BaseModel):
-    usuario_id: str
+    usuario_id: Optional[str] = None  # ignorado: se usa el usuario de la sesión (routes/fantasy_route.py)
     fase_id: int
     lineup: List[int]  # ids de jugadores (colección 'jugadores')
     formacion: str = "4-3-3"  # solo agrupamiento visual (4-3-3/4-4-2/3-5-2), no afecta la validación

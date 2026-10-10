@@ -29,7 +29,7 @@
             <div class="col-5">
                 <div class="fs-1">{{ home.bandera }}</div>
                 <h4 class="fw-bold text-white mb-0">{{ home.nombre }}</h4>
-                <span class="badge bg-warning text-dark fs-6 mt-1">{{ home.probabilidad_victoria_pct }}% de ganar</span>
+                <span class="badge bg-accent text-dark fs-6 mt-1">{{ home.probabilidad_victoria_pct }}% de ganar</span>
             </div>
             <div class="col-2">
                 <span class="display-6 fw-bold text-muted">VS</span>
@@ -37,11 +37,23 @@
             <div class="col-5">
                 <div class="fs-1">{{ away.bandera }}</div>
                 <h4 class="fw-bold text-white mb-0">{{ away.nombre }}</h4>
-                <span class="badge bg-warning text-dark fs-6 mt-1">{{ away.probabilidad_victoria_pct }}% de ganar</span>
+                <span class="badge bg-accent text-dark fs-6 mt-1">{{ away.probabilidad_victoria_pct }}% de ganar</span>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Historial entre ambos (services/cara_a_cara_service.py, mismo partial que /cara-a-cara) -->
+{% if h2h %}
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h6 text-uppercase text-secondary fw-bold mb-0">📜 Historial entre ambos</h2>
+        {% if puede('cara_a_cara') and h2h.total %}<a href="/cara-a-cara/?a={{ h2h.a.id }}&b={{ h2h.b.id }}" class="small link-success">Ver cara a cara completo</a>{% endif %}
+    </div>
+    {% if h2h.total %}{% include "partials/cara_a_cara_resumen.html" %}
+    {% else %}<div class="stat-card p-3 text-muted small">Es el primer enfrentamiento entre estas dos selecciones.</div>{% endif %}
+</div>
+{% endif %}
 
 <!-- Veredicto del Scouter -->
 <div class="alert alert-info d-flex align-items-start gap-2 mb-4">
@@ -70,7 +82,7 @@
                 <span>{{ valor_away }}{{ sufijo }}</span>
             </div>
             <div class="progress" style="height: 10px; background-color: rgba(255,255,255,0.08);">
-                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ pct_home }}%"></div>
+                <div class="progress-bar bg-accent" role="progressbar" style="width: {{ pct_home }}%"></div>
                 <div class="progress-bar bg-secondary" role="progressbar" style="width: {{ 100 - pct_home }}%"></div>
             </div>
         </div>
@@ -146,7 +158,7 @@
                     {% for fila in analisis.group_standings_summary %}
                     <tr class="{% if fila.es_equipo_analizado %}table-active{% endif %}">
                         <td>{{ fila.posicion }}</td>
-                        <td class="{% if fila.es_equipo_analizado %}fw-bold text-warning{% endif %}">
+                        <td class="{% if fila.es_equipo_analizado %}fw-bold text-accent{% endif %}">
                             {{ fila.bandera }} {{ fila.nombre }}
                         </td>
                         <td class="text-center">{{ fila.partidos_jugados }}</td>

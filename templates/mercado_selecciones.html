@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Mercado de Selecciones - FutbolSim{% endblock %}
 
@@ -9,9 +10,6 @@
         <p class="text-muted mb-0">Comprá selecciones y ganá dividendos por sus resultados.</p>
     </div>
     <div class="d-flex align-items-center gap-3">
-        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-        </span>
         <a href="{{ url_for('ownership_portafolio_vista') }}" class="btn btn-outline-success btn-sm">
             <i class="bi bi-briefcase-fill me-1"></i>Mi Portafolio
         </a>
@@ -38,23 +36,16 @@
             <div class="card bg-dark border-0 shadow-sm h-100 text-center">
                 <div class="card-body p-3">
                     <div class="display-4 mb-2">
-                        {% if seleccion.bandera %}
-                            {% if seleccion.bandera.startswith('bi-') %}
-                                <i class="bi {{ seleccion.bandera }}"></i>
-                            {% else %}
-                                {{ seleccion.bandera }}
-                            {% endif %}
-                        {% else %}
-                            <i class="bi bi-flag-fill text-secondary"></i>
-                        {% endif %}
+                        {{ m.bandera(seleccion.bandera) }}
                     </div>
                     <div class="fw-bold text-white text-truncate" title="{{ seleccion.nombre }}">{{ seleccion.nombre }}</div>
 
-                    <div class="fw-bold text-warning fs-5 my-2">
+                    <div class="fw-bold text-accent fs-5 my-2">
                         <i class="bi bi-coin"></i> {{ "{:,}".format(seleccion.valor) }}
                     </div>
 
-                    <button type="button" class="btn btn-success btn-sm w-100 fw-bold btn-comprar" data-pais-id="{{ seleccion.pais_id }}">
+                    <button type="button" class="btn btn-success btn-sm w-100 fw-bold btn-comprar" data-pais-id="{{ seleccion.pais_id }}"
+                            data-nombre-pais="{{ seleccion.nombre }}" data-precio="{{ seleccion.valor }}">
                         <i class="bi bi-bag-plus-fill me-1"></i>Comprar
                     </button>
                 </div>
@@ -75,12 +66,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const buscarSeleccion = document.getElementById('buscarSeleccion');
     const tarjetas = document.querySelectorAll('.tarjeta-seleccion');
 
-    function mostrarAlerta(mensaje, tipo) {
-        alertaMercado.className = `alert alert-${tipo}`;
-        alertaMercado.textContent = mensaje;
-        alertaMercado.classList.remove('d-none');
-        alertaMercado.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaMercado, mensaje, tipo);
+
+    // 211 selecciones: de a 24 ("Mostrar más"), respetando los filtros
+    const paginador = UI.paginador({ items: () => tarjetas, porPagina: 24, despuesDe: document.getElementById('listaSelecciones'), etiqueta: 'selecciones' });
 
     function aplicarFiltros() {
         const confSeleccionada = filtroConfederacion.value;
@@ -91,13 +80,22 @@ document.addEventListener('DOMContentLoaded', function () {
             const coincideTexto = !texto || tarjeta.dataset.nombre.includes(texto);
             tarjeta.classList.toggle('d-none', !(coincideConf && coincideTexto));
         });
+        paginador.reiniciar();
     }
 
     filtroConfederacion.addEventListener('change', aplicarFiltros);
     buscarSeleccion.addEventListener('input', aplicarFiltros);
 
     document.querySelectorAll('.btn-comprar').forEach(btn => {
-        btn.addEventListener('click', function () {
+        btn.addEventListener('click', async function () {
+            // Confirmación antes de gastar saldo (antes compraba con un solo click)
+            const precio = Number(btn.dataset.precio || 0).toLocaleString('en-US');
+            const ok = await UI.confirmar({
+                titulo: `Comprar ${btn.dataset.nombrePais}`,
+                mensaje: `Se descontarán ${precio} pts de tu saldo. Vas a cobrar dividendos por cada victoria y avance de fase.`,
+                textoConfirmar: `Comprar por ${precio} pts`,
+            });
+            if (!ok) return;
             const paisId = btn.dataset.paisId;
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
@@ -109,6 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         throw new Error(data.detail || 'No se pudo completar la compra.');
                     }
                     mostrarAlerta(`¡Compraste la selección! Redirigiendo a tu portafolio...`, 'success');
+                    UI.refrescarSaldo();
                     setTimeout(() => { window.location.href = "{{ url_for('ownership_portafolio_vista') }}"; }, 1200);
                 })
                 .catch(err => {

@@ -50,6 +50,10 @@
     .sobre-slot.aparecer {
         animation: aparecer-sobre 0.4s ease forwards;
     }
+    /* Sin animación de giro para quien pidió reducir movimiento en su sistema */
+    @media (prefers-reduced-motion: reduce) {
+        .sobre-carta, .sobre-slot, .aparecer { transition: none !important; animation: none !important; }
+    }
 </style>
 {% endblock %}
 
@@ -60,9 +64,6 @@
         <p class="text-muted mb-0">Cada sobre trae 5 estampas: jugadores, ciudades y países.</p>
     </div>
     <div class="d-flex align-items-center gap-3">
-        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-        </span>
         <a href="{{ url_for('album_coleccion_vista') }}" class="btn btn-outline-success btn-sm">
             <i class="bi bi-collection-fill me-1"></i>Mi Colección
         </a>
@@ -88,11 +89,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const ICONOS_TIPO = { JUGADOR: 'bi-person-fill', CIUDAD: 'bi-building', PAIS: 'bi-flag-fill' };
 
-    function mostrarAlerta(mensaje, tipo) {
-        alertaSobre.className = `alert alert-${tipo}`;
-        alertaSobre.textContent = mensaje;
-        alertaSobre.classList.remove('d-none');
-    }
+    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaSobre, mensaje, tipo);
 
     btnAbrir.addEventListener('click', function () {
         btnAbrir.disabled = true;
@@ -107,6 +104,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     throw new Error(data.detail || 'No se pudo abrir el sobre.');
                 }
                 renderizarSobre(data.estampas_obtenidas);
+                UI.refrescarSaldo();
                 btnAbrir.disabled = false;
                 btnAbrir.innerHTML = '<i class="bi bi-gift-fill me-2"></i>Abrir Otro Sobre ({{ costo_sobre }} pts)';
             })
@@ -128,8 +126,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="sobre-cara sobre-dorso">⚽</div>
                     <div class="sobre-cara sobre-frente ${estampa.duplicado ? 'duplicado' : ''}">
                         <i class="bi ${ICONOS_TIPO[estampa.tipo] || 'bi-question-lg'} fs-2 mb-2 ${estampa.duplicado ? 'text-warning' : 'text-success'}"></i>
-                        <div class="fw-bold small">${estampa.nombre || '?'}</div>
-                        <div class="text-muted" style="font-size: 0.7rem;">${estampa.tipo}</div>
+                        <div class="fw-bold small">${UI.escapar(estampa.nombre || '?')}</div>
+                        <div class="text-muted" style="font-size: 0.7rem;">${UI.escapar(estampa.tipo)}</div>
                         ${estampa.duplicado ? `<span class="badge bg-warning text-dark mt-1">Duplicado +${estampa.bonus_puntos} pts</span>` : '<span class="badge bg-success mt-1">¡Nueva!</span>'}
                     </div>
                 </div>

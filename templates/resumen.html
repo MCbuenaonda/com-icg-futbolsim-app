@@ -4,30 +4,12 @@
 
 {% block content %}
 <style>
-    :root {
-        --bg-dark: #0f172a;
-        --card-bg: #1e293b;
-        --border-color: #334155;
-        --accent-gold: #f59e0b;
-        --accent-green: #10b981;
-        --accent-blue: #3b82f6;
-    }
-
-    body {
-        background-color: var(--bg-dark);
-        color: #f8fafc;
-    }
-
+    /* Estilos propios del resumen. Usa las variables globales del tema (static/css/styles.css):
+       antes redefinía :root (--border-color, etc.) y body, pisando el tema en esta página. */
     .match-header-card {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-dark-main) 100%);
         border: 1px solid var(--border-color);
         border-radius: 16px;
-    }
-
-    .stat-card {
-        background-color: var(--card-bg);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
     }
 
     /* Timeline de Eventos */
@@ -51,33 +33,35 @@
         width: 12px;
         height: 12px;
         border-radius: 50%;
-        background-color: var(--accent-blue);
-        border: 2px solid var(--bg-dark);
+        background-color: #3b82f6;
+        border: 2px solid var(--bg-dark-main);
     }
 
-    .timeline-item.gol::before { background-color: var(--accent-green); }
-    .timeline-item.tarjeta::before { background-color: var(--accent-gold); }
+    .timeline-item.gol::before { background-color: var(--accent); }
+    .timeline-item.tarjeta::before { background-color: #f59e0b; }
     .timeline-item.roja::before { background-color: #ef4444; }
 
     .flag-huge {
-        font-size: 3.5rem;
+        font-size: clamp(2rem, 8vw, 3.5rem);
         line-height: 1;
     }
+    /* Nombres del marcador: escalan con el ancho para no desbordar en celular */
+    .equipo-marcador { font-size: clamp(1rem, 3.6vw, 2rem); overflow-wrap: anywhere; }
 </style>
 
 <div class="container-fluid py-4 px-md-5">
 
     <!-- BOTÓN REGRESAR / NAVEGACIÓN -->
     <div class="mb-3">
-        <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">
+        <a href="/juegos/" class="btn btn-outline-secondary btn-sm">
             ← Volver a partidos
         </a>
     </div>
 
     <!-- CABECERA DEL PARTIDO (SCOREBOARD) -->
     <div class="match-header-card p-4 text-center mb-4 shadow">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="badge bg-primary px-3 py-2 fs-6">{{ partido.jornada }} — {{ partido.grupo }}</span>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <span class="badge bg-primary px-3 py-2 fs-6 text-wrap">{{ partido.jornada }} — {{ partido.grupo }}</span>
             <span class="text-secondary fw-semibold">{{ partido.fecha }} | {{ partido.hora }}</span>
             <span class="badge bg-success px-3 py-2 fs-6 text-uppercase">{{ partido.estado }}</span>
         </div>
@@ -86,12 +70,12 @@
             <!-- Equipo Local -->
             <div class="col-5 col-md-4 text-end">
                 <span class="flag-huge d-block d-md-inline mb-2 mb-md-0 me-md-2">{{ partido.equipo_local.bandera }}</span>
-                <h2 class="fw-bold d-inline text-white align-middle">{{ partido.equipo_local.nombre }}</h2>
+                <h2 class="fw-bold d-inline text-white align-middle equipo-marcador">{{ partido.equipo_local.nombre }}</h2>
             </div>
 
             <!-- Marcador -->
             <div class="col-2 col-md-4">
-                <div class="display-4 fw-extrabold text-warning">
+                <div class="display-4 fw-extrabold text-accent text-nowrap">
                     {{ partido.equipo_local.goles }} - {{ partido.equipo_visitante.goles }}
                 </div>
                 {% if partido.tiempo_extra %}
@@ -101,7 +85,7 @@
 
             <!-- Equipo Visitante -->
             <div class="col-5 col-md-4 text-start">
-                <h2 class="fw-bold d-inline text-white align-middle me-md-2">{{ partido.equipo_visitante.nombre }}</h2>
+                <h2 class="fw-bold d-inline text-white align-middle me-md-2 equipo-marcador">{{ partido.equipo_visitante.nombre }}</h2>
                 <span class="flag-huge d-block d-md-inline mt-2 mt-md-0 ms-md-2">{{ partido.equipo_visitante.bandera }}</span>
             </div>
         </div>
@@ -114,8 +98,8 @@
 
     <!-- CRÓNICA / OPINIÓN DEL PARTIDO -->
     {% if partido.resultado.opinion %}
-    <div class="stat-card p-4 mb-4 border-start border-4 border-warning">
-        <h5 class="text-warning fw-bold mb-2">🎙️ Resumen & Análisis del Encuentro</h5>
+    <div class="stat-card p-4 mb-4 border-start border-4 border-accent">
+        <h5 class="text-accent fw-bold mb-2">🎙️ Resumen & Análisis del Encuentro</h5>
         <p class="text-light mb-0 lead fs-6 fs-md-5">{{ partido.resultado.opinion }}</p>
     </div>
     {% endif %}
@@ -170,7 +154,7 @@
                         <div class="timeline-item {{ class_type }}">
                             <div class="d-flex align-items-center justify-content-between">
                                 <span class="badge bg-secondary me-2">{{ evento.minuto }}'</span>
-                                <strong class="text-warning fs-7 me-auto">{{ evento.tipo }}</strong>
+                                <strong class="text-accent fs-7 me-auto">{{ evento.tipo }}</strong>
                                 <small class="text-muted">{{ evento.equipo }}</small>
                             </div>
                             <p class="text-light fs-7 mb-0 mt-1">{{ evento.descripcion | resaltar_jugadores(evento.jugadores or []) }}</p>

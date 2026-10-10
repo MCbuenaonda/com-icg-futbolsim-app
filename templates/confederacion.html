@@ -8,8 +8,8 @@
 
         <!-- Botón de navegación para regresar -->
         <div class="mb-3">
-            <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left me-1"></i> Volver
+            <a href="/paises/" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Volver a Países
             </a>
         </div>
 
@@ -23,15 +23,14 @@
                     </span>
                     
                     {% if confederacion.principal == 1 %}
-                        <span class="badge bg-warning text-dark px-3 py-2 fs-6" title="Confederación Principal">
+                        <span class="badge bg-accent text-dark px-3 py-2 fs-6" title="Confederación Principal">
                             <i class="bi bi-star-fill me-1"></i> Principal
                         </span>
                     {% endif %}
                 </div>
 
                 <!-- Nombre / Título de la Confederación -->
-                <h1 class="display-4 fw-bold text-warning mb-2">{{ confederacion.nombre }}</h1>
-                <p class="text-muted mb-4">ID de Registro: #{{ confederacion.id }}</p>
+                <h1 class="display-4 fw-bold text-accent mb-2">{{ confederacion.nombre }}</h1>
 
                 <hr class="border-secondary my-4">
 
@@ -44,18 +43,12 @@
                 </div>
 
             </div>
-            
-            <!-- Pie de tarjeta opcional para datos de sistema/BD -->
-            <div class="card-footer bg-secondary bg-opacity-25 border-top border-secondary text-muted text-end py-2 px-4">
-                <small class="font-monospace opacity-75">
-                    OID: {{ confederacion._id['$oid'] if confederacion._id['$oid'] is defined else confederacion._id }}
-                </small>
-            </div>
+
         </div>
 
         <!-- Sección de Países Miembros Agrupados por Fase y Grupos -->
         <div class="card shadow-sm border-0">
-            <div class="card-header bg-white py-3">
+            <div class="card-header bg-body-tertiary py-3">
                 <h5 class="card-title mb-0 fw-bold text-secondary">
                     <i class="bi bi-flag me-2"></i> Países Participantes por Fase
                 </h5>
@@ -65,7 +58,7 @@
                     {% for fase_id, datos_fase in confederacion.fases.items() %}
                         <div class="mb-5">
                             <!-- Encabezado de la Fase -->
-                            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-warning"
+                            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-accent"
                                  {% if datos_fase.jugada %}
                                  data-bs-toggle="collapse"
                                  data-bs-target="#fase-grupos-{{ fase_id }}"
@@ -73,8 +66,8 @@
                                  aria-controls="fase-grupos-{{ fase_id }}"
                                  style="cursor: pointer;"
                                  {% endif %}>
-                                <h3 class="fw-bold text-dark mb-0">
-                                    <i class="bi bi-trophy-fill me-2 text-warning"></i>
+                                <h3 class="fw-bold text-body-emphasis mb-0">
+                                    <i class="bi bi-trophy-fill me-2 text-accent"></i>
                                     {% if datos_fase.nombre == 'Fase 8' %}
                                         16AVOS DE FINAL
                                     {% elif datos_fase.nombre == 'Fase 9' %}
@@ -109,7 +102,7 @@
                                             
                                             <!-- Encabezado del Grupo -->
                                             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3 px-4">
-                                                <h5 class="mb-0 fw-bold text-warning">
+                                                <h5 class="mb-0 fw-bold text-accent">
                                                     <i class="bi bi-grid-3x3-gap-fill me-2"></i>Grupo {{ letra_grupo }}
                                                 </h5>
                                                 <span class="badge bg-secondary opacity-75">
@@ -131,7 +124,7 @@
                                                             <th class="text-center" title="Goles a Favor">GF</th>
                                                             <th class="text-center" title="Goles en Contra">GC</th>
                                                             <th class="text-center" title="Diferencia de Goles">DIF</th>
-                                                            <th class="text-center text-warning" title="Puntos Totales">PTS</th>
+                                                            <th class="text-center text-accent" title="Puntos Totales">PTS</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -166,7 +159,7 @@
                                                                 </td>
 
                                                                 <!-- Puntos -->
-                                                                <td class="text-center fw-bold text-warning fs-6">
+                                                                <td class="text-center fw-bold text-accent fs-6">
                                                                     {{ pais.estadisticas.puntos }}
                                                                 </td>
                                                             </tr>
@@ -185,7 +178,7 @@
                     <!-- Estado vacío -->
                     <div class="text-center py-5 text-muted">
                         <i class="bi bi-diagram-3 fs-1 d-block mb-3 text-secondary opacity-50"></i>
-                        <h5 class="fw-bold text-dark mb-1">No hay grupos ni fases asignadas</h5>
+                        <h5 class="fw-bold text-body-emphasis mb-1">No hay grupos ni fases asignadas</h5>
                         <p class="mb-0">Aún no se han configurado los países para esta confederación.</p>
                     </div>
                 {% endif %}

@@ -21,9 +21,6 @@
         <p class="text-muted mb-0">Tus estampas y el llenado del álbum por país.</p>
     </div>
     <div class="d-flex align-items-center gap-3">
-        <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-            <i class="bi bi-coin text-warning me-1"></i>{{ "{:,}".format(usuario_actual.monto) }} pts
-        </span>
         <a href="{{ url_for('album_sobres_vista') }}" class="btn btn-success btn-sm fw-bold">
             <i class="bi bi-gift-fill me-1"></i>Abrir Sobre
         </a>
@@ -65,7 +62,7 @@
                             {% if pais.bandera %}{{ pais.bandera }}{% else %}<i class="bi bi-flag-fill me-1"></i>{% endif %}
                             {{ pais.nombre }}
                             {% if pais.tiene_regalia %}
-                                <i class="bi bi-cash-coin text-warning ms-1" title="Esta estampa ya te dio regalías"></i>
+                                <i class="bi bi-cash-coin text-accent ms-1" title="Esta estampa ya te dio regalías"></i>
                             {% endif %}
                         </span>
                     {% endfor %}
@@ -89,7 +86,7 @@
                                 <div class="fw-semibold small">
                                     {{ ciudad.nombre }}
                                     {% if ciudad.tiene_regalia %}
-                                        <i class="bi bi-cash-coin text-warning ms-1" title="Esta estampa ya te dio regalías"></i>
+                                        <i class="bi bi-cash-coin text-accent ms-1" title="Esta estampa ya te dio regalías"></i>
                                     {% endif %}
                                 </div>
                                 <div class="text-muted" style="font-size: .75rem;">{{ ciudad.estadio or 'Estadio sin nombre' }} · {{ ciudad.pais_nombre }}</div>
@@ -129,7 +126,7 @@
                                                 <li>
                                                     {{ jugador.nombre }}
                                                     {% if jugador.tiene_regalia %}
-                                                        <i class="bi bi-cash-coin text-warning ms-1" title="Esta estampa ya te dio regalías"></i>
+                                                        <i class="bi bi-cash-coin text-accent ms-1" title="Esta estampa ya te dio regalías"></i>
                                                     {% endif %}
                                                 </li>
                                             {% endfor %}

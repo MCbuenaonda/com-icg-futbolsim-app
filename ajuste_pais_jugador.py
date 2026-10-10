@@ -3,7 +3,7 @@ import certifi
 from pymongo.mongo_client import MongoClient
 from bson.objectid import ObjectId
 
-MONGODB_URI = 'mongodb+srv://ingcarloscerati_db_user:C4rl056C@cluster0.yleznra.mongodb.net/'
+from config.settings import MONGODB_URI  # desde .env (antes estaba la URI con contraseña acá)
 #paises_cambio = ["Bahréin","Bangladesh","Brunéi Darussalam","EE UU","Guinea Bissáu","Kazajstán","Mali","Macedonia","Qatar","Suazilandia","Taipei","Holanda","Rumanía"]
 paises_cambio = ["Bahrein","Banglades","Mali"]
 

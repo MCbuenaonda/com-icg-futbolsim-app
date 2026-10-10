@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Rendimiento en Quinielas - FutbolSim{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+{% set r = rendimiento %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-graph-up-arrow text-accent me-2"></i>Mi Rendimiento en Quinielas</h1>
+        <p class="text-muted mb-0">Cuánto acertás, con qué tipo de pronóstico te va mejor y cómo va tu balance.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('quinielas_mias') }}" class="btn btn-outline-light btn-sm"><i class="bi bi-list-check me-1"></i>Mis Quinielas</a>
+        <a href="{{ url_for('quinielas_home') }}" class="btn btn-success btn-sm fw-bold"><i class="bi bi-ticket-perforated me-1"></i>Comprar quiniela</a>
+    </div>
+</div>
+
+{% if not r.boletos %}
+<div class="stat-card p-5 text-center">
+    <div class="display-5 mb-2">🎯</div>
+    <h2 class="h5 text-white fw-bold">Todavía no compraste ninguna quiniela</h2>
+    <p class="text-muted mb-3">Cuando tengas boletos resueltos vas a ver acá tu rendimiento.</p>
+    <a href="{{ url_for('quinielas_home') }}" class="btn btn-success fw-bold">Comprar mi primera quiniela</a>
+</div>
+{% else %}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100 text-center">
+        <small class="text-secondary text-uppercase fw-semibold">Acierto por partido</small>
+        <div class="display-6 fw-bold text-accent">{{ (r.pct_acierto ~ '%') if r.pct_acierto is not none else '—' }}</div>
+        <small class="text-muted">{{ r.selecciones_resueltas }} pronósticos resueltos</small>
+    </div></div>
+    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100 text-center">
+        <small class="text-secondary text-uppercase fw-semibold">Boletos</small>
+        <div class="display-6 fw-bold text-white">{{ r.boletos }}</div>
+        <small class="text-muted">{{ r.ganados }} ganados · {{ r.perdidos }} perdidos · {{ r.pendientes }} pendientes</small>
+    </div></div>
+    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100 text-center">
+        <small class="text-secondary text-uppercase fw-semibold">Invertido / Premios</small>
+        <div class="fs-3 fw-bold text-white">{{ "{:,}".format(r.pagado) }} / {{ "{:,}".format(r.premios) }}</div>
+        <small class="text-muted">pts</small>
+    </div></div>
+    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100 text-center">
+        <small class="text-secondary text-uppercase fw-semibold">Balance</small>
+        <div class="display-6 fw-bold {{ 'text-success' if r.neto > 0 else 'text-danger' if r.neto < 0 else 'text-white' }}">{{ '+' if r.neto > 0 }}{{ "{:,}".format(r.neto) }}</div>
+        <small class="text-muted">pts</small>
+    </div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-lg-6">
+        <div class="stat-card p-3 h-100">
+            <h2 class="h6 text-uppercase text-secondary fw-bold mb-3">Acierto según tu pronóstico</h2>
+            {% for p in r.por_pronostico %}
+            <div class="mb-3">
+                <div class="d-flex justify-content-between small mb-1">
+                    <span class="fw-semibold">{{ {'LOCAL': '🏠 Gana local', 'EMPATE': '🤝 Empate', 'VISITA': '✈️ Gana visitante'}[p.pronostico] }}</span>
+                    <span class="text-muted">{{ p.acertados }} de {{ p.hechos }}{% if p.pct is not none %} · <strong class="text-white">{{ p.pct }}%</strong>{% endif %}</span>
+                </div>
+                <div class="progress" style="height: 10px; background-color: rgba(255,255,255,0.08);">
+                    <div class="progress-bar bg-accent" style="width: {{ p.pct or 0 }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+            <hr class="border-secondary">
+            <p class="small text-muted mb-1">Cómo terminaron realmente los partidos que pronosticaste:</p>
+            <div class="d-flex gap-3 small">
+                {% for rr in r.resultados_reales %}<span>{{ {'LOCAL': '🏠', 'EMPATE': '🤝', 'VISITA': '✈️'}[rr.resultado] }} {{ rr.pct }}%</span>{% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="stat-card p-3 h-100">
+            <h2 class="h6 text-uppercase text-secondary fw-bold mb-3">Balance acumulado por boleto</h2>
+            {% if r.evolucion %}<div style="position: relative; height: 240px;"><canvas id="graficoBalance"></canvas></div>
+            {% else %}<p class="text-muted small mb-0">Aparecerá cuando se resuelva tu primer boleto.</p>{% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if rendimiento.evolucion %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const datos = {{ rendimiento.evolucion | tojson }};
+        new Chart(document.getElementById('graficoBalance'), {
+            type: 'line',
+            data: {
+                labels: datos.map((d, i) => `#${i + 1} ${d.fecha}`),
+                datasets: [{ label: 'Balance', data: datos.map(d => d.neto), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.15)', fill: true, tension: .25 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: { x: { ticks: { color: '#8b949e' }, grid: { color: 'rgba(255,255,255,.05)' } },
+                          y: { ticks: { color: '#8b949e' }, grid: { color: 'rgba(255,255,255,.05)' } } }
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

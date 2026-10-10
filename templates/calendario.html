@@ -43,6 +43,14 @@
 
 {% block extra_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<style>
+    /* En celular la barra de FullCalendar (anterior/siguiente, título, vistas) no entraba en una
+       línea y generaba scroll horizontal: se reparte en varias filas. */
+    @media (max-width: 576px) {
+        .fc .fc-toolbar { flex-wrap: wrap; gap: .5rem; justify-content: center; }
+        .fc .fc-toolbar-title { font-size: 1.1rem; }
+    }
+</style>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const contenedor = document.getElementById('calendario-mundial');
@@ -76,7 +84,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (props.estado === 'finalizado') {
                 window.location.href = `/juegos/${props.id}`;
             } else if (props.id_local && props.id_visita) {
-                window.location.href = `/simulador?id=${props.id}&id_local=${props.id_local}&id_visita=${props.id_visita}`;
+                // Mismos parámetros que el link de juegos.html (incluido "te": tiempo extra en eliminación directa)
+                window.location.href = `/simulador?id=${props.id}&id_local=${props.id_local}&id_visita=${props.id_visita}&te=${props.tiempo_extra ? 'True' : 'False'}`;
             }
         }
     };

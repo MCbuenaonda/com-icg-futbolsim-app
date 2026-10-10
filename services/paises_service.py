@@ -262,3 +262,47 @@ def recalcular_rankin():
         paises_coll.bulk_write(operaciones_paises)
     if operaciones_internacional:
         internacional_coll.bulk_write(operaciones_internacional)
+
+# ==========================================
+# Trayectoria del país por Mundial (perfil /paises/{id})
+# ==========================================
+def obtener_trayectoria_pais(pais_id: int) -> list:
+    """
+    Por cada Mundial (más reciente primero): hasta qué fase llegó el país y cómo terminó (de
+    'historial', que guarda una foto por país al cerrar cada fase, y de 'internacional' para el
+    Mundial en curso), más su balance de partidos en ese torneo (de 'juegos', por mundial_id).
+    """
+    nombres_fase = {f["id"]: f.get("nombre", "") for f in db["fases"].find({}, {"id": 1, "nombre": 1})}
+    trayectoria = []
+    for m in db["mundiales"].find({}, {"anio": 1, "activo": 1, "campeon": 1}).sort("anio", -1):
+        mid = str(m["_id"])
+        fotos = list(db["historial"].find({"id": pais_id, "mundial_id": mid}, {"fase_eliminatoria": 1, "estado": 1}))
+        actual = db["internacional"].find_one({"id": pais_id, "mundial_id": mid}, {"fase_eliminatoria": 1, "estado": 1}) if m.get("activo") else None
+        candidatos = fotos + ([actual] if actual else [])
+        if not candidatos:
+            continue
+        ultima = max(candidatos, key=lambda d: d.get("fase_eliminatoria") or 0)
+        balance = {"pj": 0, "g": 0, "e": 0, "p": 0, "gf": 0, "gc": 0}
+        for j in db["juegos"].find({"mundial_id": mid, "estado": "finalizado", "$or": [{"equipo_local.id": pais_id}, {"equipo_visitante.id": pais_id}]},
+                                   {"equipo_local.id": 1, "resultado.goles_local": 1, "resultado.goles_visitante": 1, "resultado.ganador_id": 1, "resultado.ganador_lado": 1}):
+            res = j.get("resultado") or {}
+            es_local = (j.get("equipo_local") or {}).get("id") == pais_id
+            gf = res.get("goles_local", 0) if es_local else res.get("goles_visitante", 0)
+            gc = res.get("goles_visitante", 0) if es_local else res.get("goles_local", 0)
+            balance["pj"] += 1
+            balance["gf"] += gf or 0
+            balance["gc"] += gc or 0
+            if res.get("ganador_lado") in ("L", "V"):
+                balance["g" if res.get("ganador_id") == pais_id else "p"] += 1
+            else:
+                balance["e"] += 1
+        estado = (ultima.get("estado") or "").upper()
+        trayectoria.append({
+            "anio": m.get("anio"), "activo": bool(m.get("activo")),
+            "campeon": m.get("campeon") == pais_id,
+            "fase": nombres_fase.get(ultima.get("fase_eliminatoria"), f"Fase {ultima.get('fase_eliminatoria')}"),
+            "estado": estado.replace("_", " ").capitalize() if estado else "",
+            "eliminado": estado.startswith("ELIMINADO"),
+            **balance,
+        })
+    return trayectoria

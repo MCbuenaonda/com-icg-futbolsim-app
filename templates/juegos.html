@@ -1,6 +1,11 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Próximos Juegos - Simulador de Fútbol{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/juego_en_vivo.css">
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-3">
@@ -8,14 +13,14 @@
     <!-- Encabezado -->
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-            <h1 class="h2 fw-bold text-dark mb-1">
+            <h1 class="h2 fw-bold text-body-emphasis mb-1">
                 <i class="bi bi-calendar-week-fill text-primary me-2"></i>Fixture de Partidos Programados
             </h1>
             <p class="text-muted mb-0">Listado de encuentros pendientes por simular ordenados por fecha y hora.</p>
         </div>
         <div class="d-flex align-items-center gap-2">
             <span class="badge bg-primary fs-6 px-3 py-2 shadow-sm">
-                <i class="bi bi-hourglass-split me-1"></i> Partidos Pendientes: {{ juegos|length }}
+                <i class="bi bi-hourglass-split me-1"></i> Partidos Pendientes: {{ total_pendientes }}
             </span>
             <a href="{{ url_for('calendario') }}" class="btn btn-sm btn-outline-success shadow-sm">
                 <i class="bi bi-calendar3-range me-1"></i> Ver Calendario
@@ -23,72 +28,57 @@
         </div>
     </div>
 
-    <!-- Panel de Filtros -->
-    <div class="card border-0 shadow-sm mb-4 rounded-3">
+    <!-- Panel de Filtros: formulario GET (filtra y pagina el servidor; antes se renderizaban las
+         ~700 tarjetas y se ocultaban en el navegador) -->
+    <form method="get" action="/juegos/" id="formFiltrosJuegos" class="card border-0 shadow-sm mb-3 rounded-3">
         <div class="card-body p-3">
             <div class="row g-2 align-items-center">
-                <!-- Buscar por Nombre de Equipo -->
                 <div class="col-12 col-md-6 col-xl-3">
                     <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-light text-muted border-end-0">
-                            <i class="bi bi-search"></i>
-                        </span>
-                        <input type="text" id="filterBuscar" class="form-control border-start-0" placeholder="Buscar equipo...">
+                        <input type="search" name="q" id="filterBuscar" class="form-control" placeholder="Buscar equipo..." value="{{ filtros.q }}" aria-label="Buscar equipo">
+                        <button class="btn btn-outline-secondary" type="submit" aria-label="Buscar"><i class="bi bi-search"></i></button>
                     </div>
                 </div>
-
-                <!-- Filtrar por Confederacion -->
                 <div class="col-6 col-md-3 col-xl-2">
-                    <select id="filterConfederacion" class="form-select form-select-sm bg-dark text-light">
+                    <select name="confederacion" class="form-select form-select-sm auto-filtro" aria-label="Confederación">
                         <option value="">Todas las Confederaciones</option>
-                        <option value="1">UEFA</option>
-                        <option value="2">CONMEBOL</option>
-                        <option value="3">CONCACAF</option>
-                        <option value="4">CAF</option>
-                        <option value="5">OFC</option>
-                        <option value="6">AFC</option>
+                        <option value="1" {{ 'selected' if filtros.confederacion == '1' }}>UEFA</option>
+                        <option value="2" {{ 'selected' if filtros.confederacion == '2' }}>CONMEBOL</option>
+                        <option value="3" {{ 'selected' if filtros.confederacion == '3' }}>CONCACAF</option>
+                        <option value="4" {{ 'selected' if filtros.confederacion == '4' }}>CAF</option>
+                        <option value="5" {{ 'selected' if filtros.confederacion == '5' }}>OFC</option>
+                        <option value="6" {{ 'selected' if filtros.confederacion == '6' }}>AFC</option>
                     </select>
                 </div>
-
-                <!-- Filtrar por Grupo -->
                 <div class="col-6 col-md-3 col-xl-2">
-                    <select id="filterGrupo" class="form-select form-select-sm bg-dark text-light">
+                    <select name="grupo" class="form-select form-select-sm auto-filtro" aria-label="Grupo">
                         <option value="">Todos los Grupos</option>
-                        {% for grupo in grupos %}
-                            <option value="{{ grupo }}">{{ grupo }}</option>
-                        {% endfor %}
+                        {% for grupo in grupos %}<option value="{{ grupo }}" {{ 'selected' if filtros.grupo == grupo }}>{{ grupo }}</option>{% endfor %}
                     </select>
                 </div>
-
-                <!-- Filtrar por Fecha -->
                 <div class="col-6 col-md-3 col-xl-2">
-                    <select id="filterFecha" class="form-select form-select-sm bg-dark text-light">
+                    <select name="fecha" class="form-select form-select-sm auto-filtro" aria-label="Fecha">
                         <option value="">Todas las Fechas</option>
-                        {% for fecha in fechas %}
-                            <option value="{{ fecha }}">{{ fecha }}</option>
-                        {% endfor %}
+                        {% for fecha in fechas %}<option value="{{ fecha }}" {{ 'selected' if filtros.fecha == fecha }}>{{ fecha }}</option>{% endfor %}
                     </select>
                 </div>
-
-                <!-- Filtrar por Jornada -->
                 <div class="col-6 col-md-3 col-xl-2">
-                    <select id="filterJornada" class="form-select form-select-sm bg-dark text-light">
+                    <select name="jornada" class="form-select form-select-sm auto-filtro" aria-label="Jornada">
                         <option value="">Todas las Jornadas</option>
-                        {% for jornada in jornadas %}
-                            <option value="{{ jornada }}">{{ jornada }}</option>
-                        {% endfor %}
+                        {% for jornada in jornadas %}<option value="{{ jornada }}" {{ 'selected' if filtros.jornada == jornada }}>{{ jornada }}</option>{% endfor %}
                     </select>
                 </div>
-
-                <!-- Botón Limpiar -->
                 <div class="col-12 col-md-3 col-xl-1 text-end">
-                    <button type="button" id="btnResetFilters" class="btn btn-sm btn-outline-secondary w-100" title="Limpiar filtros">
+                    <a href="/juegos/" id="btnResetFilters" class="btn btn-sm btn-outline-secondary w-100 {{ 'disabled' if not hay_filtros }}" title="Limpiar filtros" aria-label="Limpiar filtros">
                         <i class="bi bi-x-circle me-1 me-xl-0"></i><span class="d-xl-none">Limpiar</span>
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>
-    </div>
+    </form>
+    <p class="text-muted small mb-3" aria-live="polite">
+        {% if total_filtrados %}Mostrando {{ (pagina - 1) * 24 + 1 }}–{{ (pagina - 1) * 24 + juegos|length }} de {{ total_filtrados }} partido{{ 's' if total_filtrados != 1 }}{% if hay_filtros %} (filtrados de {{ total_pendientes }}){% endif %}{% endif %}
+    </p>
 
     <!-- Lista de Juegos -->
     <div class="row g-3">
@@ -104,8 +94,8 @@
             <div class="card border-0 shadow-sm h-100 rounded-3 overflow-hidden border-start border-4 border-primary">
                 
                 <!-- Card Header: Fecha, Hora y Tag -->
-                <div class="card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center border-0">
-                    <span class="badge bg-dark text-warning fw-bold fs-7">
+                <div class="card-header bg-body-tertiary py-2 px-3 d-flex justify-content-between align-items-center border-0">
+                    <span class="badge bg-dark text-accent fw-bold fs-7">
                         <i class="bi bi-calendar-event me-1"></i> {{ juego.fecha }} | <i class="bi bi-clock me-1"></i> {{ juego.hora }}
                     </span>
                     <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fs-8">
@@ -130,18 +120,10 @@
                         <div class="col-5">
                             <!-- Bandera del Equipo Local -->
                             <div class="display-3 my-2">
-                                {% if juego.equipo_local.bandera %}
-                                    {% if juego.equipo_local.bandera.startswith('bi-') %}
-                                        <i class="bi {{ juego.equipo_local.bandera }}"></i>
-                                    {% else %}
-                                        {{ juego.equipo_local.bandera }}
-                                    {% endif %}
-                                {% else %}
-                                    <i class="bi bi-flag-fill text-secondary"></i>
-                                {% endif %}
+                                {{ m.bandera(juego.equipo_local.bandera) }}
                             </div>
 
-                            <div class="fw-bold text-dark fs-6 text-truncate" title="{{ juego.equipo_local.nombre }}">
+                            <div class="fw-bold text-body-emphasis fs-6 text-truncate" title="{{ juego.equipo_local.nombre }}">
                                 {{ juego.equipo_local.nombre }}
                             </div>
                             <small class="text-muted d-block fs-8">
@@ -151,7 +133,7 @@
 
                         <!-- Verses / Score -->
                         <div class="col-2 px-0">
-                            <span class="badge bg-light text-dark border fs-6 px-2 py-1 shadow-xs fw-bold">
+                            <span class="badge bg-body-tertiary text-body-emphasis border fs-6 px-2 py-1 shadow-xs fw-bold">
                                 VS
                             </span>
                         </div>
@@ -160,17 +142,9 @@
                         <div class="col-5">
                             <!-- Bandera del Equipo Visitante -->
                             <div class="display-3 my-2">
-                                {% if juego.equipo_visitante.bandera %}
-                                    {% if juego.equipo_visitante.bandera.startswith('bi-') %}
-                                        <i class="bi {{ juego.equipo_visitante.bandera }}"></i>
-                                    {% else %}
-                                        {{ juego.equipo_visitante.bandera }}
-                                    {% endif %}
-                                {% else %}
-                                    <i class="bi bi-flag-fill text-secondary"></i>
-                                {% endif %}
+                                {{ m.bandera(juego.equipo_visitante.bandera) }}
                             </div>                            
-                            <div class="fw-bold text-dark fs-6 text-truncate" title="{{ juego.equipo_visitante.nombre }}">
+                            <div class="fw-bold text-body-emphasis fs-6 text-truncate" title="{{ juego.equipo_visitante.nombre }}">
                                 {{ juego.equipo_visitante.nombre }}
                             </div>
                             <small class="text-muted d-block fs-8">
@@ -181,10 +155,10 @@
 
                     <!-- Ubicación y Estadio -->
                     {% if juego.ubicacion %}
-                    <div class="bg-light p-2 rounded-2 fs-7 text-muted border border-light-subtle d-flex align-items-center gap-2 mt-2">
+                    <div class="bg-body-tertiary p-2 rounded-2 fs-7 text-muted border border-light-subtle d-flex align-items-center gap-2 mt-2">
                         <i class="bi bi-geo-alt-fill text-danger fs-6"></i>
                         <div class="text-truncate">
-                            <strong class="text-dark">{{ juego.ubicacion.estadio }}</strong> 
+                            <strong class="text-body-emphasis">{{ juego.ubicacion.estadio }}</strong> 
                             <span class="d-block fs-8">{{ juego.ubicacion.nombre }}, {{ juego.ubicacion.pais }}</span>
                         </div>
                     </div>
@@ -204,27 +178,113 @@
                     <i class="bi bi-play-fill fs-6"></i> Detalles del juego
                 </a>
 
-            </div>
-        </div>
-        <!-- Mensaje de sin resultados por filtro -->
-        <div id="noResultsMessage" class="col-12 text-center py-5 d-none">
-            <div class="p-4 bg-light rounded-4 border d-inline-block">
-                <i class="bi bi-funnel text-muted fs-1 d-block mb-2"></i>
-                <h5 class="fw-bold text-dark">No se encontraron coincidencias</h5>
-                <p class="text-muted mb-0">Intenta cambiar los parámetros de búsqueda o limpiar los filtros.</p>
+                <!-- Juego en Vivo: elegir país (abre #modalJuegoEnVivo, ver static/js/juego_en_vivo_selector.js) -->
+                {% if puede('juego_en_vivo') %}
+                {% set eleccion = sesiones_juego_en_vivo.get(juego._id) %}
+                <button type="button" class="btn btn-sm fw-bold shadow-sm btn-juego-en-vivo {{ 'btn-success' if eleccion else 'btn-outline-success' }}"
+                        data-juego-id="{{ juego._id }}" data-bs-toggle="modal" data-bs-target="#modalJuegoEnVivo">
+                    {% if eleccion %}🎮 Vas con {{ eleccion.pais_nombre }} · {{ eleccion.puntos_iniciales }} pts{% else %}🎮 Juego en vivo: elige país{% endif %}
+                </button>
+                {% endif %}
+
             </div>
         </div>
         {% else %}
+        {% if not hay_filtros %}
         <!-- Caso sin juegos programados -->
         <div class="col-12 text-center py-5">
-            <div class="p-4 bg-light rounded-4 border d-inline-block">
+            <div class="p-4 bg-body-tertiary rounded-4 border d-inline-block">
                 <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-2"></i>
-                <h4 class="fw-bold text-dark">No hay partidos pendientes</h4>
+                <h4 class="fw-bold text-body-emphasis">No hay partidos pendientes</h4>
                 <p class="text-muted mb-0">No se encontraron juegos con estado "creado". Todos los juegos han sido simulados o no se han generado aún.</p>
             </div>
         </div>
+        {% endif %}
         {% endfor %}
+        {% if not juegos and hay_filtros %}
+        <div id="noResultsMessage" class="col-12 text-center py-5">
+            <div class="p-4 bg-body-tertiary rounded-4 border d-inline-block">
+                <i class="bi bi-funnel text-muted fs-1 d-block mb-2"></i>
+                <h5 class="fw-bold text-body-emphasis">No se encontraron coincidencias</h5>
+                <p class="text-muted mb-2">Intenta cambiar los parámetros de búsqueda o limpiar los filtros.</p>
+                <a href="/juegos/" class="btn btn-sm btn-outline-light">Limpiar filtros</a>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
+    <!-- Paginación (conserva los filtros activos) -->
+    {% if total_paginas > 1 %}
+    {% macro url_pagina(n) %}/juegos/?pagina={{ n }}{{ ('&' ~ query_filtros) if query_filtros }}{% endmacro %}
+    <nav class="mt-4" aria-label="Páginas de partidos">
+        <ul class="pagination pagination-sm justify-content-center flex-wrap">
+            <li class="page-item {{ 'disabled' if pagina == 1 }}"><a class="page-link" href="{{ url_pagina(pagina - 1) }}" aria-label="Anterior">&laquo;</a></li>
+            {% for n in range(1, total_paginas + 1) %}
+                {% if n == 1 or n == total_paginas or (n - pagina) | abs <= 2 %}
+                <li class="page-item {{ 'active' if n == pagina }}" {{ 'aria-current="page"' | safe if n == pagina }}><a class="page-link" href="{{ url_pagina(n) }}">{{ n }}</a></li>
+                {% elif (n - pagina) | abs == 3 %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {{ 'disabled' if pagina == total_paginas }}"><a class="page-link" href="{{ url_pagina(pagina + 1) }}" aria-label="Siguiente">&raquo;</a></li>
+        </ul>
+    </nav>
+    {% endif %}
+
 </div>
+<!-- Modal del Juego en Vivo (uno solo para todas las tarjetas; el contenido se pide al abrirlo) -->
+<div class="modal fade" id="modalJuegoEnVivo" tabindex="-1" aria-labelledby="modalJuegoEnVivoTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-white border border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold" id="modalJuegoEnVivoTitulo">🎮 Juego en Vivo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="modalJuegoEnVivoCuerpo"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Los selectores de filtro se aplican apenas cambian (la búsqueda por texto, con Enter o el botón)
+    document.querySelectorAll('#formFiltrosJuegos .auto-filtro').forEach(sel =>
+        sel.addEventListener('change', () => sel.form.submit()));
+</script>
+
+<script src="/static/js/juego_en_vivo_selector.js"></script>
+<script>
+    (function () {
+        const modal = document.getElementById('modalJuegoEnVivo');
+        const cuerpo = document.getElementById('modalJuegoEnVivoCuerpo');
+        const titulo = document.getElementById('modalJuegoEnVivoTitulo');
+        if (!modal) return;
+
+        // Actualiza el texto del botón de la tarjeta sin recargar la página
+        function actualizarBotonTarjeta(datos) {
+            const boton = document.querySelector(`.btn-juego-en-vivo[data-juego-id="${datos.juego_id}"]`);
+            if (!boton) return;
+            const s = datos.sesion;
+            boton.classList.toggle('btn-success', !!s);
+            boton.classList.toggle('btn-outline-success', !s);
+            boton.textContent = s
+                ? `🎮 Vas con ${s.pais_nombre} · ${JuegoEnVivoSelector.formatearPuntos(s.puntos_iniciales)} pts`
+                : '🎮 Juego en vivo: elige país';
+        }
+
+        modal.addEventListener('show.bs.modal', async (ev) => {
+            const juegoId = ev.relatedTarget && ev.relatedTarget.dataset.juegoId;
+            titulo.textContent = '🎮 Juego en Vivo';
+            cuerpo.innerHTML = '<div class="text-center py-4"><span class="spinner-border text-success"></span></div>';
+            try {
+                const datos = await JuegoEnVivoSelector.pedir('GET', `/live-game/matches/${juegoId}/odds`);
+                titulo.textContent = `🎮 ${datos.local.nombre} vs ${datos.visitante.nombre}`;
+                JuegoEnVivoSelector.render(cuerpo, datos, { onCambio: actualizarBotonTarjeta });
+            } catch (e) {
+                cuerpo.innerHTML = `<div class="alert alert-danger mb-0">${JuegoEnVivoSelector.escapar(e.message)}</div>`;
+            }
+        });
+    })();
+</script>
 {% endblock %}

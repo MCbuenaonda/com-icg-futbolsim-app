@@ -245,3 +245,51 @@ def _liquidar_boleto(boleto_id: ObjectId, selecciones: List[dict]) -> None:
             {"_id": boleto["usuario_id"]},
             {"$inc": {"monto": premio}}
         )
+
+
+# ==========================================
+# Rendimiento como pronosticador (/quinielas/rendimiento)
+# ==========================================
+def obtener_rendimiento_quinielas(usuario_id: str) -> Dict[str, Any]:
+    """
+    Estadísticas de los boletos del usuario: balance económico (pagado vs premios), % de acierto
+    por selección resuelta, cómo le va según el tipo de pronóstico (LOCAL/EMPATE/VISITA) frente a
+    cómo terminaron realmente esos partidos, y la evolución boleto a boleto.
+    """
+    boletos = list(db['quiniela_usuario'].find({"usuario_id": ObjectId(usuario_id)}).sort("fecha_creacion", 1))
+    por_pronostico = {p: {"pronostico": p, "hechos": 0, "acertados": 0} for p in ("LOCAL", "EMPATE", "VISITA")}
+    resultados_reales = {p: 0 for p in ("LOCAL", "EMPATE", "VISITA")}
+    pagado = premios = resueltas = acertadas = 0
+    evolucion, neto_acumulado = [], 0
+    for b in boletos:
+        pagado += b.get("costo_pagado", 0) or 0
+        premios += b.get("premio_ganado", 0) or 0
+        for s in b.get("selecciones") or []:
+            if s.get("estado") not in ("ACERTADO", "FALLADO"):
+                continue
+            resueltas += 1
+            acertadas += 1 if s["estado"] == "ACERTADO" else 0
+            datos = por_pronostico.get(s.get("pronostico"))
+            if datos:
+                datos["hechos"] += 1
+                datos["acertados"] += 1 if s["estado"] == "ACERTADO" else 0
+            if s.get("resultado_real") in resultados_reales:
+                resultados_reales[s["resultado_real"]] += 1
+        if b.get("estado") in ("GANADA", "PERDIDA"):
+            neto_acumulado += (b.get("premio_ganado", 0) or 0) - (b.get("costo_pagado", 0) or 0)
+            evolucion.append({"fecha": b.get("fecha_creacion").strftime("%d/%m") if b.get("fecha_creacion") else "", "neto": neto_acumulado})
+    for datos in por_pronostico.values():
+        datos["pct"] = round(100 * datos["acertados"] / datos["hechos"]) if datos["hechos"] else None
+    total_reales = sum(resultados_reales.values())
+    return {
+        "boletos": len(boletos),
+        "ganados": sum(1 for b in boletos if b.get("estado") == "GANADA"),
+        "perdidos": sum(1 for b in boletos if b.get("estado") == "PERDIDA"),
+        "pendientes": sum(1 for b in boletos if b.get("estado") == "PENDIENTE"),
+        "pagado": pagado, "premios": premios, "neto": premios - pagado,
+        "selecciones_resueltas": resueltas,
+        "pct_acierto": round(100 * acertadas / resueltas) if resueltas else None,
+        "por_pronostico": list(por_pronostico.values()),
+        "resultados_reales": [{"resultado": r, "pct": round(100 * n / total_reales) if total_reales else 0} for r, n in resultados_reales.items()],
+        "evolucion": evolucion,
+    }

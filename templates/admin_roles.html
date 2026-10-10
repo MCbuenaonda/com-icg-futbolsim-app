@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Roles - Administración{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-shield-lock-fill text-accent me-2"></i>Roles y permisos</h1>
+        <p class="text-muted mb-0">Define qué secciones del sistema ve cada rol.</p>
+    </div>
+    <a href="{{ url_for('admin_usuarios') }}" class="btn btn-outline-light btn-sm"><i class="bi bi-people me-1"></i>Usuarios</a>
+</div>
+
+{% if error %}
+<div class="alert alert-danger d-flex align-items-center gap-2" role="alert"><i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span></div>
+{% endif %}
+{% if exito %}
+<div class="alert alert-success d-flex align-items-center gap-2" role="status"><i class="bi bi-check-circle-fill"></i><span>{{ exito }}</span></div>
+{% endif %}
+
+<div class="row g-4">
+    <!-- Listado de roles -->
+    <div class="col-12 col-lg-5">
+        <div class="d-flex flex-column gap-3">
+            {% for r in roles %}
+            <div class="card bg-dark border-{{ 'success' if rol_editado and rol_editado.codigo == r.codigo else 'secondary' }}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                            <h2 class="h6 fw-bold text-white mb-1">
+                                {{ r.nombre }}
+                                {% if r.es_sistema %}<span class="badge bg-danger ms-1">Sistema</span>{% endif %}
+                            </h2>
+                            <small class="text-muted d-block">{{ r.descripcion or '—' }}</small>
+                            <small class="text-muted">
+                                <code>{{ r.codigo }}</code> · {{ r.usuarios }} usuario{{ 's' if r.usuarios != 1 }} ·
+                                {{ 'Acceso total' if r.todos else (r.permisos | length) ~ ' secciones' }}
+                            </small>
+                        </div>
+                        <div class="d-flex gap-1 flex-shrink-0">
+                            <a href="{{ url_for('admin_roles') }}?editar={{ r.codigo }}" class="btn btn-sm btn-outline-light" aria-label="Editar rol {{ r.nombre }}"><i class="bi bi-pencil"></i></a>
+                            {% if not r.es_sistema %}
+                            <form method="post" action="{{ url_for('admin_borrar_rol', codigo=r.codigo) }}" class="form-confirmar"
+                                  data-titulo="Borrar rol" data-mensaje="¿Borrar el rol {{ r.nombre }}? Esta acción no se puede deshacer.">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Borrar rol {{ r.nombre }}" {{ 'disabled title="Tiene usuarios asignados"' | safe if r.usuarios }}>
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            <a href="{{ url_for('admin_roles') }}" class="btn btn-success fw-bold"><i class="bi bi-plus-lg me-1"></i>Nuevo rol</a>
+        </div>
+    </div>
+
+    <!-- Formulario: crear / editar -->
+    <div class="col-12 col-lg-7">
+        <div class="card bg-dark border-secondary">
+            <div class="card-body">
+                <h2 class="h5 fw-bold text-white mb-3">{{ 'Editar rol: ' ~ rol_editado.nombre if rol_editado else 'Nuevo rol' }}</h2>
+                <form method="post" action="{{ url_for('admin_guardar_rol') }}">
+                    <input type="hidden" name="codigo_original" value="{{ rol_editado.codigo if rol_editado else '' }}">
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted" for="rolNombre">Nombre</label>
+                            <input class="form-control" id="rolNombre" name="nombre" required value="{{ rol_editado.nombre if rol_editado else '' }}">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted" for="rolCodigo">Código</label>
+                            <input class="form-control" id="rolCodigo" name="codigo" value="{{ rol_editado.codigo if rol_editado else '' }}"
+                                   placeholder="se genera del nombre" {{ 'disabled' if rol_editado }}>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small text-muted" for="rolDescripcion">Descripción</label>
+                            <input class="form-control" id="rolDescripcion" name="descripcion" value="{{ rol_editado.descripcion if rol_editado else '' }}">
+                        </div>
+                    </div>
+
+                    {% if rol_editado and rol_editado.es_sistema %}
+                    <div class="alert alert-info py-2 small">El rol de sistema tiene siempre acceso total; solo se puede cambiar su nombre y descripción.</div>
+                    {% endif %}
+
+                    {% set bloqueado = rol_editado and rol_editado.es_sistema %}
+                    {% for grupo, secciones in grupos %}
+                    <fieldset class="mb-3" {{ 'disabled' if bloqueado }}>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <legend class="h6 fw-bold text-white mb-0 fs-6">{{ grupo }}</legend>
+                            <button type="button" class="btn btn-link btn-sm p-0 text-accent text-decoration-none text-nowrap" data-marcar-grupo="{{ loop.index }}">Marcar todo</button>
+                        </div>
+                        <div class="row g-2" data-grupo="{{ loop.index }}">
+                            {% for s in secciones %}
+                            <div class="col-12 col-sm-6">
+                                <div class="form-check p-2 ps-5 rounded border border-secondary h-100">
+                                    <input class="form-check-input" type="checkbox" name="permisos" value="{{ s.codigo }}" id="perm_{{ s.codigo }}"
+                                           {{ 'checked' if rol_editado and (rol_editado.todos or s.codigo in rol_editado.permisos) }}>
+                                    <label class="form-check-label" for="perm_{{ s.codigo }}">
+                                        <span class="fw-semibold">{{ s.nombre }}</span>
+                                        <small class="d-block text-muted">{{ s.descripcion }}</small>
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </fieldset>
+                    {% endfor %}
+
+                    <div class="d-flex justify-content-end gap-2">
+                        {% if rol_editado %}<a href="{{ url_for('admin_roles') }}" class="btn btn-outline-light">Cancelar</a>{% endif %}
+                        <button type="submit" class="btn btn-success fw-bold"><i class="bi bi-save me-1"></i>Guardar rol</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{{ super() }}
+<script>
+    // Formularios destructivos: confirmación con el modal propio (UI.confirmar) en vez de confirm()
+    document.querySelectorAll('form.form-confirmar').forEach(form => form.addEventListener('submit', async ev => {
+        if (form.dataset.confirmado) return;
+        ev.preventDefault();
+        if (await UI.confirmar({ titulo: form.dataset.titulo, mensaje: form.dataset.mensaje, textoConfirmar: 'Borrar', peligro: true })) {
+            form.dataset.confirmado = '1';
+            form.submit();
+        }
+    }));
+
+    // "Marcar todo" por grupo: alterna todas las casillas del grupo
+    document.querySelectorAll('[data-marcar-grupo]').forEach(boton => boton.addEventListener('click', () => {
+        const casillas = document.querySelectorAll(`[data-grupo="${boton.dataset.marcarGrupo}"] input[type=checkbox]`);
+        const marcar = [...casillas].some(c => !c.checked);
+        casillas.forEach(c => { c.checked = marcar; });
+    }));
+</script>
+{% endblock %}

@@ -4,7 +4,7 @@
   <!-- ENCABEZADO Y RESUMEN GENERAL -->
   <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom" style="--bs-border-color: var(--green-pitch);">
     <div>
-      <h1 class="h2 fw-bold text-warning mb-0">
+      <h1 class="h2 fw-bold text-accent mb-0">
         🏆 Estadísticas del Mundial
       </h1>
       <p class="text-secondary mb-0">
@@ -20,7 +20,7 @@
        BLOQUE 1: CUADRO DE HONOR & ONCE IDEAL
        ====================================================================== -->
   <h4 class="section-heading">
-    🏆 Bloque 1: Cuadro de Honor &amp; Once Ideal
+    🏆 Cuadro de Honor &amp; Once Ideal
   </h4>
   <div class="row g-3 mb-3">
     <!-- Máximo Goleador -->
@@ -40,7 +40,7 @@
           <small class="text-muted d-block">Click para ver los partidos</small>
           {% endif %}
         </div>
-        <span class="badge bg-warning text-dark fs-5 fw-bold">{{ stats.jugadores.mas_goles.goles }} ⚽</span>
+        <span class="badge bg-accent text-dark fs-5 fw-bold">{{ stats.jugadores.mas_goles.goles }} ⚽</span>
       </div>
     </div>
 
@@ -109,8 +109,8 @@
   <div class="row g-2 mb-4">
     {% for jugador in stats.once_ideal %}
     <div class="col-6 col-sm-4 col-md-3 col-xl-2">
-      <div class="stat-card p-2 text-center border-top border-3 border-warning">
-        <span class="badge bg-dark text-warning border border-warning mb-1">{{ jugador.siglas }}</span>
+      <div class="stat-card p-2 text-center border-top border-3 border-accent">
+        <span class="badge bg-dark text-accent border border-accent mb-1">{{ jugador.siglas }}</span>
         <h6 class="mb-0 fw-bold text-white text-truncate" title="{{ jugador.jugador }}">{{ jugador.jugador }}</h6>
         <small class="text-muted d-block text-truncate">{{ jugador.pais }}</small>
         <span class="badge bg-success mt-1">OVR: {{ jugador.overall }}</span>
@@ -123,7 +123,7 @@
        BLOQUE 2: ATAQUE, CREACIÓN Y RENDIMIENTO DE PAÍSES
        ====================================================================== -->
   <h4 class="section-heading">
-    ⚽ Bloque 2: Ataque, Creación y Rendimiento de Países
+    ⚽ Ataque, Creación y Rendimiento de Países
   </h4>
 
   <small class="text-secondary text-uppercase fw-bold d-block mb-2">Países Ofensivos</small>
@@ -161,13 +161,13 @@
     <!-- Mejor Ofensiva -->
     {% if stats.paises.mejor_ofensiva %}
     <div class="col-12 col-md-6">
-      <div class="stat-card h-100 p-3 border-start border-4 border-warning">
+      <div class="stat-card h-100 p-3 border-start border-4 border-accent">
         <small class="text-secondary text-uppercase">Mejor Ofensiva</small>
         <div class="d-flex align-items-center my-2">
           <span class="fs-1 me-2">{{ stats.paises.mejor_ofensiva.bandera }}</span>
           <div>
             <h5 class="mb-0 fw-bold text-white">{{ stats.paises.mejor_ofensiva.nombre }}</h5>
-            <small class="text-warning fw-bold">Poder Ofensivo: {{ stats.paises.mejor_ofensiva.estadisticas.p_ofensiva }}</small>
+            <small class="text-accent fw-bold">Poder Ofensivo: {{ stats.paises.mejor_ofensiva.estadisticas.p_ofensiva }}</small>
           </div>
         </div>
         <div class="row g-2">
@@ -197,10 +197,10 @@
         <div class="stat-icon me-3">🎯</div>
         <div class="flex-grow-1">
           <small class="text-secondary text-uppercase fw-semibold">Rey de las Asistencias</small>
-          <h6 class="mb-0 text-white fw-bold">{{ stats.jugadores.get('mas_asistencias', {}).nombre | default('Próximamente') }}</h6>
+          <h6 class="mb-0 text-white fw-bold">{{ stats.jugadores.get('mas_asistencias', {}).nombre | default('Sin datos aún') }}</h6>
           <small class="text-muted">{{ stats.jugadores.get('mas_asistencias', {}).pais | default('—') }}</small>          
         </div>
-        <span class="badge bg-warning text-dark fs-5 fw-bold">{{ stats.jugadores.get('mas_asistencias', {}).asistencias | default('—') }}</span>
+        <span class="badge bg-accent text-dark fs-5 fw-bold">{{ stats.jugadores.get('mas_asistencias', {}).asistencias | default('—') }}</span>
       </div>
     </div>
 
@@ -212,7 +212,7 @@
           <small class="text-secondary text-uppercase fw-semibold">Efectividad Disparadora</small>
           <h6 class="mb-0 text-white fw-bold">
             {{ stats.paises.get('mejor_efectividad_gol', {}).bandera | default('🏳️') }}
-            {{ stats.paises.get('mejor_efectividad_gol', {}).nombre | default('Próximamente') }}
+            {{ stats.paises.get('mejor_efectividad_gol', {}).nombre | default('Sin datos aún') }}
           </h6>
           <small class="text-muted">Selección con mejor conversión de gol</small>
         </div>
@@ -226,10 +226,10 @@
         <div class="stat-icon me-3">🎯</div>
         <div class="flex-grow-1">
           <small class="text-secondary text-uppercase fw-semibold">Especialista a Balón Parado</small>
-          <h6 class="mb-0 text-white fw-bold">{{ stats.jugadores.get('especialista_balon_parado', {}).nombre | default('Próximamente') }}</h6>
+          <h6 class="mb-0 text-white fw-bold">{{ stats.jugadores.get('especialista_balon_parado', {}).nombre | default('Sin datos aún') }}</h6>
           <small class="text-muted">Goles de tiro libre, penal y córner</small>
         </div>
-        <span class="badge bg-secondary fs-7">{{ stats.jugadores.get('especialista_balon_parado', {}).goles | default('Próximamente') }}</span>
+        <span class="badge bg-secondary fs-7">{{ stats.jugadores.get('especialista_balon_parado', {}).goles | default('Sin datos aún') }}</span>
       </div>
     </div>
 
@@ -239,7 +239,7 @@
         <div class="stat-icon me-3">🪑</div>
         <div class="flex-grow-1">
           <small class="text-secondary text-uppercase fw-semibold">Súper Sub</small>
-          <h6 class="mb-0 text-white fw-bold">{{ stats.jugadores.get('super_sub', {}).nombre | default('Próximamente') }}</h6>
+          <h6 class="mb-0 text-white fw-bold">{{ stats.jugadores.get('super_sub', {}).nombre | default('Sin datos aún') }}</h6>
           <small class="text-muted">{{ stats.jugadores.get('super_sub', {}).pais | default('—') }} · goles de banca</small>
         </div>
         <span class="badge bg-success fs-5 fw-bold">{{ stats.jugadores.get('super_sub', {}).goles | default('—') }} ⚽</span>
@@ -251,7 +251,7 @@
        BLOQUE 3: MURO DEFENSIVO, DISCIPLINA Y ARBITRAJE
        ====================================================================== -->
   <h4 class="section-heading">
-    🛡️ Bloque 3: Muro Defensivo, Disciplina y Arbitraje
+    🛡️ Muro Defensivo, Disciplina y Arbitraje
   </h4>
 
   <small class="text-secondary text-uppercase fw-bold d-block mb-2">Rendimiento Defensivo</small>
@@ -292,10 +292,10 @@
         <div class="stat-icon me-3">🥅</div>
         <div class="flex-grow-1">
           <small class="text-secondary text-uppercase fw-semibold">Atajapenales</small>
-          <h6 class="mb-0 text-white fw-bold">{{ stats.porteros.get('atajapenales', {}).portero | default('Próximamente') }}</h6>
+          <h6 class="mb-0 text-white fw-bold">{{ stats.porteros.get('atajapenales', {}).portero | default('Sin datos aún') }}</h6>
           <small class="text-muted">Penales atajados (distinto de atajadas totales)</small>
         </div>
-        <span class="badge bg-secondary fs-7">{{ stats.porteros.get('atajapenales', {}).total | default('Próximamente') }}</span>
+        <span class="badge bg-secondary fs-7">{{ stats.porteros.get('atajapenales', {}).total | default('Sin datos aún') }}</span>
       </div>
     </div>
   </div>
@@ -308,7 +308,7 @@
         <div class="stat-icon me-3">🧠</div>
         <div class="flex-grow-1">
           <small class="text-secondary text-uppercase fw-semibold">Líder de Recuperaciones</small>
-          <h6 class="mb-0 text-white fw-bold">{{ stats.jugadores.get('mas_recuperaciones', {}).nombre | default('Próximamente') }}</h6>
+          <h6 class="mb-0 text-white fw-bold">{{ stats.jugadores.get('mas_recuperaciones', {}).nombre | default('Sin datos aún') }}</h6>
           <small class="text-muted">{{ stats.jugadores.get('mas_recuperaciones', {}).pais | default('—') }}</small>
         </div>
         <span class="badge bg-info text-dark fs-5 fw-bold">{{ stats.jugadores.get('mas_recuperaciones', {}).recuperaciones | default('—') }}</span>
@@ -322,12 +322,12 @@
         <div class="flex-grow-1">
           <small class="text-secondary text-uppercase fw-semibold">Especialista Aéreo</small>
           <h6 class="mb-0 text-white fw-bold">
-            {{ stats.jugadores.get('especialista_aereo', {}).nombre | default('Próximamente') }} 
+            {{ stats.jugadores.get('especialista_aereo', {}).nombre | default('Sin datos aún') }} 
             <span class="text-secondary">( {{ stats.jugadores.get('especialista_aereo', {}).pais | default('-') }} )</span>            
           </h6>
           <small class="text-muted">% de duelos efectividad</small>
         </div>
-        <span class="badge bg-secondary fs-7">{{ stats.jugadores.get('especialista_aereo', {}).juego_aereo | default('Próximamente') }}</span>
+        <span class="badge bg-secondary fs-7">{{ stats.jugadores.get('especialista_aereo', {}).juego_aereo | default('Sin datos aún') }}</span>
       </div>
     </div>
   </div>
@@ -376,7 +376,7 @@
         <div class="stat-icon me-3">😖</div>
         <div class="flex-grow-1">
           <small class="text-secondary text-uppercase fw-semibold">Jugador Más Infringido</small>
-          <h6 class="mb-0 text-white fw-bold">{{ stats.jugadores.get('mas_infringido', {}).nombre | default('Próximamente') }}</h6>
+          <h6 class="mb-0 text-white fw-bold">{{ stats.jugadores.get('mas_infringido', {}).nombre | default('Sin datos aún') }}</h6>
           <small class="text-muted">{{ stats.jugadores.get('mas_infringido', {}).pais }} — {{ stats.jugadores.get('mas_infringido', {}).faltas_recibidas | default('0') }} Faltas</small>
         </div>        
       </div>
@@ -391,7 +391,7 @@
           <span class="fs-1 me-3">{{ stats.paises.get('fair_play', {}).bandera | default('🏳️') }}</span>
           <div class="flex-grow-1">
             <small class="text-secondary text-uppercase fw-semibold">🤝 Premio Fair Play</small>
-            <h5 class="mb-0 fw-bold text-white">{{ stats.paises.get('fair_play', {}).nombre | default('Próximamente') }}</h5>
+            <h5 class="mb-0 fw-bold text-white">{{ stats.paises.get('fair_play', {}).nombre | default('Sin datos aún') }}</h5>
             <small class="text-success fw-bold">Menos faltas y tarjetas acumuladas</small>
           </div>
           <span class="badge bg-success fs-5 fw-bold">{{ stats.paises.get('fair_play', {}).total_infracciones | default('—') }}</span>
@@ -402,7 +402,8 @@
 
   <small class="text-secondary text-uppercase fw-bold d-block mb-2">Arbitraje</small>
   <div class="row g-3 mb-4">
-    {% if stats.arbitros.central or stats.arbitros.linea1 or stats.arbitros.linea2 or stats.arbitros.cuarto or stats.get('arbitros_avanzado', {}).mas_tarjetas or stats.get('arbitros_avanzado', {}).menos_faltas %}
+    {% set aa = stats.get('arbitros_avanzado') or {} %}
+    {% if stats.arbitros.central or stats.arbitros.linea1 or stats.arbitros.linea2 or stats.arbitros.cuarto or aa.mas_tarjetas or aa.menos_faltas %}
     <div class="col-12">
       <div class="stat-card p-3">
         <h6 class="text-uppercase text-secondary fw-bold mb-2 fs-7">
@@ -438,15 +439,28 @@
             </ul>
           </div>
           <div class="col-12 col-md-6">
+            <!-- Récords del árbitro central EN UN PARTIDO (services/estadisticas_service.py::_get_stats_arbitros_avanzado) -->
             <ul class="list-unstyled mb-0 fs-7">
-              <li class="d-flex justify-content-between py-1 border-bottom border-dark">
-                <span><strong>Más tarjetas/partido:</strong> {{ stats.get('arbitros_avanzado', {}).get('mas_tarjetas', {}).nombre | default('Próximamente') }}</span>
-                <span class="text-muted">{{ stats.get('arbitros_avanzado', {}).get('mas_tarjetas', {}).promedio | default('—') }}</span>
+              {% for clave, etiqueta in [('mas_faltas', '🛑 Más faltas en un partido'), ('mas_tarjetas', '🟨 Más tarjetas en un partido'), ('menos_faltas', '"Siga-Siga": menos faltas en un partido'), ('menos_tarjetas', '🕊️ Menos tarjetas en un partido')] %}
+              {% set r = aa.get(clave) %}
+              <li class="py-1 border-bottom border-dark">
+                <div class="d-flex justify-content-between gap-2">
+                  <span><strong>{{ etiqueta }}:</strong> {{ r.nombre if r else 'Sin datos aún' }}</span>
+                  <span class="text-muted text-nowrap">{% if r %}{{ r.faltas }} faltas · {{ r.tarjetas }} tarj.{% else %}—{% endif %}</span>
+                </div>
+                {% if r %}
+                <a href="/juegos/{{ r.partido.id }}" class="small text-decoration-none text-secondary">
+                  {{ r.partido.equipo_local.bandera }} {{ r.partido.equipo_local.nombre }} {{ r.partido.equipo_local.goles }}-{{ r.partido.equipo_visitante.goles }} {{ r.partido.equipo_visitante.nombre }} {{ r.partido.equipo_visitante.bandera }}
+                </a>
+                {% endif %}
               </li>
+              {% endfor %}
+              {% if aa.mas_expulsiones %}
               <li class="d-flex justify-content-between py-1">
-                <span><strong>"Siga-Siga" (menos faltas):</strong> {{ stats.get('arbitros_avanzado', {}).get('menos_faltas', {}).nombre | default('Próximamente') }}</span>
-                <span class="text-muted">{{ stats.get('arbitros_avanzado', {}).get('menos_faltas', {}).promedio | default('—') }}</span>
+                <span><strong>🟥 Más expulsiones (torneo):</strong> {{ aa.mas_expulsiones.nombre }}</span>
+                <span class="text-muted text-nowrap">{{ aa.mas_expulsiones.expulsiones }} en {{ aa.mas_expulsiones.partidos_dirigidos }} PJ</span>
               </li>
+              {% endif %}
             </ul>
           </div>
         </div>
@@ -459,7 +473,7 @@
        BLOQUE 4: PARTIDOS DESTACADOS, HITOS Y ESTADIOS
        ====================================================================== -->
   <h4 class="section-heading">
-    🏟️ Bloque 4: Partidos Destacados, Hitos y Estadios
+    🏟️ Partidos Destacados, Hitos y Estadios
   </h4>
   <div class="row g-4 mb-4">
     <!-- Columna Izquierda: Partidos Clave -->
@@ -582,28 +596,28 @@
     <div class="col-12 col-lg-5">
       <small class="text-secondary text-uppercase fw-bold d-block mb-2">Hitos y Datos Extra</small>
       <div class="d-flex flex-column gap-3">
-        <!-- Gol Más Rápido vs. Gol Más Tardío -->
+        <!-- Gol Más Rápido vs. Gol Más Tardío: el primer gol de un partido que cayó más temprano
+             y el que más tardó en llegar (services/estadisticas_service.py::_obtener_records_primer_gol) -->
         <div class="row g-2">
+          {% for clave, titulo, color in [('gol_mas_rapido', '⏱️ Gol Más Rápido', 'success'), ('gol_mas_tardio', '🕐 Primer Gol Más Tardío', 'danger')] %}
+          {% set g = stats.partidos.get(clave) %}
           <div class="col-6">
-            <div class="stat-card p-3 h-100 border-start border-4 border-success">
-              <small class="text-success fw-bold">⏱️ Gol Más Rápido</small>
-              <h6 class="mb-0 text-white fw-bold mt-1">{{ stats.partidos.get('gol_mas_rapido', {}).jugador | default('Próximamente') }}</h6>
-              <small class="text-muted">{{ stats.partidos.get('gol_mas_rapido', {}).equipo | default('—') }}</small>
-              <div class="mt-2">
-                <span class="badge bg-success fs-6">{{ stats.partidos.get('gol_mas_rapido', {}).minuto | default('—') }}'</span>
+            {% if g %}<a href="/juegos/{{ g.partido.id }}" class="text-decoration-none text-reset d-block h-100">{% endif %}
+            <div class="stat-card {{ 'card-hover' if g }} p-3 h-100 border-start border-4 border-{{ color }}">
+              <small class="text-{{ color }} fw-bold">{{ titulo }}</small>
+              <h6 class="mb-0 text-white fw-bold mt-1">{{ g.jugador if g else 'Sin datos aún' }}</h6>
+              <small class="text-muted">{{ g.equipo if g else '—' }}</small>
+              <div class="mt-2 d-flex align-items-center flex-wrap gap-2">
+                <span class="badge bg-{{ color }} fs-6">{{ g.minuto if g else '—' }}'</span>
+                {% if g and g.minuto == 0 %}<small class="text-muted">a los {{ g.segundos }} s</small>{% endif %}
               </div>
+              {% if g %}
+              <small class="text-muted d-block mt-1 text-truncate">{{ g.partido.equipo_local.nombre }} {{ g.partido.equipo_local.goles }}-{{ g.partido.equipo_visitante.goles }} {{ g.partido.equipo_visitante.nombre }}</small>
+              {% endif %}
             </div>
+            {% if g %}</a>{% endif %}
           </div>
-          <div class="col-6">
-            <div class="stat-card p-3 h-100 border-start border-4 border-danger">
-              <small class="text-danger fw-bold">🕐 Gol Más Tardío</small>
-              <h6 class="mb-0 text-white fw-bold mt-1">{{ stats.partidos.get('gol_mas_tardio', {}).jugador | default('Próximamente') }}</h6>
-              <small class="text-muted">{{ stats.partidos.get('gol_mas_tardio', {}).equipo | default('—') }}</small>
-              <div class="mt-2">
-                <span class="badge bg-danger fs-6">{{ stats.partidos.get('gol_mas_tardio', {}).minuto | default('—') }}'</span>
-              </div>
-            </div>
-          </div>
+          {% endfor %}
         </div>
 
         <!-- Estadio Más Frecuente -->
@@ -623,15 +637,23 @@
         </div>
         {% endif %}
 
-        <!-- Sede Más Goleadora -->
-        <div class="stat-card p-3 d-flex align-items-center">
+        <!-- Sede Más Goleadora: estadio con más goles en los partidos que albergó
+             (services/estadisticas_service.py::_obtener_sede_mas_goleadora) -->
+        {% set sg = stats.partidos.get('sede_mas_goleadora') %}
+        <div class="stat-card {{ 'card-hover' if sg }} p-3 d-flex align-items-center"
+             {% if sg %}role="button" data-bs-toggle="modal" data-bs-target="#modalPartidosDestacados"
+             data-titulo-modal="⚽ Partidos en {{ sg.estadio }} ({{ sg.ciudad }}, {{ sg.pais }})"
+             data-partidos='{{ sg.partidos | tojson }}'{% endif %}>
           <div class="stat-icon me-3">⚽</div>
           <div class="flex-grow-1">
             <small class="text-secondary text-uppercase fw-semibold">Sede Más Goleadora</small>
-            <h6 class="mb-0 text-white fw-bold">{{ stats.partidos.get('sede_mas_goleadora', {}).estadio | default('Próximamente') }}</h6>
-            <small class="text-muted">{{ stats.partidos.get('sede_mas_goleadora', {}).ciudad | default('—') }}, {{ stats.partidos.get('sede_mas_goleadora', {}).pais | default('—') }}</small>
+            <h6 class="mb-0 text-white fw-bold">{{ sg.estadio if sg else 'Sin datos aún' }}</h6>
+            {% if sg %}
+            <small class="text-muted d-block">{{ sg.ciudad }}, {{ sg.pais }}</small>
+            <small class="text-muted">{{ sg.total_juegos }} partido{{ 's' if sg.total_juegos != 1 }} · prom. {{ sg.promedio_goles }} goles · Click para ver</small>
+            {% endif %}
           </div>
-          <span class="badge bg-warning text-dark fs-6 fw-bold">{{ stats.partidos.get('sede_mas_goleadora', {}).promedio_goles | default('—') }}</span>
+          <span class="badge bg-accent text-dark fs-6 fw-bold">{{ sg.total_goles ~ ' goles' if sg else '—' }}</span>
         </div>
 
         <!-- País Más Remontador -->
@@ -667,9 +689,104 @@
       </div>
     </div>
   </div>
+
+  <!-- ======================================================================
+       BLOQUE 5: TENDENCIAS DEL TORNEO (services/estadisticas_service.py::_get_stats_tendencias)
+       ====================================================================== -->
+  {% set td = stats.get('tendencias') or {} %}
+  {% if td.total_partidos %}
+  <h4 class="section-heading">
+    📈 Tendencias del Torneo
+  </h4>
+  <div class="row g-3 mb-4">
+    <!-- Promedio de goles / Ambos marcan / Resultados -->
+    <div class="col-6 col-lg-3">
+      <div class="stat-card p-3 h-100 text-center">
+        <small class="text-secondary text-uppercase fw-semibold">Goles por partido</small>
+        <div class="display-6 fw-bold text-white">{{ td.promedio_goles }}</div>
+        <small class="text-muted">{{ td.total_goles }} goles en {{ td.total_partidos }} partidos</small>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="stat-card p-3 h-100 text-center">
+        <small class="text-secondary text-uppercase fw-semibold">Ambos marcan</small>
+        <div class="display-6 fw-bold text-white">{{ td.pct_ambos_marcan }}%</div>
+        <small class="text-muted">de los partidos tuvo goles de los dos lados</small>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="stat-card p-3 h-100">
+        <small class="text-secondary text-uppercase fw-semibold">Resultados (¿pesa la localía?)</small>
+        <div class="progress mt-2" style="height: 22px;" role="img"
+             aria-label="Gana local {{ td.resultados.pct_local }}%, empate {{ td.resultados.pct_empate }}%, gana visitante {{ td.resultados.pct_visitante }}%">
+          <div class="progress-bar bg-primary fw-bold" style="width: {{ td.resultados.pct_local }}%">{{ td.resultados.pct_local }}%</div>
+          <div class="progress-bar bg-secondary fw-bold" style="width: {{ td.resultados.pct_empate }}%">{{ td.resultados.pct_empate }}%</div>
+          <div class="progress-bar bg-danger fw-bold" style="width: {{ td.resultados.pct_visitante }}%">{{ td.resultados.pct_visitante }}%</div>
+        </div>
+        <div class="d-flex justify-content-between small text-muted mt-1">
+          <span>🏠 Gana local</span><span>🤝 Empate</span><span>✈️ Gana visitante</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Goles por franja de minutos -->
+    <div class="col-12 col-lg-6">
+      <div class="stat-card p-3 h-100">
+        <small class="text-secondary text-uppercase fw-semibold d-block mb-2">⏲️ ¿Cuándo caen los goles?</small>
+        {% for f in td.goles_por_franja %}
+        <div class="d-flex align-items-center gap-2 mb-1 small">
+          <span class="text-muted text-nowrap" style="width: 64px;">{{ f.franja }}</span>
+          <div class="progress flex-grow-1" style="height: 12px; background-color: rgba(255,255,255,0.08);">
+            <div class="progress-bar bg-success" style="width: {{ f.pct }}%"></div>
+          </div>
+          <span class="text-white text-end text-nowrap" style="width: 76px;">{{ f.goles }} <span class="text-muted">({{ f.pct }}%)</span></span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6 d-flex flex-column gap-3">
+      <!-- Mayor goleada -->
+      {% if td.mayor_goleada %}{% set mg = td.mayor_goleada.partido %}
+      <a href="/juegos/{{ mg.id }}" class="text-decoration-none text-reset">
+        <div class="stat-card card-hover p-3 d-flex align-items-center">
+          <div class="stat-icon me-3">💥</div>
+          <div class="flex-grow-1" style="min-width: 0;">
+            <small class="text-secondary text-uppercase fw-semibold">Mayor Goleada</small>
+            <h6 class="mb-0 text-white fw-bold text-truncate">{{ mg.equipo_local.bandera }} {{ mg.equipo_local.nombre }} {{ mg.equipo_local.goles }} - {{ mg.equipo_visitante.goles }} {{ mg.equipo_visitante.nombre }} {{ mg.equipo_visitante.bandera }}</h6>
+            <small class="text-muted">{{ mg.tag or '' }}</small>
+          </div>
+          <span class="badge bg-danger fs-7">+{{ td.mayor_goleada.diferencia }}</span>
+        </div>
+      </a>
+      {% endif %}
+
+      <!-- Hat-tricks -->
+      {% set ht = td.hat_tricks %}
+      <div class="stat-card {{ 'card-hover' if ht.total }} p-3 d-flex align-items-center"
+           {% if ht.total %}role="button" data-bs-toggle="modal" data-bs-target="#modalPartidosDestacados"
+           data-titulo-modal="🎩 Hat-tricks del torneo" data-partidos='{{ ht.partidos | tojson }}'{% endif %}>
+        <div class="stat-icon me-3">🎩</div>
+        <div class="flex-grow-1">
+          <small class="text-secondary text-uppercase fw-semibold">Hat-tricks</small>
+          {% if ht.rey %}
+          <h6 class="mb-0 text-white fw-bold">{{ ht.rey.nombre }} <span class="text-muted fw-normal">({{ ht.rey.equipo }})</span></h6>
+          <small class="text-muted">Rey del hat-trick con {{ ht.rey.cantidad }} · Click para ver todos</small>
+          {% elif ht.total %}
+          <h6 class="mb-0 text-white fw-bold">{{ ht.total }} jugadores distintos</h6>
+          <small class="text-muted">Nadie repitió todavía · Click para ver los partidos</small>
+          {% else %}
+          <h6 class="mb-0 text-white fw-bold">Todavía ninguno</h6>
+          {% endif %}
+        </div>
+        <span class="badge bg-accent text-dark fs-6 fw-bold">{{ ht.total }}</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
-<!-- Modal reutilizable para "ver partidos" de Estadio Más Frecuente / País Más Remontador -->
+<!-- Modal reutilizable para "ver partidos" (Estadio Más Frecuente, País Más Remontador, Sede Más Goleadora, Hat-tricks) -->
 <div class="modal fade" id="modalPartidosDestacados" tabindex="-1" aria-labelledby="modalPartidosDestacadosLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content bg-dark text-white border border-secondary">
@@ -709,15 +826,22 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
+    function escaparTexto(texto) {
+      const div = document.createElement('div');
+      div.textContent = texto;
+      return div.innerHTML;
+    }
+
     cuerpo.innerHTML = partidos.map(function (partido) {
       return `
-        <a href="/juegos/${partido.id}" class="d-block text-decoration-none text-reset surface-soft p-2 px-3 mb-2">
+        <a href="/juegos/${encodeURIComponent(partido.id)}" class="d-block text-decoration-none text-reset surface-soft p-2 px-3 mb-2">
           <div class="d-flex justify-content-between align-items-center">
-            <span>${partido.equipo_local.bandera || ''} ${partido.equipo_local.nombre || '?'}</span>
-            <span class="fw-bold">${partido.equipo_local.goles} - ${partido.equipo_visitante.goles}</span>
-            <span>${partido.equipo_visitante.nombre || '?'} ${partido.equipo_visitante.bandera || ''}</span>
+            <span>${escaparTexto(partido.equipo_local.bandera || '')} ${escaparTexto(partido.equipo_local.nombre || '?')}</span>
+            <span class="fw-bold">${Number(partido.equipo_local.goles)} - ${Number(partido.equipo_visitante.goles)}</span>
+            <span>${escaparTexto(partido.equipo_visitante.nombre || '?')} ${escaparTexto(partido.equipo_visitante.bandera || '')}</span>
           </div>
-          ${partido.tag ? `<small class="text-muted">${partido.tag}</small>` : ''}
+          ${partido.tag ? `<small class="text-muted">${escaparTexto(partido.tag)}</small>` : ''}
+          ${partido.nota ? `<small class="d-block text-info">${escaparTexto(partido.nota)}</small>` : ''}
         </a>`;
     }).join('');
   });

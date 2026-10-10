@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from bson.errors import InvalidId
 from schemas.album_schema import PackPurchaseOut, ColeccionOut
 from services.album_service import buy_and_open_pack, obtener_coleccion_usuario, COSTO_SOBRE
-from services.auth_service import obtener_usuario_actual, context_usuario_actual
+from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
@@ -43,8 +43,9 @@ async def open_pack(request: Request):
 
 
 @route.get("/collection/{user_id}", response_model=ColeccionOut, name="album_collection")
-async def collection(user_id: str):
+async def collection(user_id: str, request: Request):
     """Estampas poseídas por el usuario y % de llenado de jugadores por país."""
+    exigir_mismo_usuario_o_admin(request, user_id)
     try:
         return obtener_coleccion_usuario(user_id)
     except InvalidId:

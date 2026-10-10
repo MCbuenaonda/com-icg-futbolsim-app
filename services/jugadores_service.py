@@ -16,10 +16,15 @@ def get_jugadores(id_pais, logger):
         jugadores = list(collection.find({"pais_id": int(id_pais)}))
 
         # Catálogo de posiciones cargado una sola vez (en vez de un find_one por jugador)
-        posiciones = {p["id"]: p["nombre"] for p in db['posiciones'].find({})}
+        catalogo = list(db['posiciones'].find({}))
+        posiciones = {p["id"]: p["nombre"] for p in catalogo}
+        # Sector (Portero/Defensa/Medio/Delantero) para el filtro de jugadores.html: el nombre
+        # granular ("Lateral izquierdo") no contiene "Defensa" y el filtro no lo encontraba.
+        sectores = {p["id"]: p.get("sector", "") for p in catalogo}
 
         for jugador in jugadores:
             jugador['posicion'] = posiciones.get(int(jugador['posicion_id']))
+            jugador['sector'] = sectores.get(int(jugador['posicion_id']), "")
 
         return jugadores
     except GoogleAPIError as e:
@@ -34,6 +39,12 @@ def get_jugador(id_jugador, logger):
         collection = db['jugadores']
         # Ejecutar la consulta
         jugador = collection.find_one({"id": int(id_jugador)})
+        # Nombre de la posición granular para el badge del perfil (antes salía vacío: solo el
+        # listado del plantel, get_jugadores, lo completaba)
+        if jugador and jugador.get("posicion_id") is not None:
+            posicion = db['posiciones'].find_one({"id": int(jugador["posicion_id"])}, {"nombre": 1, "sector": 1}) or {}
+            jugador["posicion"] = posicion.get("nombre", "")
+            jugador["sector"] = posicion.get("sector", "")
         return jugador
     except GoogleAPIError as e:
         logger.error(f"Error de MongoBD: {str(e)}")

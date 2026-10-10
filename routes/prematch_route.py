@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from schemas.prematch_schema import PreMatchAnalysisResponse
 from services.prematch_service import analyze_pre_match_status
 from services.auth_service import context_usuario_actual
+from services.cara_a_cara_service import obtener_cara_a_cara
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
@@ -51,8 +52,14 @@ async def pre_match_analysis(match_id: str):
 @route_vistas.get("/{match_id}", response_class=HTMLResponse, name="prematch_scouter_view")
 async def scouter_view(request: Request, match_id: str):
     analisis = _resolver_analisis(match_id)
+    # Bloque "Historial entre ambos" (mismo resumen que /cara-a-cara)
+    try:
+        h2h = obtener_cara_a_cara(analisis.home_team_analysis.pais_id, analisis.away_team_analysis.pais_id)
+    except Exception as e:
+        logger.error(f"Error al armar el historial entre ambos del partido '{match_id}': {str(e)}")
+        h2h = None
     return templates.TemplateResponse(
         request=request,
         name="prematch_scouter.html",
-        context={"analisis": analisis, "match_id": match_id}
+        context={"analisis": analisis, "match_id": match_id, "h2h": h2h}
     )

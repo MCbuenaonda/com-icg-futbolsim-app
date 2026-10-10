@@ -246,6 +246,16 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
             "monto": rt.get("amount_points", 0)
         })
 
+    # Juego en Vivo (services/juego_en_vivo_service.py): solo los movimientos de usuarios.monto
+    # (entrada, pago final, reembolso); los puntos por evento son internos de cada partida.
+    for jt in db['point_transactions'].find({"usuario_id": usuario_oid, "tipo_movimiento": {"$in": ["ENTRADA", "PAGO_FINAL", "REEMBOLSO"]}}):
+        feed.append({
+            "fecha": jt["creado_en"],
+            "categoria": "Juego en Vivo",
+            "descripcion": jt.get("descripcion", jt["tipo_movimiento"]),
+            "monto": jt.get("puntos_netos", 0)
+        })
+
     feed.sort(key=lambda x: x["fecha"], reverse=True)
 
     # ---------------------------------------------------------------

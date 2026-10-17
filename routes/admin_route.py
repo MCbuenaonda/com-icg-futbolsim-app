@@ -11,12 +11,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from services.auth_service import context_usuario_actual, obtener_usuario_actual
+from services.imagenes_pais_service import GLOBALES_JINJA
 from services.usuarios_service import (
     GestionUsuariosError, actualizar_usuario, borrar_rol, crear_usuario, generar_password_temporal, guardar_rol,
     listar_roles, listar_usuarios, matriz_secciones, restablecer_password,
 )
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 route = APIRouter(prefix="/admin", tags=["Administración"])
 tag = 'Administración'
 

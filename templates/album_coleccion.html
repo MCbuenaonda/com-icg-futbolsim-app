@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Mi Colección - FutbolSim{% endblock %}
 
@@ -59,7 +60,7 @@
                 <div class="d-flex flex-wrap gap-2">
                     {% for pais in coleccion.paises_detalle %}
                         <span class="badge bg-secondary bg-opacity-25 border border-secondary px-3 py-2">
-                            {% if pais.bandera %}{{ pais.bandera }}{% else %}<i class="bi bi-flag-fill me-1"></i>{% endif %}
+                            {% if pais.bandera %}{{ m.bandera(pais.bandera) }}{% else %}<i class="bi bi-flag-fill me-1"></i>{% endif %}
                             {{ pais.nombre }}
                             {% if pais.tiene_regalia %}
                                 <i class="bi bi-cash-coin text-accent ms-1" title="Esta estampa ya te dio regalías"></i>

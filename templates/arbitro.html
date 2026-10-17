@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}{{ nombre }} - Árbitros{% endblock %}
 
@@ -10,7 +11,7 @@
 {% else %}
 {% set c = arbitro.central %}
 <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
-    <div class="stat-icon">🧑‍⚖️</div>
+    {{ m.avatar_arbitro(arbitro.nombre, 'lg', arbitro.nombre) }}
     <div>
         <h1 class="h2 fw-bold text-white mb-0">{{ arbitro.nombre }}</h1>
         <p class="text-muted mb-0">{{ arbitro.pais or 'País desconocido' }}{% if arbitro.puesto %} · {{ arbitro.puesto }}{% endif %} · {{ arbitro.total_partidos }} partido{{ 's' if arbitro.total_partidos != 1 }}</p>
@@ -60,9 +61,9 @@
             {% for p in arbitro.partidos %}
             <a href="/juegos/{{ p.id }}" class="d-block text-decoration-none text-reset surface-soft p-2 px-3 mb-2">
                 <div class="d-flex justify-content-between align-items-center gap-2">
-                    <span class="text-truncate">{{ p.local.bandera }} {{ p.local.nombre }}</span>
+                    <span class="text-truncate">{{ m.bandera(p.local.bandera) }} {{ p.local.nombre }}</span>
                     <span class="fw-bold text-nowrap">{{ p.local.goles }} - {{ p.visitante.goles }}</span>
-                    <span class="text-truncate text-end">{{ p.visitante.nombre }} {{ p.visitante.bandera }}</span>
+                    <span class="text-truncate text-end">{{ p.visitante.nombre }} {{ m.bandera(p.visitante.bandera) }}</span>
                 </div>
                 <small class="text-muted">{{ p.fase }} · {{ p.fecha }} · <span class="{{ 'text-accent' if p.es_central }}">{{ p.rol }}</span>{% if p.es_central %} · {{ p.faltas }} faltas · {{ p.tarjetas }} tarjetas{% endif %}</small>
             </a>

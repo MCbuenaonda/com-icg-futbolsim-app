@@ -4,11 +4,50 @@
   {{ m.estado_vacio('bi-inbox', 'Título', 'Texto opcional') }}.
 #}
 
-{# Bandera de un país: emoji, ícono de Bootstrap ('bi-...') o un ícono genérico si falta #}
-{% macro bandera(valor) -%}
-{%- if valor -%}
+{#
+  Bandera de un país: la imagen del bucket (services/imagenes_pais_service.py; el país sale del
+  emoji o se pasa en 'pais_id'), si no el emoji, un ícono de Bootstrap ('bi-...') o un ícono
+  genérico. Si la imagen no carga, se reemplaza por el emoji.
+  La imagen mide en 'em', así que toma el tamaño de letra del contenedor (fs-1, display-3...)
+  igual que el emoji. 'tipo' = bandera | escudo | icono | jersey.
+#}
+{% macro bandera(valor, tipo='bandera', pais_id=None, titulo='', clase='') -%}
+{%- set url = img_pais(pais_id or pais_id_por_bandera(valor), tipo) -%}
+{%- if url -%}<img src="{{ url }}" class="img-pais img-pais--{{ tipo }} {{ clase }}" alt="{{ titulo }}" {% if titulo %}title="{{ titulo }}"{% endif %} data-emoji="{{ valor if valor and not valor.startswith('bi-') else '' }}" loading="lazy" decoding="async" onerror="this.replaceWith(document.createTextNode(this.dataset.emoji || ''))">
+{%- elif valor -%}
   {%- if valor.startswith('bi-') %}<i class="bi {{ valor }}" aria-hidden="true"></i>{% else %}{{ valor }}{% endif -%}
 {%- else -%}<i class="bi bi-flag-fill text-secondary" aria-hidden="true"></i>{%- endif -%}
+{%- endmacro %}
+
+{#
+  Avatar ilustrado de un jugador (SVG transparente del bucket) sobre la bandera de su país como marca
+  de agua (la pone el CSS con --bandera-url: no se descarga nada extra por jugador). tam: '' | 'sm' | 'lg'.
+  Si el jugador no tiene avatar o la imagen falla, queda solo el círculo con la bandera.
+#}
+{% macro avatar(jugador_id, pais_id=None, tam='', titulo='') -%}
+{%- set url = img_avatar(jugador_id) -%}
+{%- set bandera = img_pais(pais_id, 'bandera') if pais_id else None -%}
+<span class="avatar-jugador {{ 'avatar-jugador--' ~ tam if tam }}" {% if bandera %}style="--bandera-url: url('{{ bandera }}')"{% endif %} {% if titulo %}title="{{ titulo }}"{% endif %}>
+  {%- if url %}<img src="{{ url }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">{% else %}<i class="bi bi-person-fill"></i>{% endif -%}
+</span>
+{%- endmacro %}
+
+{# Avatar de un árbitro por NOMBRE (los partidos solo guardan el nombre): mismo contenedor que el de jugador #}
+{% macro avatar_arbitro(nombre, tam='', titulo='') -%}
+{%- set a = datos_arbitro(nombre) -%}
+{%- set bandera = img_pais(a.pais_id, 'bandera') if a.pais_id else None -%}
+<span class="avatar-jugador {{ 'avatar-jugador--' ~ tam if tam }}" {% if bandera %}style="--bandera-url: url('{{ bandera }}')"{% endif %} {% if titulo %}title="{{ titulo }}"{% endif %}>
+  {%- if a.url %}<img src="{{ a.url }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">{% else %}<i class="bi bi-person-badge"></i>{% endif -%}
+</span>
+{%- endmacro %}
+
+{#
+  Marca de agua de la bandera del país (ícono redondo, 256 px) para tarjetas con .card-logo-fondo:
+  va como primer hijo de la tarjeta, detrás del contenido.
+#}
+{% macro fondo_bandera(pais_id) -%}
+{%- set url = img_pais(pais_id, 'icono') if pais_id else None -%}
+{%- if url %}<img src="{{ url }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo card-logo-fondo__logo--bandera" onerror="this.remove()">{% endif -%}
 {%- endmacro %}
 
 {# Badge de confederación con un color fijo por confederación (mismo criterio en todo el sitio) #}

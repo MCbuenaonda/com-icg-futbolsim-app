@@ -4,10 +4,12 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from services.estadisticas_service import obtener_estadisticas_generales
 from services.auth_service import context_usuario_actual
+from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 import uuid
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 route = APIRouter(prefix='/estadisticas')
 tag='Mundial'
 

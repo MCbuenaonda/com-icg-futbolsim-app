@@ -36,3 +36,8 @@ Thumbs.db
 
 # Dump de datos de depuración (partido real exportado para análisis)
 juego.json
+
+# Imágenes de selección: se sirven desde el bucket gs://com-icg-mundial (IMAGENES_PAISES_URL);
+# la copia local y el dump SQL de donde se extrajeron no van al repo
+static/img/paises/
+data_base64

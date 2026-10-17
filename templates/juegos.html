@@ -156,7 +156,12 @@
                     <!-- Ubicación y Estadio -->
                     {% if juego.ubicacion %}
                     <div class="bg-body-tertiary p-2 rounded-2 fs-7 text-muted border border-light-subtle d-flex align-items-center gap-2 mt-2">
+                        {% set img_juego = img_estadio(juego.ubicacion.id) %}
+                        {% if img_juego %}
+                        <div class="estadio-ilustracion estadio-ilustracion--mini"><img src="{{ img_juego }}" alt="" loading="lazy" decoding="async" onerror="this.parentNode.remove()"></div>
+                        {% else %}
                         <i class="bi bi-geo-alt-fill text-danger fs-6"></i>
+                        {% endif %}
                         <div class="text-truncate">
                             <strong class="text-body-emphasis">{{ juego.ubicacion.estadio }}</strong> 
                             <span class="d-block fs-8">{{ juego.ubicacion.nombre }}, {{ juego.ubicacion.pais }}</span>

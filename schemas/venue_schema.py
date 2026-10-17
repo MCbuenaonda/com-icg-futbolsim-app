@@ -24,6 +24,7 @@ class CiudadDisponibleOut(BaseModel):
     costo: int
     tiene_dueno: bool
     es_mia: bool = False
+    estadio_img: Optional[str] = None  # ilustración del estadio (bucket estadios/, ver generar_estadios.py)
 
 
 # ==========================================

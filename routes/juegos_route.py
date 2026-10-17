@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from services.juegos_service import obtener_juegos_programados, obtener_juego_activo, obtener_juegos_calendario, resaltar_jugadores_en_descripcion
 from services.auth_service import context_usuario_actual, obtener_usuario_actual, tiene_permiso
+from services.imagenes_pais_service import GLOBALES_JINJA
 from services.juego_en_vivo_service import sesiones_pendientes_usuario
 from config.settings import PREFIX_JUEGOS_PATH
 from pymongo.mongo_client import MongoClient
@@ -17,6 +18,7 @@ from urllib.parse import urlencode
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 templates.env.filters["resaltar_jugadores"] = resaltar_jugadores_en_descripcion
 route = APIRouter(prefix=PREFIX_JUEGOS_PATH, tags=["Juegos"])
 tag='Mundial'

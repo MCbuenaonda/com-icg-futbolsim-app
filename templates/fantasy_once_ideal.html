@@ -257,10 +257,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     html += `
                         <div class="col-12 col-sm-6">
                             <div class="surface-soft p-2 d-flex justify-content-between align-items-center">
-                                <div>
+                                <div class="d-flex align-items-center gap-2 min-w-0">
+                                <span class="position-relative flex-shrink-0">${UI.avatar(jugador.id, jugador.pais_id)}<span class="avatar-dorsal">${UI.escapar(jugador.numero ?? '')}</span></span>
+                                <div class="min-w-0">
                                     <div class="fw-semibold small">${UI.escapar(jugador.nombre)} <span class="text-muted">(${slot.siglas})</span></div>
                                     <div class="text-muted" style="font-size: 0.75rem;">${UI.escapar(jugador.pais_nombre)} · OVR ${jugador.overall}</div>
                                     ${indicadorDesempeno}
+                                </div>
                                 </div>
                                 <button type="button" class="btn btn-sm btn-outline-danger btn-quitar" data-posicion-id="${slot.id}" aria-label="Quitar a ${UI.escapar(jugador.nombre)}" title="Quitar">
                                     <i class="bi bi-x-lg"></i>
@@ -349,8 +352,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const aviso = posicionCubierta ? '<div class="text-warning" style="font-size: .7rem;"><i class="bi bi-exclamation-circle me-1"></i>Posición ya cubierta — click para reemplazar</div>' : '';
             return `
                 <button type="button" class="list-group-item ${clases} btn-agregar-jugador" data-indice="${indice}">
-                    <div class="d-flex justify-content-between">
-                        <span>${UI.escapar(j.nombre)} <span class="text-muted small">(${UI.escapar(j.posicion_nombre)} · ${UI.escapar(j.posicion_siglas)})</span></span>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="d-flex align-items-center gap-2"><span class="position-relative flex-shrink-0">${UI.avatar(j.id, j.pais_id, 'sm')}<span class="avatar-dorsal">${UI.escapar(j.numero ?? '')}</span></span><span>${UI.escapar(j.nombre)} <span class="text-muted small">(${UI.escapar(j.posicion_nombre)} · ${UI.escapar(j.posicion_siglas)})</span></span></span>
                         <span class="text-muted small">${UI.escapar(j.pais_nombre)} · OVR ${j.overall}</span>
                     </div>
                     ${aviso}

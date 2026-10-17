@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Cuadro de Eliminación - FutbolSim{% endblock %}
 
@@ -30,7 +31,7 @@
     {% if cuadro.campeon %}
     <div class="stat-card px-3 py-2 d-flex align-items-center gap-2 border-accent">
         <span class="fs-2">🏆</span>
-        <div><small class="text-muted d-block">Campeón</small><span class="fw-bold text-accent">{{ cuadro.campeon.bandera }} {{ cuadro.campeon.nombre }}</span></div>
+        <div><small class="text-muted d-block">Campeón</small><span class="fw-bold text-accent">{{ m.bandera(cuadro.campeon.bandera) }} {{ cuadro.campeon.nombre }}</span></div>
     </div>
     {% endif %}
 </div>
@@ -45,7 +46,7 @@
 {% macro equipo_llave(equipo, ganador_id, pendiente_texto=None) %}
 <div class="llave-equipo {{ 'llave-equipo--ganador' if ganador_id is not none and equipo and equipo.id == ganador_id }}">
     {% if equipo and equipo.nombre %}
-    <span title="{{ equipo.nombre }}">{{ equipo.bandera }} {{ equipo.nombre }}</span>
+    <span title="{{ equipo.nombre }}">{{ m.bandera(equipo.bandera) }} {{ equipo.nombre }}</span>
     <span>{{ equipo.goles if equipo.goles is not none else '' }}</span>
     {% else %}
     <span>{{ pendiente_texto or 'Por definir' }}</span><span></span>

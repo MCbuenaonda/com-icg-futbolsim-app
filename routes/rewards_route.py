@@ -8,9 +8,11 @@ from schemas.rewards_schema import (
 from services.rewards_service import check_in, claim_bankruptcy_rescue, obtener_daily_status
 from services.trivia_service import generate_dynamic_trivia, validate_trivia_answers
 from services.auth_service import obtener_usuario_actual, context_usuario_actual
+from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 
 # API JSON — Daily Check-in / Beca de Emergencia (contrato tal cual se pidió: /rewards/...)
 route_rewards = APIRouter(prefix="/rewards", tags=["Rewards"])

@@ -303,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function canchaXaSvg(x) { return (x / 100) * 105; }
 
     // ---------------------------------------------------------------------------------------
-    // Jugadores en la Cancha en Vivo: 22 fichas (círculo con el dorsal) que se reacomodan con
+    // Jugadores en la Cancha en Vivo: 22 fichas (jersey de la selección con el dorsal) que se reacomodan con
     // cada evento revelado. No hay posiciones reales de jugadores en el motor (trabaja por zonas),
     // así que es una coreografía derivada de los datos que sí existen: la formación de cada
     // equipo (lineas_* de /matches/live/plantillas, alineadas con titulares_*), la zona y la
@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // para que se lea el dorsal de cada una. Unas pocas pasadas de "empujar" cada par que esté a
     // menos de CANCHA_SEPARACION_MINIMA; el protagonista (sobre la pelota) no se mueve, empuja el
     // otro. x viene en % del ancho (105 m) e y en metros (68), de ahí el 1.05 para medir parejo.
-    const CANCHA_SEPARACION_MINIMA = 3.6;
+    const CANCHA_SEPARACION_MINIMA = 4.5; // la ficha (jersey) mide ~4.4 m de ancho, ver .cancha-jugador
     function separarFichas(fichas) {
         for (let pasada = 0; pasada < 8; pasada++) {
             let huboAjuste = false;
@@ -543,6 +543,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 el = document.createElement('div');
                 // Entra invisible en su lugar y aparece (sustituto o primer render del partido)
                 el.className = `cancha-jugador cancha-jugador--${f.lado} cancha-jugador--oculto`;
+                // Jersey de su selección con el dorsal encima; si la imagen no carga, queda la
+                // ficha redonda de color de equipo de siempre (cancha-jugador--sin-jersey).
+                const paisId = f.lado === 'local' ? data.id_local : data.id_visita;
+                el.innerHTML = '<img class="cancha-jugador__jersey" alt="" draggable="false"><span class="cancha-jugador__dorsal"></span>';
+                const jersey = el.querySelector('.cancha-jugador__jersey');
+                const urlJersey = paisId != null && window.UI ? UI.urlImagenPais(paisId, 'jersey') : null;
+                if (urlJersey) {
+                    jersey.addEventListener('error', () => el.classList.add('cancha-jugador--sin-jersey'), { once: true });
+                    jersey.src = urlJersey;
+                } else {
+                    el.classList.add('cancha-jugador--sin-jersey');
+                }
                 const fichaSale = esSustitucion && f.nombre === entraSust ? canchaFichas.get(`${f.lado}|${saleSust}`) : null;
                 if (fichaSale) {
                     f.x = parseFloat(fichaSale.style.left);
@@ -554,7 +566,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 canchaFichas.set(f.clave, el);
             }
             el.classList.toggle('cancha-jugador--portero', f.portero);
-            el.textContent = canchaDorsales[f.nombre] ?? '';
+            el.querySelector('.cancha-jugador__dorsal').textContent = canchaDorsales[f.nombre] ?? '';
             const posicion = canchaPlantillas[f.nombre] ? ` · ${canchaPlantillas[f.nombre]}` : '';
             el.title = `${f.nombre}${posicion}`;
 
@@ -789,7 +801,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Actualiza goles y banderas de la marca de agua; si un número cambia, "late" una vez.
     function renderMarcadorAgua(data) {
         if (!canchaMarcadorAgua) return;
-        [['Local', data.goles_local, data.bandera_local], ['Visitante', data.goles_visitante, data.bandera_visitante]].forEach(([lado, goles, bandera]) => {
+        [['Local', data.goles_local, data.bandera_local, data.id_local], ['Visitante', data.goles_visitante, data.bandera_visitante, data.id_visita]].forEach(([lado, goles, bandera, paisId]) => {
             const elGoles = document.getElementById(`canchaAguaGoles${lado}`);
             const elBandera = document.getElementById(`canchaAguaBandera${lado}`);
             const texto = String(goles ?? 0);
@@ -803,7 +815,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
             elGoles.dataset.matchId = String(data.match_id);
-            elBandera.textContent = bandera || '🏳️';
+            // Escudo de la selección (o el emoji si no hay imagen); solo se redibuja si cambió
+            const claveBandera = `${paisId}|${bandera}`;
+            if (elBandera.dataset.clave !== claveBandera) {
+                elBandera.dataset.clave = claveBandera;
+                elBandera.innerHTML = window.UI ? UI.bandera(bandera || '🏳️', { id: paisId ?? null, tipo: 'escudo' }) : (bandera || '🏳️');
+            }
         });
     }
 
@@ -1019,7 +1036,15 @@ document.addEventListener('DOMContentLoaded', function () {
         infoPartidoGrupo.innerHTML = data.grupo ? `<i class="bi bi-grid-3x3-gap-fill me-1"></i>${data.grupo}` : '';
         infoPartidoGrupo.classList.toggle('d-none', !data.grupo);
 
-        infoPartidoEstadio.innerHTML = data.estadio ? `<i class="bi bi-geo-alt-fill me-1"></i>${data.estadio}` : '';
+        // Ilustración del estadio + nombre; solo se redibuja si cambió (el polling no la hace parpadear)
+        const claveEstadio = `${data.estadio}|${data.estadio_img}`;
+        if (infoPartidoEstadio.dataset.clave !== claveEstadio) {
+            infoPartidoEstadio.dataset.clave = claveEstadio;
+            const imagen = data.estadio_img
+                ? `<span class="estadio-ilustracion estadio-ilustracion--mini d-inline-block align-middle me-2"><img src="${UI.escapar(data.estadio_img)}" alt="" decoding="async" onerror="this.parentNode.remove()"></span>`
+                : '<i class="bi bi-geo-alt-fill me-1"></i>';
+            infoPartidoEstadio.innerHTML = data.estadio ? `${imagen}${UI.escapar(data.estadio)}` : '';
+        }
         infoPartidoEstadio.classList.toggle('d-none', !data.estadio);
 
         const fechaTexto = data.fecha ? `${data.fecha}${data.hora ? ' · ' + data.hora : ''}` : '';
@@ -1094,7 +1119,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <tr data-pais-id="${e.pais_id}" class="${esProtagonista ? 'tabla-grupo-fila-protagonista' : ''}">
                     <td class="text-center fw-bold text-muted">${i + 1}</td>
                     <td>
-                        <span class="me-1">${e.bandera || ''}</span>
+                        <span class="me-1">${UI.bandera(e.bandera, { id: e.pais_id ?? null })}</span>
                         <span class="${esProtagonista ? 'fw-bold text-accent' : 'text-white'}">${e.nombre}</span>
                         <small class="text-muted">${e.siglas ? '(' + e.siglas + ')' : ''}</small>
                     </td>

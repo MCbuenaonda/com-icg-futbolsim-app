@@ -7,6 +7,7 @@ from config.settings import PREFIX_SIMULADOR_PATH, MONGODB_URI
 from services.juegos_service import obtener_juego_activo, obtener_ultimo_partido, obtener_resultado_equipo, calcular_asistencia, generar_clima_partido, guardar_aforo_clima_juego, obtener_marcador_ida_grupo_dos_equipos, obtener_historial_enfrentamientos, ejecutar_simulacion_completa, resaltar_jugadores_en_descripcion
 from services.international_service import get_pais_internacional
 from services.auth_service import context_usuario_actual, requiere_permiso, obtener_usuario_actual
+from services.imagenes_pais_service import GLOBALES_JINJA
 from services.quinielas_service import contar_selecciones_pendientes_usuario
 from services.match_badges_service import obtener_marcas_partido
 from services.fecha_service import formatear_fecha_es
@@ -18,6 +19,7 @@ import json
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 templates.env.filters["resaltar_jugadores"] = resaltar_jugadores_en_descripcion
 templates.env.filters["fecha_es"] = formatear_fecha_es
 route = APIRouter(prefix=PREFIX_SIMULADOR_PATH)

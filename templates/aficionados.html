@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Popularidad de Selecciones - FutbolSim{% endblock %}
 
@@ -33,7 +34,7 @@
                             <td class="text-muted">{{ loop.index }}</td>
                             <td>
                                 <a href="/paises/{{ fila.pais_id }}" class="text-decoration-none text-reset fw-semibold">
-                                    {{ fila.bandera }} {{ fila.nombre }}
+                                    {{ m.bandera(fila.bandera) }} {{ fila.nombre }}
                                 </a>
                             </td>
                             <td class="text-end">

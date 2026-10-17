@@ -13,11 +13,13 @@ from services.auth_service import (
     SESION_COOKIE,
     SESION_DURACION_SEGUNDOS
 )
+from services.imagenes_pais_service import GLOBALES_JINJA
 from services.account_service import obtener_resumen_cuenta
 from services.usuarios_service import GestionUsuariosError, cambiar_password_propia
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 route = APIRouter()
 tag = 'Auth'
 

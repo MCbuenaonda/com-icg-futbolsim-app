@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from services.auth_service import context_usuario_actual
+from services.imagenes_pais_service import GLOBALES_JINJA
 from services.cara_a_cara_service import listar_paises, obtener_cara_a_cara
 from services.cuadro_service import obtener_cuadro
 from services.palmares_service import obtener_palmares
@@ -18,6 +19,7 @@ from services.arbitros_service import listar_arbitros, perfil_arbitro
 from services.ranking_usuarios_service import obtener_ranking_usuarios
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 route_cara_a_cara = APIRouter(prefix="/cara-a-cara", tags=["Cara a Cara UI"])
 route_cuadro = APIRouter(prefix="/cuadro", tags=["Cuadro UI"])
 route_palmares = APIRouter(prefix="/palmares", tags=["Palmarés UI"])

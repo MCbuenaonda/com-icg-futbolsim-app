@@ -17,7 +17,7 @@ def obtener_estadisticas_generales():
     partidos = _get_stats_partidos()
     partidos.update(_obtener_records_primer_gol(juegos_records))
     partidos["sede_mas_goleadora"] = _obtener_sede_mas_goleadora(juegos_records)
-    return {
+    stats = {
         "jugadores": _get_stats_jugadores(),
         "porteros": _get_stats_porteros(),
         "arbitros": _get_stats_arbitros(),
@@ -28,6 +28,49 @@ def obtener_estadisticas_generales():
         "torneos": _get_stats_torneos(),
         "once_ideal": _get_11_ideal()
     }
+    _completar_ids_jugadores(stats)
+    return stats
+
+
+def _completar_ids_jugadores(stats: dict) -> None:
+    """
+    Agrega 'jugador_id' y 'pais_id' a cada récord de jugador de la vista de estadísticas (para el
+    avatar, la bandera de fondo y el link a /jugadores/{id}). Varios récords solo traen el nombre
+    del jugador y del país, así que se resuelven todos juntos en UNA consulta: por nombre, y si hay
+    homónimos, por el país del récord.
+    """
+    jugadores, porteros, partidos = stats["jugadores"], stats["porteros"], stats["partidos"]
+    # (registro, clave del nombre del jugador, clave del nombre del país)
+    registros = [(jugadores.get(k), "nombre", "pais") for k in (
+        "mas_goles", "mas_partidos", "mas_asistencias", "especialista_balon_parado", "super_sub", "mas_recuperaciones",
+        "especialista_aereo", "mas_amarillas", "mas_rojas", "mas_faltas", "mas_infringido")]
+    registros += [(jugadores.get("mayor_racha_goles"), "jugador", None),
+                  (porteros.get("portero_mas_atajadas"), "portero", "equipo"),
+                  (porteros.get("portero_mas_vallas_invictas"), "portero", "pais"),
+                  (porteros.get("atajapenales"), "portero", "equipo"),
+                  (partidos.get("gol_mas_rapido"), "jugador", "equipo"),
+                  (partidos.get("gol_mas_tardio"), "jugador", "equipo")]
+    registros += [(j, "jugador", "pais") for j in stats.get("once_ideal") or []]
+    registros = [(r, kn, kp) for r, kn, kp in registros if isinstance(r, dict) and r.get(kn)]
+    if not registros:
+        return
+
+    nombres = {r[kn] for r, kn, _ in registros}
+    candidatos = defaultdict(list)
+    for j in db["jugadores"].find({"nombre": {"$in": list(nombres)}}, {"_id": 0, "id": 1, "nombre": 1, "pais_id": 1}):
+        candidatos[j["nombre"]].append(j)
+    pais_por_nombre = {p["nombre"]: p["id"] for p in db["paises"].find({}, {"_id": 0, "id": 1, "nombre": 1})}
+
+    for r, kn, kp in registros:
+        opciones = candidatos.get(r[kn], [])
+        if r.get("jugador_id") is not None:
+            elegido = next((j for j in opciones if j["id"] == r["jugador_id"]), None)
+        else:
+            pais_id = r.get("pais_id") or pais_por_nombre.get(r.get(kp)) if kp else r.get("pais_id")
+            elegido = next((j for j in opciones if j["pais_id"] == pais_id), None) or (opciones[0] if len(opciones) == 1 else None)
+        if elegido:
+            r.setdefault("jugador_id", elegido["id"])
+            r.setdefault("pais_id", elegido["pais_id"])
 
 # ==========================================
 # 1. ESTADÍSTICAS DE JUGADORES Y RACHAS

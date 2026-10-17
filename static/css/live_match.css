@@ -97,6 +97,7 @@
     font-size: 12cqw;
     line-height: 1;
 }
+.cancha-marcador-agua__bandera .img-pais--escudo { height: 1em; }
 .cancha-marcador-agua__goles--cambio { animation: cancha-agua-gol 1.2s ease; }
 @keyframes cancha-agua-gol {
     0% { transform: scale(1); }
@@ -357,10 +358,17 @@
     100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0), 0 2px 4px rgba(0, 0, 0, 0.5); }
 }
 
-/* Jugadores en la Cancha en Vivo: una ficha redonda con el dorsal por jugador en cancha,
-   posicionada en left/top % (mismo sistema que el balón) -- ver renderJugadoresCancha(). Se
-   centran con la propiedad 'translate' (no 'transform') para que las animaciones puedan usar
-   'scale' sin pisar el centrado. Quedan debajo del balón (z-index 1 vs 2). */
+/* Jugadores en la Cancha en Vivo: una ficha por jugador en cancha -- el jersey de su selección
+   (bucket: <IMAGENES_PAISES_URL>/jersey/<país>.png) con el dorsal encima -- posicionada en left/top % (mismo
+   sistema que el balón), ver renderJugadoresCancha(). Se centran con la propiedad 'translate'
+   (no 'transform') para que las animaciones puedan usar 'scale' sin pisar el centrado. Quedan
+   debajo del balón (z-index 1 vs 2).
+   - Contorno por equipo (--equipo-color: azul local / rojo visita) con drop-shadow, que sigue la
+     silueta de la camiseta: distingue a los equipos aunque los dos jerseys sean parecidos.
+   - El dorsal va blanco con contorno oscuro para leerse sobre jerseys claros y oscuros; el del
+     arquero, dorado (su jersey es la misma imagen).
+   - Las animaciones (pulso, gol, tarjeta) usan 'filter: drop-shadow' sobre la ficha, que también
+     sigue la silueta (box-shadow dibujaría un cuadrado). */
 .cancha-jugadores {
     position: absolute;
     inset: 0;
@@ -368,28 +376,60 @@
     pointer-events: none;
 }
 .cancha-jugador {
+    --equipo-color: #3987e5;
     position: absolute;
-    width: 3.1%;
-    min-width: 18px;
+    width: 4.2%;
+    min-width: 24px;
     aspect-ratio: 1;
     translate: -50% -50%;
-    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(9px, 1.05vw, 13px);
-    font-weight: 800;
-    line-height: 1;
-    color: #fff;
-    border: 2px solid rgba(255, 255, 255, 0.85);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
     pointer-events: auto;
     cursor: default;
     user-select: none;
     transition: left 0.8s ease, top 0.8s ease, opacity 0.45s ease, scale 0.3s ease;
 }
-.cancha-jugador--local { background: #3987e5; }
-/* Dorsal en el listado de "Jugadores en Cancha" (mismos colores que las fichas de la cancha) */
+.cancha-jugador--visitante { --equipo-color: #e66767; }
+.cancha-jugador__jersey {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    /* Primero un filo oscuro y después el aro del color del equipo: así el aro se distingue
+       incluso sobre un jersey del mismo color (ej. visita roja con camiseta roja) */
+    filter:
+        drop-shadow(1px 0 0 rgba(0, 0, 0, 0.85)) drop-shadow(-1px 0 0 rgba(0, 0, 0, 0.85))
+        drop-shadow(0 1px 0 rgba(0, 0, 0, 0.85)) drop-shadow(0 -1px 0 rgba(0, 0, 0, 0.85))
+        drop-shadow(1.5px 0 0 var(--equipo-color)) drop-shadow(-1.5px 0 0 var(--equipo-color))
+        drop-shadow(0 1.5px 0 var(--equipo-color)) drop-shadow(0 -1.5px 0 var(--equipo-color))
+        drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
+}
+.cancha-jugador__dorsal {
+    position: relative;
+    margin-top: 6%; /* centrado en el pecho, no en el cuello */
+    font-size: clamp(9px, 1.05vw, 13px);
+    font-weight: 900;
+    line-height: 1;
+    color: #fff;
+    -webkit-text-stroke: 0.6px #000;
+    text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 0 3px rgba(0, 0, 0, 0.9);
+}
+.cancha-jugador--portero .cancha-jugador__dorsal { color: #ffc107; }
+/* Sin imagen de jersey: la ficha redonda de color de equipo de antes */
+.cancha-jugador--sin-jersey .cancha-jugador__jersey { display: none; }
+.cancha-jugador--sin-jersey {
+    width: 3.1%;
+    min-width: 18px;
+    border-radius: 50%;
+    background: var(--equipo-color);
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+}
+.cancha-jugador--sin-jersey .cancha-jugador__dorsal { margin-top: 0; -webkit-text-stroke: 0; text-shadow: none; }
+.cancha-jugador--sin-jersey.cancha-jugador--portero { border-color: #ffc107; }
+/* Dorsal en el listado de "Jugadores en Cancha" (mismos colores de equipo que las fichas) */
 .once-dorsal {
     flex: 0 0 auto;
     width: 22px;
@@ -405,10 +445,6 @@
 }
 .once-dorsal--local { background: #3987e5; }
 .once-dorsal--visitante { background: #e66767; }
-.cancha-jugador--visitante { background: #e66767; }
-/* El arquero se distingue con otro tono y borde dorado, como un uniforme distinto */
-.cancha-jugador--local.cancha-jugador--portero { background: #1d4f8c; border-color: #ffc107; }
-.cancha-jugador--visitante.cancha-jugador--portero { background: #8e2f2f; border-color: #ffc107; }
 .cancha-jugador--oculto { opacity: 0; scale: 0.4; }
 .cancha-jugador--activo {
     z-index: 3;
@@ -424,15 +460,16 @@
 .cancha-jugador--amarilla { animation: cancha-jugador-tarjeta 0.5s ease-in-out 4; --cancha-tarjeta-color: #ffc107; }
 .cancha-jugador--roja { animation: cancha-jugador-tarjeta 0.5s ease-in-out 4; --cancha-tarjeta-color: #dc3545; }
 @keyframes cancha-jugador-pulso {
-    0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.85), 0 2px 4px rgba(0, 0, 0, 0.45); }
-    100% { box-shadow: 0 0 0 12px rgba(255, 255, 255, 0), 0 2px 4px rgba(0, 0, 0, 0.45); }
+    0% { filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0.95)); }
+    40% { filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.95)); }
+    100% { filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0)); }
 }
 @keyframes cancha-jugador-gol {
-    0%, 100% { translate: -50% -50%; box-shadow: 0 0 10px 3px rgba(255, 193, 7, 0.9); }
-    50% { translate: -50% -95%; box-shadow: 0 0 18px 7px rgba(255, 193, 7, 0.6); }
+    0%, 100% { translate: -50% -50%; filter: drop-shadow(0 0 6px rgba(255, 193, 7, 0.95)); }
+    50% { translate: -50% -95%; filter: drop-shadow(0 0 12px rgba(255, 193, 7, 0.75)); }
 }
 @keyframes cancha-jugador-tarjeta {
-    0%, 100% { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45); }
-    50% { box-shadow: 0 0 0 5px var(--cancha-tarjeta-color), 0 0 14px 4px var(--cancha-tarjeta-color); }
+    0%, 100% { filter: none; }
+    50% { filter: drop-shadow(0 0 3px var(--cancha-tarjeta-color)) drop-shadow(0 0 8px var(--cancha-tarjeta-color)); }
 }
 

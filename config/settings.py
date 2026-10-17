@@ -33,3 +33,8 @@ if SECRET_KEY == "dev-secret-key-cambiar-en-produccion":
 # Cookie de sesión solo por HTTPS: activar en producción (ej. GCP detrás de HTTPS) con
 # COOKIE_SECURE=1 en el entorno o el .env. En local (http://) debe quedar desactivada.
 COOKIE_SECURE = str(config_env.get("COOKIE_SECURE", "0")).lower() in ("1", "true", "si", "yes")
+
+# Base pública de las imágenes de cada selección (bucket de Cloud Storage). Dentro hay una carpeta
+# por tipo (bandera/, escudo/, icono/, jersey/) con un archivo por país nombrado EXACTAMENTE como
+# 'paises.nombre' en Mongo (ej. bandera/Países Bajos.png). Ver services/imagenes_pais_service.py.
+IMAGENES_PAISES_URL = (config_env.get("IMAGENES_PAISES_URL") or "https://storage.googleapis.com/com-icg-mundial").rstrip("/")

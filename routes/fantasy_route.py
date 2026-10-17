@@ -12,10 +12,12 @@ from services.fantasy_service import (
 )
 from services.juegos_service import obtener_juego_activo
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
+from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 import json
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 
 # API JSON (contrato tal cual se pidió: /fantasy/lineup, /fantasy/lineup/{user_id}/{fase_id})
 route = APIRouter(prefix="/fantasy", tags=["Fantasy"])

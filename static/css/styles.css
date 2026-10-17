@@ -709,6 +709,179 @@ body {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
     color: var(--text-main);
 }
+/* Tarjeta con logo de fondo (.card-logo-fondo): fondo teñido con --logo-color, el logo/imagen como
+   marca de agua (.card-logo-fondo__logo) y, al pasar el cursor, el logo se ilumina y un destello
+   diagonal cruza la tarjeta como el brillo de una moneda (::after). La usan las cards de
+   confederación y las 4 tarjetas de resumen del inicio (home.html). --claro: logos oscuros (UEFA,
+   AFC) se dibujan como silueta blanca para que no se pierdan sobre el tema oscuro. */
+.card-logo-fondo {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    background:
+        radial-gradient(120% 90% at 100% 100%, color-mix(in srgb, var(--logo-color, var(--accent)) 28%, transparent) 0%, transparent 65%),
+        var(--bg-card);
+    border: 1px solid color-mix(in srgb, var(--logo-color, var(--accent)) 35%, var(--border-color));
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card-logo-fondo > :not(.card-logo-fondo__logo) { position: relative; z-index: 1; }
+.card-logo-fondo__logo {
+    position: absolute;
+    right: -12%;
+    bottom: -14%;
+    width: 68%;
+    max-width: 230px;
+    aspect-ratio: 1;
+    object-fit: contain;
+    z-index: 0;
+    opacity: 0.16;
+    pointer-events: none;
+    transform: rotate(-12deg);
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.35));
+    transition: opacity 0.35s ease, transform 0.5s ease, filter 0.35s ease;
+}
+.card-logo-fondo__logo--claro { filter: brightness(0) invert(1); opacity: 0.12; }
+/* La banda de luz está en el centro de una capa de 220% del ancho: de -50% a 50% cruza la card de borde a borde */
+.card-logo-fondo::after {
+    content: "";
+    position: absolute;
+    inset: -40% -60%;
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(115deg, transparent 43%, rgba(255, 255, 255, 0.08) 46.5%, rgba(255, 255, 255, 0.38) 50%, rgba(255, 236, 170, 0.18) 52.5%, transparent 56%);
+    transform: translateX(-50%);
+    opacity: 0;
+}
+.card-logo-fondo:not(.card-logo-fondo--sin-brillo):hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--logo-color, var(--accent)) 70%, #fff 10%);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4), 0 0 18px color-mix(in srgb, var(--logo-color, var(--accent)) 40%, transparent);
+}
+.card-logo-fondo:not(.card-logo-fondo--sin-brillo):hover .card-logo-fondo__logo {
+    opacity: 0.32;
+    transform: rotate(-6deg) scale(1.06);
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.45)) brightness(1.15);
+}
+.card-logo-fondo:not(.card-logo-fondo--sin-brillo):hover .card-logo-fondo__logo--claro {
+    opacity: 0.26;
+    filter: brightness(0) invert(1) drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+}
+.card-logo-fondo:not(.card-logo-fondo--sin-brillo):hover::after { animation: card-logo-fondo-brillo 1s ease-in-out; }
+@keyframes card-logo-fondo-brillo {
+    0% { transform: translateX(-50%); opacity: 1; }
+    100% { transform: translateX(50%); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .card-logo-fondo:hover::after { animation: none; }
+    .card-logo-fondo, .card-logo-fondo__logo { transition: none; }
+}
+/* Variante quieta (encabezado del inicio): mismo fondo y marca de agua, sin destello ni efecto al pasar el cursor */
+.card-logo-fondo--sin-brillo::after { display: none; }
+
+/* Encabezado del inicio (home.html): bandera del país anfitrión como marca de agua y la copa de la
+   FIFAV (bucket inicio/copa.png) junto a "Cupos definidos" */
+.hero-mundial .hero-mundial__bandera { right: -6%; bottom: auto; top: 50%; width: 42%; max-width: 420px; translate: 0 -50%; opacity: 0.17; }
+.hero-mundial__header { border-bottom: 1px solid color-mix(in srgb, var(--logo-color) 30%, transparent); }
+/* Título del torneo: lo que más resalta del inicio, en dorado como la copa */
+.hero-mundial__titulo {
+    font-size: clamp(1.4rem, 1rem + 1.4vw, 2.2rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    background: linear-gradient(100deg, #fff6cf 0%, #f2c94c 35%, #ffe9a3 55%, #c99a2e 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+.hero-mundial__titulo .bi { -webkit-text-fill-color: #f2c94c; color: #f2c94c; }
+.hero-mundial__acciones { flex-shrink: 0; }
+/* En pantallas chicas los botones bajan debajo del título y se reparten el ancho de la tarjeta */
+@media (max-width: 991.98px) {
+    .hero-mundial__acciones { width: 100%; flex-wrap: wrap; }
+    .hero-mundial__acciones > .btn { flex: 1 1 auto; white-space: nowrap; font-size: 0.9rem; padding: 0.4rem 0.75rem; }
+}
+.hero-mundial__sede { font-size: 1.05rem; font-weight: 700; color: #e2e8f0; letter-spacing: 0.02em; }
+.hero-mundial__copa {
+    height: 170px;
+    width: auto;
+    flex: 0 0 auto;
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 18px rgba(242, 201, 76, 0.35));
+}
+@media (max-width: 767.98px) {
+    .hero-mundial__copa { height: 110px; }
+    .hero-mundial .hero-mundial__bandera { width: 70%; top: auto; bottom: -18%; translate: none; }
+}
+
+/* Feed de "Últimos Partidos" del inicio: avatar con imagen (copa de la cuenta FIFAV, bandera del jugador) */
+.x-post-avatar--img { background: radial-gradient(circle at 35% 30%, #2b3a55, #141d2e); overflow: hidden; }
+.x-post-avatar--img img { width: 82%; height: 82%; object-fit: contain; }
+.x-post-avatar-sm.x-post-avatar--img img { width: 100%; height: 100%; }
+
+/* Modal "Top 10 Goleadores" del inicio: cada fila es un link al perfil del jugador, con la bandera
+   de su país de fondo a la izquierda desvaneciéndose hacia la derecha y el brillo de moneda al
+   pasar el cursor (mismo destello que .card-logo-fondo). */
+.goleador-fila {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    border-radius: 10px;
+    overflow: hidden;
+    isolation: isolate;
+    color: #f1f5f9;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.goleador-fila::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 150px;
+    z-index: -1;
+    background-image: var(--bandera-url);
+    background-repeat: no-repeat;
+    /* Poco zoom para que la bandera se reconozca: ocupa todo el ancho de esta capa (125% recorta el
+       borde brillante del PNG) y el desvanecido de la máscara cae sobre la propia bandera, sin corte */
+    background-size: 125% auto;
+    background-position: center;
+    opacity: 0.85;
+    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 25%, rgba(0, 0, 0, 0.5) 60%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 0%, #000 25%, rgba(0, 0, 0, 0.5) 60%, transparent 100%);
+}
+.goleador-fila::after {
+    content: "";
+    position: absolute;
+    inset: -60% -60%;
+    pointer-events: none;
+    /* Más intenso que en las tarjetas: la fila es baja y va sobre los colores de la bandera */
+    background: linear-gradient(115deg, transparent 44%, rgba(255, 255, 255, 0.15) 47%, rgba(255, 255, 255, 0.6) 50%, rgba(255, 236, 170, 0.28) 52%, transparent 55%);
+    transform: translateX(-50%);
+    opacity: 0;
+}
+.goleador-fila:hover, .goleador-fila:focus-visible {
+    color: #fff;
+    transform: translateX(3px);
+    border-color: rgba(245, 158, 11, 0.7);
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+}
+.goleador-fila:hover::after, .goleador-fila:focus-visible::after { animation: card-logo-fondo-brillo 1s ease-in-out; }
+.goleador-fila__pos { width: 24px; text-align: center; font-weight: 800; color: #fff; text-shadow: 0 1px 3px #000; }
+.goleador-fila__nombre { flex: 1; min-width: 0; text-align: left; font-weight: 600; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.goleador-fila__pais { display: block; font-size: 0.75rem; font-weight: 500; color: #cbd5e1; }
+.goleador-fila__goles { color: #f59e0b; font-weight: 800; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) {
+    .goleador-fila:hover::after, .goleador-fila:focus-visible::after { animation: none; }
+}
+
+/* Tarjetas de resumen (KPI) del inicio: más bajas que las de confederación, logo más chico y centrado a la derecha */
+.kpi-logo-fondo .card-logo-fondo__logo { right: -6%; bottom: auto; top: 50%; width: 46%; max-width: 150px; translate: 0 -50%; opacity: 0.2; }
+.kpi-logo-fondo:hover .card-logo-fondo__logo { opacity: 0.38; }
+
 .conf-metric-tile {
     display: flex;
     flex-direction: column;
@@ -723,3 +896,125 @@ body {
 
 /* Paginador "Mostrar más" de static/js/ui.js */
 .ui-pag-oculto { display: none !important; }
+
+/* Imágenes de selección (macro 'bandera' de partials/macros.html): miden en 'em' para tomar el
+   tamaño de letra del contenedor, igual que el emoji al que reemplazan. Los PNG de bandera son
+   cuadrados con la bandera centrada, por eso se dibujan algo más altos que una línea de texto. */
+.img-pais { display: inline-block; width: auto; vertical-align: middle; object-fit: contain; }
+.img-pais--bandera { height: 1.45em; margin: -0.2em 0; }
+.img-pais--icono { height: 1.15em; }
+.img-pais--escudo, .img-pais--jersey { height: 1.25em; }
+/* Escudo grande de encabezado (perfil de país, resumen de partido, scouter) */
+.img-pais--hero { height: 1.3em; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45)); }
+
+/* Jersey con dorsal (UI.jersey en static/js/ui.js): número blanco con contorno oscuro para que
+   se lea sobre camisetas claras y oscuras. Mismo criterio que las fichas de /en-vivo. */
+.jersey-dorsal { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 2.6rem; height: 2.6rem; flex: 0 0 auto; }
+.jersey-dorsal img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+.jersey-dorsal span { position: relative; margin-top: 8%; font-size: 0.8rem; font-weight: 900; line-height: 1; color: #fff; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
+/* Inicio: cara del jugador en los comentarios del feed y en la KPI "Goleador del Torneo" (mismo fondo
+   claro y zoom sobre el rostro que las tarjetas de estadísticas) */
+.x-post-avatar-jugador { flex: 0 0 auto; border-radius: 50%; line-height: 0; }
+.x-post-avatar-jugador .avatar-jugador { width: 36px; height: 36px; }
+.x-post-avatar-jugador .avatar-jugador,
+.avatar-jugador--kpi {
+    background: radial-gradient(circle at 50% 35%, #8fa3c4 0%, #5d7096 55%, #3c4c6d 100%);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+.x-post-avatar-jugador .avatar-jugador img,
+.avatar-jugador--kpi img { width: 138%; height: 138%; max-width: none; margin-top: -10%; }
+.x-post-avatar-jugador:hover .avatar-jugador { border-color: var(--accent); }
+.avatar-jugador--kpi { position: relative; z-index: 1; width: 3.4rem; height: 3.4rem; }
+/* En celular la KPI es angosta: la cara va arriba del nombre para que el nombre no se corte */
+@media (max-width: 575.98px) {
+    .kpi-goleador__fila { flex-direction: column; align-items: flex-start !important; gap: 0.35rem !important; }
+    .kpi-goleador__fila .avatar-jugador--kpi { width: 2.8rem; height: 2.8rem; }
+    .kpi-goleador__fila h4 { font-size: 1rem; }
+    .kpi-goleador__fila > .min-w-0 { width: 100%; }
+}
+.jersey-dorsal--sin-imagen { border-radius: 50%; background: var(--bs-secondary-bg); }
+.jersey-dorsal--sin-imagen img { display: none; }
+.jersey-dorsal--sm { width: 2rem; height: 2rem; }
+.jersey-dorsal--sm span { font-size: 0.68rem; }
+.min-w-0 { min-width: 0; }
+/* En celular las KPI van de a 2 por fila: título más chico para que "CONFEDERACIONES" no se corte a la mitad */
+@media (max-width: 575.98px) {
+    .kpi-logo-fondo .card-body { padding: 0.85rem; }
+    .kpi-logo-fondo .card-body > .text-uppercase { font-size: 0.62rem; letter-spacing: 0; }
+}
+
+/* Ilustración del estadio de una ciudad sede (SVG del bucket estadios/, ver generar_estadios.py):
+   dibujo de líneas claro sobre un fondo oscuro con un leve resplandor; proporción 16:10 */
+.estadio-ilustracion {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: radial-gradient(120% 90% at 50% 60%, #1a2742 0%, #0e1526 70%);
+    overflow: hidden;
+}
+.estadio-ilustracion img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.estadio-ilustracion--mini { width: 92px; flex: 0 0 92px; border-radius: 6px; }
+.estadio-ilustracion--resumen { max-width: 520px; margin: 0 auto; border-radius: 12px; }
+
+/* Avatar ilustrado del jugador (macro 'avatar' / UI.avatar): SVG transparente sobre la bandera de su
+   país como marca de agua (::before, --bandera-url), desvanecida hacia los bordes del círculo */
+.avatar-jugador {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    overflow: hidden;
+    isolation: isolate;
+    background: radial-gradient(circle at 50% 40%, #22304d, #121a2c);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    vertical-align: middle;
+}
+.avatar-jugador::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: var(--bandera-url);
+    background-size: cover;
+    background-position: center;
+    opacity: 0.4;
+    -webkit-mask-image: radial-gradient(circle, #000 35%, transparent 75%);
+    mask-image: radial-gradient(circle, #000 35%, transparent 75%);
+}
+.avatar-jugador img { width: 112%; height: 112%; object-fit: cover; margin-top: 12%; }
+.avatar-jugador .bi { color: #64748b; font-size: 1.4em; }
+.avatar-jugador--sm { width: 2.2rem; height: 2.2rem; }
+.avatar-jugador--lg { width: 9rem; height: 9rem; border-width: 3px; border-color: rgba(255, 255, 255, 0.2); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+/* Dorsal sobre el avatar (Once Ideal) */
+.avatar-dorsal { position: absolute; right: -4px; bottom: -2px; min-width: 1.15rem; padding: 0 3px; border-radius: 999px;
+    background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.35); color: #fff; font-size: 0.62rem; font-weight: 800; line-height: 1.1rem; text-align: center; }
+
+/* Tarjetas de jugador de la vista de estadísticas: avatar del jugador + la bandera de su país como
+   marca de agua (macro fondo_bandera) sobre .card-logo-fondo (fondo teñido y brillo de moneda) */
+.card-jugador { border-radius: 12px; }
+.card-jugador .card-logo-fondo__logo--bandera { right: -10%; bottom: auto; top: 50%; translate: 0 -50%; width: 52%; max-width: 160px; opacity: 0.22; }
+.card-jugador:not(.card-logo-fondo--sin-brillo):hover .card-logo-fondo__logo--bandera { opacity: 0.4; }
+.avatar-jugador--md { width: 4rem; height: 4rem; }
+/* Once ideal: tarjeta vertical con el avatar arriba */
+.card-jugador--once { text-align: center; color: inherit; text-decoration: none; }
+.card-jugador--once .card-logo-fondo__logo--bandera { right: auto; left: 50%; top: 4%; translate: -50% 0; width: 78%; opacity: 0.2; }
+.card-jugador--once:hover { color: inherit; }
+/* Distribución de las tarjetas de jugador horizontales: título + número arriba (a lo ancho) y debajo el
+   avatar con nombre/país al lado. Con 'display: contents' el bloque de texto reparte sus hijos en la
+   grilla, así el mismo HTML sirve en tarjetas angostas (5 por fila) y anchas. */
+.card-jugador.d-flex { display: grid !important; grid-template-columns: auto 1fr auto; column-gap: 0.9rem; row-gap: 0.1rem; align-content: start; }
+.card-jugador.d-flex > .flex-grow-1 { display: contents; }
+.card-jugador.d-flex > .flex-grow-1 > * { position: relative; z-index: 1; grid-column: 2 / 4; }
+.card-jugador.d-flex > .flex-grow-1 > :first-child { grid-column: 1 / 3; grid-row: 1; margin-bottom: 0.55rem; line-height: 1.25; }
+.card-jugador.d-flex > .avatar-jugador { grid-column: 1; grid-row: 2 / span 4; align-self: start; }
+.card-jugador.d-flex > .badge { grid-column: 3; grid-row: 1; justify-self: end; align-self: start; }
+/* Avatar en las tarjetas de estadísticas: fondo más claro (resalta al jugador sobre la tarjeta oscura)
+   y zoom sobre la cara (el SVG trae el busto completo; se agranda y se baja para centrar el rostro) */
+.card-jugador .avatar-jugador {
+    background: radial-gradient(circle at 50% 35%, #8fa3c4 0%, #5d7096 55%, #3c4c6d 100%);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+.card-jugador .avatar-jugador img { width: 138%; height: 138%; max-width: none; margin-top: -10%; }

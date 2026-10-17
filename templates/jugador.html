@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}{{ jugador.nombre }} (#{{ jugador.numero }}) - Ficha Técnica{% endblock %}
 
@@ -19,9 +20,7 @@
 
             <div class="row align-items-center position-relative z-1">
                 <div class="col-auto">
-                    <div class="bg-success bg-opacity-25 border border-success p-3 rounded-circle text-success text-center" style="width: 80px; height: 80px;">
-                        <i class="bi bi-person-badge fs-1"></i>
-                    </div>
+                    {{ m.avatar(jugador.id, jugador.pais_id, 'lg', jugador.nombre) }}
                 </div>
                 <div class="col">
                     <div class="d-flex align-items-center gap-2 mb-1">
@@ -206,7 +205,7 @@
                         <tr>
                             <td class="text-nowrap small">{{ p.fecha }}</td>
                             <td class="small text-muted">{{ p.fase }}</td>
-                            <td><a href="/juegos/{{ p.id }}" class="link-light text-decoration-none">{{ 'vs' if p.local else 'en' }} {{ p.rival.bandera }} {{ p.rival.nombre }}</a></td>
+                            <td><a href="/juegos/{{ p.id }}" class="link-light text-decoration-none">{{ 'vs' if p.local else 'en' }} {{ m.bandera(p.rival.bandera) }} {{ p.rival.nombre }}</a></td>
                             <td class="text-center text-nowrap">
                                 <span class="badge {{ {'V': 'bg-success', 'E': 'bg-secondary', 'D': 'bg-danger'}[p.resultado] }}" title="{{ {'V': 'Victoria', 'E': 'Empate', 'D': 'Derrota'}[p.resultado] }}">{{ {'V': 'G', 'E': 'E', 'D': 'P'}[p.resultado] }}</span>
                                 <span class="fw-bold ms-1">{{ p.marcador }}</span>

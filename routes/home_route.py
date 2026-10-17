@@ -7,10 +7,12 @@ from services.mundial_service import crear_nuevo_mundial, restart_mundial, get_d
 from services.juegos_service import get_data_dashboard_last_games, get_data_fase_actual_dashboard, get_data_clasificados_mundial, formatear_numero_compacto, ICONO_ESTADO_ANIMO
 from services.confederacion_service import get_data_confederaciones_dashboard
 from services.auth_service import context_usuario_actual, requiere_permiso
+from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 import uuid
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 templates.env.filters["numero_compacto"] = formatear_numero_compacto
 templates.env.filters["ordinal_torneo"] = formatear_ordinal_torneo
 # Diccionario estado_animo -> ícono, expuesto como global (no filtro) para poder usar

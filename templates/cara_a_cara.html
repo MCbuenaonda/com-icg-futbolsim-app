@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Cara a Cara - FutbolSim{% endblock %}
 
@@ -37,7 +38,7 @@
     {% if h2h.total == 0 %}
     <div class="stat-card p-5 text-center">
         <div class="display-5 mb-2">🤝</div>
-        <h2 class="h5 text-white fw-bold">{{ h2h.a.bandera }} {{ h2h.a.nombre }} y {{ h2h.b.bandera }} {{ h2h.b.nombre }} todavía no se enfrentaron</h2>
+        <h2 class="h5 text-white fw-bold">{{ m.bandera(h2h.a.bandera) }} {{ h2h.a.nombre }} y {{ m.bandera(h2h.b.bandera) }} {{ h2h.b.nombre }} todavía no se enfrentaron</h2>
         <p class="text-muted mb-0">Cuando jueguen, su historial va a aparecer acá.</p>
     </div>
     {% else %}
@@ -50,9 +51,9 @@
                 {% for p in h2h.partidos %}
                 <a href="/juegos/{{ p.id }}" class="d-block text-decoration-none text-reset surface-soft p-2 px-3 mb-2">
                     <div class="d-flex justify-content-between align-items-center gap-2">
-                        <span class="text-truncate {{ 'fw-bold text-accent' if p.ganador_id == p.local.id }}">{{ p.local.bandera }} {{ p.local.nombre }}</span>
+                        <span class="text-truncate {{ 'fw-bold text-accent' if p.ganador_id == p.local.id }}">{{ m.bandera(p.local.bandera) }} {{ p.local.nombre }}</span>
                         <span class="fw-bold text-nowrap">{{ p.local.goles }} - {{ p.visitante.goles }}{% if p.penales %} <small class="text-muted">({{ p.penales }} pen.)</small>{% endif %}</span>
-                        <span class="text-truncate text-end {{ 'fw-bold text-accent' if p.ganador_id == p.visitante.id }}">{{ p.visitante.nombre }} {{ p.visitante.bandera }}</span>
+                        <span class="text-truncate text-end {{ 'fw-bold text-accent' if p.ganador_id == p.visitante.id }}">{{ p.visitante.nombre }} {{ m.bandera(p.visitante.bandera) }}</span>
                     </div>
                     <small class="text-muted">{{ p.fase }}{% if p.anio_mundial %} · Mundial {{ p.anio_mundial }}{% endif %}{% if p.fecha %} · {{ p.fecha }}{% endif %}</small>
                 </a>
@@ -64,7 +65,7 @@
             <a href="/juegos/{{ mg.id }}" class="text-decoration-none text-reset">
                 <div class="stat-card card-hover p-3">
                     <small class="text-secondary text-uppercase fw-semibold">💥 Mayor goleada</small>
-                    <div class="fw-bold text-white mt-1">{{ mg.local.bandera }} {{ mg.local.nombre }} {{ mg.local.goles }} - {{ mg.visitante.goles }} {{ mg.visitante.nombre }} {{ mg.visitante.bandera }}</div>
+                    <div class="fw-bold text-white mt-1">{{ m.bandera(mg.local.bandera) }} {{ mg.local.nombre }} {{ mg.local.goles }} - {{ mg.visitante.goles }} {{ mg.visitante.nombre }} {{ m.bandera(mg.visitante.bandera) }}</div>
                     <small class="text-muted">{{ mg.fase }} · diferencia de {{ mg.diferencia }}</small>
                 </div>
             </a>

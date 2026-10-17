@@ -5,12 +5,14 @@ from fastapi.templating import Jinja2Templates
 from services.paises_service import get_paises, get_pais, obtener_trayectoria_pais
 from services.fanbase_service import obtener_historial_aficionados_pais, AFICIONADOS_INICIAL
 from services.auth_service import context_usuario_actual
+from services.imagenes_pais_service import GLOBALES_JINJA
 from config.settings import PREFIX_PAISES_PATH
 import logging
 import uuid
 import json
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 route = APIRouter(prefix=PREFIX_PAISES_PATH)
 tag='Mundial'
 

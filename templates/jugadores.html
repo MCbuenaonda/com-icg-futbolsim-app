@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Plantilla de Jugadores - FutbolSim{% endblock %}
 
@@ -69,8 +70,9 @@
                 </span>
 
                 <!-- Header de Tarjeta: Overall y Nombre -->
-                <div class="d-flex justify-content-between align-items-start mb-3 position-relative z-1">
-                    <div>
+                <div class="d-flex justify-content-between align-items-start mb-3 position-relative z-1 gap-2">
+                    {{ m.avatar(j.id, j.pais_id) }}
+                    <div class="flex-grow-1 min-w-0">
                         <span class="badge bg-success-subtle text-success border border-success-subtle mb-1 fs-8">
                             {{ j.posicion }}
                         </span>

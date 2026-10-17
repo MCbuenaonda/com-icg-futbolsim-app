@@ -5,9 +5,11 @@ from fastapi.templating import Jinja2Templates
 from schemas.fanbase_schema import PaisFanbaseOut
 from services.fanbase_service import obtener_ranking_aficionados
 from services.auth_service import context_usuario_actual
+from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 
 # API JSON (contrato tal cual se pidió: GET /countries/fanbase-ranking)
 route = APIRouter(prefix="/countries", tags=["Fanbase"])

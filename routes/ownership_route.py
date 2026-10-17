@@ -6,9 +6,11 @@ from bson.errors import InvalidId
 from schemas.ownership_schema import SeleccionMercadoOut, InversionOut
 from services.ownership_service import obtener_mercado, buy_team, sell_team, obtener_portafolio
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
+from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 
 # API JSON (contrato tal cual se pidió: /ownership/buy, /ownership/sell, /ownership/my-portfolio, /ownership/market)
 route = APIRouter(prefix="/ownership", tags=["Ownership"])

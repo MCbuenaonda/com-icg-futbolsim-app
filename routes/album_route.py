@@ -5,9 +5,11 @@ from bson.errors import InvalidId
 from schemas.album_schema import PackPurchaseOut, ColeccionOut
 from services.album_service import buy_and_open_pack, obtener_coleccion_usuario, COSTO_SOBRE
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
+from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 
 # API JSON (contrato tal cual se pidió: /album/open-pack, /album/collection/{user_id})
 route = APIRouter(prefix="/album", tags=["Album"])

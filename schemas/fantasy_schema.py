@@ -32,6 +32,7 @@ class JugadorBusquedaOut(BaseModel):
     pais_id: int
     pais_nombre: str
     overall: float
+    numero: Optional[int] = None
 
 
 class DesgloseConceptoOut(BaseModel):

@@ -33,6 +33,14 @@ asignar_edad_jugadores.py
 asignar_rasgos_jugadores.py
 crear_indices.py
 seed_*.py
+extraer_imagenes_paises.py
+generar_estadios.py
+generar_avatares.py
+generar_avatares_arbitros.py
+# Dump SQL con las imágenes en base64 (ya extraídas a static/img/paises)
+data_base64
+# Copia local de las imágenes de selección (se sirven desde el bucket, ver IMAGENES_PAISES_URL)
+static/img/paises/
 
 # Docker
 Dockerfile

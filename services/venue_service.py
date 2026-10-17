@@ -36,7 +36,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo.mongo_client import MongoClient
-from config.settings import MONGODB_URI
+from config.settings import IMAGENES_PAISES_URL, MONGODB_URI
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -142,7 +142,7 @@ def buscar_ciudades_directorio(texto: str = "", usuario_id: Optional[str] = None
     """Página de resultados del Directorio de Sedes (ver _filtro_directorio), ordenada por país y ciudad."""
     ciudades = list(db['ciudades'].find(
         _filtro_directorio(texto, usuario_id, estado),
-        {"id": 1, "nombre": 1, "estadio": 1, "tipo": 1, "pais_id": 1, "pais": 1, "owner_user_id": 1}
+        {"id": 1, "nombre": 1, "estadio": 1, "tipo": 1, "pais_id": 1, "pais": 1, "owner_user_id": 1, "estadio_imagen": 1}
     ).sort([("pais", 1), ("nombre", 1)]).skip(max(0, saltar)).limit(limite))
 
     resultado = []
@@ -158,7 +158,8 @@ def buscar_ciudades_directorio(texto: str = "", usuario_id: Optional[str] = None
             "pais_nombre": c.get("pais"),
             "costo": COSTO_BASE_SEDE,
             "tiene_dueno": tiene_dueno,
-            "es_mia": tiene_dueno and usuario_id is not None and str(owner_user_id) == str(usuario_id)
+            "es_mia": tiene_dueno and usuario_id is not None and str(owner_user_id) == str(usuario_id),
+            "estadio_img": f"{IMAGENES_PAISES_URL}/{c['estadio_imagen']}" if c.get("estadio_imagen") else None,
         })
     return resultado
 

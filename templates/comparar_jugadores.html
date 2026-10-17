@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Comparar Jugadores - FutbolSim{% endblock %}
 
@@ -40,8 +41,9 @@
             <div class="stat-card card-hover p-3 h-100">
                 <div class="d-flex justify-content-between align-items-start gap-2">
                     <div style="min-width: 0;">
-                        <div class="fs-5 fw-bold text-white text-truncate">{{ f.nombre }}</div>
-                        <small class="text-muted d-block text-truncate">{{ f.bandera }} {{ f.pais }} · {{ f.posicion }}</small>
+                        {{ m.avatar(f.id, f.pais_id, 'lg', f.nombre) }}
+                        <div class="fs-5 fw-bold text-white text-truncate mt-2">{{ f.nombre }}</div>
+                        <small class="text-muted d-block text-truncate">{{ m.bandera(f.bandera) }} {{ f.pais }} · {{ f.posicion }}</small>
                         <small class="text-muted">{{ f.edad or '?' }} años · pie {{ f.pie_habil or '—' }}{% if f.numero %} · #{{ f.numero }}{% endif %}</small>
                     </div>
                     <div class="text-end flex-shrink-0">
@@ -108,7 +110,7 @@
                     if (n !== consulta) return;
                     lista.innerHTML = jugadores.length ? jugadores.map(j => `
                         <button type="button" class="list-group-item list-group-item-action bg-dark text-white border-secondary" role="option" data-id="${j.id}" data-nombre="${UI.escapar(j.nombre)}">
-                            ${UI.escapar(j.bandera)} ${UI.escapar(j.nombre)} <small class="text-muted">(${UI.escapar(j.pais)} · OVR ${j.overall})</small>
+                            ${UI.avatar(j.id, j.pais_id, 'sm')} ${UI.escapar(j.nombre)} <small class="text-muted">(${UI.escapar(j.pais)} · OVR ${j.overall})</small>
                         </button>`).join('') : '<div class="list-group-item bg-dark text-muted border-secondary small">Sin resultados</div>';
                     input.setAttribute('aria-expanded', 'true');
                 } catch (e) { lista.innerHTML = '<div class="list-group-item bg-dark text-danger border-secondary small">No se pudo buscar</div>'; }

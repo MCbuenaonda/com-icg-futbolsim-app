@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}{{ pais.nombre }} ({{ pais.siglas }}) - Ficha Técnica{% endblock %}
 
@@ -19,7 +20,7 @@
 
             <div class="row align-items-center position-relative z-1">
                 <div class="col-auto">
-                    <span class="display-1">{{ pais.bandera }}</span>
+                    <span class="display-1">{{ m.bandera(pais.bandera, tipo='escudo', clase='img-pais--hero') }}</span>
                 </div>
                 <div class="col">
                     <div class="d-flex align-items-center gap-2 mb-1">
@@ -357,10 +358,12 @@
                         <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
                             {% for ciudad in pais.ciudades %}
                             <div class="col">
-                                <div class="p-3 bg-dark rounded-3 border border-secondary border-opacity-25 h-100 d-flex flex-column justify-content-between position-relative overflow-hidden">
-                                    
-                                    <!-- Icono de fondo decorativo -->
-                                    <i class="bi bi-building position-absolute top-0 end-0 me-2 mt-1 display-6 text-white opacity-10 user-select-none"></i>
+                                <div class="bg-dark rounded-3 border border-secondary border-opacity-25 h-100 d-flex flex-column position-relative overflow-hidden">
+                                    {% set img_ciudad = img_estadio(ciudad.id) %}
+                                    {% if img_ciudad %}
+                                    <div class="estadio-ilustracion"><img src="{{ img_ciudad }}" alt="Estadio de {{ ciudad.nombre }}" loading="lazy" decoding="async" onerror="this.parentNode.remove()"></div>
+                                    {% endif %}
+                                    <div class="p-3 d-flex flex-column justify-content-between flex-grow-1">
 
                                     <div class="position-relative z-1">
                                         <div class="d-flex align-items-center gap-2 mb-1">
@@ -381,6 +384,7 @@
                                         <span class="fw-bold text-info fs-7 text-truncate d-block" title="{{ ciudad.estadio }}">
                                             {{ ciudad.estadio }}
                                         </span>
+                                    </div>
                                     </div>
 
                                 </div>

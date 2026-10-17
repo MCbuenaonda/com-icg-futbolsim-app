@@ -9,9 +9,11 @@ from services.venue_service import (
     buy_city_venue, sell_city_venue, obtener_portafolio_sedes
 )
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
+from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 
 # API JSON (contrato tal cual se pidió: /venues/buy, /venues/sell, /venues/my-portfolio, /venues/available)
 route = APIRouter(prefix="/venues", tags=["Venues"])

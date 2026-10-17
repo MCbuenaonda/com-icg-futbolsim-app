@@ -15,12 +15,14 @@ from services.quinielas_service import (
 )
 from services.juegos_service import obtener_juegos_programados
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
+from services.imagenes_pais_service import GLOBALES_JINJA
 import certifi
 import logging
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 
 # API JSON (contrato tal cual se definió: /pools/configs, /pools/tickets, /pools/tickets/user/{user_id})
 route = APIRouter(prefix="/pools", tags=["Quinielas"])

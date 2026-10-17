@@ -6,6 +6,13 @@
  *                                        (reemplaza al confirm() nativo del navegador)
  *   UI.refrescarSaldo()               -> vuelve a pedir el saldo y actualiza la pill del navbar
  *   UI.alerta(contenedor, mensaje, tipo) -> alerta Bootstrap descartable dentro de 'contenedor'
+ *   UI.bandera(emoji, {tipo, id, clase}) -> HTML de la imagen del país (bandera/escudo/icono/jersey)
+ *                                        o el emoji escapado si no hay imagen; mismo criterio que
+ *                                        el macro 'bandera' de templates/partials/macros.html
+ *   UI.urlImagenPais(id, tipo)        -> URL de la imagen en el bucket (null si el país no se conoce)
+ *   UI.jersey(paisId, numero)         -> jersey de la selección con el dorsal encima (.jersey-dorsal)
+ *   UI.avatar(jugadorId, paisId, tam) -> avatar ilustrado del jugador sobre su bandera (.avatar-jugador),
+ *                                        mismo criterio que el macro 'avatar' de partials/macros.html
  *
  * Además, al cargar: toda tarjeta clicable con role="button" se vuelve accesible por teclado
  * (tabindex + Enter/Espacio), y los botones de solo ícono heredan su 'title' como aria-label.
@@ -13,6 +20,40 @@
 (function () {
     function escapar(texto) {
         return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // ---------- Imágenes de selección ----------
+    // Vienen del bucket público (window.PAISES_IMG, lo arma base.html desde
+    // services/imagenes_pais_service.py): <base>/<tipo>/<nombre del país>.png. Si el país no se
+    // conoce, o la imagen no carga, se muestra el emoji.
+    function urlImagenPais(id, tipo = 'bandera') {
+        const datos = window.PAISES_IMG || {};
+        const nombre = (datos.porId || {})[String(id)];
+        return nombre && datos.base ? `${datos.base}/${tipo}/${encodeURIComponent(nombre)}.png` : null;
+    }
+    // Si la imagen falla, la reemplaza por el emoji guardado en data-emoji
+    const ON_ERROR_EMOJI = "this.replaceWith(document.createTextNode(this.dataset.emoji || ''))";
+    function bandera(emoji, { tipo = 'bandera', id = null, clase = '' } = {}) {
+        const paisId = id ?? ((window.PAISES_IMG || {}).porBandera || {})[emoji];
+        const url = paisId != null ? urlImagenPais(paisId, tipo) : null;
+        if (!url) return escapar(emoji || '');
+        return `<img src="${url}" class="img-pais img-pais--${tipo} ${escapar(clase)}" alt="" data-emoji="${escapar(emoji || '')}" loading="lazy" decoding="async" onerror="${ON_ERROR_EMOJI}">`;
+    }
+
+    function jersey(paisId, numero, clase = '') {
+        const url = paisId != null ? urlImagenPais(paisId, 'jersey') : null;
+        const img = url ? `<img src="${url}" alt="" loading="lazy" decoding="async" onerror="this.parentNode.classList.add('jersey-dorsal--sin-imagen')">` : '';
+        return `<span class="jersey-dorsal ${url ? '' : 'jersey-dorsal--sin-imagen'} ${escapar(clase)}">${img}<span>${escapar(numero ?? '')}</span></span>`;
+    }
+
+    function avatar(jugadorId, paisId = null, tam = '') {
+        const base = (window.PAISES_IMG || {}).base;
+        const bandera = paisId != null ? urlImagenPais(paisId, 'bandera') : null;
+        const fondo = bandera ? ` style="--bandera-url: url('${bandera}')"` : '';
+        const img = base && jugadorId != null
+            ? `<img src="${base}/jugadores/${encodeURIComponent(jugadorId)}.svg" alt="" loading="lazy" decoding="async" onerror="this.remove()">`
+            : '<i class="bi bi-person-fill"></i>';
+        return `<span class="avatar-jugador ${tam ? 'avatar-jugador--' + escapar(tam) : ''}"${fondo}>${img}</span>`;
     }
 
     // ---------- Modal de confirmación ----------
@@ -149,5 +190,5 @@
         if (pill && pill.dataset.monto === undefined) pill.dataset.monto = pill.textContent.replace(/[^\d]/g, '');
     });
 
-    window.UI = { escapar, confirmar, refrescarSaldo, alerta, mostrarAlertaEn, mejorarAccesibilidad, paginador };
+    window.UI = { escapar, bandera, urlImagenPais, jersey, avatar, confirmar, refrescarSaldo, alerta, mostrarAlertaEn, mejorarAccesibilidad, paginador };
 })();

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Árbitros - FutbolSim{% endblock %}
 
@@ -27,7 +28,7 @@
             <tbody>
                 {% for a in arbitros %}
                 <tr data-busqueda="{{ (a.nombre ~ ' ' ~ a.pais) | lower }}">
-                    <td><a href="{{ url_for('arbitro_perfil') }}?nombre={{ a.nombre | urlencode }}" class="link-light fw-semibold">{{ a.nombre }}</a></td>
+                    <td><div class="d-flex align-items-center gap-2">{{ m.avatar_arbitro(a.nombre, 'sm') }}<a href="{{ url_for('arbitro_perfil') }}?nombre={{ a.nombre | urlencode }}" class="link-light fw-semibold">{{ a.nombre }}</a></div></td>
                     <td class="text-muted">{{ a.pais or '—' }}</td>
                     <td class="text-center fw-bold">{{ a.partidos }}</td>
                     <td class="text-center">{{ a.faltas_prom }}</td>

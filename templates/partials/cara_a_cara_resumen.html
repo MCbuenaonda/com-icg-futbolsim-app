@@ -1,3 +1,4 @@
+{% import "partials/macros.html" as m %}
 {#
   Resumen del historial entre dos selecciones (services/cara_a_cara_service.py::obtener_cara_a_cara).
   Espera la variable 'h2h'. Lo usan /cara-a-cara/ y el Scouter pre-partido.
@@ -5,7 +6,7 @@
 <div class="stat-card p-3 p-md-4">
     <div class="row align-items-center text-center g-2">
         <div class="col-4">
-            <div class="fs-1">{{ h2h.a.bandera }}</div>
+            <div class="fs-1">{{ m.bandera(h2h.a.bandera, tipo='escudo', clase='img-pais--hero') }}</div>
             <div class="fw-bold text-white text-truncate" title="{{ h2h.a.nombre }}">{{ h2h.a.nombre }}</div>
             <div class="display-6 fw-bold text-accent">{{ h2h.a.ganados }}</div>
             <small class="text-muted">victorias</small>
@@ -17,7 +18,7 @@
             <div class="small mt-2 text-muted">Goles {{ h2h.a.goles }} - {{ h2h.b.goles }}</div>
         </div>
         <div class="col-4">
-            <div class="fs-1">{{ h2h.b.bandera }}</div>
+            <div class="fs-1">{{ m.bandera(h2h.b.bandera, tipo='escudo', clase='img-pais--hero') }}</div>
             <div class="fw-bold text-white text-truncate" title="{{ h2h.b.nombre }}">{{ h2h.b.nombre }}</div>
             <div class="display-6 fw-bold text-danger">{{ h2h.b.ganados }}</div>
             <small class="text-muted">victorias</small>

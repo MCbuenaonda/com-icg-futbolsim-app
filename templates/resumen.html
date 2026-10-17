@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Resumen: {{ partido.equipo_local.nombre }} vs {{ partido.equipo_visitante.nombre }}{% endblock %}
 
@@ -69,7 +70,7 @@
         <div class="row align-items-center my-3">
             <!-- Equipo Local -->
             <div class="col-5 col-md-4 text-end">
-                <span class="flag-huge d-block d-md-inline mb-2 mb-md-0 me-md-2">{{ partido.equipo_local.bandera }}</span>
+                <span class="flag-huge d-block d-md-inline mb-2 mb-md-0 me-md-2">{{ m.bandera(partido.equipo_local.bandera, tipo='escudo', clase='img-pais--hero') }}</span>
                 <h2 class="fw-bold d-inline text-white align-middle equipo-marcador">{{ partido.equipo_local.nombre }}</h2>
             </div>
 
@@ -86,10 +87,14 @@
             <!-- Equipo Visitante -->
             <div class="col-5 col-md-4 text-start">
                 <h2 class="fw-bold d-inline text-white align-middle me-md-2 equipo-marcador">{{ partido.equipo_visitante.nombre }}</h2>
-                <span class="flag-huge d-block d-md-inline mt-2 mt-md-0 ms-md-2">{{ partido.equipo_visitante.bandera }}</span>
+                <span class="flag-huge d-block d-md-inline mt-2 mt-md-0 ms-md-2">{{ m.bandera(partido.equipo_visitante.bandera, tipo='escudo', clase='img-pais--hero') }}</span>
             </div>
         </div>
 
+        {% set img_partido = img_estadio(partido.ubicacion.id) if partido.ubicacion else None %}
+        {% if img_partido %}
+        <div class="estadio-ilustracion estadio-ilustracion--resumen mt-3"><img src="{{ img_partido }}" alt="Estadio {{ partido.ubicacion.estadio }}" loading="lazy" decoding="async" onerror="this.parentNode.remove()"></div>
+        {% endif %}
         <div class="border-top border-secondary pt-3 mt-3 d-flex justify-content-around text-muted fs-7">
             <span>🏟️ {{ partido.ubicacion.estadio }} ({{ partido.ubicacion.nombre }})</span>
             <span>🏷️ {{ partido.tag }}</span>
@@ -131,10 +136,18 @@
                 <!-- Árbitros del Partido -->
                 <h6 class="text-uppercase text-secondary fw-bold border-top border-secondary pt-3 mb-2 fs-7">🏁 Cuerpo Arbitral</h6>
                 <div class="row g-2 text-muted fs-7">
-                    <div class="col-6"><strong>Central:</strong> {{ partido.resultado.arbitros.central }}</div>
-                    <div class="col-6"><strong>4to Árbitro:</strong> {{ partido.resultado.arbitros.cuarto }}</div>
-                    <div class="col-6"><strong>Línea 1:</strong> {{ partido.resultado.arbitros.linea1 }}</div>
-                    <div class="col-6"><strong>Línea 2:</strong> {{ partido.resultado.arbitros.linea2 }}</div>
+                    {% for clave, etiqueta in [('central', 'Central'), ('cuarto', '4to Árbitro'), ('linea1', 'Línea 1'), ('linea2', 'Línea 2')] %}
+                    {% set nombre_arbitro = partido.resultado.arbitros.get(clave) %}
+                    <div class="col-6">
+                        <div class="d-flex align-items-center gap-2 min-w-0">
+                            {{ m.avatar_arbitro(nombre_arbitro, 'sm') }}
+                            <div class="min-w-0 lh-sm">
+                                <small class="d-block text-secondary">{{ etiqueta }}</small>
+                                {% if nombre_arbitro %}<a href="{{ url_for('arbitro_perfil') }}?nombre={{ nombre_arbitro | urlencode }}" class="link-light text-decoration-none fw-semibold text-truncate d-block">{{ nombre_arbitro }}</a>{% else %}—{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>

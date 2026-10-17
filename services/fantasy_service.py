@@ -381,7 +381,8 @@ def _enriquecer_jugadores(jugadores: List[dict]) -> List[dict]:
             "posicion_siglas": datos_posicion.get("siglas", "?"),
             "pais_id": j.get("pais_id"),
             "pais_nombre": nombres_paises.get(j.get("pais_id"), "?"),
-            "overall": j.get("overall", 0)
+            "overall": j.get("overall", 0),
+            "numero": j.get("numero"),  # dorsal, para dibujar el jersey con el número
         })
     return resultado
 
@@ -398,7 +399,7 @@ def buscar_jugadores(texto: str = "", pais_id: Optional[int] = None, posicion_id
 
     jugadores = list(db['jugadores'].find(
         filtro,
-        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1}
+        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1}
     ).limit(limite))
 
     return _enriquecer_jugadores(jugadores)
@@ -410,7 +411,7 @@ def obtener_detalle_jugadores(ids: List[int]) -> List[dict]:
         return []
     jugadores = list(db['jugadores'].find(
         {"id": {"$in": ids}},
-        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1}
+        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1}
     ))
     return _enriquecer_jugadores(jugadores)
 

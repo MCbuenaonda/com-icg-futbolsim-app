@@ -34,6 +34,7 @@ from config.settings import MONGODB_URI
 from services.juegos_service import obtener_juego_activo, simular_y_registrar_resultado, aplicar_efectos_secundarios
 from services.clasificacion_service import obtener_tabla_grupo_de_equipo
 from services.fecha_service import formatear_fecha_es
+from services.imagenes_pais_service import url_estadio
 from services.simular_service import FORMACIONES
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
@@ -277,6 +278,7 @@ def obtener_estado_live() -> Optional[Dict[str, Any]]:
         "siglas_visitante": siglas_visitante,
         "grupo": grupo,
         "estadio": estadio,
+        "estadio_img": url_estadio((juego.get("ubicacion") or {}).get("id")),  # ilustración (bucket estadios/)
         "fecha": formatear_fecha_es(juego.get("fecha")) if juego.get("fecha") else None,
         "hora": juego.get("hora"),
         "aforo": juego.get("aforo"),

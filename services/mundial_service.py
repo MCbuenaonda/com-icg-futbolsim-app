@@ -57,6 +57,7 @@ def crear_nuevo_mundial() -> Dict[str, Any]:
         
         resp_mundial = {
             "pais": pais_sede["nombre"],
+            "pais_id": pais_sede["id"],  # para la bandera del anfitrión en el encabezado del inicio
             "anio": mundial_activo["anio"], 
             "_id": mundial_activo["_id"]
         }
@@ -134,6 +135,7 @@ def crear_nuevo_mundial() -> Dict[str, Any]:
     
     resp_mundial = {
         "pais": pais_sede["nombre"],
+        "pais_id": pais_sede["id"],
         "anio": nuevo_mundial_doc["anio"],
         "_id": nuevo_mundial_doc["_id"]
     }

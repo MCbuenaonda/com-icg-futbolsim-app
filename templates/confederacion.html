@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}{{ confederacion.nombre }} - Vista de Confederación{% endblock %}
 
@@ -137,7 +138,7 @@
                                                                 <!-- Nombre y Bandera -->
                                                                 <td>
                                                                     <div class="d-flex align-items-center">
-                                                                        <span class="fs-5 me-2" title="{{ pais.nombre }}">{{ pais.bandera }}</span>
+                                                                        <span class="fs-5 me-2" title="{{ pais.nombre }}">{{ m.bandera(pais.bandera) }}</span>
                                                                         <div>
                                                                             <strong class="text-white d-block lh-1">{{ pais.nombre }}</strong>
                                                                             <small class="text-muted font-monospace opacity-75">({{ pais.siglas }})</small>

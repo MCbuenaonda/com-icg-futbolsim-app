@@ -5,6 +5,7 @@ from bson.errors import InvalidId
 from typing import Dict, Any, List, Optional, Tuple
 from pymongo.database import Database
 from pymongo.mongo_client import MongoClient
+from config.eliminatorias import DESCRIPCION_FASE_CONFEDERACION, RONDAS_POR_CONFEDERACION
 from config.settings import MONGODB_URI
 from pymongo import ASCENDING, DESCENDING
 from services.simular_service import simular_partido_realista
@@ -1367,14 +1368,27 @@ def get_data_fase_actual_dashboard():
             "progreso": progreso
         }
 
-    confederacion = confederaciones_coll.find_one({"id": primer_partido["confederacion_id"]})
+    confederacion_id = primer_partido["confederacion_id"]
+    fase_id = primer_partido["fase_id"]
+    confederacion = confederaciones_coll.find_one({"id": confederacion_id})
     jornada = primer_partido["jornada"]
-    fase = fases_coll.find_one({"id": primer_partido["fase_id"]})
-    descripcion = fase["descripcion"]
+    fase = fases_coll.find_one({"id": fase_id})
+    # Texto propio de la fase en ESA confederación (cada una tiene su formato y su cantidad de
+    # rondas, ver config/eliminatorias.py); si no hay, el genérico de 'fases'.
+    descripcion = DESCRIPCION_FASE_CONFEDERACION.get((confederacion_id, fase_id)) or fase["descripcion"]
+
+    if confederacion_id == 7:
+        nombre = f"Repechaje Intercontinental - {jornada}"
+    elif confederacion_id == 8:
+        nombre = f"Copa del Mundo - {fase['nombre']} - {jornada}"
+    else:
+        nombre = f"Eliminatorias de {confederacion['region']} - {jornada}"
+    total_rondas = RONDAS_POR_CONFEDERACION.get(confederacion_id)
 
     fase_actual = {
-        "nombre": f"Eliminatorias de {confederacion['region']} - {jornada}",
+        "nombre": nombre,
         "descripcion": descripcion,
+        "ronda": f"Ronda {fase_id} de {total_rondas}" if total_rondas else None,
         "progreso": progreso
     }
     

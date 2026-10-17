@@ -242,6 +242,7 @@
             font-size: 1.15rem;
             line-height: 1;
         }
+        .live-score-badge-bandera .img-pais--bandera { height: 1.35em; margin: -0.25em 0; }
         .live-score-badge-marcador {
             color: #ffc107;
             font-weight: 800;
@@ -425,10 +426,18 @@
                     return;
                 }
 
-                elLocalBandera.textContent = data.bandera_local || '🏳️';
+                // Imagen de la bandera (o el emoji si no hay); solo se redibuja si cambió el país,
+                // para que el polling no la haga parpadear.
+                const pintarBandera = (el, emoji, id) => {
+                    const clave = `${id}|${emoji}`;
+                    if (el.dataset.clave === clave) return;
+                    el.dataset.clave = clave;
+                    el.innerHTML = window.UI ? UI.bandera(emoji || '🏳️', { id: id ?? null }) : (emoji || '🏳️');
+                };
+                pintarBandera(elLocalBandera, data.bandera_local, data.id_local);
                 elLocalSiglas.textContent = data.siglas_local || data.local;
                 elLocal.title = data.local;
-                elVisitaBandera.textContent = data.bandera_visitante || '🏳️';
+                pintarBandera(elVisitaBandera, data.bandera_visitante, data.id_visita);
                 elVisitaSiglas.textContent = data.siglas_visitante || data.visitante;
                 elVisita.title = data.visitante;
                 elMarcador.textContent = `${data.goles_local}-${data.goles_visitante}`;
@@ -471,6 +480,8 @@
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Imágenes de selección (bucket): base + emoji -> id + id -> nombre, para UI.bandera()/UI.jersey() -->
+    <script>window.PAISES_IMG = {{ mapa_banderas_json() | safe }};</script>
     <!-- Utilidades compartidas: UI.escapar, UI.confirmar (modal propio), UI.refrescarSaldo, accesibilidad -->
     <script src="{{ url_for('static', path='/js/ui.js') }}"></script>
     {% block extra_scripts %}{% endblock %}

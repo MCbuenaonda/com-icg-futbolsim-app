@@ -4,10 +4,12 @@ from fastapi.templating import Jinja2Templates
 from schemas.prematch_schema import PreMatchAnalysisResponse
 from services.prematch_service import analyze_pre_match_status
 from services.auth_service import context_usuario_actual
+from services.imagenes_pais_service import GLOBALES_JINJA
 from services.cara_a_cara_service import obtener_cara_a_cara
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 
 # API JSON (contrato tal cual se pidió: GET /matches/pre-match-analysis/{match_id})
 route = APIRouter(prefix="/matches", tags=["Pre-Match Scouter"])

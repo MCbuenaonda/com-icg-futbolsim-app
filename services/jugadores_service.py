@@ -425,7 +425,7 @@ def obtener_top_goleadores(limite: int = 10) -> List[Dict[str, Any]]:
     top = list(
         jugadores_coll.find(
             {"goles": {"$gt": 0}},
-            {"_id": 0, "nombre": 1, "pais_id": 1, "goles": 1}
+            {"_id": 0, "id": 1, "nombre": 1, "pais_id": 1, "goles": 1}  # 'id': link a /jugadores/{id} desde el modal
         ).sort("goles", -1).limit(limite)
     )
 

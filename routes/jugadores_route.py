@@ -6,12 +6,14 @@ from typing import Optional
 from services.jugadores_service import get_jugadores, get_jugador
 from services.jugador_analisis_service import buscar_jugadores, comparar_jugadores, obtener_bitacora_jugador
 from services.auth_service import context_usuario_actual
+from services.imagenes_pais_service import GLOBALES_JINJA
 from config.settings import PREFIX_JUGADORES_PATH
 import logging
 import uuid
 import json
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 route = APIRouter(prefix=PREFIX_JUGADORES_PATH)
 tag='Mundial'
 

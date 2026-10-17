@@ -91,7 +91,7 @@ def buscar_jugadores(texto: str, limite: int = 15) -> List[dict]:
     for j in db["jugadores"].find({"nombre": {"$regex": re.escape(texto), "$options": "i"}},
                                   {"id": 1, "nombre": 1, "pais_id": 1, "overall": 1}).limit(limite):
         pais = paises.get(j.get("pais_id"), {})
-        resultado.append({"id": j["id"], "nombre": j.get("nombre"), "pais": pais.get("nombre", ""),
+        resultado.append({"id": j["id"], "nombre": j.get("nombre"), "pais": pais.get("nombre", ""), "pais_id": j.get("pais_id"),
                           "bandera": pais.get("bandera") or "", "overall": round(j.get("overall") or 0, 1)})
     return resultado
 
@@ -103,7 +103,7 @@ def _ficha(jugador_id: int) -> Optional[dict]:
     pais = db["paises"].find_one({"id": j.get("pais_id")}, {"nombre": 1, "bandera": 1}) or {}
     posicion = db["posiciones"].find_one({"id": j.get("posicion_id")}, {"nombre": 1}) or {}
     return {
-        "id": j["id"], "nombre": j.get("nombre"), "pais": pais.get("nombre", ""), "bandera": pais.get("bandera") or "",
+        "id": j["id"], "nombre": j.get("nombre"), "pais": pais.get("nombre", ""), "pais_id": j.get("pais_id"), "bandera": pais.get("bandera") or "",
         "posicion": posicion.get("nombre", ""), "edad": j.get("edad"), "numero": j.get("numero"),
         "overall": round(j.get("overall") or 0, 1), "rendimiento": round(j.get("rendimiento") or 0, 1),
         "pie_habil": j.get("pie_habil"),

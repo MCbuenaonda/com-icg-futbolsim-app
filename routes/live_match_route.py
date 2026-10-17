@@ -4,9 +4,11 @@ from fastapi.templating import Jinja2Templates
 from schemas.live_match_schema import StartAutoSimulationResponse, StartedMatchOut, LiveMatchOut, TablaGrupoOut, PlantillasLiveOut
 from services.live_match_service import iniciar_simulacion_automatica, obtener_estado_live, obtener_tabla_grupo_partido_en_vivo, obtener_posiciones_plantillas_en_vivo
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, requiere_permiso
+from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
+templates.env.globals.update(GLOBALES_JINJA)
 
 # API JSON (comparte el prefijo /matches con routes/prematch_route.py -- FastAPI permite
 # varios APIRouter bajo el mismo prefijo; se distinguen por 'tags' en /docs)

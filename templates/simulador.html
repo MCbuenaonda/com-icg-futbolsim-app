@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Detalle del Partido - {{ partido.local if partido else 'Simulador' }}{% endblock %}
 
@@ -359,7 +360,7 @@
                 <div class="row align-items-center mt-3">
                     <!-- Local -->
                     <div class="col-4 border-end border-secondary border-opacity-25">
-                        <div class="display-3 my-2">{{ partido.bandera_local }}</div>
+                        <div class="display-3 my-2">{{ m.bandera(partido.bandera_local, tipo='escudo', clase='img-pais--hero') }}</div>
                         <h2 class="mb-0 text-truncate fw-bold">{{ partido.local }}</h2>
                         <span class="badge bg-secondary mt-1">Ranking FIFAV: #{{ partido.stats_local.rankin if partido.stats_local else 'N/A' }}</span>
                         {% if partido.tactica_local %}
@@ -424,7 +425,7 @@
 
                     <!-- Visitante -->
                     <div class="col-4 border-start border-secondary border-opacity-25">
-                        <div class="display-3 my-2">{{ partido.bandera_visitante }}</div>
+                        <div class="display-3 my-2">{{ m.bandera(partido.bandera_visitante, tipo='escudo', clase='img-pais--hero') }}</div>
                         <h2 class="mb-0 text-truncate fw-bold">{{ partido.visitante }}</h2>
                         <span class="badge bg-secondary mt-1">Ranking FIFAV: #{{ partido.stats_visita.rankin if partido.stats_visita else 'N/A' }}</span>
                         {% if partido.tactica_visita %}
@@ -494,9 +495,9 @@
                             {% if partido.ultimo_juego_local %}
                                 <div class="d-flex align-items-center justify-content-between mt-2">
                                     <div>
-                                        <span>{{ partido.ultimo_juego_local.equipo_local.bandera }} {{ partido.ultimo_juego_local.equipo_local.nombre }}</span>
+                                        <span>{{ m.bandera(partido.ultimo_juego_local.equipo_local.bandera) }} {{ partido.ultimo_juego_local.equipo_local.nombre }}</span>
                                         <span class="fw-bold fs-5 mx-2">{{ partido.ultimo_juego_local.equipo_local.goles }} - {{ partido.ultimo_juego_local.equipo_visitante.goles }}</span>
-                                        <span>{{ partido.ultimo_juego_local.equipo_visitante.bandera }} {{ partido.ultimo_juego_local.equipo_visitante.nombre }}</span>
+                                        <span>{{ m.bandera(partido.ultimo_juego_local.equipo_visitante.bandera) }} {{ partido.ultimo_juego_local.equipo_visitante.nombre }}</span>
                                     </div>
                                     <small class="text-muted">{{ partido.ultimo_juego_local.jornada }}</small>
                                 </div>
@@ -515,9 +516,9 @@
                             {% if partido.ultimo_juego_visita %}
                                 <div class="d-flex align-items-center justify-content-between mt-2">
                                     <div>
-                                        <span>{{ partido.ultimo_juego_visita.equipo_local.bandera }} {{ partido.ultimo_juego_visita.equipo_local.nombre }}</span>
+                                        <span>{{ m.bandera(partido.ultimo_juego_visita.equipo_local.bandera) }} {{ partido.ultimo_juego_visita.equipo_local.nombre }}</span>
                                         <span class="fw-bold fs-5 mx-2">{{ partido.ultimo_juego_visita.equipo_local.goles }} - {{ partido.ultimo_juego_visita.equipo_visitante.goles }}</span>
-                                        <span>{{ partido.ultimo_juego_visita.equipo_visitante.bandera }} {{ partido.ultimo_juego_visita.equipo_visitante.nombre }}</span>
+                                        <span>{{ m.bandera(partido.ultimo_juego_visita.equipo_visitante.bandera) }} {{ partido.ultimo_juego_visita.equipo_visitante.nombre }}</span>
                                     </div>
                                     <small class="text-muted">{{ partido.ultimo_juego_visita.jornada }}</small>
                                 </div>
@@ -654,7 +655,7 @@
                     <div class="row g-2 text-center">
                         <div class="col-6">
                             <div class="surface-soft p-2">
-                                <span class="d-block small text-muted">{{ partido.bandera_local }} {{ partido.local }}</span>
+                                <span class="d-block small text-muted">{{ m.bandera(partido.bandera_local) }} {{ partido.local }}</span>
                                 <span class="fw-bold fs-5 {% if delta_aficionados.local.delta > 0 %}text-success{% elif delta_aficionados.local.delta < 0 %}text-danger{% else %}text-muted{% endif %}">
                                     {{ "+" if delta_aficionados.local.delta > 0 else "" }}{{ delta_aficionados.local.delta }}
                                 </span>
@@ -663,7 +664,7 @@
                         </div>
                         <div class="col-6">
                             <div class="surface-soft p-2">
-                                <span class="d-block small text-muted">{{ partido.bandera_visitante }} {{ partido.visitante }}</span>
+                                <span class="d-block small text-muted">{{ m.bandera(partido.bandera_visitante) }} {{ partido.visitante }}</span>
                                 <span class="fw-bold fs-5 {% if delta_aficionados.visitante.delta > 0 %}text-success{% elif delta_aficionados.visitante.delta < 0 %}text-danger{% else %}text-muted{% endif %}">
                                     {{ "+" if delta_aficionados.visitante.delta > 0 else "" }}{{ delta_aficionados.visitante.delta }}
                                 </span>
@@ -971,9 +972,9 @@ document.addEventListener('DOMContentLoaded', function () {
             return `
                 <div style="padding:8px 4px; border-bottom:1px solid rgba(255,255,255,0.08);">
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                        <span style="flex:1; text-align:right;">${p.equipo_local.nombre || '?'} ${p.equipo_local.bandera || ''}</span>
+                        <span style="flex:1; text-align:right;">${p.equipo_local.nombre || '?'} ${UI.bandera(p.equipo_local.bandera)}</span>
                         <strong style="white-space:nowrap;">${p.equipo_local.goles} - ${p.equipo_visitante.goles}</strong>
-                        <span style="flex:1; text-align:left;">${p.equipo_visitante.bandera || ''} ${p.equipo_visitante.nombre || '?'}</span>
+                        <span style="flex:1; text-align:left;">${UI.bandera(p.equipo_visitante.bandera)} ${p.equipo_visitante.nombre || '?'}</span>
                     </div>
                     <div style="text-align:center; font-size:0.75rem; color:#94a3b8; margin-top:2px;">
                         ${p.tag || ''}${p.tag && p.fecha ? ' · ' : ''}${p.fecha || ''}${penales}

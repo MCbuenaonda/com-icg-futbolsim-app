@@ -358,6 +358,15 @@ def armar_detalle_partido(juego: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # funcion para obtener todos los juegos con fecha asignada (programados y finalizados) para la vista de calendario
+# Solo lo que usa el calendario (sin resultado.eventos ni estadísticas: son ~900 partidos)
+_PROYECCION_CALENDARIO = {
+    "fecha": 1, "hora": 1, "estado": 1, "transmision.estado": 1, "tiempo_extra": 1, "tag": 1, "grupo": 1, "jornada": 1,
+    "confederacion_id": 1, "fase_id": 1, "ubicacion.estadio": 1, "ubicacion.nombre": 1,
+    **{f"{lado}.{campo}": 1 for lado in ("equipo_local", "equipo_visitante") for campo in ("id", "nombre", "siglas", "bandera", "goles")},
+}
+SIGLA_CONFEDERACION_CALENDARIO = {1: "UEFA", 2: "CONMEBOL", 3: "CONCACAF", 4: "CAF", 5: "OFC", 6: "AFC", 7: "REPECHAJE", 8: "MUNDIAL"}
+
+
 def obtener_juegos_calendario(db: Database, mundial_id: Any = None) -> List[Dict[str, Any]]:
     juegos_coll = db["juegos"]
 
@@ -366,7 +375,7 @@ def obtener_juegos_calendario(db: Database, mundial_id: Any = None) -> List[Dict
     if mundial_id:
         query["mundial_id"] = str(mundial_id)
 
-    cursor = juegos_coll.find(query).sort([("fecha", 1), ("hora", 1)])
+    cursor = juegos_coll.find(query, _PROYECCION_CALENDARIO).sort([("fecha", 1), ("hora", 1)])
 
     juegos = list(cursor)
 
@@ -374,6 +383,48 @@ def obtener_juegos_calendario(db: Database, mundial_id: Any = None) -> List[Dict
         juego["_id"] = str(juego["_id"])
 
     return juegos
+
+
+def armar_eventos_calendario(juegos: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Eventos de FullCalendar para /juegos/calendario (templates/calendario.html dibuja cada uno con las
+    banderas, siglas y marcador u hora) + los totales del encabezado. Un partido "en vivo" ya está
+    simulado (estado == "finalizado") pero todavía se está revelando: cuenta como en vivo, sin marcador.
+    """
+    nombres_fase = {f["id"]: f.get("nombre") for f in db["fases"].find({}, {"id": 1, "nombre": 1})}
+    eventos = []
+    totales = {"finalizados": 0, "pendientes": 0, "en_vivo": 0}
+    confederaciones = {}
+    for j in juegos:
+        local = j.get("equipo_local") or {}
+        visita = j.get("equipo_visitante") or {}
+        en_vivo = (j.get("transmision") or {}).get("estado") == "in_progress"
+        finalizado = j.get("estado") == "finalizado" and not en_vivo
+        estado = "en_vivo" if en_vivo else ("finalizado" if finalizado else "pendiente")
+        totales[{"en_vivo": "en_vivo", "finalizado": "finalizados", "pendiente": "pendientes"}[estado]] += 1
+        sigla_conf = SIGLA_CONFEDERACION_CALENDARIO.get(j.get("confederacion_id"), "")
+        if sigla_conf:
+            confederaciones[sigla_conf] = confederaciones.get(sigla_conf, 0) + 1
+        marcador = f"{local.get('goles', 0)} - {visita.get('goles', 0)}" if finalizado else "vs"
+        eventos.append({
+            "title": f"{local.get('siglas') or local.get('nombre', '?')} {marcador} {visita.get('siglas') or visita.get('nombre', '?')}",
+            "start": f"{j.get('fecha')}T{j.get('hora') or '00:00'}",
+            "classNames": [f"cal-evento--{estado}"],
+            "extendedProps": {
+                "id": j.get("_id"), "estado": estado, "tiempo_extra": j.get("tiempo_extra"),
+                "id_local": local.get("id"), "id_visita": visita.get("id"),
+                "local": local.get("nombre"), "visita": visita.get("nombre"),
+                "siglas_local": local.get("siglas") or local.get("nombre", "?")[:3].upper(),
+                "siglas_visita": visita.get("siglas") or visita.get("nombre", "?")[:3].upper(),
+                "bandera_local": local.get("bandera"), "bandera_visita": visita.get("bandera"),
+                "goles_local": local.get("goles", 0) if finalizado else None,
+                "goles_visita": visita.get("goles", 0) if finalizado else None,
+                "hora": j.get("hora"), "tag": j.get("tag"), "grupo": j.get("grupo"), "jornada": j.get("jornada"),
+                "confederacion": sigla_conf, "fase": nombres_fase.get(j.get("fase_id")),
+                "estadio": (j.get("ubicacion") or {}).get("estadio"), "ciudad": (j.get("ubicacion") or {}).get("nombre"),
+            },
+        })
+    return {"eventos": eventos, "totales": totales, "confederaciones": confederaciones}
 
 # funcion para registrar el resultado de un juego
 def registrar_resultado_juego(db: Database, juego_id: str, partido: dict, stats_extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

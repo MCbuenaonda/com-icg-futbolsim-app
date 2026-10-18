@@ -189,141 +189,28 @@
         </div>
     </footer>
 
-    <!-- Badge flotante de "Simulación en Vivo": se muestra en cualquier vista que NO sea /en-vivo
-         cuando hay un partido en curso, con el marcador y el minuto actualizados en tiempo real
-         (mismo patrón que el badge de "partido en vivo" de una app de resultados en el celular) -->
+    <!-- Marcador flotante de "Simulación en Vivo" (estilo zócalo de TV): se muestra en cualquier vista que
+         NO sea /en-vivo cuando hay un partido en curso, con escudos, marcador, minuto y la barra de avance
+         de la transmisión; cinta "¡GOL!" con el goleador; se puede minimizar (se recuerda en localStorage).
+         Estilos: .lsb en static/css/styles.css. -->
     {% if not request.url.path.startswith('/en-vivo') %}
-    <a id="liveScoreBadge" href="{{ url_for('live_match_view') }}" class="live-score-badge d-none">
-        <div class="live-score-badge-fila">
-            <span class="live-score-badge-dot"></span>
-            <span class="live-score-badge-equipo" id="liveScoreBadgeLocal">
-                <span class="live-score-badge-bandera">🏳️</span><span class="live-score-badge-siglas"></span>
-            </span>
-            <span class="live-score-badge-marcador" id="liveScoreBadgeMarcador">0-0</span>
-            <span class="live-score-badge-equipo" id="liveScoreBadgeVisita">
-                <span class="live-score-badge-bandera">🏳️</span><span class="live-score-badge-siglas"></span>
-            </span>
-            <span class="live-score-badge-minuto" id="liveScoreBadgeMinuto">0'</span>
-        </div>
-        <div id="liveScoreBadgeInfoExtra" class="live-score-badge-info-extra d-none">
-            <span id="liveScoreBadgeGrupo"></span><span id="liveScoreBadgeSep" class="d-none"> · </span><span id="liveScoreBadgeEstadio"></span>
-        </div>
-    </a>
-    <div id="liveGoalLine" class="live-goal-line"></div>
-    <style>
-        .live-score-badge {
-            position: fixed;
-            top: 76px; /* fallback antes de que el JS mida la altura real del navbar */
-            right: 20px;
-            z-index: 1015; /* debajo del navbar (1020): el menú del usuario abierto queda por encima */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 3px;
-            background: linear-gradient(135deg, #1a1a2e, #16161f);
-            border: 1px solid rgba(220, 53, 69, 0.5);
-            box-shadow: 0 4px 18px rgba(220, 53, 69, 0.35);
-            border-radius: 18px;
-            padding: 8px 16px;
-            color: #fff;
-            text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 600;
-            transition: box-shadow 0.15s ease;
-        }
-        .live-score-badge:hover {
-            color: #fff;
-            box-shadow: 0 4px 22px rgba(220, 53, 69, 0.55);
-        }
-        .live-score-badge-fila {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .live-score-badge-info-extra {
-            width: 100%;
-            text-align: center;
-            font-size: 0.65rem;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.55);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 220px;
-        }
-        .live-score-badge-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #dc3545;
-            animation: live-score-badge-blink 1s infinite;
-        }
-        @keyframes live-score-badge-blink {
-            50% { opacity: 0.2; }
-        }
-        .live-score-badge-equipo {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            color: rgba(255, 255, 255, 0.85);
-            cursor: default;
-        }
-        .live-score-badge-equipo .live-score-badge-bandera {
-            font-size: 1.15rem;
-            line-height: 1;
-        }
-        .live-score-badge-bandera .img-pais--bandera { height: 1.35em; margin: -0.25em 0; }
-        .live-score-badge-marcador {
-            color: #ffc107;
-            font-weight: 800;
-        }
-        .live-score-badge-minuto {
-            color: #dc3545;
-            border-left: 1px solid rgba(255, 255, 255, 0.15);
-            padding-left: 8px;
-        }
-
-        /* Línea de "¡GOL!" con el jugador que anotó + su bandera -- aparece debajo del badge
-           principal (posicionada en JS, mismo anclaje 'right' que el badge) por ~1.5s cuando se
-           revela un gol nuevo. */
-        .live-goal-line {
-            position: fixed;
-            right: 20px;
-            z-index: 1015;
-            background: linear-gradient(135deg, #1a1a2e, #16161f);
-            border: 1px solid rgba(255, 193, 7, 0.6);
-            box-shadow: 0 4px 16px rgba(255, 193, 7, 0.3);
-            border-radius: 50px;
-            padding: 6px 14px;
-            color: #fff;
-            font-size: 0.8rem;
-            font-weight: 600;
-            white-space: nowrap;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-4px);
-            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
-        }
-        .live-goal-line.live-goal-line--visible {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-        }
-
-        /* Animación de gol: flash dorado + rebote, disparada por JS cuando cambia el marcador */
-        .live-score-badge.live-score-badge-gol {
-            animation: live-score-badge-gol-pulso 1.4s ease;
-        }
-        @keyframes live-score-badge-gol-pulso {
-            0% { transform: scale(1); box-shadow: 0 4px 18px rgba(220, 53, 69, 0.35); border-color: rgba(220, 53, 69, 0.5); }
-            20% { transform: scale(1.18); box-shadow: 0 0 32px 8px rgba(255, 193, 7, 0.85); border-color: #ffc107; }
-            50% { transform: scale(1.05); box-shadow: 0 0 20px 4px rgba(255, 193, 7, 0.55); border-color: #ffc107; }
-            100% { transform: scale(1); box-shadow: 0 4px 18px rgba(220, 53, 69, 0.35); border-color: rgba(220, 53, 69, 0.5); }
-        }
-    </style>
+    <div id="liveScoreBadge" class="lsb d-none" role="region" aria-label="Partido en vivo">
+        <a class="lsb__link" href="{{ url_for('live_match_view') }}" title="Ver la transmisión en vivo">
+            <div class="lsb__top">
+                <span class="lsb__vivo"><span class="lsb__dot"></span>En vivo</span>
+                <span id="liveScoreBadgeInfoExtra" class="lsb__info d-none"><span id="liveScoreBadgeGrupo"></span><span id="liveScoreBadgeSep" class="d-none"> · </span><span id="liveScoreBadgeEstadio"></span></span>
+                <span class="lsb__minuto" id="liveScoreBadgeMinuto">0'</span>
+            </div>
+            <div class="lsb__marcador">
+                <span class="lsb__equipo" id="liveScoreBadgeLocal"><span class="live-score-badge-bandera lsb__escudo"></span><span class="live-score-badge-siglas lsb__siglas"></span></span>
+                <span class="lsb__goles" id="liveScoreBadgeMarcador"><span data-lado="local">0</span><i>-</i><span data-lado="visita">0</span></span>
+                <span class="lsb__equipo lsb__equipo--visita" id="liveScoreBadgeVisita"><span class="live-score-badge-siglas lsb__siglas"></span><span class="live-score-badge-bandera lsb__escudo"></span></span>
+            </div>
+            <div class="lsb__progreso" aria-hidden="true"><span id="liveScoreBadgeProgreso"></span></div>
+            <div id="liveGoalLine" class="lsb__gol" aria-live="assertive"></div>
+        </a>
+        <button type="button" class="lsb__min" id="liveScoreBadgeMin" title="Minimizar marcador" aria-label="Minimizar marcador"><i class="bi bi-dash-lg"></i></button>
+    </div>
     <script>
     (function () {
         const POLL_MS = 6000;
@@ -388,6 +275,11 @@
         const elVisitaBandera = elVisita.querySelector('.live-score-badge-bandera');
         const elVisitaSiglas = elVisita.querySelector('.live-score-badge-siglas');
         const elMarcador = document.getElementById('liveScoreBadgeMarcador');
+        const elGolesLocal = elMarcador.querySelector('[data-lado="local"]');
+        const elGolesVisita = elMarcador.querySelector('[data-lado="visita"]');
+        const elProgreso = document.getElementById('liveScoreBadgeProgreso');
+        const btnMin = document.getElementById('liveScoreBadgeMin');
+        const MIN_STORAGE_KEY = 'futbolsim_marcador_min';
         const elMinuto = document.getElementById('liveScoreBadgeMinuto');
         const infoExtra = document.getElementById('liveScoreBadgeInfoExtra');
         const elGrupo = document.getElementById('liveScoreBadgeGrupo');
@@ -397,18 +289,33 @@
         let estadoAnterior = null; // { matchId, marcador } -- para detectar cambios de gol sin confundir partidos distintos
         let golLineTimeout = null;
 
+        // Escritorio: arriba a la derecha, justo debajo del navbar. Celular: abajo (lo fija el CSS).
         function posicionarBadge() {
             if (!nav) return;
-            const top = nav.getBoundingClientRect().bottom + 10;
-            badge.style.top = `${top}px`;
-            golLine.style.top = `${badge.getBoundingClientRect().bottom + 8}px`;
+            badge.style.top = window.innerWidth >= 576 ? `${nav.getBoundingClientRect().bottom + 10}px` : '';
         }
 
-        function flashGol() {
-            badge.classList.remove('live-score-badge-gol');
+        // Minimizado: solo el punto rojo, los goles y el minuto (la preferencia sobrevive entre páginas)
+        function aplicarMinimizado(min) {
+            badge.classList.toggle('lsb--min', min);
+            btnMin.innerHTML = min ? '<i class="bi bi-arrows-angle-expand"></i>' : '<i class="bi bi-dash-lg"></i>';
+            btnMin.title = min ? 'Expandir marcador' : 'Minimizar marcador';
+            btnMin.setAttribute('aria-label', btnMin.title);
+        }
+        try { aplicarMinimizado(localStorage.getItem(MIN_STORAGE_KEY) === '1'); } catch (e) { aplicarMinimizado(false); }
+        btnMin.addEventListener('click', () => {
+            const min = !badge.classList.contains('lsb--min');
+            aplicarMinimizado(min);
+            try { localStorage.setItem(MIN_STORAGE_KEY, min ? '1' : '0'); } catch (e) {}
+        });
+
+        function flashGol(lado) {
+            badge.classList.remove('lsb--gol');
             void badge.offsetWidth; // fuerza reflow para poder re-disparar la animación si hay 2 goles seguidos
-            badge.classList.add('live-score-badge-gol');
-            setTimeout(() => badge.classList.remove('live-score-badge-gol'), GOL_ANIM_MS);
+            badge.classList.add('lsb--gol');
+            const digito = lado === 'visita' ? elGolesVisita : lado === 'local' ? elGolesLocal : null;
+            if (digito) { digito.classList.remove('lsb__pop'); void digito.offsetWidth; digito.classList.add('lsb__pop'); }
+            setTimeout(() => badge.classList.remove('lsb--gol'), GOL_ANIM_MS);
         }
 
         function extraerNombreJugador(descripcion) {
@@ -419,12 +326,13 @@
             return null;
         }
 
-        function mostrarLineaGol(bandera, nombreJugador) {
-            golLine.textContent = nombreJugador ? `${bandera} ¡GOL! ${nombreJugador}` : `${bandera} ¡GOL!`;
-            posicionarBadge();
-            golLine.classList.add('live-goal-line--visible');
+        function mostrarLineaGol(bandera, paisId, nombreJugador) {
+            const esc = window.UI ? UI.escapar : (t => String(t ?? ''));
+            const escudo = window.UI ? UI.bandera(bandera || '⚽', { id: paisId ?? null }) : esc(bandera || '⚽');
+            golLine.innerHTML = `<span class="lsb__gol-escudo">${escudo}</span><strong>¡GOL!</strong>${nombreJugador ? `<span class="lsb__gol-nombre">${esc(nombreJugador)}</span>` : ''}`;
+            golLine.classList.add('lsb__gol--visible');
             clearTimeout(golLineTimeout);
-            golLineTimeout = setTimeout(() => golLine.classList.remove('live-goal-line--visible'), GOL_LINE_MS);
+            golLineTimeout = setTimeout(() => golLine.classList.remove('lsb__gol--visible'), GOL_LINE_MS);
         }
 
         function notificarGolSiCorresponde(data) {
@@ -436,8 +344,9 @@
             // comparten minuto en la revelación en vivo.
             const eventoGol = [...data.eventos].reverse().find(e => e.tipo.startsWith('⚽'));
             if (!eventoGol) return;
-            const bandera = eventoGol.equipo === data.local ? data.bandera_local : data.bandera_visitante;
-            mostrarLineaGol(bandera || '⚽', extraerNombreJugador(eventoGol.descripcion));
+            const esLocal = eventoGol.equipo === data.local;
+            mostrarLineaGol(esLocal ? data.bandera_local : data.bandera_visitante, esLocal ? data.id_local : data.id_visita,
+                            extraerNombreJugador(eventoGol.descripcion));
         }
 
         async function consultarLiveBadge() {
@@ -445,7 +354,7 @@
                 const resp = await fetch('/matches/live');
                 if (!resp.ok) {
                     badge.classList.add('d-none');
-                    golLine.classList.remove('live-goal-line--visible');
+                    golLine.classList.remove('lsb__gol--visible');
                     estadoAnterior = null;
                     programarAutoPlaySiCorresponde();
                     return;
@@ -453,7 +362,7 @@
                 const data = await resp.json();
                 if (data.finalizado) {
                     badge.classList.add('d-none');
-                    golLine.classList.remove('live-goal-line--visible');
+                    golLine.classList.remove('lsb__gol--visible');
                     estadoAnterior = null;
                     programarAutoPlaySiCorresponde();
                     return;
@@ -465,7 +374,7 @@
                     const clave = `${id}|${emoji}`;
                     if (el.dataset.clave === clave) return;
                     el.dataset.clave = clave;
-                    el.innerHTML = window.UI ? UI.bandera(emoji || '🏳️', { id: id ?? null }) : (emoji || '🏳️');
+                    el.innerHTML = window.UI ? UI.bandera(emoji || '🏳️', { id: id ?? null, tipo: 'escudo' }) : (emoji || '🏳️');
                 };
                 pintarBandera(elLocalBandera, data.bandera_local, data.id_local);
                 elLocalSiglas.textContent = data.siglas_local || data.local;
@@ -473,8 +382,11 @@
                 pintarBandera(elVisitaBandera, data.bandera_visitante, data.id_visita);
                 elVisitaSiglas.textContent = data.siglas_visitante || data.visitante;
                 elVisita.title = data.visitante;
-                elMarcador.textContent = `${data.goles_local}-${data.goles_visitante}`;
+                elGolesLocal.textContent = data.goles_local;
+                elGolesVisita.textContent = data.goles_visitante;
                 elMinuto.textContent = `${data.minuto_actual}'`;
+                const total = (data.segundos_transcurridos || 0) + (data.segundos_restantes || 0);
+                elProgreso.style.width = `${total ? Math.min(100, (data.segundos_transcurridos / total) * 100) : 0}%`;
 
                 if (data.grupo || data.estadio) {
                     elGrupo.textContent = data.grupo || '';
@@ -487,17 +399,17 @@
 
                 const marcadorActual = `${data.goles_local}-${data.goles_visitante}`;
                 if (estadoAnterior && estadoAnterior.matchId === data.match_id && estadoAnterior.marcador !== marcadorActual) {
-                    flashGol();
+                    flashGol(data.goles_local !== estadoAnterior.golesLocal ? 'local' : 'visita');
                     notificarGolSiCorresponde(data);
                 }
-                estadoAnterior = { matchId: data.match_id, marcador: marcadorActual };
+                estadoAnterior = { matchId: data.match_id, marcador: marcadorActual, golesLocal: data.goles_local };
 
                 posicionarBadge();
                 badge.classList.remove('d-none');
                 cancelarAutoPlayProgramado(); // ya hay un partido en curso, nada que encadenar todavía
             } catch (e) {
                 badge.classList.add('d-none');
-                golLine.classList.remove('live-goal-line--visible');
+                golLine.classList.remove('lsb__gol--visible');
                 estadoAnterior = null;
                 programarAutoPlaySiCorresponde();
             }

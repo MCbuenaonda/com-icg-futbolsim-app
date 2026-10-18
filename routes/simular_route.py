@@ -4,13 +4,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pymongo.mongo_client import MongoClient
 from config.settings import PREFIX_SIMULADOR_PATH, MONGODB_URI
-from services.juegos_service import obtener_juego_activo, obtener_ultimo_partido, obtener_resultado_equipo, calcular_asistencia, generar_clima_partido, guardar_aforo_clima_juego, obtener_marcador_ida_grupo_dos_equipos, obtener_historial_enfrentamientos, ejecutar_simulacion_completa, resaltar_jugadores_en_descripcion
+from services.juegos_service import obtener_juego_activo, obtener_ultimo_partido, obtener_resultado_equipo, calcular_asistencia, generar_clima_partido, guardar_aforo_clima_juego, obtener_marcador_ida_grupo_dos_equipos, ejecutar_simulacion_completa, resaltar_jugadores_en_descripcion
 from services.international_service import get_pais_internacional
 from services.auth_service import context_usuario_actual, requiere_permiso, obtener_usuario_actual
 from services.imagenes_pais_service import GLOBALES_JINJA
 from services.quinielas_service import contar_selecciones_pendientes_usuario
 from services.match_badges_service import obtener_marcas_partido
 from services.fecha_service import formatear_fecha_es
+from services.cara_a_cara_service import obtener_cara_a_cara
 import certifi
 import logging
 import uuid
@@ -28,6 +29,15 @@ tag='Mundial'
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 process_uuid = uuid.uuid4()
+
+
+def _enfrentamientos(id_local: int, id_visita: int, juego_id: str):
+    """Bloque "Enfrentamientos anteriores" (partials/enfrentamientos.html), sin contar este mismo partido."""
+    try:
+        return obtener_cara_a_cara(id_local, id_visita, excluir_id=juego_id)
+    except Exception as e:
+        logger.error(f"Error al armar los enfrentamientos anteriores del partido {juego_id}: {str(e)}")
+        return None
 
 
 @route.get("/", response_class=HTMLResponse)
@@ -92,6 +102,7 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
         "jornada": partido_sel["jornada"],
         "tipo": partido_sel["tipo"],
         "fase_id": partido_sel["fase_id"],
+        "confederacion_id": partido_sel.get("confederacion_id"),
         "bandera_local": partido_sel["equipo_local"]["bandera"],
         "bandera_visitante": partido_sel["equipo_visitante"]["bandera"],
         "stats_local": pais_local["estadisticas"],
@@ -120,7 +131,7 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
         except Exception as e:
             logger.error(f"Error al calcular marcas del partido {id}: {str(e)}")
 
-    historial_enfrentamientos = obtener_historial_enfrentamientos(id_local, id_visita, excluir_id=id)
+    h2h = _enfrentamientos(id_local, id_visita, id)
 
     return templates.TemplateResponse(
         request=request,
@@ -131,7 +142,7 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
             "prefix": PREFIX_SIMULADOR_PATH,
             "partidos_restantes_quiniela": partidos_restantes_quiniela,
             "marcas_partido": marcas_partido,
-            "historial_enfrentamientos": historial_enfrentamientos
+            "h2h": h2h
         }
     )
 
@@ -161,7 +172,7 @@ async def simular(request: Request, id: str, id_local: int, id_visita: int, tiem
         except Exception as e:
             logger.error(f"Error al calcular marcas del partido {id}: {str(e)}")
 
-    historial_enfrentamientos = obtener_historial_enfrentamientos(id_local, id_visita, excluir_id=id)
+    h2h = _enfrentamientos(id_local, id_visita, id)
 
     if resultado_simulacion["ya_finalizado"]:
         partido_doc = resultado_simulacion["partido"]
@@ -179,7 +190,7 @@ async def simular(request: Request, id: str, id_local: int, id_visita: int, tiem
                 "intensidad_json": None,
                 "partidos_restantes_quiniela": partidos_restantes_quiniela,
                 "marcas_partido": marcas_partido,
-                "historial_enfrentamientos": historial_enfrentamientos
+                "h2h": h2h
             }
         )
 
@@ -194,6 +205,6 @@ async def simular(request: Request, id: str, id_local: int, id_visita: int, tiem
             "partidos_restantes_quiniela": partidos_restantes_quiniela,
             "marcas_partido": marcas_partido,
             "delta_aficionados": resultado_simulacion["delta_aficionados"],
-            "historial_enfrentamientos": historial_enfrentamientos
+            "h2h": h2h
         }
     )

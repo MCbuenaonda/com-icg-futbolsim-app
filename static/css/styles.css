@@ -92,8 +92,9 @@
 @keyframes nivel-modal-entra { from { transform: scale(0.3) rotate(-25deg); opacity: 0; } }
 .nivel-modal__eyebrow { display: block; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #facc15; }
 
-/* Toasts (UI.toast en static/js/ui.js): arriba a la derecha, debajo del navbar */
-.ui-toasts { position: fixed; z-index: 1090; top: 4.75rem; right: 1rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; pointer-events: none; }
+/* Toasts (UI.toast en static/js/ui.js): abajo a la derecha (arriba queda el marcador en vivo); en celular,
+   arriba debajo del navbar (abajo va el marcador) */
+.ui-toasts { position: fixed; z-index: 1090; bottom: 1rem; right: 1rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; pointer-events: none; }
 .ui-toast { pointer-events: auto; display: inline-flex; align-items: center; gap: 0.5rem; max-width: min(360px, calc(100vw - 2rem)); padding: 0.55rem 0.95rem;
     border-radius: 999px; font-size: 0.88rem; font-weight: 700; color: #111827; text-decoration: none; background: linear-gradient(135deg, #fde68a, #facc15);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45); animation: ui-toast-entra 0.35s cubic-bezier(0.2, 0.8, 0.2, 1.2); transition: opacity 0.35s ease, transform 0.35s ease; }
@@ -102,6 +103,7 @@
 .ui-toast--nivel .bi { color: #facc15; }
 .ui-toast--sale { opacity: 0; transform: translateX(30px); }
 @keyframes ui-toast-entra { from { opacity: 0; transform: translateY(-12px) scale(0.9); } }
+@media (max-width: 575.98px) { .ui-toasts { bottom: auto; top: 4.5rem; left: 1rem; right: 1rem; align-items: center; } }
 @media (prefers-reduced-motion: reduce) { .ui-toast, .nivel-modal__aro, .nivel-insignia__globo { animation: none; } }
 .navbar .dropdown-header {
     text-transform: uppercase;
@@ -2000,3 +2002,292 @@ a.portafolio-fila:hover { color: inherit; border-color: rgba(34, 197, 94, 0.5); 
     .nivel-regla__barra { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .nivel-paso--pendiente { animation: none; } }
+
+
+/* ---------- Marcador flotante del partido en vivo (base.html, #liveScoreBadge) ----------
+   Zócalo de TV: franja "EN VIVO" + minuto, escudos y marcador grande, barra de avance de la transmisión,
+   cinta dorada de "¡GOL!" con el goleador. Escritorio: arriba a la derecha (el JS lo baja hasta el
+   navbar); celular: abajo. .lsb--min = minimizado; .lsb--gol = destello de gol. */
+.lsb { position: fixed; z-index: 1015; /* debajo del navbar (1020): el menú del usuario abierto queda por encima */
+    top: 76px; right: 20px; width: 272px; border-radius: 16px; overflow: hidden; isolation: isolate;
+    background: linear-gradient(160deg, rgba(30, 41, 59, 0.96), rgba(2, 6, 23, 0.96)); backdrop-filter: blur(10px);
+    border: 1px solid rgba(239, 68, 68, 0.45); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04) inset, 0 0 24px rgba(239, 68, 68, 0.18);
+    animation: lsb-entra 0.45s cubic-bezier(0.2, 0.8, 0.2, 1.2); transition: width 0.25s ease; }
+@keyframes lsb-entra { from { opacity: 0; transform: translateY(-10px) scale(0.96); } }
+.lsb::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; z-index: 2; background: linear-gradient(90deg, #ef4444, #f97316, #ef4444); background-size: 200% 100%;
+    animation: lsb-franja 3s linear infinite; }
+@keyframes lsb-franja { to { background-position: -200% 0; } }
+.lsb__link { display: block; padding: 0.55rem 0.8rem 0.6rem; color: #fff; text-decoration: none; }
+.lsb__link:hover { color: #fff; }
+.lsb:hover { border-color: rgba(239, 68, 68, 0.75); box-shadow: 0 16px 38px rgba(0, 0, 0, 0.6), 0 0 30px rgba(239, 68, 68, 0.3); }
+.lsb__top { display: flex; align-items: center; gap: 0.5rem; padding-right: 1.4rem; margin-bottom: 0.4rem; }
+.lsb__vivo { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.05rem 0.45rem; border-radius: 6px; font-size: 0.6rem; font-weight: 900;
+    letter-spacing: 0.1em; text-transform: uppercase; color: #fff; background: #dc2626; flex: 0 0 auto; }
+.lsb__dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: lsb-latido 1.2s ease-in-out infinite; }
+@keyframes lsb-latido { 50% { opacity: 0.25; transform: scale(0.7); } }
+.lsb__info { flex: 1; min-width: 0; font-size: 0.66rem; color: rgba(226, 232, 240, 0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lsb__minuto { margin-left: auto; flex: 0 0 auto; font-size: 0.78rem; font-weight: 800; color: #fca5a5; font-variant-numeric: tabular-nums; }
+.lsb__marcador { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 0.5rem; }
+.lsb__equipo { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+.lsb__equipo--visita { justify-content: flex-end; }
+.lsb__escudo { flex: 0 0 auto; width: 2.1rem; height: 2.1rem; display: grid; place-items: center; font-size: 1.4rem; line-height: 1; }
+.lsb__escudo .img-pais { width: 100%; height: 100%; object-fit: contain; border-radius: 0; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.6)); }
+.lsb__siglas { font-size: 0.95rem; font-weight: 900; letter-spacing: 0.04em; color: #f1f5f9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lsb__goles { display: flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0.55rem; border-radius: 10px; font-size: 1.6rem; font-weight: 900; line-height: 1.1;
+    font-variant-numeric: tabular-nums; color: #facc15; background: rgba(0, 0, 0, 0.45); box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.25); }
+.lsb__goles i { font-style: normal; font-size: 1rem; color: rgba(250, 204, 21, 0.5); }
+.lsb__goles span { display: inline-block; min-width: 0.7em; text-align: center; }
+.lsb__pop { animation: lsb-pop 0.9s cubic-bezier(0.2, 0.8, 0.2, 1.4); }
+@keyframes lsb-pop { 0% { transform: scale(1); } 30% { transform: scale(1.7); color: #fff; text-shadow: 0 0 14px #facc15; } 100% { transform: scale(1); } }
+.lsb__progreso { height: 3px; margin-top: 0.55rem; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.lsb__progreso span { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #22c55e, #facc15, #ef4444); transition: width 0.8s ease; }
+.lsb__min { position: absolute; z-index: 3; top: 0.45rem; right: 0.4rem; width: 1.4rem; height: 1.4rem; padding: 0; border: 0; border-radius: 6px; display: grid; place-items: center;
+    font-size: 0.75rem; color: rgba(226, 232, 240, 0.65); background: transparent; }
+.lsb__min:hover, .lsb__min:focus-visible { color: #fff; background: rgba(255, 255, 255, 0.1); }
+
+/* cinta de gol: cubre la tarjeta un momento con el escudo y el goleador */
+.lsb__gol { position: absolute; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0 0.9rem;
+    color: #111827; background: linear-gradient(120deg, #fde68a, #facc15 45%, #f59e0b); pointer-events: none;
+    clip-path: inset(0 100% 0 0); transition: clip-path 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.lsb__gol--visible { clip-path: inset(0 0 0 0); }
+.lsb__gol strong { font-size: 1.35rem; font-weight: 900; letter-spacing: 0.06em; font-style: italic; }
+.lsb__gol-escudo { width: 2rem; height: 2rem; display: grid; place-items: center; font-size: 1.4rem; }
+.lsb__gol-escudo .img-pais { width: 100%; height: 100%; object-fit: contain; }
+.lsb__gol-nombre { min-width: 0; font-size: 0.82rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lsb--gol { animation: lsb-gol 1.4s ease; }
+@keyframes lsb-gol { 20% { transform: scale(1.06); border-color: #facc15; box-shadow: 0 0 36px 8px rgba(250, 204, 21, 0.75); } 100% { transform: scale(1); } }
+
+/* minimizado: píldora con punto rojo, goles y minuto */
+.lsb--min { width: auto; border-radius: 999px; }
+.lsb--min::before, .lsb--min .lsb__info, .lsb--min .lsb__progreso, .lsb--min .lsb__siglas { display: none; }
+.lsb--min .lsb__link { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 2rem 0.3rem 0.55rem; }
+.lsb--min .lsb__top { margin: 0; padding: 0; order: 2; }
+.lsb--min .lsb__vivo { padding: 0; background: none; font-size: 0; }
+.lsb--min .lsb__dot { width: 8px; height: 8px; background: #ef4444; }
+.lsb--min .lsb__marcador { order: 1; gap: 0.35rem; }
+.lsb--min .lsb__escudo { width: 1.4rem; height: 1.4rem; }
+.lsb--min .lsb__goles { font-size: 1.05rem; padding: 0 0.35rem; }
+.lsb--min .lsb__min { top: 50%; translate: 0 -50%; }
+
+@media (max-width: 575.98px) {
+    .lsb { top: auto; bottom: 12px; right: 12px; left: 12px; width: auto; }
+    .lsb--min { left: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .lsb, .lsb::before, .lsb__dot, .lsb__pop, .lsb--gol { animation: none; }
+    .lsb__gol { transition: none; }
+}
+
+
+/* ---------- Calendario del Mundial (/juegos/calendario, FullCalendar en tema oscuro) ---------- */
+.cal-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ef4444; animation: lsb-latido 1.2s ease-in-out infinite; }
+.cal-kpi-vivo { border-color: rgba(239, 68, 68, 0.6) !important; }
+.cal-kpi-vivo span { display: inline-flex; align-items: center; gap: 0.3rem; color: #fca5a5; }
+.cal-kpi-vivo strong { color: #f87171 !important; }
+.cal-estado { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.15rem 0.65rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
+    color: var(--bs-secondary-color); background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); }
+.cal-estado:hover { color: #fff; }
+.cal-estado.activo { color: #fff; background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.4); }
+.cal-estado--pendiente.activo { background: rgba(59, 130, 246, 0.25); border-color: #3b82f6; }
+.cal-estado--finalizado.activo { background: rgba(34, 197, 94, 0.22); border-color: #22c55e; }
+.cal-estado--en_vivo.activo { background: rgba(239, 68, 68, 0.25); border-color: #ef4444; }
+.cal-tarjeta { border-radius: 18px; }
+
+.cal-tarjeta .fc {
+    --fc-border-color: rgba(255, 255, 255, 0.07);
+    --fc-page-bg-color: transparent;
+    --fc-neutral-bg-color: rgba(255, 255, 255, 0.03);
+    --fc-today-bg-color: rgba(34, 197, 94, 0.08);
+    --fc-list-event-hover-bg-color: rgba(255, 255, 255, 0.04);
+    --fc-event-bg-color: transparent;
+    --fc-event-border-color: transparent;
+    --fc-more-link-bg-color: transparent;
+    --fc-now-indicator-color: #ef4444;
+    color: #e2e8f0;
+}
+.cal-tarjeta .fc .fc-toolbar-title { font-size: 1.35rem; font-weight: 800; color: #fff; text-transform: capitalize; }
+.cal-tarjeta .fc .fc-button { border-radius: 999px; padding: 0.3rem 0.85rem; font-size: 0.82rem; font-weight: 700; text-transform: capitalize; box-shadow: none !important;
+    color: var(--bs-secondary-color); background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); }
+.cal-tarjeta .fc .fc-button:hover { color: #fff; background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.25); }
+.cal-tarjeta .fc .fc-button-primary:not(:disabled).fc-button-active, .cal-tarjeta .fc .fc-button-primary:not(:disabled):active {
+    color: #052e16; background: linear-gradient(135deg, #4ade80, #22c55e); border-color: #22c55e; }
+.cal-tarjeta .fc .fc-button-primary:disabled { opacity: 0.4; color: var(--bs-secondary-color); background: rgba(0, 0, 0, 0.3); border-color: rgba(255, 255, 255, 0.1); }
+.cal-tarjeta .fc .fc-button-group { gap: 0.3rem; }
+.cal-tarjeta .fc .fc-button-group > .fc-button { border-radius: 999px !important; margin: 0; }
+.cal-tarjeta .fc-theme-standard .fc-scrollgrid { border-radius: 14px; overflow: hidden; }
+.cal-tarjeta .fc .fc-col-header-cell { padding: 0.45rem 0; background: rgba(0, 0, 0, 0.25); }
+.cal-tarjeta .fc .fc-col-header-cell-cushion { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bs-secondary-color); text-decoration: none; }
+.cal-tarjeta .fc .fc-daygrid-day-number { font-size: 0.8rem; font-weight: 700; color: var(--bs-secondary-color); text-decoration: none; padding: 0.3rem 0.45rem; }
+.cal-tarjeta .fc .fc-day-today .fc-daygrid-day-number { color: #052e16; background: #4ade80; border-radius: 999px; margin: 0.2rem; padding: 0.05rem 0.45rem; }
+.cal-tarjeta .fc .fc-day-other .fc-daygrid-day-top { opacity: 0.35; }
+.cal-tarjeta .fc .fc-daygrid-day-frame { min-height: 6.5rem; }
+.cal-tarjeta .fc .fc-daygrid-more-link { margin: 0.1rem 0.3rem; font-size: 0.72rem; font-weight: 800; color: #4ade80; text-decoration: none; }
+.cal-tarjeta .fc .fc-popover { background: var(--bg-card); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55); }
+.cal-tarjeta .fc .fc-popover-header { background: rgba(0, 0, 0, 0.3); color: #fff; border-radius: 12px 12px 0 0; }
+.cal-tarjeta .fc a { color: inherit; }
+.cal-tarjeta .fc .fc-timegrid-slot { height: 2.6rem; }
+.cal-tarjeta .fc .fc-timegrid-event .cal-ev { height: 100%; align-items: flex-start; flex-wrap: nowrap; }
+.cal-tarjeta .fc .fc-timegrid-event-harness-inset .fc-timegrid-event { box-shadow: none; }
+.cal-tarjeta .fc .fc-timegrid-slot-label-cushion, .cal-tarjeta .fc .fc-timegrid-axis-cushion { font-size: 0.72rem; color: var(--bs-secondary-color); }
+
+/* partido en Mes/Semana: hora · bandera SIG marcador SIG bandera, con borde del color de su confederación */
+.cal-tarjeta .fc-event { cursor: pointer; margin: 1px 3px !important; border: 0; background: transparent; }
+.cal-ev { --conf-color: #3b82f6; display: flex; align-items: center; gap: 0.25rem; width: 100%; min-width: 0; padding: 0.15rem 0.35rem; border-radius: 8px; font-size: 0.7rem;
+    color: #e2e8f0; background: color-mix(in srgb, var(--conf-color) 14%, rgba(15, 23, 42, 0.9)); border-left: 3px solid var(--conf-color);
+    transition: transform 0.15s ease, background 0.15s ease; overflow: hidden; }
+.fc-event:hover .cal-ev { transform: translateY(-1px); background: color-mix(in srgb, var(--conf-color) 26%, rgba(15, 23, 42, 0.9)); }
+.cal-ev__hora { flex: 0 0 auto; font-size: 0.62rem; font-weight: 700; color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; }
+.cal-ev__eq { display: inline-flex; align-items: center; gap: 0.2rem; min-width: 0; }
+.cal-ev__eq b { font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+.cal-ev__eq .img-pais, .cal-lista__equipo .img-pais { height: 0.8rem; width: auto; border-radius: 2px; flex: 0 0 auto; }
+.cal-ev__eq--visita { margin-left: 0; }
+.cal-ev__res { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 0.12rem; padding: 0 0.3rem; border-radius: 5px; font-weight: 900; color: #fff;
+    background: rgba(0, 0, 0, 0.45); font-variant-numeric: tabular-nums; }
+.cal-ev__res i { font-style: normal; opacity: 0.5; }
+.cal-ev__res--vs { font-weight: 700; font-size: 0.62rem; color: var(--bs-secondary-color); background: transparent; }
+.cal-ev__res--vivo { gap: 0.2rem; font-size: 0.58rem; letter-spacing: 0.05em; color: #fff; background: #dc2626; }
+.cal-ev__res--vivo .cal-dot { width: 5px; height: 5px; background: #fff; }
+.cal-ev .cal-ev__vivo-txt { display: none; }   /* en Mes/Semana alcanza con el punto: así entran las siglas */
+.cal-ev .cal-ev__res--vivo { padding: 0.2rem 0.3rem; }
+.fc-event.cal-evento--finalizado .cal-ev { --conf-color: #22c55e; }
+.fc-event.cal-evento--en_vivo .cal-ev { --conf-color: #ef4444; box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.6), 0 0 12px rgba(239, 68, 68, 0.35); }
+
+/* vista Lista */
+.cal-tarjeta .fc-list { border-radius: 14px; overflow: hidden; }
+.cal-tarjeta .fc .fc-list-day-cushion { background: rgba(0, 0, 0, 0.3); }
+.cal-tarjeta .fc .fc-list-day-text, .cal-tarjeta .fc .fc-list-day-side-text { color: #4ade80; font-weight: 800; text-transform: capitalize; text-decoration: none; }
+.cal-tarjeta .fc .fc-list-event-time { font-size: 0.8rem; font-weight: 700; color: var(--bs-secondary-color); white-space: nowrap; }
+.cal-tarjeta .fc .fc-list-event-dot { border-color: var(--conf-color, #3b82f6); }
+.cal-lista { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: 0.6rem; }
+.cal-lista__equipo { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.4rem; min-width: 0; }
+.cal-lista__equipo strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; }
+.cal-lista__equipo--visita { justify-content: flex-start; }
+.cal-lista__equipo .img-pais { height: 1rem; }
+.cal-lista .cal-ev__res { font-size: 0.85rem; padding: 0.05rem 0.45rem; }
+.cal-lista__meta { display: flex; flex-direction: column; font-size: 0.72rem; color: var(--bs-secondary-color); min-width: 0; }
+.cal-lista__meta small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-lista__meta .bi { margin-right: 0.2rem; }
+
+@media (max-width: 991.98px) {
+    .cal-ev__hora { display: none; }
+    .cal-ev .img-pais { display: none; }
+}
+@media (max-width: 575.98px) {
+    .cal-tarjeta .fc .fc-toolbar { flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+    .cal-tarjeta .fc .fc-toolbar-title { font-size: 1.1rem; }
+    .cal-tarjeta .fc .fc-button { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+    .cal-lista { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 0.4rem; row-gap: 0.15rem; }
+    .cal-lista__equipo strong { font-size: 0.8rem; }
+    .cal-lista__meta { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.66rem; }
+    .cal-tarjeta .fc .fc-list-event-time { font-size: 0.7rem; }
+    .cal-tarjeta .fc .fc-list-event-graphic { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .cal-dot { animation: none; } }
+
+
+/* ---------- Detalle previo al partido (/simulador/?id=…, templates/simulador.html) ----------
+   Reusa el marcador de TV del resumen (.resumen-hero + .marcador-tv__*) con un centro de "Por jugar". */
+.previa-estado { color: #052e16; background: linear-gradient(135deg, #4ade80, #22c55e); font-weight: 800; letter-spacing: 0.06em; }
+.previa-vs { display: block; margin: 0.35rem 0 0.15rem; font-size: clamp(2.4rem, 6vw, 3.6rem); font-weight: 900; line-height: 1; letter-spacing: 0.04em;
+    background: linear-gradient(180deg, #fff, #94a3b8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.previa-hora { display: inline-flex; align-items: center; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.82rem; font-weight: 700; color: #e2e8f0; background: rgba(0, 0, 0, 0.35); }
+.previa-marca { display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: rgba(0, 0, 0, 0.4); border: 1px solid currentColor; font-size: 0.75rem; }
+.previa-ficha .card-body { padding: 0.9rem 1rem; }
+.previa-ficha__label { display: block; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bs-secondary-color); }
+.previa-ficha strong { color: #fff; }
+.previa-ficha__icono { flex: 0 0 auto; width: 3.2rem; height: 3.2rem; border-radius: 14px; display: grid; place-items: center; font-size: 1.6rem;
+    color: var(--logo-color); background: color-mix(in srgb, var(--logo-color) 16%, transparent); }
+.previa-ficha .estadio-ilustracion--mini { flex: 0 0 auto; }
+.previa-publico { height: 6px; margin: 0.3rem 0 0.15rem; border-radius: 999px; background: #e66767; overflow: hidden; }
+.previa-publico__local { display: block; height: 100%; background: #3987e5; }
+.previa-forma { padding: 0.75rem; border-radius: 14px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.06); }
+.previa-forma--local { border-left: 3px solid #3987e5; }
+.previa-forma--visitante { border-left: 3px solid #e66767; }
+.previa-forma__res { flex: 0 0 auto; padding: 0.05rem 0.55rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; color: #cbd5e1; background: rgba(255, 255, 255, 0.08); }
+.previa-forma__res--gana { color: #052e16; background: #4ade80; }
+.previa-forma__res--empata { color: #111827; background: #facc15; }
+.previa-forma__res--pierde { color: #fff; background: #ef4444; }
+
+/* ---------- Enfrentamientos anteriores (partials/enfrentamientos.html: detalle previo y Scouter) ---------- */
+.h2h-primero { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1rem; border-radius: 14px; background: rgba(0, 0, 0, 0.22); border: 1px dashed rgba(56, 189, 248, 0.35); }
+.h2h-primero .img-pais { height: 3rem; width: auto; }
+.h2h-balance { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+.h2h-balance__lado { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.h2h-balance__lado--visita { justify-content: flex-end; text-align: right; }
+.h2h-balance__escudo { flex: 0 0 auto; width: 3.4rem; height: 3.4rem; display: grid; place-items: center; font-size: 2rem; }
+.h2h-balance__escudo .img-pais { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)); }
+.h2h-balance strong { display: block; font-size: 2.2rem; font-weight: 900; line-height: 1; }
+.h2h-balance small { display: block; font-size: 0.7rem; color: var(--bs-secondary-color); line-height: 1.25; }
+.h2h-balance__lado--local strong { color: #3987e5; }
+.h2h-balance__lado--visita strong { color: #e66767; }
+.h2h-balance__centro { text-align: center; padding: 0 0.75rem; }
+.h2h-balance__centro strong { color: #e2e8f0; }
+.h2h-barra { display: flex; height: 18px; border-radius: 999px; overflow: hidden; gap: 2px; background: rgba(255, 255, 255, 0.05); }
+.h2h-barra span { display: grid; place-items: center; min-width: 2rem; font-size: 0.62rem; font-weight: 800; color: #fff; }
+.h2h-barra__local { background: #3987e5; }
+.h2h-barra__empate { background: #64748b; }
+.h2h-barra__visita { background: #e66767; }
+.h2h-partido { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 0.9fr); align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0.7rem; border-radius: 12px; color: #e2e8f0; text-decoration: none; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.15s ease, transform 0.15s ease; }
+.h2h-partido:hover { color: #fff; background: rgba(255, 255, 255, 0.06); transform: translateX(2px); }
+.h2h-partido--compacto { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); padding: 0.4rem 0.6rem; }
+.h2h-partido__res { width: 1.6rem; height: 1.6rem; border-radius: 8px; display: grid; place-items: center; font-size: 0.72rem; font-weight: 900; color: #fff; }
+.h2h-partido__res--G { background: #3987e5; }
+.h2h-partido__res--P { background: #e66767; }
+.h2h-partido__res--E { background: #64748b; }
+.h2h-partido__equipo { display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; min-width: 0; font-weight: 700; font-size: 0.85rem; }
+.h2h-partido__equipo--visita { justify-content: flex-start; }
+.h2h-partido__equipo .img-pais { height: 1rem; width: auto; flex: 0 0 auto; }
+.h2h-partido__marcador { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; max-width: 6rem; padding: 0.1rem 0.55rem; border-radius: 8px; font-weight: 900; color: #facc15;
+    background: rgba(0, 0, 0, 0.45); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.h2h-partido__marcador i { font-style: normal; opacity: 0.5; margin: 0 0.15rem; }
+.h2h-partido__marcador small { flex-basis: 100%; text-align: center; font-size: 0.58rem; font-weight: 700; color: var(--bs-secondary-color); }
+.h2h-partido__meta { display: flex; flex-direction: column; font-size: 0.72rem; color: var(--bs-secondary-color); text-align: right; min-width: 0; }
+.h2h-partido__meta small { font-size: 0.66rem; opacity: 0.8; }
+@media (max-width: 575.98px) {
+    .h2h-balance strong { font-size: 1.6rem; }
+    .h2h-balance__escudo { width: 2.4rem; height: 2.4rem; }
+    .h2h-balance small { font-size: 0.6rem; }
+    .h2h-partido { grid-template-columns: 1.4rem minmax(0, 1fr) auto minmax(0, 1fr); gap: 0.4rem; }
+    .h2h-partido__meta { grid-column: 2 / -1; text-align: center; flex-direction: row; justify-content: center; gap: 0.4rem; }
+    .h2h-partido__equipo { font-size: 0.78rem; }
+}
+
+
+/* ---------- Scouter pre-partido (/scouter/{id}, templates/prematch_scouter.html) ---------- */
+.scouter-chip { color: #7dd3fc; border-color: rgba(56, 189, 248, 0.5); }
+.scouter-prob { display: inline-block; margin-top: 0.25rem; padding: 0.05rem 0.7rem; border-radius: 999px; font-size: 1.15rem; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+.scouter-prob--local { background: #3987e5; box-shadow: 0 0 18px rgba(57, 135, 229, 0.45); }
+.scouter-prob--visita { background: #e66767; box-shadow: 0 0 18px rgba(230, 103, 103, 0.45); }
+.scouter-barra { position: relative; display: flex; max-width: 640px; height: 14px; border-radius: 999px; overflow: hidden; background: #e66767; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.scouter-barra__local { display: block; height: 100%; background: linear-gradient(90deg, #1d4ed8, #3987e5); border-right: 3px solid #0b1220; transition: width 0.8s ease; }
+.scouter-barra__visita { flex: 1; background: linear-gradient(90deg, #e66767, #b91c1c); }
+.scouter-veredicto { border-left: 4px solid #38bdf8; }
+.scouter-veredicto__icono { flex: 0 0 auto; width: 3rem; height: 3rem; border-radius: 14px; display: grid; place-items: center; font-size: 1.4rem; color: #0b1220;
+    background: linear-gradient(135deg, #7dd3fc, #38bdf8); box-shadow: 0 6px 18px rgba(56, 189, 248, 0.35); }
+.scouter-veredicto__texto { font-size: 1.02rem; line-height: 1.55; }
+.scouter-estado { --estado-color: #94a3b8; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800;
+    color: var(--estado-color); background: color-mix(in srgb, var(--estado-color) 16%, transparent); border: 1px solid color-mix(in srgb, var(--estado-color) 55%, transparent); }
+.scouter-zona { padding: 0.05rem 0.55rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; border-left: 4px solid; background: rgba(0, 0, 0, 0.3); color: #e2e8f0; }
+.scouter-zona--DIRECTO { border-color: #22c55e; }
+.scouter-zona--POSIBILIDAD { border-color: #f59e0b; }
+.scouter-zona--ELIMINADO { border-color: #64748b; }
+.scouter-tabla { display: flex; flex-direction: column; gap: 0.35rem; }
+.scouter-tabla__fila { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) 3rem 3rem 3.2rem; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem;
+    border-radius: 12px; color: #e2e8f0; text-decoration: none; text-align: center; background: rgba(0, 0, 0, 0.25); border-left: 4px solid #64748b; transition: background 0.15s ease; }
+a.scouter-tabla__fila:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.scouter-tabla__fila--cabecera { background: none; border-left-color: transparent; padding-top: 0; padding-bottom: 0; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bs-secondary-color); }
+.scouter-tabla__fila--cabecera span:nth-child(2) { text-align: left; }
+.scouter-tabla__fila--DIRECTO { border-left-color: #22c55e; }
+.scouter-tabla__fila--POSIBILIDAD { border-left-color: #f59e0b; }
+.scouter-tabla__fila--protagonista { background: rgba(56, 189, 248, 0.12); box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.45); }
+.scouter-tabla__pos { width: 1.8rem; height: 1.8rem; border-radius: 50%; display: grid; place-items: center; font-weight: 900; background: rgba(255, 255, 255, 0.08); }
+.scouter-tabla__equipo { display: flex; align-items: center; gap: 0.5rem; min-width: 0; text-align: left; font-weight: 700; }
+.scouter-tabla__equipo .img-pais { height: 1.05rem; width: auto; flex: 0 0 auto; }
+.scouter-tabla__equipo .bi { color: #38bdf8; }
+.scouter-tabla__fila strong { font-size: 1.05rem; color: #facc15; }
+@media (max-width: 575.98px) {
+    .scouter-tabla__fila { grid-template-columns: 1.8rem minmax(0, 1fr) 2.2rem 2.4rem 2.4rem; gap: 0.35rem; padding: 0.45rem 0.5rem; font-size: 0.85rem; }
+    .scouter-prob { font-size: 0.95rem; }
+}

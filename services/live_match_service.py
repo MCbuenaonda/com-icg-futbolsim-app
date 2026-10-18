@@ -377,7 +377,7 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
         p["id"]: p.get("siglas", "") for p in db["posiciones"].find({}, {"id": 1, "siglas": 1})
     }
     jugadores = list(db["jugadores"].find(
-        {"pais_id": {"$in": [id_local, id_visita]}}, {"nombre": 1, "posicion_id": 1, "numero": 1}
+        {"pais_id": {"$in": [id_local, id_visita]}}, {"id": 1, "nombre": 1, "posicion_id": 1, "numero": 1}
     ))
     resultado = juego.get("resultado") or {}
     # Táctica persistida por registrar_resultado_juego; el 11 titular viene en el orden de
@@ -388,6 +388,7 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
     return {
         "jugadores": {j["nombre"]: posiciones_por_id.get(j.get("posicion_id"), "") for j in jugadores},
         "dorsales": {j["nombre"]: j.get("numero") for j in jugadores if j.get("numero") is not None},
+        "ids": {j["nombre"]: j["id"] for j in jugadores if j.get("id") is not None},  # avatar (bucket jugadores/<id>.svg)
         "titulares_local": resultado.get("titulares_local", []),
         "titulares_visitante": resultado.get("titulares_visitante", []),
         "tactica_local": tactica_local,

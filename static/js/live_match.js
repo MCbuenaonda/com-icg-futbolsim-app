@@ -285,6 +285,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let canchaTitularesLocal = [];
     let canchaTitularesVisitante = [];
     let canchaDorsales = {};
+    let canchaIds = {};
     let canchaLineasLocal = [];
     let canchaLineasVisitante = [];
 
@@ -298,6 +299,7 @@ document.addEventListener('DOMContentLoaded', function () {
             canchaTitularesLocal = data.titulares_local || [];
             canchaTitularesVisitante = data.titulares_visitante || [];
             canchaDorsales = data.dorsales || {};
+            canchaIds = data.ids || {};
             canchaLineasLocal = data.lineas_local || [];
             canchaLineasVisitante = data.lineas_visitante || [];
             canchaPlantillasMatchId = matchId;
@@ -1514,7 +1516,22 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target.dataset.jugador) jugadoresExpandidos.delete(e.target.dataset.jugador);
     });
 
-    function renderFilaJugadorEnCancha(jugador, lado) {
+    // Rostro del jugador (bucket jugadores/<id>.svg) sobre la bandera de su país, con el dorsal del color
+    // de su equipo en la esquina. Sin 'loading=lazy': la lista se rearma en cada poll y la imagen sale de
+    // caché sin parpadear. Si no hay id o la imagen falla, queda el dorsal solo, como antes.
+    function avatarJugadorEnCancha(nombre, lado, paisId, dorsal) {
+        const id = canchaIds[nombre];
+        const base = (window.PAISES_IMG || {}).base;
+        const dorsalHtml = dorsal != null ? `<span class="once-dorsal once-dorsal--${lado}">${dorsal}</span>` : '';
+        if (id == null || !base) return dorsalHtml;
+        const bandera = paisId != null && window.UI ? UI.urlImagenPais(paisId, 'bandera') : null;
+        const fondo = bandera ? ` style="--bandera-url: url('${bandera}')"` : '';
+        return `<span class="once-avatar once-avatar--${lado}">
+                    <span class="avatar-jugador"${fondo}><img src="${base}/jugadores/${encodeURIComponent(id)}.svg" alt="" decoding="async"
+                        onerror="this.closest('.once-avatar').classList.add('once-avatar--sin-imagen')"></span>${dorsalHtml}</span>`;
+    }
+
+    function renderFilaJugadorEnCancha(jugador, lado, paisId) {
         const fila = document.createElement('div');
         fila.className = 'list-group-item bg-dark text-white p-0 border-secondary border-opacity-10 small';
 
@@ -1523,7 +1540,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const posicionTexto = jugador.posicion ? ` <span class="text-muted">· ${jugador.posicion}</span>` : '';
         // Mismo dorsal y color de equipo que su ficha en la cancha, para ubicarlo de un vistazo
         const dorsal = canchaDorsales[jugador.nombre];
-        const dorsalHtml = dorsal != null ? `<span class="once-dorsal once-dorsal--${lado}">${dorsal}</span>` : '';
+        const dorsalHtml = avatarJugadorEnCancha(jugador.nombre, lado, paisId, dorsal);
 
         const accionesHtml = jugador.acciones.length
             ? jugador.acciones.slice().reverse().map(a => {
@@ -1534,7 +1551,7 @@ document.addEventListener('DOMContentLoaded', function () {
             : '<div class="text-muted fst-italic">Todavía no tiene acciones que hayan afectado su rendimiento.</div>';
 
         fila.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center py-1 px-3" style="cursor:pointer;"
+            <div class="once-fila d-flex justify-content-between align-items-center py-1 px-3" style="cursor:pointer;"
                  data-bs-toggle="collapse" data-bs-target="#${idAcciones}"
                  aria-expanded="${expandido}" aria-controls="${idAcciones}">
                 <span class="d-flex align-items-center gap-2" style="min-width: 0;">
@@ -1561,9 +1578,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const estado = calcularEstadoJugadoresEnCancha(data);
         onceListaLocal.innerHTML = '';
-        estado.local.forEach(j => onceListaLocal.appendChild(renderFilaJugadorEnCancha(j, 'local')));
+        estado.local.forEach(j => onceListaLocal.appendChild(renderFilaJugadorEnCancha(j, 'local', data.id_local)));
         onceListaVisitante.innerHTML = '';
-        estado.visitante.forEach(j => onceListaVisitante.appendChild(renderFilaJugadorEnCancha(j, 'visitante')));
+        estado.visitante.forEach(j => onceListaVisitante.appendChild(renderFilaJugadorEnCancha(j, 'visitante', data.id_visita)));
 
         const momentum = calcularMomentumAcumuladoPorEquipo(data);
         if (onceMomentumLocal) {

@@ -128,676 +128,336 @@
                     </div>
 {% endmacro %}
 
-<div class="row justify-content-center">
-    <div class="col-12 col-xxl-11">
+{% if partido %}
+{% set ya_jugado = partido.eventos %}
+{% set conf_sigla = {1: 'UEFA', 2: 'CONMEBOL', 3: 'CONCACAF', 4: 'CAF', 5: 'OFC', 6: 'AFC', 7: 'REPECHAJE', 8: 'MUNDIAL'}.get(partido.confederacion_id, '') %}
+{% set lc = logo_confederacion(conf_sigla) %}
+<div class="container-fluid py-3 px-md-4 resumen-partido">
 
-        <!-- Header / Título Principal -->
-        <div class="text-center mb-4">
-            <h1 class="display-5 fw-bold text-body-emphasis">Detalle del Partido</h1>
-            
-            {% if partido %}
-                <!-- Badges de información general -->
-                <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap mt-2">
-                    {% if partido.grupo %}
-                        <span class="badge bg-primary px-3 py-2 rounded-pill fs-6">
-                            <i class="bi bi-diagram-3-fill me-1"></i> {{ partido.grupo }}
-                        </span>
-                    {% endif %}
-                    
-                    {% if partido.jornada %}
-                        <span class="badge bg-dark px-3 py-2 rounded-pill fs-6">
-                            <i class="bi bi-calendar3-event me-1"></i> {{ partido.jornada }}
-                        </span>
-                    {% endif %}
-
-                    {% if partido.tipo %}
-                        <span class="badge bg-secondary text-uppercase px-3 py-2 rounded-pill fs-6">
-                            <i class="bi bi-arrow-left-right me-1"></i> Partido de {{ partido.tipo }}
-                        </span>
-                    {% endif %}
-
-                    {% if partido.tag %}
-                        <span class="badge bg-info text-dark px-3 py-2 rounded-pill fs-6 fw-bold">
-                            {{ partido.tag }}
-                        </span>
-                    {% endif %}
-                </div>
-            {% endif %}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <a href="/juegos/" class="btn btn-outline-secondary btn-sm rounded-pill px-3"><i class="bi bi-arrow-left me-1"></i>Volver a partidos</a>
+        <div class="d-flex gap-2 flex-wrap">
+            {% if not ya_jugado and puede('scouter') %}<a href="/scouter/{{ partido._id }}" class="btn btn-info btn-sm rounded-pill px-3 fw-bold"><i class="bi bi-binoculars-fill me-1"></i>Análisis pre-partido</a>{% endif %}
+            {% if puede('cara_a_cara') %}<a href="/cara-a-cara/?a={{ partido.id_local }}&b={{ partido.id_visita }}" class="btn btn-outline-info btn-sm rounded-pill px-3"><i class="bi bi-arrow-left-right me-1"></i>Cara a cara</a>{% endif %}
         </div>
+    </div>
 
-        <!-- Contador de partidos restantes de la quiniela activa -->
-        {% if usuario_actual and partidos_restantes_quiniela is not none %}
-            <div class="card bg-dark border-0 shadow-sm mb-4">
-                <div class="card-body py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="stat-icon" style="width: 2.75rem; height: 2.75rem; font-size: 1.2rem;">
-                            <i class="bi bi-ticket-perforated-fill"></i>
-                        </span>
-                        <div>
-                            <div class="text-muted small text-uppercase">Quiniela activa</div>
-                            {% if partidos_restantes_quiniela > 0 %}
-                                <div class="fw-bold text-white">
-                                    <span class="text-accent fs-5">{{ partidos_restantes_quiniela }}</span>
-                                    partido{{ "s" if partidos_restantes_quiniela != 1 else "" }} restante{{ "s" if partidos_restantes_quiniela != 1 else "" }} por resolver
-                                </div>
-                            {% else %}
-                                <div class="fw-bold text-success">¡Sin pendientes! Ya puedes comprar una nueva quiniela</div>
-                            {% endif %}
-                        </div>
-                    </div>
+    <!-- MARCADOR (estilo transmisión, igual que el resumen /juegos/{id}): escudos y estadio de marca de agua -->
+    {% set img_partido = img_estadio(partido.ubicacion.id) if partido.ubicacion else None %}
+    <div class="card card-logo-fondo card-logo-fondo--sin-brillo resumen-hero mb-4" style="--logo-color: {{ lc.color if lc else '#22c55e' }};">
+        {% set escudo_l = img_pais(partido.id_local, 'escudo') %}{% set escudo_v = img_pais(partido.id_visita, 'escudo') %}
+        {% if escudo_l %}<img src="{{ escudo_l }}" alt="" aria-hidden="true" class="marcador-tv__escudo marcador-tv__escudo--local" onerror="this.remove()">{% endif %}
+        {% if escudo_v %}<img src="{{ escudo_v }}" alt="" aria-hidden="true" class="marcador-tv__escudo marcador-tv__escudo--visitante" onerror="this.remove()">{% endif %}
+        {% if img_partido %}<img src="{{ img_partido }}" alt="" aria-hidden="true" class="marcador-tv__estadio" onerror="this.remove()">{% endif %}
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
+                {% if conf_sigla %}<span class="resumen-chip resumen-chip--conf">{% if lc %}<img src="{{ lc.url }}" alt="">{% endif %}{{ conf_sigla }}</span>{% endif %}
+                {% if partido.grupo %}<span class="resumen-chip"><i class="bi bi-grid-3x3-gap-fill"></i>{{ partido.grupo }}</span>{% endif %}
+                {% if partido.jornada %}<span class="resumen-chip"><i class="bi bi-flag"></i>{{ partido.jornada }}{% if partido.tipo %} · {{ partido.tipo | upper }}{% endif %}</span>{% endif %}
+                {% if partido.fecha %}<span class="resumen-chip"><i class="bi bi-calendar-event"></i>{{ partido.fecha | fecha_es }} · {{ partido.hora or '00:00' }}</span>{% endif %}
+                {% if partido.tag %}<span class="resumen-chip text-info">{{ partido.tag }}</span>{% endif %}
+            </div>
 
-                    {% if partidos_restantes_quiniela == 0 %}
-                        <a href="{{ url_for('quinielas_home') }}" class="btn btn-success fw-bold">
-                            <i class="bi bi-bag-plus-fill me-1"></i>Comprar Quiniela
-                        </a>
+            <div class="marcador-tv__fila">
+                {% for lado, pid, nombre, bandera, stats, tactica, marcas in [
+                    ('local', partido.id_local, partido.local, partido.bandera_local, partido.stats_local, partido.tactica_local, (marcas_partido or {}).get('local')),
+                    ('visitante', partido.id_visita, partido.visitante, partido.bandera_visitante, partido.stats_visita, partido.tactica_visita, (marcas_partido or {}).get('visita'))] %}
+                {% if loop.index == 2 %}
+                <div class="marcador-tv__centro">
+                    {% if ya_jugado %}
+                    <span class="badge rounded-pill px-3 py-1 marcador-tv__estado resumen-final">FINAL{% if partido.eventos[-1].minuto == 120 %} · T. EXTRA{% endif %}</span>
+                    <span class="marcador-tv__goles">{{ partido.goles_local or 0 }} - {{ partido.goles_visitante or 0 }}</span>
+                    {% if partido.penaltis_local is not none and partido.penaltis_visitante is not none %}<span class="resumen-penales">Penales {{ partido.penaltis_local }} - {{ partido.penaltis_visitante }}</span>{% endif %}
                     {% else %}
-                        <button type="button" class="btn btn-outline-secondary fw-bold" disabled
-                                title="Esperá a que se resuelvan tus partidos pendientes">
-                            <i class="bi bi-lock-fill me-1"></i>Comprar Quiniela
-                        </button>
+                    <span class="badge rounded-pill px-3 py-1 previa-estado"><i class="bi bi-hourglass-split me-1"></i>Por jugar</span>
+                    <span class="previa-vs">VS</span>
+                    <span class="previa-hora"><i class="bi bi-clock me-1"></i>{{ partido.hora or '00:00' }} hs</span>
+                    {% endif %}
+                    {% if partido.marcador_ida and partido.marcador_global_local is defined %}
+                    <span class="resumen-penales"><i class="bi bi-globe-americas me-1"></i>Global {{ partido.marcador_global_local }} - {{ partido.marcador_global_visita }}</span>
                     {% endif %}
                 </div>
-            </div>
-        {% endif %}
-
-        {% if partido %}
-        <!-- Card Marcador y Ficha de Partido -->
-        <div class="card bg-dark text-white shadow-lg mb-4 text-center border-0 rounded-4 overflow-hidden">
-
-            <!-- Ficha Técnica: Ubicación, Fecha, Clima y Aforo -->
-            <div class="card-footer bg-black bg-opacity-40 border-top border-secondary text-light py-3 px-4">
-                <div class="row g-3">
-                    {% if partido.ubicacion %}
-                        <div class="col-6 col-lg-3">
-                            <div class="match-info-chip row">
-                                <div class="text-center col-md-4 py-1">
-                                    <span class="match-info-icon icon-sede display-5"><i class="bi bi-geo-alt-fill"></i></span>
-                                </div>
-                                <div class="text-start text-truncate col-md-8">
-                                    <span class="match-info-label">
-                                        Sede
-                                        {% if marcas_partido and marcas_partido.dueno_sede %}
-                                            <span class="badge rounded-pill bg-dark border border-success text-success ms-1" title="Sos dueño de esta sede"><i class="bi bi-briefcase-fill"></i></span>
-                                        {% endif %}
-                                    </span>
-                                    <span class="match-info-value text-truncate d-block" title="{{ partido.ubicacion.estadio }}">{{ partido.ubicacion.estadio }}</span>
-                                    <small class="text-muted text-truncate d-block">{{ partido.ubicacion.nombre }}, {{ partido.ubicacion.pais }}</small>
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    <div class="col-6 col-lg-3">
-                        <div class="match-info-chip row">
-                            <div class="text-center col-md-4 py-1">
-                                <span class="match-info-icon display-5"><i class="bi bi-calendar-event"></i></span>
-                            </div>
-                            <div class="text-start col-md-8">
-                                <span class="match-info-label">Fecha</span>
-                                <span class="match-info-value">{{ partido.fecha | fecha_es }}</span>
-                                <small class="text-muted"><i class="bi bi-clock me-1"></i>{{ partido.hora if partido.hora else '00:00' }} hrs</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    {% if partido.clima %}
-                        {% if 'Lluvia' in partido.clima.condicion %}
-                            {% set icon_clima_color = 'icon-clima-lluvia' %}
-                        {% elif 'Nieve' in partido.clima.condicion or 'Frio' in partido.clima.condicion %}
-                            {% set icon_clima_color = 'icon-clima-frio' %}
-                        {% elif 'Calor' in partido.clima.condicion %}
-                            {% set icon_clima_color = 'icon-clima-calor' %}
-                        {% elif 'Despejado' in partido.clima.condicion %}
-                            {% set icon_clima_color = 'icon-clima-despejado' %}
-                        {% else %}
-                            {% set icon_clima_color = 'icon-clima-soleado' %}
-                        {% endif %}
-                        <div class="col-6 col-lg-3">
-                            <div class="match-info-chip row">
-                                <div class="text-center col-md-4 py-1">
-                                    <span class="match-info-icon {{ icon_clima_color }} display-5">
-                                        {% if 'Lluvia' in partido.clima.condicion %}
-                                            <i class="bi bi-cloud-rain-heavy-fill"></i>
-                                        {% elif 'Nieve' in partido.clima.condicion or 'Frio' in partido.clima.condicion %}
-                                            <i class="bi bi-snow2"></i>
-                                        {% elif 'Calor' in partido.clima.condicion %}
-                                            <i class="bi bi-thermometer-sun"></i>
-                                        {% elif 'Despejado' in partido.clima.condicion %}
-                                            <i class="bi bi-moon-stars-fill"></i>
-                                        {% else %}
-                                            <i class="bi bi-sun-fill"></i>
-                                        {% endif %}
-                                    </span>
-                                </div>
-                                <div class="text-start text-truncate col-md-8">
-                                    <span class="match-info-label">Clima</span>
-                                    <span class="match-info-value">{{ partido.clima.condicion }}</span>
-                                    <small class="text-muted">{{ partido.clima.temperatura_c }}°C · {{ partido.clima.humedad_porcentaje }}% hum. · {{ partido.clima.viento_kmh }} km/h</small>
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if partido.aforo %}
-                        <div class="col-6 col-lg-3">
-                            <div class="match-info-chip row">
-                                <div class="text-center col-md-4 py-1">
-                                    <span class="match-info-icon icon-aforo display-5"><i class="bi bi-people-fill"></i></span>
-                                </div>
-                                <div class="text-start text-truncate col-md-8">
-                                    <span class="match-info-label">Aforo</span>
-                                    <span class="match-info-value">{{ "{:,}".format(partido.aforo.asistencia) }} . [ {{ partido.aforo.porcentaje_ocupacion }}% ]</span>
-                                    <small class="text-muted d-block">{{ partido.aforo.estado }}</small>
-                                    {% if partido.aforo.porcentaje_publico_local is defined %}
-                                        <div class="progress mt-1" style="height: 5px; background-color: rgba(245, 158, 11, .35);" title="Reparto del público: {{ partido.local }} {{ partido.aforo.porcentaje_publico_local }}% · {{ partido.visitante }} {{ partido.aforo.porcentaje_publico_visitante }}%">
-                                            <div class="progress-bar progress-bar-green" role="progressbar" style="width: {{ partido.aforo.porcentaje_publico_local }}%;"></div>
-                                        </div>
-                                        <small class="text-muted d-block">{{ partido.aforo.porcentaje_publico_local }}% local · {{ partido.aforo.porcentaje_publico_visitante }}% visita</small>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if partido.marcador_ida %}
-                        <div class="col-6 col-lg-3">
-                            <div class="match-info-chip row">
-                                <div class="text-center col-md-4 py-1">
-                                    <span class="match-info-icon icon-marcador display-5"><i class="bi bi-trophy-fill"></i></span>
-                                </div>
-                                <div class="text-start text-truncate col-md-8">
-                                    <span class="match-info-label">Marcador Ida</span>
-                                    <span class="match-info-value">{{ partido.marcador_ida.goles_local }} - {{ partido.marcador_ida.goles_visita }}</span>
-                                    <small class="text-muted">Se define por marcador global (ida + vuelta)</small>
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- INFORMACION Y RESULTADOS -->
-            <div class="card-body py-4 position-relative">
-                
-                <!-- Acciones / Botón Simular -->
-                {% if not partido.eventos and partido.activo %}
-                    <div class="mb-3">
-                        <!-- <a id="btnSimularPartido" href="{{ prefix if prefix else '' }}/simular?id={{ partido._id }}&id_local={{ partido.id_local }}&id_visita={{ partido.id_visita }}" class="btn btn-warning btn-md px-5 shadow fw-bold">
-                            <i class="bi bi-play-circle-fill me-2"></i>Simular Partido
-                        </a> -->
-                        <span id="btnSimularPartidoCargando" class="btn btn-warning btn-md px-5 shadow fw-bold disabled d-none">
-                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Simulando...
-                        </span>
-                        {% if puede('scouter') %}
-                        <a href="/scouter/{{ partido._id }}" class="btn btn-outline-info btn-md px-4 shadow-sm fw-bold ms-2">
-                            <i class="bi bi-binoculars-fill me-2"></i>Análisis Pre-Partido
-                        </a>
-                        {% endif %}
-                    </div>
-                    <script>
-                        (function () {
-                            const btn = document.getElementById('btnSimularPartido');
-                            const cargando = document.getElementById('btnSimularPartidoCargando');
-                            if (!btn || !cargando) return;
-
-                            btn.addEventListener('click', function () {
-                                btn.classList.add('d-none');
-                                cargando.classList.remove('d-none');
-                            });
-                        })();
-                    </script>
-                {% else %}
-                    <div class="position-absolute top-0 start-0 m-3">
-                        <form action="/juegos" method="get" class="d-inline">
-                            <button type="submit" class="btn btn-outline-light btn-sm shadow-sm">
-                                <i class="bi bi-arrow-left me-1"></i> Volver a partidos
-                            </button>
-                        </form>
-                    </div>
                 {% endif %}
-
-                <!-- Tarjetas de Equipos y Marcador -->
-                <div class="row align-items-center mt-3">
-                    <!-- Local -->
-                    <div class="col-4 border-end border-secondary border-opacity-25">
-                        <div class="display-3 my-2">{{ m.bandera(partido.bandera_local, tipo='escudo', clase='img-pais--hero') }}</div>
-                        <h2 class="mb-0 text-truncate fw-bold">{{ partido.local }}</h2>
-                        <span class="badge bg-secondary mt-1">Ranking FIFAV: #{{ partido.stats_local.rankin if partido.stats_local else 'N/A' }}</span>
-                        {% if partido.tactica_local %}
-                            <span class="badge bg-dark border border-secondary mt-1">
-                                <i class="bi bi-diagram-3 me-1"></i>{{ partido.tactica_local }}
-                            </span>
-                        {% endif %}
-                        {% if marcas_partido %}
-                            <div class="d-flex gap-1 justify-content-center mt-2">
-                                {% if marcas_partido.local.quiniela %}
-                                    <span class="badge rounded-pill bg-dark border border-info text-info" title="Tienes un pronóstico de quiniela por {{ partido.local }}"><i class="bi bi-ticket-perforated-fill"></i></span>
-                                {% endif %}
-                                {% if marcas_partido.local.fantasy %}
-                                    <span class="badge rounded-pill bg-dark border border-accent text-accent" title="Tienes jugadores de {{ partido.local }} en tu Once Ideal"><i class="bi bi-stars"></i></span>
-                                {% endif %}
-                                {% if marcas_partido.local.dueno_pais %}
-                                    <span class="badge rounded-pill bg-dark border border-success text-success" title="Sos dueño de la selección de {{ partido.local }}"><i class="bi bi-briefcase-fill"></i></span>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                        <small class="text-uppercase text-muted d-block mt-1">Local</small>
-                    </div>
-
-                    <!-- Marcador / Estado -->
-                    <div class="col-4">
-                        <div class="display-3 fw-bold text-accent lh-1">
-                            {{ partido.goles_local if partido.goles_local is not none else 0 }} - {{ partido.goles_visitante if partido.goles_visitante is not none else 0 }}
-                        </div>
-
-                        {% if partido.eventos %}
-                            {% if partido.penaltis_local is not none and partido.penaltis_visitante is not none %}
-                                <div class="badge bg-danger fs-6 mt-2 px-3 py-2 rounded-pill shadow-sm">
-                                    <i class="bi bi-disc me-1"></i> Penaltis: {{ partido.penaltis_local }} - {{ partido.penaltis_visitante }}
-                                </div>
-                            {% else %}
-                                {% set ultimo_evento = partido.eventos[-1] %}
-                                {% if ultimo_evento.minuto == 120 %}
-                                    <span class="badge bg-secondary mt-2 px-3 py-1 text-uppercase fs-7">Finalizado (Tiempo Extra)</span>
-                                {% else %}
-                                    <span class="badge bg-secondary mt-2 px-3 py-1 text-uppercase fs-7">Finalizado</span>
-                                {% endif %}
-                            {% endif %}
-                        {% else %}
-                            <span class="badge bg-success mt-2 px-3 py-1 text-uppercase fs-7">Por Jugar</span>
-                        {% endif %}
-
-                        {% if partido.marcador_ida and partido.marcador_global_local is defined %}
-                            <div class="small text-accent fw-bold mt-2">
-                                <i class="bi bi-globe-americas me-1"></i>Global: {{ partido.marcador_global_local }} - {{ partido.marcador_global_visita }}
-                            </div>
-                        {% endif %}
-
-                        {% if historial_enfrentamientos %}
-                            <button type="button" id="btnHistorialEnfrentamientos"
-                                    class="badge bg-dark border border-info text-info mt-2 px-3 py-2 rounded-pill"
-                                    style="cursor: pointer;"
-                                    data-historial='{{ historial_enfrentamientos | tojson }}'>
-                                <i class="bi bi-clock-history me-1"></i>{{ historial_enfrentamientos | length }} enfrentamiento{{ "s" if historial_enfrentamientos | length != 1 else "" }} anterior{{ "es" if historial_enfrentamientos | length != 1 else "" }}
-                            </button>
-                        {% endif %}
-                    </div>
-
-                    <!-- Visitante -->
-                    <div class="col-4 border-start border-secondary border-opacity-25">
-                        <div class="display-3 my-2">{{ m.bandera(partido.bandera_visitante, tipo='escudo', clase='img-pais--hero') }}</div>
-                        <h2 class="mb-0 text-truncate fw-bold">{{ partido.visitante }}</h2>
-                        <span class="badge bg-secondary mt-1">Ranking FIFAV: #{{ partido.stats_visita.rankin if partido.stats_visita else 'N/A' }}</span>
-                        {% if partido.tactica_visita %}
-                            <span class="badge bg-dark border border-secondary mt-1">
-                                <i class="bi bi-diagram-3 me-1"></i>{{ partido.tactica_visita }}
-                            </span>
-                        {% endif %}
-                        {% if marcas_partido %}
-                            <div class="d-flex gap-1 justify-content-center mt-2">
-                                {% if marcas_partido.visita.quiniela %}
-                                    <span class="badge rounded-pill bg-dark border border-info text-info" title="Tienes un pronóstico de quiniela por {{ partido.visitante }}"><i class="bi bi-ticket-perforated-fill"></i></span>
-                                {% endif %}
-                                {% if marcas_partido.visita.fantasy %}
-                                    <span class="badge rounded-pill bg-dark border border-accent text-accent" title="Tienes jugadores de {{ partido.visitante }} en tu Once Ideal"><i class="bi bi-stars"></i></span>
-                                {% endif %}
-                                {% if marcas_partido.visita.dueno_pais %}
-                                    <span class="badge rounded-pill bg-dark border border-success text-success" title="Sos dueño de la selección de {{ partido.visitante }}"><i class="bi bi-briefcase-fill"></i></span>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                        <small class="text-uppercase text-muted d-block mt-1">Visitante</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- SECCIÓN DE ANÁLSI PREVIO Y GRÁFICAS        -->
-        <!-- ========================================== -->
-        {% if partido.stats_local and partido.stats_visita %}
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-dark text-white py-3">
-                <h5 class="card-title mb-0 fw-bold">
-                    <i class="bi bi-bar-chart-line-fill text-accent me-2"></i> Comparativa Previa y Rendimiento
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row g-4 mb-4">
-                    <div class="col-12 col-md-6">
-                        <div class="p-3 surface-soft text-center h-100">
-                            <h6 class="fw-bold text-secondary mb-3">Atributos y Porcentajes</h6>
-                            <div style="max-height: 280px;" class="d-flex justify-content-center">
-                                <canvas id="chartAtributos"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6">
-                        <div class="p-3 surface-soft text-center h-100">
-                            <h6 class="fw-bold text-secondary mb-3">Estadísticas en Fase de Grupos</h6>
-                            <div style="max-height: 280px;" class="d-flex justify-content-center">
-                                <canvas id="chartRendimiento"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Antecedente del Último Juego -->
-                <div class="row g-3">
-                    <div class="col-12 col-md-6">
-                        <div class="p-3 surface-soft">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <small class="fw-bold text-muted text-uppercase">Último Partido: {{ partido.local }}</small>
-                                <span class="badge {% if partido.resultado_ultimo_juego_local == 'Victoria' %}bg-success{% elif partido.resultado_ultimo_juego_local == 'Empate' %}bg-accent text-dark{% elif partido.resultado_ultimo_juego_local == 'Sin Partidos Previos' %}bg-secondary{% else %}bg-danger{% endif %}">
-                                    {{ partido.resultado_ultimo_juego_local }}
-                                </span>
-                            </div>
-                            {% if partido.ultimo_juego_local %}
-                                <div class="d-flex align-items-center justify-content-between mt-2">
-                                    <div>
-                                        <span>{{ m.bandera(partido.ultimo_juego_local.equipo_local.bandera) }} {{ partido.ultimo_juego_local.equipo_local.nombre }}</span>
-                                        <span class="fw-bold fs-5 mx-2">{{ partido.ultimo_juego_local.equipo_local.goles }} - {{ partido.ultimo_juego_local.equipo_visitante.goles }}</span>
-                                        <span>{{ m.bandera(partido.ultimo_juego_local.equipo_visitante.bandera) }} {{ partido.ultimo_juego_local.equipo_visitante.nombre }}</span>
-                                    </div>
-                                    <small class="text-muted">{{ partido.ultimo_juego_local.jornada }}</small>
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6">
-                        <div class="p-3 surface-soft">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <small class="fw-bold text-muted text-uppercase">Último Partido: {{ partido.visitante }}</small>
-                                <span class="badge {% if partido.resultado_ultimo_juego_visita == 'Victoria' %}bg-success{% elif partido.resultado_ultimo_juego_visita == 'Empate' %}bg-accent text-dark{% elif partido.resultado_ultimo_juego_visita == 'Sin Partidos Previos' %}bg-secondary{% else %}bg-danger{% endif %}">
-                                    {{ partido.resultado_ultimo_juego_visita }}
-                                </span>
-                            </div>
-                            {% if partido.ultimo_juego_visita %}
-                                <div class="d-flex align-items-center justify-content-between mt-2">
-                                    <div>
-                                        <span>{{ m.bandera(partido.ultimo_juego_visita.equipo_local.bandera) }} {{ partido.ultimo_juego_visita.equipo_local.nombre }}</span>
-                                        <span class="fw-bold fs-5 mx-2">{{ partido.ultimo_juego_visita.equipo_local.goles }} - {{ partido.ultimo_juego_visita.equipo_visitante.goles }}</span>
-                                        <span>{{ m.bandera(partido.ultimo_juego_visita.equipo_visitante.bandera) }} {{ partido.ultimo_juego_visita.equipo_visitante.nombre }}</span>
-                                    </div>
-                                    <small class="text-muted">{{ partido.ultimo_juego_visita.jornada }}</small>
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Intensidad / Momentum del Partido -->
-        {% if partido.eventos %}
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-dark text-white py-3">
-                <h5 class="card-title mb-0 fw-bold">
-                    <i class="bi bi-activity text-accent me-2"></i> Intensidad del Partido
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="p-3 surface-soft">
-                    <div class="d-flex justify-content-center gap-4 mb-2 small text-muted flex-wrap">
-                        <span><i class="bi bi-square-fill" style="color: rgba(0, 255, 136, 0.85);"></i> {{ partido.local }}</span>
-                        <span><i class="bi bi-square-fill" style="color: rgba(245, 158, 11, 0.85);"></i> {{ partido.visitante }}</span>
-                        <span>⚽ Gol</span>
-                        <span>🟨 Amarilla</span>
-                        <span>🟥 Roja</span>
-                        <span>🔄 Cambio</span>
-                    </div>
-                    <div style="max-height: 280px;" class="d-flex justify-content-center">
-                        <canvas id="chartIntensidad"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Cronología de eventos -->
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-body-tertiary py-3 d-flex justify-content-between align-items-center cursor-pointer"
-                 data-bs-toggle="collapse"
-                 data-bs-target="#collapseCronologia"
-                 aria-expanded="false" 
-                 aria-controls="collapseCronologia" 
-                 style="cursor: pointer;">
-                
-                <h5 class="card-title mb-0 fw-bold text-secondary">
-                    <i class="bi bi-clock-history me-2"></i>Cronología del Partido
-                </h5>
-                
-                <button class="btn btn-sm btn-outline-secondary rounded-circle" type="button">
-                    <i class="bi bi-chevron-down"></i>
-                </button>
-            </div>
-
-            <div class="collapse" id="collapseCronologia">
-                <div class="card-body">
-                    {% if partido.eventos %}
-                        <div class="list-group list-group-flush">
-                            {% for evento in partido.eventos %}
-                                <div class="list-group-item d-flex align-items-start py-3 px-0 border-bottom">
-                                    {% if evento.minuto == 120 and 'PENAL' in evento.tipo %}
-                                        <span class="badge bg-danger rounded-pill me-3 fs-6 minute-badge">PEN</span>
-                                    {% elif 'VAR' in evento.tipo %}
-                                        <span class="badge bg-dark text-accent rounded-pill me-3 fs-6 minute-badge">'{{ evento.minuto }}</span>
-                                    {% elif 'SUSTITUCIÓN' in evento.tipo %}
-                                        <span class="badge bg-info text-dark rounded-pill me-3 fs-6 minute-badge">'{{ evento.minuto }}</span>
-                                    {% elif evento.minuto > 90 %}
-                                        <span class="badge bg-warning text-dark rounded-pill me-3 fs-6 minute-badge">'{{ evento.minuto }}</span>
-                                    {% else %}
-                                        <span class="badge bg-primary rounded-pill me-3 fs-6 minute-badge">'{{ evento.minuto }}</span>
-                                    {% endif %}
-
-                                    <div>
-                                        <strong class="text-body-emphasis">{{ evento.tipo }}</strong> 
-                                        <span class="text-muted">({{ evento.equipo }})</span>: 
-                                        <span>{{ evento.descripcion | resaltar_jugadores(evento.jugadores or []) }}</span>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="alert alert-info text-center my-2" role="alert">
-                            <i class="bi bi-info-circle me-2"></i>Los equipos están listos para el inicio del partido.
-                        </div>
+                <a href="/paises/{{ pid }}" class="marcador-tv__equipo marcador-tv__equipo--{{ lado }} resumen-equipo">
+                    <span class="marcador-tv__bandera-wrap">{{ m.bandera(bandera, pais_id=pid, clase='marcador-tv__bandera') }}</span>
+                    <h2 class="h4 fw-bold text-white mb-0">{{ nombre }}</h2>
+                    <span class="marcador-tv__siglas">Ranking #{{ stats.rankin if stats and stats.rankin else '—' }}{% if tactica %} · {{ tactica }}{% endif %}</span>
+                    {% if marcas and (marcas.quiniela or marcas.fantasy or marcas.dueno_pais) %}
+                    <span class="d-flex gap-1 justify-content-center mt-1">
+                        {% if marcas.quiniela %}<span class="previa-marca text-info" title="Tenés un pronóstico de quiniela por {{ nombre }}"><i class="bi bi-ticket-perforated-fill"></i></span>{% endif %}
+                        {% if marcas.fantasy %}<span class="previa-marca text-accent" title="Tenés jugadores de {{ nombre }} en tu Once Ideal"><i class="bi bi-stars"></i></span>{% endif %}
+                        {% if marcas.dueno_pais %}<span class="previa-marca text-success" title="Sos dueño de la selección de {{ nombre }}"><i class="bi bi-briefcase-fill"></i></span>{% endif %}
+                    </span>
                     {% endif %}
-                </div>
+                </a>
+                {% endfor %}
             </div>
         </div>
+    </div>
 
-        <!-- ============================================================== -->
-        <!-- TABLA DE JUGADORES (CORREGIDA LA EVALUACIÓN DE LA VARIABLE)    -->
-        <!-- ============================================================== -->
-        {% set dataset_jugadores = stats_jugadores if stats_jugadores else partido.stats_jugadores %}
-        {% if dataset_jugadores %}
-        <div class="card mt-4 shadow-sm border-0 mb-4">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-              <h5 class="mb-0"><i class="bi bi-star-fill text-accent me-2"></i> Rendimiento Individual de Jugadores</h5>
-              <span class="badge bg-primary">Rating 1-10</span>
-            </div>
-            <div class="card-body">
-              
-              <!-- Filtros por equipo -->
-              <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
-                <li class="nav-item">
-                  <button class="nav-link active" id="local-tab" data-bs-toggle="pill" data-bs-target="#tab-local">{{ partido.local }}</button>
-                </li>
-                <li class="nav-item">
-                  <button class="nav-link" id="visita-tab" data-bs-toggle="pill" data-bs-target="#tab-visita">{{ partido.visitante }}</button>
-                </li>
-              </ul>
-          
-              <div class="tab-content" id="pills-tabContent">
-                <!-- Tabla Local -->
-                <div class="tab-pane fade show active" id="tab-local">
-                    {{ tabla_jugadores(dataset_jugadores, 'L', 'tabla-stats-local') }}
-                </div>
-
-                <!-- Tabla Visita -->
-                <div class="tab-pane fade" id="tab-visita">
-                    {{ tabla_jugadores(dataset_jugadores, 'V', 'tabla-stats-visita') }}
+    <!-- FICHA DEL PARTIDO: sede, fecha, clima, aforo, marcador de ida -->
+    <div class="row g-3 mb-4">
+        {% if partido.ubicacion %}
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card card-logo-fondo kpi-logo-fondo h-100 previa-ficha" style="--logo-color: #22c55e;">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="estadio-ilustracion estadio-ilustracion--mini">{% if img_partido %}<img src="{{ img_partido }}" alt="" onerror="this.remove()">{% else %}<i class="bi bi-geo-alt-fill"></i>{% endif %}</span>
+                    <div class="min-w-0">
+                        <span class="previa-ficha__label">Sede{% if marcas_partido and marcas_partido.dueno_sede %} <i class="bi bi-briefcase-fill text-success" title="Sos dueño de esta sede"></i>{% endif %}</span>
+                        <strong class="d-block text-truncate" title="{{ partido.ubicacion.estadio }}">{{ partido.ubicacion.estadio }}</strong>
+                        <small class="text-muted text-truncate d-block">{{ partido.ubicacion.nombre }}, {{ partido.ubicacion.pais }}</small>
+                    </div>
                 </div>
             </div>
         </div>
         {% endif %}
-        
-        <!-- Impacto en la Base de Aficionados (ver services/fanbase_service.py) -->
-        {% if delta_aficionados %}
-            <div class="card shadow-sm border-0 mb-4">
-                <div class="card-body p-3">
-                    <h6 class="text-uppercase text-secondary fw-bold mb-3 fs-7">
-                        <i class="bi bi-heart-fill text-danger me-1"></i>Impacto en la Base de Aficionados
-                    </h6>
-                    <div class="row g-2 text-center">
-                        <div class="col-6">
-                            <div class="surface-soft p-2">
-                                <span class="d-block small text-muted">{{ m.bandera(partido.bandera_local) }} {{ partido.local }}</span>
-                                <span class="fw-bold fs-5 {% if delta_aficionados.local.delta > 0 %}text-success{% elif delta_aficionados.local.delta < 0 %}text-danger{% else %}text-muted{% endif %}">
-                                    {{ "+" if delta_aficionados.local.delta > 0 else "" }}{{ delta_aficionados.local.delta }}
-                                </span>
-                                <span class="d-block small text-muted">{{ "{:,}".format(delta_aficionados.local.aficionados_totales) }} en total</span>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="surface-soft p-2">
-                                <span class="d-block small text-muted">{{ m.bandera(partido.bandera_visitante) }} {{ partido.visitante }}</span>
-                                <span class="fw-bold fs-5 {% if delta_aficionados.visitante.delta > 0 %}text-success{% elif delta_aficionados.visitante.delta < 0 %}text-danger{% else %}text-muted{% endif %}">
-                                    {{ "+" if delta_aficionados.visitante.delta > 0 else "" }}{{ delta_aficionados.visitante.delta }}
-                                </span>
-                                <span class="d-block small text-muted">{{ "{:,}".format(delta_aficionados.visitante.aficionados_totales) }} en total</span>
-                            </div>
-                        </div>
+        {% if partido.clima %}
+        {% set cond = partido.clima.condicion or '' %}
+        {% set icono_clima = 'bi-cloud-rain-heavy-fill' if 'Lluvia' in cond else ('bi-snow2' if ('Nieve' in cond or 'Frio' in cond) else ('bi-thermometer-sun' if 'Calor' in cond else ('bi-moon-stars-fill' if 'Despejado' in cond else 'bi-sun-fill'))) %}
+        {% set color_clima = '#38bdf8' if 'Lluvia' in cond else ('#a5f3fc' if ('Nieve' in cond or 'Frio' in cond) else ('#f97316' if 'Calor' in cond else ('#818cf8' if 'Despejado' in cond else '#facc15'))) %}
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card card-logo-fondo kpi-logo-fondo h-100 previa-ficha" style="--logo-color: {{ color_clima }};">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="previa-ficha__icono"><i class="bi {{ icono_clima }}"></i></span>
+                    <div class="min-w-0">
+                        <span class="previa-ficha__label">Clima</span>
+                        <strong class="d-block">{{ cond }} · {{ partido.clima.temperatura_c }}°C</strong>
+                        <small class="text-muted">{{ partido.clima.humedad_porcentaje }}% humedad · viento {{ partido.clima.viento_kmh }} km/h</small>
                     </div>
                 </div>
             </div>
+        </div>
         {% endif %}
-
-        <!-- Crónica / Opinión Periodística -->
-        {% if partido and partido.opinion %}
-            <div class="card shadow-sm border-0 mb-4 bg-body-tertiary border-start border-4 border-accent">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center mb-2">
-                        <div class="badge bg-accent text-dark p-2 rounded-circle me-3">
-                            <i class="bi bi-journal-text fs-5"></i>
+        {% if partido.aforo %}
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card card-logo-fondo kpi-logo-fondo h-100 previa-ficha" style="--logo-color: #f59e0b;">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="anillo-kpi" style="--pct: {{ partido.aforo.porcentaje_ocupacion or 0 }};"><span>{{ partido.aforo.porcentaje_ocupacion }}%</span></div>
+                    <div class="min-w-0 flex-grow-1">
+                        <span class="previa-ficha__label">Aforo · {{ partido.aforo.estado }}</span>
+                        <strong class="d-block">{{ "{:,}".format(partido.aforo.asistencia) }} espectadores</strong>
+                        {% if partido.aforo.porcentaje_publico_local is defined %}
+                        <div class="previa-publico" title="Reparto del público">
+                            <span class="previa-publico__local" style="width: {{ partido.aforo.porcentaje_publico_local }}%;"></span>
                         </div>
-                        <h5 class="card-title mb-0 fw-bold text-body-emphasis">
-                            Crónica & Análisis Periodístico
-                        </h5>
+                        <small class="d-flex justify-content-between"><span class="resumen-color-local">{{ partido.aforo.porcentaje_publico_local }}% local</span><span class="resumen-color-visitante">{{ partido.aforo.porcentaje_publico_visitante }}% visita</span></small>
+                        {% endif %}
                     </div>
-                    <hr class="my-2 border-secondary opacity-25">
-                    <p class="card-text text-secondary lh-lg fs-6 mb-0 mt-3">
-                        <i class="bi bi-quote fs-4 text-accent me-1"></i>
-                        {{ partido.opinion }}
-                    </p>
                 </div>
             </div>
+        </div>
         {% endif %}
-
+        {% if partido.marcador_ida %}
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card card-logo-fondo kpi-logo-fondo h-100 previa-ficha" style="--logo-color: #eab308;">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="previa-ficha__icono"><i class="bi bi-trophy-fill"></i></span>
+                    <div class="min-w-0">
+                        <span class="previa-ficha__label">Marcador de ida</span>
+                        <strong class="d-block fs-5">{{ partido.marcador_ida.goles_local }} - {{ partido.marcador_ida.goles_visita }}</strong>
+                        <small class="text-muted">Se define por el global (ida + vuelta)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% elif usuario_actual and partidos_restantes_quiniela is not none %}
+        <!-- Quiniela activa -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card card-logo-fondo kpi-logo-fondo h-100 previa-ficha" style="--logo-color: #a855f7;">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="previa-ficha__icono"><i class="bi bi-ticket-perforated-fill"></i></span>
+                    <div class="min-w-0">
+                        <span class="previa-ficha__label">Quiniela activa</span>
+                        {% if partidos_restantes_quiniela > 0 %}
+                        <strong class="d-block">{{ partidos_restantes_quiniela }} partido{{ 's' if partidos_restantes_quiniela != 1 }} por resolver</strong>
+                        <small class="text-muted">Comprás otra cuando se resuelvan</small>
+                        {% else %}
+                        <strong class="d-block text-success">¡Sin pendientes!</strong>
+                        <a href="{{ url_for('quinielas_home') }}" class="small link-success">Comprar una quiniela <i class="bi bi-arrow-right"></i></a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
         {% endif %}
     </div>
+
+    <!-- ENFRENTAMIENTOS ANTERIORES (mismo bloque que el Scouter) -->
+    {% include "partials/enfrentamientos.html" %}
+
+    {% if partido.stats_local and partido.stats_visita %}
+    {% set sl = partido.stats_local %}{% set sv = partido.stats_visita %}
+    <div class="row g-4 mb-4">
+        <!-- Comparativa: barras enfrentadas + radar -->
+        <div class="col-12 col-xl-7">
+            <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: #3b82f6;">
+                <img src="{{ imagen_perfil('atributos') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
+                <div class="card-body p-3 p-md-4">
+                    <h2 class="vivo-titulo"><i class="bi bi-bar-chart-fill text-primary"></i>Comparativa previa</h2>
+                    <div class="d-flex justify-content-between small fw-bold mb-2">
+                        <span class="resumen-color-local">{{ m.bandera(partido.bandera_local, pais_id=partido.id_local) }} {{ partido.local }}</span>
+                        <span class="resumen-color-visitante">{{ partido.visitante }} {{ m.bandera(partido.bandera_visitante, pais_id=partido.id_visita) }}</span>
+                    </div>
+                    <div class="row g-3 align-items-center">
+                        <div class="col-12 col-md-7">
+                            {% for etiqueta, vl, vv, sufijo, menos_es_mejor in [
+                                ('Poder', sl.poder or 0, sv.poder or 0, '', False),
+                                ('P. ofensiva', sl.p_ofensiva or 0, sv.p_ofensiva or 0, '%', False),
+                                ('P. defensiva', sl.p_defensiva or 0, sv.p_defensiva or 0, '%', False),
+                                ('Posesión', sl.p_posesion or 0, sv.p_posesion or 0, '%', False),
+                                ('Puntos', sl.puntos or 0, sv.puntos or 0, '', False),
+                                ('Goles a favor', sl.goles_favor or 0, sv.goles_favor or 0, '', False),
+                                ('Goles en contra', sl.goles_contra or 0, sv.goles_contra or 0, '', True)] %}
+                            {% set a = [vl, 0] | max %}{% set b = [vv, 0] | max %}{% set total = a + b %}
+                            {% set mejor_l = (vl < vv) if menos_es_mejor else (vl > vv) %}{% set mejor_v = (vv < vl) if menos_es_mejor else (vv > vl) %}
+                            <div class="stat-duelo">
+                                <span class="stat-duelo__valor {{ 'stat-duelo__valor--mas' if mejor_l }}">{{ vl }}{{ sufijo }}</span>
+                                <div class="stat-duelo__centro">
+                                    <span class="stat-duelo__etiqueta">{{ etiqueta }}</span>
+                                    <div class="stat-duelo__barras">
+                                        <span class="stat-duelo__barra stat-duelo__barra--local"><span style="width: {{ (a * 100 / total) if total else 0 }}%;"></span></span>
+                                        <span class="stat-duelo__barra stat-duelo__barra--visitante"><span style="width: {{ (b * 100 / total) if total else 0 }}%;"></span></span>
+                                    </div>
+                                </div>
+                                <span class="stat-duelo__valor {{ 'stat-duelo__valor--mas' if mejor_v }}">{{ vv }}{{ sufijo }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-12 col-md-5">
+                            <div class="resumen-radar"><canvas id="chartAtributos"></canvas></div>
+                            <p class="text-muted text-center mb-0" style="font-size: .72rem;">Perfil de juego (porcentajes del torneo)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Forma reciente: último partido de cada uno -->
+        <div class="col-12 col-xl-5">
+            <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: #22c55e;">
+                <img src="{{ imagen_perfil('forma') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
+                <div class="card-body p-3 p-md-4">
+                    <h2 class="vivo-titulo"><i class="bi bi-activity text-success"></i>Cómo llegan</h2>
+                    <div class="d-flex flex-column gap-3">
+                        {% for lado, nombre, bandera, pid, ult, res in [
+                            ('local', partido.local, partido.bandera_local, partido.id_local, partido.ultimo_juego_local, partido.resultado_ultimo_juego_local),
+                            ('visitante', partido.visitante, partido.bandera_visitante, partido.id_visita, partido.ultimo_juego_visita, partido.resultado_ultimo_juego_visita)] %}
+                        {% set clase_res = {'Victoria': 'gana', 'Empate': 'empata', 'Derrota': 'pierde'}.get(res, 'sin') %}
+                        <div class="previa-forma previa-forma--{{ lado }}">
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                <strong class="text-white text-truncate">{{ m.bandera(bandera, pais_id=pid) }} {{ nombre }}</strong>
+                                <span class="previa-forma__res previa-forma__res--{{ clase_res }}">{{ res or 'Sin partidos previos' }}</span>
+                            </div>
+                            {% if ult %}
+                            <a href="/juegos/{{ ult._id }}" class="h2h-partido h2h-partido--compacto">
+                                <span class="h2h-partido__equipo">{{ m.bandera(ult.equipo_local.bandera, pais_id=ult.equipo_local.id) }}<span class="text-truncate">{{ ult.equipo_local.nombre }}</span></span>
+                                <span class="h2h-partido__marcador">{{ ult.equipo_local.goles }}<i>-</i>{{ ult.equipo_visitante.goles }}</span>
+                                <span class="h2h-partido__equipo h2h-partido__equipo--visita"><span class="text-truncate">{{ ult.equipo_visitante.nombre }}</span>{{ m.bandera(ult.equipo_visitante.bandera, pais_id=ult.equipo_visitante.id) }}</span>
+                            </a>
+                            <small class="text-muted d-block mt-1">{{ ult.jornada }}{% if ult.fecha %} · {{ ult.fecha | fecha_es }}{% endif %}</small>
+                            {% else %}
+                            <small class="text-muted">Todavía no jugó en este torneo.</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ===== Resultado recién simulado (/simulador/simular) ===== -->
+    {% if ya_jugado %}
+    <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #22c55e;">
+        <div class="card-body p-3 p-md-4">
+            <h2 class="vivo-titulo"><i class="bi bi-activity text-success"></i>Intensidad del partido</h2>
+            <div class="d-flex justify-content-center gap-3 mb-2 small text-muted flex-wrap">
+                <span><i class="bi bi-square-fill" style="color: rgba(0, 255, 136, 0.85);"></i> {{ partido.local }}</span>
+                <span><i class="bi bi-square-fill" style="color: rgba(245, 158, 11, 0.85);"></i> {{ partido.visitante }}</span>
+                <span>⚽ Gol</span><span>🟨 Amarilla</span><span>🟥 Roja</span><span>🔄 Cambio</span>
+            </div>
+            <div style="height: 280px;"><canvas id="chartIntensidad"></canvas></div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% set dataset_jugadores = stats_jugadores if stats_jugadores else partido.stats_jugadores %}
+    {% if dataset_jugadores %}
+    <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #facc15;">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <h2 class="vivo-titulo mb-0"><i class="bi bi-star-fill text-warning"></i>Rendimiento individual</h2>
+                <ul class="nav album-pestanas" role="tablist">
+                    <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-local" type="button">{{ m.bandera(partido.bandera_local, pais_id=partido.id_local) }} {{ partido.local }}</button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-visita" type="button">{{ m.bandera(partido.bandera_visitante, pais_id=partido.id_visita) }} {{ partido.visitante }}</button></li>
+                </ul>
+            </div>
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="tab-local">{{ tabla_jugadores(dataset_jugadores, 'L', 'tabla-stats-local') }}</div>
+                <div class="tab-pane fade" id="tab-visita">{{ tabla_jugadores(dataset_jugadores, 'V', 'tabla-stats-visita') }}</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if delta_aficionados %}
+    <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #f43f5e;">
+        <div class="card-body p-3 p-md-4">
+            <h2 class="vivo-titulo"><i class="bi bi-heart-fill text-danger"></i>Impacto en los aficionados</h2>
+            <div class="historial-fichas historial-fichas--2">
+                {% for nombre, bandera, pid, d in [(partido.local, partido.bandera_local, partido.id_local, delta_aficionados.local), (partido.visitante, partido.bandera_visitante, partido.id_visita, delta_aficionados.visitante)] %}
+                <div class="historial-ficha text-center">
+                    <span>{{ m.bandera(bandera, pais_id=pid) }} {{ nombre }}</span>
+                    <strong class="{{ 'text-success' if d.delta > 0 else ('text-danger' if d.delta < 0 else 'text-muted') }}">{{ '+' if d.delta > 0 }}{{ d.delta }}</strong>
+                    <small class="text-muted d-block">{{ "{:,}".format(d.aficionados_totales) }} en total</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if partido.opinion %}
+    <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #22c55e;">
+        <img src="{{ imagen_inicio('copa') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
+        <div class="card-body p-3 p-md-4">
+            <h2 class="vivo-titulo"><i class="bi bi-mic-fill text-success"></i>Crónica del partido</h2>
+            <blockquote class="resumen-cronica mb-0"><p class="mb-0">{{ partido.opinion }}</p></blockquote>
+        </div>
+    </div>
+    {% endif %}
 </div>
+{% endif %}
 
 <!-- Scripts Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 {% if partido and partido.stats_local and partido.stats_visita %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const localNombre = "{{ partido.local }}";
-    const visitaNombre = "{{ partido.visitante }}";
-
-    const statsLocal = {
-        ofensiva: {{ partido.stats_local.p_ofensiva | default(0) }},
-        defensiva: {{ partido.stats_local.p_defensiva | default(0) }},
-        posesion: {{ partido.stats_local.p_posesion | default(0) }},
-        poder: {{ partido.stats_local.poder | default(0) }},
-        puntos: {{ partido.stats_local.puntos | default(0) }},
-        gf: {{ partido.stats_local.goles_favor | default(0) }},
-        gc: {{ partido.stats_local.goles_contra | default(0) }},
-        dg: {{ partido.stats_local.diferencia_goles | default(0) }}
-    };
-
-    const statsVisita = {
-        ofensiva: {{ partido.stats_visita.p_ofensiva | default(0) }},
-        defensiva: {{ partido.stats_visita.p_defensiva | default(0) }},
-        posesion: {{ partido.stats_visita.p_posesion | default(0) }},
-        poder: {{ partido.stats_visita.poder | default(0) }},
-        puntos: {{ partido.stats_visita.puntos | default(0) }},
-        gf: {{ partido.stats_visita.goles_favor | default(0) }},
-        gc: {{ partido.stats_visita.goles_contra | default(0) }},
-        dg: {{ partido.stats_visita.diferencia_goles | default(0) }}
-    };
-
-    const ctxAtributos = document.getElementById('chartAtributos').getContext('2d');
-    new Chart(ctxAtributos, {
+    // Radar del perfil de juego (las cifras exactas están en las barras enfrentadas)
+    const sl = {{ {'o': partido.stats_local.p_ofensiva or 0, 'd': partido.stats_local.p_defensiva or 0, 'p': partido.stats_local.p_posesion or 0} | tojson }};
+    const sv = {{ {'o': partido.stats_visita.p_ofensiva or 0, 'd': partido.stats_visita.p_defensiva or 0, 'p': partido.stats_visita.p_posesion or 0} | tojson }};
+    const lienzo = document.getElementById('chartAtributos');
+    if (!lienzo || typeof Chart === 'undefined') return;
+    // Escala dinámica: los porcentajes suelen estar todos cerca de 50 y con 0-100 los polígonos se encimaban
+    const todos = [sl.o, sl.d, sl.p, sv.o, sv.d, sv.p];
+    const minimo = Math.max(0, Math.floor((Math.min(...todos) - 6) / 5) * 5);
+    const maximo = Math.min(100, Math.ceil((Math.max(...todos) + 3) / 5) * 5);
+    new Chart(lienzo.getContext('2d'), {
         type: 'radar',
         data: {
-            labels: ['P. Ofensiva', 'P. Defensiva', 'Posesión (%)', 'Poder'],
+            labels: ['Ofensiva', 'Defensiva', 'Posesión'],
             datasets: [
-                {
-                    label: localNombre,
-                    data: [statsLocal.ofensiva, statsLocal.defensiva, statsLocal.posesion, statsLocal.poder],
-                    backgroundColor: 'rgba(16, 185, 129, 0.25)',
-                    borderColor: 'rgba(0, 255, 136, 1)',
-                    borderWidth: 2,
-                    pointBackgroundColor: 'rgba(0, 255, 136, 1)'
-                },
-                {
-                    label: visitaNombre,
-                    data: [statsVisita.ofensiva, statsVisita.defensiva, statsVisita.posesion, statsVisita.poder],
-                    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-                    borderColor: 'rgba(245, 158, 11, 1)',
-                    borderWidth: 2,
-                    pointBackgroundColor: 'rgba(245, 158, 11, 1)'
-                }
+                { label: {{ partido.local | tojson }}, data: [sl.o, sl.d, sl.p], backgroundColor: 'rgba(57, 135, 229, 0.25)', borderColor: '#3987e5', borderWidth: 2, pointBackgroundColor: '#3987e5' },
+                { label: {{ partido.visitante | tojson }}, data: [sv.o, sv.d, sv.p], backgroundColor: 'rgba(230, 103, 103, 0.22)', borderColor: '#e66767', borderWidth: 2, pointBackgroundColor: '#e66767' }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: '#f1f5f9' } } },
-            scales: {
-                r: {
-                    beginAtZero: true,
-                    suggestedMax: 100,
-                    angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                    pointLabels: { color: '#94a3b8' },
-                    ticks: { display: false, backdropColor: 'transparent' }
-                }
-            }
-        }
-    });
-
-    const ctxRendimiento = document.getElementById('chartRendimiento').getContext('2d');
-    new Chart(ctxRendimiento, {
-        type: 'bar',
-        data: {
-            labels: ['Puntos', 'Goles Favor', 'Goles Contra', 'Dif. Goles'],
-            datasets: [
-                {
-                    label: localNombre,
-                    data: [statsLocal.puntos, statsLocal.gf, statsLocal.gc, statsLocal.dg],
-                    backgroundColor: 'rgba(0, 255, 136, 0.85)'
-                },
-                {
-                    label: visitaNombre,
-                    data: [statsVisita.puntos, statsVisita.gf, statsVisita.gc, statsVisita.dg],
-                    backgroundColor: 'rgba(245, 158, 11, 0.85)'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: '#f1f5f9' } } },
-            scales: {
-                x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255, 255, 255, 0.06)' } },
-                y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255, 255, 255, 0.06)' } }
-            }
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { r: { min: minimo, max: maximo, angleLines: { color: 'rgba(255,255,255,0.1)' }, grid: { color: 'rgba(255,255,255,0.1)' },
+                           pointLabels: { color: '#cbd5e1', font: { size: 11, weight: '600' } }, ticks: { display: false, backdropColor: 'transparent' } } }
         }
     });
 });
@@ -945,60 +605,5 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 {% endif %}
 
-{% if historial_enfrentamientos %}
-<!-- Historial de Enfrentamientos: modal SweetAlert2 con los resultados previos entre ambos
-     equipos (ver services/juegos_service.obtener_historial_enfrentamientos). Se abre al hacer
-     click en el badge de arriba -- no se muestra solo, para no ser intrusivo. -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const btnHistorial = document.getElementById('btnHistorialEnfrentamientos');
-    if (!btnHistorial || typeof Swal === 'undefined') return;
-
-    let historial = [];
-    try {
-        historial = JSON.parse(btnHistorial.getAttribute('data-historial') || '[]');
-    } catch (e) {
-        historial = [];
-    }
-    if (!historial.length) return;
-
-    function construirHtmlHistorial() {
-        const filas = historial.map(function (p) {
-            const huboPenales = p.penaltis_local !== null && p.penaltis_local !== undefined;
-            const penales = huboPenales
-                ? ` <span style="color:#94a3b8; font-size:0.8rem;">(Penales: ${p.penaltis_local}-${p.penaltis_visitante})</span>`
-                : '';
-            return `
-                <div style="padding:8px 4px; border-bottom:1px solid rgba(255,255,255,0.08);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                        <span style="flex:1; text-align:right;">${p.equipo_local.nombre || '?'} ${UI.bandera(p.equipo_local.bandera)}</span>
-                        <strong style="white-space:nowrap;">${p.equipo_local.goles} - ${p.equipo_visitante.goles}</strong>
-                        <span style="flex:1; text-align:left;">${UI.bandera(p.equipo_visitante.bandera)} ${p.equipo_visitante.nombre || '?'}</span>
-                    </div>
-                    <div style="text-align:center; font-size:0.75rem; color:#94a3b8; margin-top:2px;">
-                        ${p.tag || ''}${p.tag && p.fecha ? ' · ' : ''}${p.fecha || ''}${penales}
-                    </div>
-                </div>`;
-        }).join('');
-        return `<div style="text-align:left; max-height:340px; overflow-y:auto;">${filas}</div>`;
-    }
-
-    function mostrarHistorial() {
-        Swal.fire({
-            title: '🤝 Enfrentamientos Anteriores',
-            html: construirHtmlHistorial(),
-            background: '#111c2e',
-            color: '#f1f5f9',
-            confirmButtonText: 'Cerrar',
-            confirmButtonColor: '#10b981',
-            width: 560
-        });
-    }
-
-    btnHistorial.addEventListener('click', mostrarHistorial);
-});
-</script>
-{% endif %}
 
 {% endblock %}

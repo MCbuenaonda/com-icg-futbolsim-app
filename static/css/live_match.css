@@ -445,6 +445,16 @@
 }
 .once-dorsal--local { background: #3987e5; }
 .once-dorsal--visitante { background: #e66767; }
+/* Rostro del jugador (avatar) con el dorsal de su equipo en la esquina */
+.once-avatar { position: relative; flex: 0 0 auto; display: inline-flex; }
+.once-avatar .avatar-jugador { width: 2.35rem; height: 2.35rem; border-width: 2px; }
+.once-avatar--local .avatar-jugador { border-color: rgba(57, 135, 229, 0.85); }
+.once-avatar--visitante .avatar-jugador { border-color: rgba(230, 103, 103, 0.85); }
+.once-avatar .once-dorsal { position: absolute; right: -5px; bottom: -3px; width: 18px; height: 18px; font-size: 0.6rem; border-width: 1.5px; }
+.once-avatar--sin-imagen .avatar-jugador { display: none; }
+.once-avatar--sin-imagen .once-dorsal { position: static; width: 22px; height: 22px; font-size: 0.7rem; }
+.once-fila { min-height: 2.9rem; transition: background 0.15s ease; }
+.once-fila:hover { background: rgba(255, 255, 255, 0.04); }
 .cancha-jugador--oculto { opacity: 0; scale: 0.4; }
 .cancha-jugador--activo {
     z-index: 3;

@@ -10,6 +10,7 @@ import certifi
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
+from bson import ObjectId
 from pymongo import DESCENDING
 from pymongo.mongo_client import MongoClient
 
@@ -36,19 +37,25 @@ def _ganador(juego: dict) -> Optional[int]:
     return (juego.get("equipo_local") or {}).get("id") if gl > gv else (juego.get("equipo_visitante") or {}).get("id")
 
 
-def obtener_cara_a_cara(pais_a: int, pais_b: int, limite_partidos: int = 20) -> Optional[Dict[str, Any]]:
-    """Resumen del historial entre 'pais_a' y 'pais_b' (desde la óptica de A). None si un país no existe."""
+def obtener_cara_a_cara(pais_a: int, pais_b: int, limite_partidos: int = 20, excluir_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Resumen del historial entre 'pais_a' y 'pais_b' (desde la óptica de A). None si un país no existe.
+    'excluir_id': el partido que se está mirando (el detalle recién simulado no debe contarse a sí mismo).
+    """
     paises = {p["id"]: p for p in db["paises"].find({"id": {"$in": [pais_a, pais_b]}}, {"id": 1, "nombre": 1, "bandera": 1})}
     if pais_a not in paises or pais_b not in paises or pais_a == pais_b:
         return None
 
     nombres_fase = {f["id"]: f.get("nombre", "") for f in db["fases"].find({}, {"id": 1, "nombre": 1})}
     anios = {str(m["_id"]): m.get("anio") for m in db["mundiales"].find({}, {"anio": 1})}
+    filtro = {"estado": "finalizado", "transmision.estado": {"$ne": "in_progress"}, "$or": [
+        {"equipo_local.id": pais_a, "equipo_visitante.id": pais_b},
+        {"equipo_local.id": pais_b, "equipo_visitante.id": pais_a},
+    ]}
+    if excluir_id and ObjectId.is_valid(str(excluir_id)):
+        filtro["_id"] = {"$ne": ObjectId(str(excluir_id))}
     juegos = list(db["juegos"].find(
-        {"estado": "finalizado", "$or": [
-            {"equipo_local.id": pais_a, "equipo_visitante.id": pais_b},
-            {"equipo_local.id": pais_b, "equipo_visitante.id": pais_a},
-        ]},
+        filtro,
         {"equipo_local": 1, "equipo_visitante": 1, "fecha": 1, "tag": 1, "fase_id": 1, "mundial_id": 1, "resultado.goles_local": 1,
          "resultado.goles_visitante": 1, "resultado.penaltis_local": 1, "resultado.penaltis_visitante": 1,
          "resultado.ganador_id": 1, "resultado.ganador_lado": 1, "resultado.goleadores": 1}

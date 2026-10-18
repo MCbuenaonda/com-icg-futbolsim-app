@@ -3,54 +3,63 @@
 {% block title %}Calendario del Mundial - FutbolSim{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-2">
-
-    <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <div>
-            <h1 class="h2 fw-bold text-white mb-1">
-                <i class="bi bi-calendar3-range text-success me-2"></i>Calendario del Mundial
-            </h1>
-            <p class="text-muted mb-0">
-                {% if mundial %}Mundial {{ mundial.anio }} — {% endif %}vista completa de partidos por día, programados y finalizados.
-            </p>
+{#
+  Calendario del Mundial (FullCalendar): cada partido se dibuja con las banderas, las siglas y el marcador
+  (o la hora si está pendiente); en vivo en rojo, finalizado en verde, pendiente con el color de su
+  confederación. Filtros por confederación y por estado (en el cliente). En celular abre en la vista Lista.
+  Datos: juegos_service.armar_eventos_calendario.
+#}
+{% set t = totales %}
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo fixture-hero mb-4" style="--logo-color: #22c55e;">
+    <img src="{{ imagen_inicio('partidos') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+    <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="min-w-0">
+            <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-calendar3-range text-success me-2"></i>Calendario del Mundial</h1>
+            <p class="text-muted mb-0">{% if mundial %}Mundial {{ mundial.anio }} · {% endif %}todos los partidos por día: tocá uno para ver su detalle.</p>
         </div>
-        <div class="d-flex align-items-center gap-3 flex-wrap">
-            <div class="d-flex align-items-center gap-3 fs-7 text-muted">
-                <span><span class="calendar-legend-dot" style="background-color:#3b82f6;"></span> Programado</span>
-                <span><span class="calendar-legend-dot" style="background-color:#10b981;"></span> Finalizado</span>
-            </div>
-            <a href="{{ url_for('juegos') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i> Volver a Partidos
-            </a>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <div class="fixture-kpi"><span>Partidos</span><strong>{{ total_juegos }}</strong></div>
+            <div class="fixture-kpi"><span>Jugados</span><strong class="text-success">{{ t.finalizados }}</strong></div>
+            <div class="fixture-kpi"><span>Pendientes</span><strong>{{ t.pendientes }}</strong></div>
+            {% if t.en_vivo %}<a href="/en-vivo/" class="fixture-kpi cal-kpi-vivo text-decoration-none"><span><span class="cal-dot"></span>En vivo</span><strong>{{ t.en_vivo }}</strong></a>{% endif %}
+            <a href="{{ url_for('juegos') }}" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-list-ul me-1"></i>Fixture</a>
         </div>
     </div>
-
-    {% if total_juegos == 0 %}
-        <div class="alert alert-info text-center">
-            <i class="bi bi-info-circle me-2"></i>Todavía no hay partidos con fecha asignada para mostrar en el calendario.
-        </div>
-    {% else %}
-        <div class="card border-0 shadow-sm">
-            <div class="card-body p-2 p-md-3">
-                <div id="calendario-mundial"></div>
-            </div>
-        </div>
-    {% endif %}
-
 </div>
+
+{% if total_juegos == 0 %}
+<div class="album-vacio"><i class="bi bi-calendar-x"></i><p class="mb-0">Todavía no hay partidos con fecha asignada para mostrar en el calendario.</p></div>
+{% else %}
+<!-- Filtros -->
+<div class="panel-filtros mb-3">
+    <div class="d-flex flex-wrap gap-2 align-items-center" id="calFiltroConf">
+        <button type="button" class="filtro-conf activo" data-conf="" style="--conf-color: #22c55e;">Todas <span>{{ total_juegos }}</span></button>
+        {% for sigla in ['UEFA', 'CONMEBOL', 'CONCACAF', 'CAF', 'AFC', 'OFC', 'REPECHAJE', 'MUNDIAL'] if confederaciones.get(sigla) %}
+        {% set lc = logo_confederacion(sigla) %}
+        <button type="button" class="filtro-conf" data-conf="{{ sigla }}" style="--conf-color: {{ lc.color if lc else '#94a3b8' }};">
+            {% if lc %}<img src="{{ lc.url }}" alt="" class="{{ 'estampa__conf--claro' if lc.claro }}">{% endif %}{{ sigla }} <span>{{ confederaciones[sigla] }}</span>
+        </button>
+        {% endfor %}
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center mt-2" id="calFiltroEstado">
+        <button type="button" class="cal-estado activo" data-estado="">Todos</button>
+        <button type="button" class="cal-estado cal-estado--pendiente" data-estado="pendiente"><i class="bi bi-clock"></i>Pendientes</button>
+        <button type="button" class="cal-estado cal-estado--finalizado" data-estado="finalizado"><i class="bi bi-check2-circle"></i>Jugados</button>
+        {% if t.en_vivo %}<button type="button" class="cal-estado cal-estado--en_vivo" data-estado="en_vivo"><span class="cal-dot"></span>En vivo</button>{% endif %}
+    </div>
+</div>
+
+<div class="card card-seccion cal-tarjeta">
+    <div class="card-body p-2 p-md-3">
+        <div id="calendario-mundial"></div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
-<style>
-    /* En celular la barra de FullCalendar (anterior/siguiente, título, vistas) no entraba en una
-       línea y generaba scroll horizontal: se reparte en varias filas. */
-    @media (max-width: 576px) {
-        .fc .fc-toolbar { flex-wrap: wrap; gap: .5rem; justify-content: center; }
-        .fc .fc-toolbar-title { font-size: 1.1rem; }
-    }
-</style>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/es.global.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const contenedor = document.getElementById('calendario-mundial');
@@ -58,45 +67,103 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const eventos = {{ eventos_json | safe }};
     const fechaInicial = {{ fecha_inicial_json | safe }};
+    const esc = UI.escapar;
+    const COLOR_CONF = {
+        {% for sigla in ['UEFA', 'CONMEBOL', 'CONCACAF', 'CAF', 'AFC', 'OFC'] %}{% set lc = logo_confederacion(sigla) %}'{{ sigla }}': '{{ lc.color if lc else "#94a3b8" }}',{% endfor %}
+    };
+    const esCelular = window.matchMedia('(max-width: 575.98px)').matches;
+    let filtroConf = '', filtroEstado = '';
+
+    const bandera = (emoji, id) => UI.bandera(emoji || '🏳️', { id: id ?? null });
+    const centro = p => p.estado === 'finalizado'
+        ? `<span class="cal-ev__res">${p.goles_local}<i>-</i>${p.goles_visita}</span>`
+        : p.estado === 'en_vivo' ? '<span class="cal-ev__res cal-ev__res--vivo" title="En vivo"><span class="cal-dot"></span><span class="cal-ev__vivo-txt">VIVO</span></span>'
+        : '<span class="cal-ev__res cal-ev__res--vs">vs</span>';
+
+    // Contenido de cada partido: compacto en Mes/Semana, fila completa en Lista
+    function contenidoEvento(arg) {
+        const p = arg.event.extendedProps;
+        if (arg.view.type.startsWith('list')) {
+            return { html: `<div class="cal-lista">
+                <span class="cal-lista__equipo">${bandera(p.bandera_local, p.id_local)}<strong>${esc(p.local)}</strong></span>
+                ${centro(p)}
+                <span class="cal-lista__equipo cal-lista__equipo--visita"><strong>${esc(p.visita)}</strong>${bandera(p.bandera_visita, p.id_visita)}</span>
+                <span class="cal-lista__meta">${esc([p.confederacion, p.grupo, p.jornada].filter(Boolean).join(' · '))}${p.estadio ? `<small><i class="bi bi-geo-alt"></i>${esc(p.estadio)}</small>` : ''}</span>
+            </div>` };
+        }
+        return { html: `<div class="cal-ev">
+            ${p.estado === 'pendiente' ? `<span class="cal-ev__hora">${esc(p.hora || '')}</span>` : ''}
+            <span class="cal-ev__eq">${bandera(p.bandera_local, p.id_local)}<b>${esc(p.siglas_local)}</b></span>
+            ${centro(p)}
+            <span class="cal-ev__eq cal-ev__eq--visita"><b>${esc(p.siglas_visita)}</b>${bandera(p.bandera_visita, p.id_visita)}</span>
+        </div>` };
+    }
 
     const opciones = {
         locale: 'es',
         firstDay: 1,
         height: 'auto',
-        initialView: 'dayGridMonth',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,listMonth'
-        },
-        buttonText: {
-            today: 'Hoy',
-            month: 'Mes',
-            week: 'Semana',
-            list: 'Lista'
-        },
-        dayMaxEvents: 3,
+        initialView: esCelular ? 'listMonth' : 'dayGridMonth',
+        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listMonth' },
+        buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', list: 'Lista' },
+        moreLinkText: n => `+${n} partidos`,
+        noEventsText: 'No hay partidos para mostrar',
+        dayMaxEvents: 4,
+        // Semana: solo la franja en que se juega (no hay partidos de "todo el día")
+        allDaySlot: false,
+        slotMinTime: '09:00:00',
+        slotMaxTime: '23:30:00',
+        slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+        expandRows: true,
+        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+        displayEventTime: false,
         events: eventos,
-        eventClick: function (info) {
-            const props = info.event.extendedProps;
-            if (!props.id) return;
-
-            if (props.estado === 'finalizado') {
-                window.location.href = `/juegos/${props.id}`;
-            } else if (props.id_local && props.id_visita) {
+        eventContent: contenidoEvento,
+        eventDidMount(info) {
+            const p = info.event.extendedProps;
+            info.el.style.setProperty('--conf-color', COLOR_CONF[p.confederacion] || '#3b82f6');
+            const marcador = p.estado === 'finalizado' ? `${p.goles_local}-${p.goles_visita}` : (p.estado === 'en_vivo' ? 'en vivo' : `${p.hora || ''} hs`);
+            info.el.title = `${p.local} ${marcador} ${p.visita}\n${[p.fase, p.grupo, p.jornada].filter(Boolean).join(' · ')}${p.estadio ? `\n${p.estadio}${p.ciudad ? ', ' + p.ciudad : ''}` : ''}`;
+        },
+        eventClick(info) {
+            const p = info.event.extendedProps;
+            if (!p.id) return;
+            if (p.estado === 'finalizado') window.location.href = `/juegos/${p.id}`;
+            else if (p.estado === 'en_vivo') window.location.href = '/en-vivo/';
+            else if (p.id_local && p.id_visita) {
                 // Mismos parámetros que el link de juegos.html (incluido "te": tiempo extra en eliminación directa)
-                window.location.href = `/simulador?id=${props.id}&id_local=${props.id_local}&id_visita=${props.id_visita}&te=${props.tiempo_extra ? 'True' : 'False'}`;
+                window.location.href = `/simulador?id=${p.id}&id_local=${p.id_local}&id_visita=${p.id_visita}&te=${p.tiempo_extra ? 'True' : 'False'}`;
             }
         }
     };
-
     // Abrir el calendario en el mes del próximo partido pendiente, en vez de la fecha actual
-    if (fechaInicial) {
-        opciones.initialDate = fechaInicial;
-    }
+    if (fechaInicial) opciones.initialDate = fechaInicial;
 
     const calendar = new FullCalendar.Calendar(contenedor, opciones);
     calendar.render();
+
+    // Filtros por confederación y estado (ocultan eventos sin volver a pedir nada)
+    function aplicarFiltros() {
+        calendar.batchRendering(() => {
+            calendar.getEvents().forEach(ev => {
+                const p = ev.extendedProps;
+                const visible = (!filtroConf || p.confederacion === filtroConf) && (!filtroEstado || p.estado === filtroEstado);
+                ev.setProp('display', visible ? 'auto' : 'none');
+            });
+        });
+    }
+    function enlazarFiltro(idGrupo, selector, alElegir) {
+        const grupo = document.getElementById(idGrupo);
+        grupo.addEventListener('click', ev => {
+            const boton = ev.target.closest(selector);
+            if (!boton) return;
+            grupo.querySelectorAll(selector).forEach(b => b.classList.toggle('activo', b === boton));
+            alElegir(boton);
+            aplicarFiltros();
+        });
+    }
+    enlazarFiltro('calFiltroConf', '.filtro-conf', b => { filtroConf = b.dataset.conf; });
+    enlazarFiltro('calFiltroEstado', '.cal-estado', b => { filtroEstado = b.dataset.estado; });
 });
 </script>
 {% endblock %}

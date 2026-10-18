@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from services.juegos_service import obtener_juegos_programados, enriquecer_juegos_programados, armar_detalle_partido, obtener_juego_activo, obtener_juegos_calendario, resaltar_jugadores_en_descripcion
+from services.juegos_service import obtener_juegos_programados, enriquecer_juegos_programados, armar_detalle_partido, obtener_juego_activo, obtener_juegos_calendario, armar_eventos_calendario, resaltar_jugadores_en_descripcion
 from services.auth_service import context_usuario_actual, obtener_usuario_actual, tiene_permiso
 from services.imagenes_pais_service import GLOBALES_JINJA
 from services.juego_en_vivo_service import sesiones_pendientes_usuario
@@ -114,37 +114,8 @@ async def calendario(request: Request):
         # 2. Obtener todos los juegos con fecha asignada (programados y finalizados)
         juegos = obtener_juegos_calendario(db, mundial_id)
 
-        # 3. Armar los eventos para el calendario (FullCalendar)
-        eventos = []
-        for j in juegos:
-            local = j.get("equipo_local") or {}
-            visita = j.get("equipo_visitante") or {}
-            # Un partido "en vivo" ya está simulado (estado == "finalizado") pero todavía se
-            # está revelando -- tratarlo como pendiente acá para no mostrar el marcador final
-            # antes de tiempo.
-            en_vivo = (j.get("transmision") or {}).get("estado") == "in_progress"
-            finalizado = j.get("estado") == "finalizado" and not en_vivo
-
-            marcador = f"{local.get('goles', 0)} - {visita.get('goles', 0)}" if finalizado else "vs"
-            titulo = f"{local.get('siglas', local.get('nombre', '?'))} {marcador} {visita.get('siglas', visita.get('nombre', '?'))}"
-
-            eventos.append({
-                "title": titulo,
-                "start": f"{j.get('fecha')}T{j.get('hora', '00:00')}",
-                "backgroundColor": "#10b981" if finalizado else "#3b82f6",
-                "borderColor": "#10b981" if finalizado else "#3b82f6",
-                "extendedProps": {
-                    "id": j.get("_id"),
-                    "id_local": local.get("id"),
-                    "id_visita": visita.get("id"),
-                    "tiempo_extra": j.get("tiempo_extra"),
-                    "estado": j.get("estado"),
-                    "tag": j.get("tag"),
-                    "grupo": j.get("grupo"),
-                    "jornada": j.get("jornada"),
-                    "estadio": (j.get("ubicacion") or {}).get("estadio"),
-                }
-            })
+        # 3. Eventos para el calendario (FullCalendar) + totales del encabezado
+        calendario_datos = armar_eventos_calendario(juegos)
 
         # 4. Determinar la fecha inicial a mostrar: la del próximo partido pendiente
         #    (los juegos ya vienen ordenados por fecha/hora ascendente); si no hay
@@ -161,7 +132,9 @@ async def calendario(request: Request):
             name="calendario.html",
             context={
                 "mundial": mundial_activo,
-                "eventos_json": json.dumps(eventos, ensure_ascii=False),
+                "eventos_json": json.dumps(calendario_datos["eventos"], ensure_ascii=False),
+                "totales": calendario_datos["totales"],
+                "confederaciones": calendario_datos["confederaciones"],
                 "fecha_inicial_json": json.dumps(fecha_inicial),
                 "total_juegos": len(juegos),
             }

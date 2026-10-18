@@ -3,63 +3,137 @@
 
 {% block title %}Árbitros - FutbolSim{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/album.css">
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-4">
-    <div>
-        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-person-badge text-accent me-2"></i>Árbitros</h1>
-        <p class="text-muted mb-0">Quiénes dirigieron como árbitro central y cómo dirigen: faltas, tarjetas y expulsiones por partido.</p>
+{#
+  Árbitros que dirigieron como central: destacados (más estricto, más permisivo, más expulsiones) y
+  una ficha por árbitro con su avatar sobre la bandera, su "termómetro" de severidad y sus números.
+  Datos: arbitros_service.listar_arbitros.
+#}
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo fixture-hero mb-4" style="--logo-color: #94a3b8;">
+    <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-3 min-w-0">
+            <span class="arbitros-hero__silbato"><i class="bi bi-person-badge-fill"></i></span>
+            <div class="min-w-0">
+                <h1 class="h2 fw-bold text-white mb-1">Árbitros</h1>
+                <p class="text-muted mb-0 small">Quiénes dirigieron como árbitro central y cómo dirigen: faltas, tarjetas y expulsiones por partido.</p>
+            </div>
+        </div>
+        {% if arbitros %}
+        <div class="d-flex gap-2 flex-wrap">
+            <div class="fixture-kpi"><span>Centrales</span><strong>{{ arbitros | length }}</strong></div>
+            <div class="fixture-kpi"><span>Partidos</span><strong>{{ arbitros | sum(attribute='partidos') }}</strong></div>
+            <div class="fixture-kpi"><span>Expulsiones</span><strong class="text-danger">{{ arbitros | sum(attribute='expulsiones') }}</strong></div>
+        </div>
+        {% endif %}
     </div>
-    <input type="search" id="buscarArbitro" class="form-control" style="max-width: 260px;" placeholder="Buscar árbitro o país..." aria-label="Buscar árbitro">
 </div>
 
 {% if arbitros %}
-<div class="card bg-dark border-secondary" id="tarjetaArbitros">
-    <div class="table-responsive">
-        <table class="table table-dark table-hover align-middle mb-0" id="tablaArbitros">
-            <thead>
-                <tr class="small text-muted">
-                    <th>Árbitro</th><th>País</th><th class="text-center">Partidos</th>
-                    <th class="text-center" title="Faltas por partido">Faltas/PJ</th>
-                    <th class="text-center" title="Tarjetas por partido">Tarjetas/PJ</th>
-                    <th class="text-center">Expulsiones</th>
-                    <th class="text-center d-none d-md-table-cell" title="% de partidos que ganó el local">Gana local</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for a in arbitros %}
-                <tr data-busqueda="{{ (a.nombre ~ ' ' ~ a.pais) | lower }}">
-                    <td><div class="d-flex align-items-center gap-2">{{ m.avatar_arbitro(a.nombre, 'sm') }}<a href="{{ url_for('arbitro_perfil') }}?nombre={{ a.nombre | urlencode }}" class="link-light fw-semibold">{{ a.nombre }}</a></div></td>
-                    <td class="text-muted">{{ a.pais or '—' }}</td>
-                    <td class="text-center fw-bold">{{ a.partidos }}</td>
-                    <td class="text-center">{{ a.faltas_prom }}</td>
-                    <td class="text-center">{{ a.tarjetas_prom }}</td>
-                    <td class="text-center">{% if a.expulsiones %}<span class="badge bg-danger">{{ a.expulsiones }}</span>{% else %}<span class="text-muted">0</span>{% endif %}</td>
-                    <td class="text-center d-none d-md-table-cell">{{ a.pct_gana_local }}%</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+{% set con_rodaje = arbitros | selectattr('partidos', 'ge', 2) | list or arbitros %}
+{% set estricto = (con_rodaje | sort(attribute='tarjetas_prom', reverse=true))[0] %}
+{% set permisivo = (con_rodaje | sort(attribute='tarjetas_prom'))[0] %}
+{% set expulsor = (arbitros | sort(attribute='expulsiones', reverse=true))[0] %}
+{% set max_tarjetas = (arbitros | map(attribute='tarjetas_prom') | max) or 1 %}
+<!-- Destacados -->
+<div class="row g-3 mb-4">
+    {% for titulo, color, a, detalle in [
+        ('🟨 El más estricto', '#eab308', estricto, estricto.tarjetas_prom ~ ' tarjetas por partido'),
+        ('🕊️ El más permisivo', '#14b8a6', permisivo, permisivo.tarjetas_prom ~ ' tarjetas por partido'),
+        ('🟥 Más expulsiones', '#ef4444', expulsor, expulsor.expulsiones ~ ' en ' ~ expulsor.partidos ~ ' partidos')] %}
+    <div class="col-12 col-md-4">
+        <a href="{{ url_for('arbitro_perfil') }}?nombre={{ a.nombre | urlencode }}" class="card h-100 card-logo-fondo card-jugador text-decoration-none" style="--logo-color: {{ color }};">
+            {{ m.fondo_bandera(a.pais_id) }}
+            <div class="card-body d-flex align-items-center gap-3">
+                {{ m.avatar_arbitro(a.nombre, 'md', a.nombre) }}
+                <div class="min-w-0">
+                    <small class="text-secondary text-uppercase fw-semibold">{{ titulo }}</small>
+                    <div class="fw-bold text-white text-truncate">{{ a.nombre }}</div>
+                    <small class="text-muted">{{ a.pais or '—' }} · {{ detalle }}</small>
+                </div>
+            </div>
+        </a>
     </div>
+    {% endfor %}
+</div>
+
+<div class="card panel-filtros mb-3">
+    <div class="card-body p-3 row g-2 align-items-center">
+        <div class="col-md-8">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="search" id="buscarArbitro" class="form-control" placeholder="Buscar árbitro o país..." aria-label="Buscar árbitro">
+            </div>
+        </div>
+        <div class="col-md-4">
+            <select id="ordenArbitros" class="form-select form-select-sm" aria-label="Ordenar">
+                <option value="partidos">Orden: más partidos</option>
+                <option value="tarjetas">Orden: más tarjetas/PJ</option>
+                <option value="faltas">Orden: más faltas/PJ</option>
+                <option value="expulsiones">Orden: más expulsiones</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3" id="tarjetaArbitros">
+    {% for a in arbitros %}
+    {% set severidad = (a.tarjetas_prom * 100 / max_tarjetas) | round %}
+    <div class="col arbitro-item" data-busqueda="{{ (a.nombre ~ ' ' ~ a.pais) | lower }}" data-partidos="{{ a.partidos }}"
+         data-tarjetas="{{ a.tarjetas_prom }}" data-faltas="{{ a.faltas_prom }}" data-expulsiones="{{ a.expulsiones }}">
+        <a href="{{ url_for('arbitro_perfil') }}?nombre={{ a.nombre | urlencode }}" class="card h-100 card-logo-fondo card-jugador ficha-arbitro" style="--logo-color: #64748b;">
+            {{ m.fondo_bandera(a.pais_id) }}
+            <div class="d-flex align-items-center gap-3">
+                {{ m.avatar_arbitro(a.nombre, 'md', a.nombre) }}
+                <div class="min-w-0">
+                    <strong class="d-block text-white text-truncate">{{ a.nombre }}</strong>
+                    <small class="text-muted">{% if a.pais_id %}{{ m.bandera('', pais_id=a.pais_id) }} {% endif %}{{ a.pais or '—' }}</small>
+                    <span class="ficha-arbitro__pj">{{ a.partidos }} PJ</span>
+                </div>
+            </div>
+            <div class="ficha-arbitro__severidad" title="Tarjetas por partido, comparado con el árbitro más estricto">
+                <div class="d-flex justify-content-between"><small>Severidad</small><small>{{ a.tarjetas_prom }} 🟨/PJ</small></div>
+                <div class="ficha-arbitro__termometro"><span style="width: {{ severidad }}%;"></span></div>
+            </div>
+            <div class="ficha-jugador__metricas">
+                <div><span>Faltas/PJ</span><strong>{{ a.faltas_prom }}</strong></div>
+                <div><span>Rojas</span><strong class="{{ 'text-danger' if a.expulsiones }}">{{ a.expulsiones }}</strong></div>
+                <div><span>Gana local</span><strong>{{ a.pct_gana_local }}%</strong></div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
 </div>
 <p id="sinArbitros" class="text-muted text-center py-4 d-none">Ningún árbitro coincide con la búsqueda.</p>
 {% else %}
-<div class="stat-card p-5 text-center text-muted">Todavía no se jugó ningún partido.</div>
+<div class="album-vacio"><i class="bi bi-person-badge"></i><p class="mb-0">Todavía no se jugó ningún partido.</p></div>
 {% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const tabla = document.getElementById('tablaArbitros');
-        if (!tabla) return;
-        const filas = tabla.querySelectorAll('tbody tr');
-        const paginador = UI.paginador({ items: () => filas, porPagina: 40, despuesDe: document.getElementById('tarjetaArbitros'), etiqueta: 'árbitros' });
-        document.getElementById('buscarArbitro').addEventListener('input', ev => {
-            const texto = ev.target.value.toLowerCase().trim();
+        const grilla = document.getElementById('tarjetaArbitros');
+        if (!grilla) return;
+        let filas = grilla.querySelectorAll('.arbitro-item');
+        const paginador = UI.paginador({ items: () => filas, porPagina: 40, despuesDe: grilla, etiqueta: 'árbitros' });
+        const buscar = document.getElementById('buscarArbitro');
+        function filtrar() {
+            const texto = buscar.value.toLowerCase().trim();
             let visibles = 0;
             filas.forEach(f => { const ok = f.dataset.busqueda.includes(texto); f.classList.toggle('d-none', !ok); visibles += ok; });
             document.getElementById('sinArbitros').classList.toggle('d-none', visibles > 0);
             paginador.reiniciar();
+        }
+        buscar.addEventListener('input', filtrar);
+        document.getElementById('ordenArbitros').addEventListener('change', ev => {
+            const campo = ev.target.value;
+            [...filas].sort((a, b) => Number(b.dataset[campo]) - Number(a.dataset[campo])).forEach(f => grilla.appendChild(f));
+            filas = grilla.querySelectorAll('.arbitro-item');
+            filtrar();
         });
     });
 </script>

@@ -48,7 +48,10 @@ def obtener_bitacora_jugador(jugador: dict, limite: int = 60) -> Dict[str, Any]:
          "resultado.eventos.tipo": 1, "resultado.eventos.jugadores": 1}
     ).sort([("fecha", DESCENDING)])
 
-    partidos, totales = [], {"partidos": 0, "goles": 0, "atajadas": 0, "amarillas": 0, "rojas": 0, "victorias": 0, "empates": 0, "derrotas": 0}
+    # goles_penal/goles_tiro_libre/goles_corner solo existen por partido (juegos.resultado.goleadores[]),
+    # no en 'jugadores' (ahí esos campos quedan siempre en 0): el total sale de sumar la bitácora.
+    partidos, totales = [], {"partidos": 0, "goles": 0, "atajadas": 0, "amarillas": 0, "rojas": 0, "victorias": 0, "empates": 0, "derrotas": 0,
+                             "goles_penal": 0, "goles_tiro_libre": 0, "goles_corner": 0}
     for j in juegos:
         res = j.get("resultado") or {}
         local, visitante = j.get("equipo_local") or {}, j.get("equipo_visitante") or {}
@@ -75,6 +78,8 @@ def obtener_bitacora_jugador(jugador: dict, limite: int = 60) -> Dict[str, Any]:
         totales["atajadas"] += fila["atajadas"]
         totales["amarillas"] += amarillas
         totales["rojas"] += rojas
+        for campo in ("goles_penal", "goles_tiro_libre", "goles_corner"):
+            totales[campo] += (gol or {}).get(campo, 0) or 0
         totales[{"V": "victorias", "E": "empates", "D": "derrotas"}[resultado]] += 1
         if len(partidos) < limite:
             partidos.append(fila)

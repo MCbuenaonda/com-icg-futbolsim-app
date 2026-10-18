@@ -8,6 +8,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from bson import ObjectId
 from config.settings import MONGODB_URI, SECRET_KEY
 from config.secciones import CODIGOS_SECCIONES, PERMISO_TODO
+from services.niveles_service import resumen_nivel
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -144,6 +145,8 @@ def context_usuario_actual(request: Request) -> dict:
         "usuario_actual": usuario,
         "puede": lambda *codigos: tiene_permiso(usuario, *codigos),
         "nav_activo": nav_activo,
+        # insignia de nivel del navbar y aviso de "¡Subiste de nivel!" (services/niveles_service.py)
+        "nivel_actual": resumen_nivel(usuario) if usuario and tiene_permiso(usuario, "niveles") else None,
     }
 
 

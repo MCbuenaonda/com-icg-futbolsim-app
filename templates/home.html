@@ -351,16 +351,25 @@
 
         <!-- Últimos Partidos Simulados: feed estilo X/Twitter -->
         <div class="col-lg-5">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-body-tertiary py-3 d-flex justify-content-between align-items-center border-0">
-                    <h5 class="card-title fw-bold text-body-emphasis mb-0">
-                        <i class="bi bi-clock-history me-2 text-danger"></i>Últimos Partidos
-                    </h5>
-                    <a href="/juegos" class="badge bg-body-tertiary text-body-emphasis border fs-7">Partidos</a>
+            {# Feed "red social" de la FIFAV: tarjeta .card-logo-fondo (azul de red social) con la copa de marca de agua;
+               cada post es una burbuja con el color de su confederación (--conf-color) #}
+            <div class="card shadow-sm h-100 card-logo-fondo card-seccion feed-fifav" style="--logo-color: #1d9bf0;">
+                <img src="{{ imagen_inicio('copa') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
+                <div class="feed-fifav__header px-3 px-md-4 pt-3 pb-2 d-flex justify-content-between align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-2 min-w-0">
+                        <span class="feed-fifav__logo"><img src="{{ imagen_inicio('copa') }}" alt="" loading="lazy" decoding="async"></span>
+                        <div class="min-w-0">
+                            <h5 class="fw-bold text-white mb-0 d-flex align-items-center gap-2">Últimos Partidos <span class="feed-fifav__vivo" title="Se actualiza con cada partido simulado"></span></h5>
+                            <small class="text-muted">Feed oficial · @FIFAV_Oficial</small>
+                        </div>
+                    </div>
+                    <a href="/juegos" class="btn btn-sm btn-outline-info rounded-pill px-3 flex-shrink-0" title="Ver partidos"><i class="bi bi-calendar3"></i><span class="d-none d-sm-inline ms-1">Ver partidos</span></a>
                 </div>
-                <div class="card-body pt-0">
+                <div class="card-body pt-2 px-3 px-md-4 feed-fifav__lista">
                     {% for partido in ultimos_partidos %}
-                    <div class="x-post py-3 {% if not loop.last %}border-bottom{% endif %}">
+                    {% set lc_post = logo_confederacion(partido.competicion) %}
+                    {% set gana = 'local' if partido.goles_local > partido.goles_visitante else ('visitante' if partido.goles_visitante > partido.goles_local else 'empate') %}
+                    <div class="x-post" style="--conf-color: {{ lc_post.color if lc_post else '#1d9bf0' }};">
                         <!-- Header: cuenta que publica (FIFAV) + fecha -- también actúa como toggle
                              para colapsar/expandir el post (solo el más reciente arranca expandido,
                              para ahorrar espacio en el resto del feed) -->
@@ -375,10 +384,10 @@
                                     <span class="text-muted fs-8">{{ partido.autor_handle }}</span>
                                     <span class="text-muted fs-8">·</span>
                                     <span class="text-muted fs-8">{{ partido.fecha }}</span>
-                                    <span class="badge bg-body-tertiary text-secondary border fs-8 ms-auto">{{ partido.competicion }}</span>
+                                    <span class="x-post-competicion ms-auto">{{ partido.competicion }}</span>
                                     <i class="bi bi-chevron-down text-muted x-post-chevron"></i>
                                 </div>
-                                <div class="fs-7 text-body-emphasis mt-1">
+                                <div class="x-post-resumen fs-7 text-body-emphasis mt-1">
                                     <span class="fw-semibold">{{ m.bandera(partido.local.bandera) }} {{ partido.local.nombre }}</span>
                                     <i class="bi bi-patch-check-fill text-primary fs-8" title="Selección Verificada"></i>
                                     <span class="fw-bold">{{ partido.goles_local }} - {{ partido.goles_visitante }}</span>
@@ -395,23 +404,18 @@
                                 <div class="text-body-emphasis fs-7 mb-2">{{ partido.texto_narrativo }}</div>
                                 {% endif %}
 
-                                <!-- Marcador destacado, con bandera de ambos equipos -->
-                                <div class="mb-2">
-                                    <span class="fw-bold text-body-emphasis fs-6">{{ m.bandera(partido.local.bandera) }} {{ partido.local.nombre }} {{ partido.goles_local }} - {{ partido.goles_visitante }} {{ partido.visitante.nombre }} {{ m.bandera(partido.visitante.bandera) }}</span>
-                                    {% if partido.goles_local > partido.goles_visitante %}
-                                        <span class="ms-1">🎉</span>
-                                    {% elif partido.goles_visitante > partido.goles_local %}
-                                        <span class="ms-1">😔</span>
-                                    {% else %}
-                                        <span class="ms-1">🤝</span>
-                                    {% endif %}
+                                <!-- Marcador destacado: tablero con la bandera de cada equipo; el ganador resaltado -->
+                                <div class="x-marcador mb-2">
+                                    <span class="x-marcador__equipo {{ 'x-marcador__equipo--gana' if gana == 'local' }}">{{ m.bandera(partido.local.bandera) }}<span>{{ partido.local.nombre }}</span></span>
+                                    <span class="x-marcador__goles">{{ partido.goles_local }}<small>{{ '🤝' if gana == 'empate' else '-' }}</small>{{ partido.goles_visitante }}</span>
+                                    <span class="x-marcador__equipo {{ 'x-marcador__equipo--gana' if gana == 'visitante' }}">{{ m.bandera(partido.visitante.bandera) }}<span>{{ partido.visitante.nombre }}</span></span>
                                 </div>
 
                                 <!-- Resumen de eventos, en viñetas breves -->
                                 {% if partido.resumen_eventos %}
-                                <div class="fs-8 text-secondary mb-2">
+                                <div class="d-flex flex-wrap gap-1 mb-2">
                                     {% for linea in partido.resumen_eventos %}
-                                        <span class="d-inline-block me-2">{{ linea }}</span>
+                                        <span class="x-evento">{{ linea }}</span>
                                     {% endfor %}
                                 </div>
                                 {% endif %}
@@ -423,20 +427,20 @@
                                 {% endif %}
 
                                 <!-- Footer de interacción -->
-                                <div class="d-flex gap-3 text-muted fs-8">
-                                    <span><i class="bi bi-chat me-1"></i>{{ partido.comentarios | numero_compacto }}</span>
-                                    <span><i class="bi bi-arrow-repeat me-1"></i>{{ partido.retweets | numero_compacto }}</span>
-                                    <span class="text-danger"><i class="bi bi-heart-fill me-1"></i>{{ partido.likes | numero_compacto }}</span>
-                                    <span><i class="bi bi-bar-chart-line me-1"></i>{{ partido.visualizaciones | numero_compacto }}</span>
+                                <div class="x-acciones">
+                                    <span class="x-accion x-accion--comentar"><i class="bi bi-chat"></i>{{ partido.comentarios | numero_compacto }}</span>
+                                    <span class="x-accion x-accion--repost"><i class="bi bi-arrow-repeat"></i>{{ partido.retweets | numero_compacto }}</span>
+                                    <span class="x-accion x-accion--like"><i class="bi bi-heart-fill"></i>{{ partido.likes | numero_compacto }}</span>
+                                    <span class="x-accion"><i class="bi bi-bar-chart-line"></i>{{ partido.visualizaciones | numero_compacto }}</span>
                                 </div>
                             </a>
 
                             <!-- Comentarios de jugadores y, en ocasiones, de la cuenta oficial de
                                  alguna selección, como hilo de respuestas del post -->
                             {% if partido.comentarios_jugadores %}
-                            <div class="x-post-replies mt-2 ms-5 ps-2 border-start">
+                            <div class="x-post-replies mt-3">
                                 {% for comentario in partido.comentarios_jugadores %}
-                                <div class="d-flex align-items-start gap-2 mb-2">
+                                <div class="x-respuesta d-flex align-items-start gap-2">
                                     {# Bandera del país que comenta: la de la selección, o la del equipo del jugador (local/visitante de este partido) #}
                                     {% set bandera_comentario = comentario.bandera if comentario.es_seleccion else (partido.local.bandera if comentario.equipo == partido.local.nombre else (partido.visitante.bandera if comentario.equipo == partido.visitante.nombre else None)) %}
                                     {% set icono_comentario = img_pais(pais_id_por_bandera(bandera_comentario), 'icono') if bandera_comentario else None %}
@@ -488,37 +492,95 @@
 
     </div>
 
-    <!-- Sección Inferior: Equipos Clasificados a la Copa del Mundo -->
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-body-tertiary py-3 d-flex justify-content-between align-items-center border-0">
-            <div>
-                <h5 class="card-title fw-bold text-body-emphasis mb-0">
-                    <i class="bi bi-flag-fill me-2 text-accent"></i>Equipos Clasificados al Mundial
-                </h5>
-                <small class="text-muted">Países que obtuvieron su boleto a la Fase Final de la Copa Mundial</small>
-            </div>
-            <a href="/paises" class="btn btn-sm btn-outline-light">Ver Todos los Paises</a>
-            {% if puede('cuadro') %}<a href="/cuadro/" class="btn btn-sm btn-outline-light">Ver Cuadro de Eliminación</a>{% endif %}
-        </div>
-        <div class="card-body">
-            <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
-                {% for equipo in clasificados %}
-                <div class="col">
-                    <div class="p-3 bg-body-tertiary rounded-3 text-center border h-100 d-flex flex-column justify-content-center align-items-center">
-                        <span class="fs-3 mb-1">{{ m.bandera(equipo.bandera) }}</span>
-                        <div class="fw-bold text-body-emphasis text-truncate w-100">{{ equipo.nombre }}</div>
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-8 mt-1">{{ equipo.confederacion }}</span>
-                    </div>
+    <!-- Sección Inferior: Equipos Clasificados a la Copa del Mundo. Mismo lenguaje que el resto del inicio:
+         .card-logo-fondo con la copa de marca de agua, barra de cupos, filtro por confederación (JS abajo)
+         y una ficha por selección con su escudo de fondo, que lleva a /paises/{id} -->
+    {% set cupos = stats.total_cupos or 48 %}
+    {% set n_clasificados = clasificados | length %}
+    <div class="card shadow-sm card-logo-fondo card-seccion clasificados-card" style="--logo-color: #eab308;">
+        <img src="{{ imagen_inicio('copa') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                <div>
+                    <h5 class="fw-bold text-white mb-1 d-flex align-items-center gap-2">
+                        <i class="bi bi-trophy-fill text-warning"></i>Equipos Clasificados al Mundial
+                    </h5>
+                    <small class="text-muted">Selecciones con boleto a la Fase Final de la Copa del Mundo</small>
                 </div>
-                {% else %}
-                <div class="col-12 text-center py-4 text-muted">
-                    <i class="bi bi-info-circle fs-2 d-block mb-2"></i>
-                    Aún no hay equipos clasificados. ¡Comienza a simular las eliminatorias!
+                <div class="d-flex gap-2 flex-wrap">
+                    {% if puede('paises') %}<a href="/paises/" class="btn btn-sm btn-outline-light rounded-pill px-3"><i class="bi bi-globe2 me-1"></i>Todos los países</a>{% endif %}
+                    {% if puede('cuadro') %}<a href="/cuadro/" class="btn btn-sm btn-outline-warning rounded-pill px-3"><i class="bi bi-diagram-2 me-1"></i>Cuadro de eliminación</a>{% endif %}
+                </div>
+            </div>
+
+            <!-- Cupos ocupados -->
+            <div class="cupos-mundial mb-3">
+                <div class="d-flex justify-content-between align-items-baseline mb-1">
+                    <span class="text-secondary text-uppercase fw-semibold fs-8">Cupos asignados</span>
+                    <span class="fw-bold text-white"><span class="text-warning fs-5">{{ n_clasificados }}</span> / {{ cupos }}</span>
+                </div>
+                <div class="cupos-mundial__barra"><span style="width: {{ [100, (n_clasificados * 100 / cupos) | round(1)] | min }}%;"></span></div>
+            </div>
+
+            {% if clasificados %}
+            {% set confs = clasificados | map(attribute='confederacion') | unique | list %}
+            <!-- Filtro por confederación -->
+            <div class="d-flex flex-wrap gap-2 mb-3" id="filtroClasificados" role="group" aria-label="Filtrar por confederación">
+                <button type="button" class="filtro-conf activo" data-conf="">Todas <span>{{ n_clasificados }}</span></button>
+                {% for c in confs %}{% set lc = logo_confederacion(c) %}
+                <button type="button" class="filtro-conf" data-conf="{{ c }}" style="--conf-color: {{ lc.color if lc else '#64748b' }};">
+                    {% if lc %}<img src="{{ lc.url }}" alt="" class="{{ 'filtro-conf__logo--claro' if lc.claro }}">{% endif %}{{ c }} <span>{{ clasificados | selectattr('confederacion', 'equalto', c) | list | length }}</span>
+                </button>
+                {% endfor %}
+            </div>
+
+            <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-xl-6 g-3" id="gridClasificados">
+                {% for equipo in clasificados %}
+                {% set lc = logo_confederacion(equipo.confederacion) %}
+                {% set escudo = img_pais(equipo.id, 'escudo') %}
+                <div class="col" data-conf="{{ equipo.confederacion }}">
+                    <a href="/paises/{{ equipo.id }}" class="clasificado-ficha card-logo-fondo {{ 'clasificado-ficha--campeon' if equipo.resultado_mundial == 'Campeón' }} {{ 'clasificado-ficha--fuera' if equipo.resultado_mundial and equipo.resultado_mundial != 'Campeón' }}"
+                       style="--logo-color: {{ lc.color if lc else '#64748b' }};" title="Ver {{ equipo.nombre }}">
+                        {% if escudo %}<img src="{{ escudo }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">{% endif %}
+                        <span class="clasificado-ficha__bandera">{{ m.bandera(equipo.bandera, pais_id=equipo.id) }}</span>
+                        <span class="clasificado-ficha__nombre">{{ equipo.nombre }}</span>
+                        <span class="clasificado-ficha__conf">
+                            {% if lc %}<img src="{{ lc.url }}" alt="" class="{{ 'filtro-conf__logo--claro' if lc.claro }}">{% endif %}{{ equipo.confederacion }}
+                        </span>
+                        {% if equipo.resultado_mundial %}
+                        <span class="clasificado-ficha__estado">{{ '🏆 ' if equipo.resultado_mundial == 'Campeón' }}{{ equipo.resultado_mundial }}</span>
+                        {% endif %}
+                    </a>
                 </div>
                 {% endfor %}
             </div>
+            {% else %}
+            <!-- Estado vacío: ocupa todo el ancho (antes quedaba encajonado en una columna de la grilla) -->
+            <div class="clasificados-vacio">
+                <img src="{{ imagen_inicio('copa') }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">
+                <div>
+                    <div class="fw-bold text-white mb-1">Todavía nadie tiene su boleto</div>
+                    <div class="text-muted fs-7">Las {{ cupos }} plazas se reparten en las eliminatorias de cada confederación. ¡Simulá partidos para ver quién llega a la Copa!</div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
 </div>
+
+<script>
+    // Filtro por confederación de "Equipos Clasificados al Mundial"
+    document.addEventListener('DOMContentLoaded', () => {
+        const filtro = document.getElementById('filtroClasificados');
+        if (!filtro) return;
+        const fichas = document.querySelectorAll('#gridClasificados [data-conf]');
+        filtro.addEventListener('click', (ev) => {
+            const boton = ev.target.closest('.filtro-conf');
+            if (!boton) return;
+            filtro.querySelectorAll('.filtro-conf').forEach(b => b.classList.toggle('activo', b === boton));
+            fichas.forEach(f => f.classList.toggle('d-none', !!boton.dataset.conf && f.dataset.conf !== boton.dataset.conf));
+        });
+    });
+</script>
 {% endblock %}

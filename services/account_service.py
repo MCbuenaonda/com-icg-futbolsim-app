@@ -33,6 +33,7 @@ from typing import Any, Dict, List
 from bson import ObjectId
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
+from services.niveles_service import listar_recompensas_reclamadas
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -74,6 +75,7 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
         "total_dividendos": sum(s.get("total_dividends_earned", 0) for s in selecciones_activas),
         "detalle": [
             {
+                "pais_id": s["pais_id"],
                 "pais_nombre": nombres_paises.get(s["pais_id"], "?"),
                 "purchase_price": s.get("purchase_price", 0),
                 "current_value": s.get("current_value", 0),
@@ -102,6 +104,7 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
         "partidos_alojados": sum(s.get("matches_hosted_count", 0) for s in sedes_activas),
         "detalle": [
             {
+                "ciudad_id": s["ciudad_id"],
                 "ciudad_nombre": nombres_ciudades.get(s["ciudad_id"], "?"),
                 "purchase_price": s.get("purchase_price", 0),
                 "total_revenue_earned": s.get("total_revenue_earned", 0),
@@ -143,6 +146,7 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
         "jugadores": len(album.get("owned_jugadores", [])),
         "paises": len(album.get("owned_paises", [])),
         "ciudades": len(album.get("owned_ciudades", [])),
+        "arbitros": len(album.get("owned_arbitros", [])),
         "sobres_comprados": len(sobres_comprados),
         "total_gastado_sobres": sum(p.get("cost_paid", 0) for p in sobres_comprados)
     }
@@ -214,10 +218,12 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
 
     for p in sobres_comprados:
         if p.get("created_at"):
+            regalo = p.get("origen") in ("GRATIS", "PLATINO")
             feed.append({
                 "fecha": p["created_at"],
                 "categoria": "Álbum",
-                "descripcion": "Compra de sobre de estampas",
+                "descripcion": ("Sobre Platino de regalo (recompensa de nivel)" if p.get("origen") == "PLATINO"
+                                else "Sobre gratis (recompensa de nivel)" if regalo else "Compra de sobre de estampas"),
                 "monto": -p.get("cost_paid", 0)
             })
             bonus_total = sum(e.get("bonus_puntos", 0) for e in p.get("stickers_obtained", []))
@@ -236,6 +242,26 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
                 "categoria": "Trivia",
                 "descripcion": f"Trivia completada ({s.get('correct_answers', 0)}/{s.get('questions_asked', 3)} aciertos)",
                 "monto": s.get("points_rewarded", 0)
+            })
+
+    # Abonos hechos por un administrador (services/usuarios_service.abonar_puntos)
+    for aj in db['ajustes_saldo'].find({"user_id": usuario_oid}):
+        feed.append({
+            "fecha": aj["creado_en"],
+            "categoria": "Ajuste",
+            "descripcion": f"Abono del administrador: {aj.get('motivo', '')}",
+            "monto": aj.get("monto", 0),
+        })
+
+    # Recompensas de nivel reclamadas (services/niveles_service.py): solo las de puntos mueven el saldo
+    for rn in listar_recompensas_reclamadas(usuario_oid):
+        for r in rn.get("recompensas", []):
+            feed.append({
+                "fecha": rn["reclamada_en"],
+                "categoria": "Nivel",
+                "descripcion": (f"Recompensa del nivel {rn['nivel']}" if r["tipo"] == "PUNTOS"
+                                else f"Recompensa del nivel {rn['nivel']}: {r['cantidad']} sobre{'s' if r['cantidad'] != 1 else ''} {'Platino' if r['tipo'] == 'PLATINO' else 'gratis'}"),
+                "monto": r["cantidad"] if r["tipo"] == "PUNTOS" else 0,
             })
 
     for rt in db['reward_transactions'].find({"user_id": usuario_oid}):

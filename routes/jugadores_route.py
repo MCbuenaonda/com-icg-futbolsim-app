@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional
 from services.jugadores_service import get_jugadores, get_jugador
+from services.paises_service import get_pais
 from services.jugador_analisis_service import buscar_jugadores, comparar_jugadores, obtener_bitacora_jugador
 from services.auth_service import context_usuario_actual
 from services.imagenes_pais_service import GLOBALES_JINJA
@@ -42,11 +43,12 @@ process_uuid = uuid.uuid4()
 async def jugadores(request: Request, id: str):
     try:
         jugadores = get_jugadores(id, logger)
-            
+        pais = get_pais(id, logger)  # encabezado: nombre, escudo, confederación
+
         return templates.TemplateResponse(
             request=request,
             name="jugadores.html",
-            context={"jugadores": jugadores}
+            context={"jugadores": jugadores, "pais": pais}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")

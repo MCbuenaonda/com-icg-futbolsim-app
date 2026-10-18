@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
+from services import niveles_service
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -136,6 +137,10 @@ def crear_boleto_quiniela(usuario_id: str, quiniela_config_id: str, selecciones:
     resultado = db['quiniela_usuario'].insert_one(boleto)
     boleto["_id"] = resultado.inserted_id
 
+    # XP de niveles (nunca lanza)
+    niveles_service.otorgar_xp(usuario_oid, "QUINIELA", boleto["_id"])
+    niveles_service.otorgar_logro(usuario_oid, "PRIMERA_QUINIELA")
+
     return _serializar_boleto(boleto)
 
 
@@ -245,6 +250,7 @@ def _liquidar_boleto(boleto_id: ObjectId, selecciones: List[dict]) -> None:
             {"_id": boleto["usuario_id"]},
             {"$inc": {"monto": premio}}
         )
+        niveles_service.otorgar_xp(boleto["usuario_id"], "QUINIELA_GANADA", boleto_id)
 
 
 # ==========================================

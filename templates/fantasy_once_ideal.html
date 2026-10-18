@@ -3,27 +3,26 @@
 {% block title %}Once Ideal - FutbolSim{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-    <div>
-        <h1 class="display-6 fw-bold mb-1">Once Ideal — Fase {{ fase_id }}</h1>
-        <p class="text-muted mb-0">Armá tu alineación: 1 jugador por posición (ej. un solo Lateral Izquierdo), máximo 2 por selección.</p>
-    </div>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        {% if alineacion %}
-            <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
-                <i class="bi bi-star-fill text-accent me-1"></i>{{ alineacion.total_points_fase }} pts fantasy
-            </span>
-        {% endif %}
-        {% if fase_iniciada %}
-            <span class="badge bg-danger px-3 py-2 fs-6"><i class="bi bi-lock-fill me-1"></i>Fase iniciada</span>
-        {% else %}
-            <span class="badge bg-success px-3 py-2 fs-6"><i class="bi bi-unlock-fill me-1"></i>Fase abierta</span>
-        {% endif %}
-        {% if fase_iniciada and alineacion %}
-            <span class="badge {% if alineacion.cambios_gratis_disponibles > 0 %}bg-info text-dark{% else %}bg-secondary{% endif %} px-3 py-2 fs-6">
-                <i class="bi bi-arrow-repeat me-1"></i>{{ alineacion.cambios_gratis_disponibles }} cambios gratis
-            </span>
-        {% endif %}
+<!-- Encabezado: mismo lenguaje que el resto del sitio (.card-logo-fondo quieta) -->
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo fixture-hero mb-3" style="--logo-color: #22c55e;">
+    <img src="{{ imagen_perfil('atributos') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+    <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="min-w-0">
+            <span class="plantilla-hero__sub" style="--logo-color: #22c55e;">Fantasy · Fase {{ fase_id }}</span>
+            <h1 class="h2 fw-bold text-white mb-1">Once Ideal</h1>
+            <p class="text-muted mb-0 small">1 jugador por posición (un solo lateral izquierdo, etc.) y máximo 2 por selección.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="fixture-kpi"><span>Puntos fantasy</span><strong class="text-success">{{ alineacion.total_points_fase if alineacion else 0 }}</strong></div>
+            {% if fase_iniciada and alineacion %}
+            <div class="fixture-kpi"><span>Cambios gratis</span><strong class="{{ 'text-info' if alineacion.cambios_gratis_disponibles > 0 else 'text-secondary' }}">{{ alineacion.cambios_gratis_disponibles }}</strong></div>
+            {% endif %}
+            {% if fase_iniciada %}
+            <span class="once-estado once-estado--cerrada"><i class="bi bi-lock-fill"></i>Fase iniciada</span>
+            {% else %}
+            <span class="once-estado"><i class="bi bi-unlock-fill"></i>Fase abierta</span>
+            {% endif %}
+        </div>
     </div>
 </div>
 
@@ -57,79 +56,83 @@
 
 <div id="alertaFantasy" class="alert d-none" role="alert"></div>
 
-<div class="row g-3 mb-3">
-    <div class="col-12 col-md-6">
-        <label class="form-label small text-uppercase text-muted">Formación</label>
-        <select id="selectFormacion" class="form-select">
-            <option value="4-3-3">4-3-3</option>
-            <option value="4-4-2">4-4-2</option>
-            <option value="3-5-2">3-5-2</option>
-        </select>
-    </div>
-    <div class="col-12 col-md-6 d-flex align-items-end">
-        <div class="fs-5">
-            <span id="contadorJugadores" class="fw-bold text-accent">0</span> / 11 jugadores
-        </div>
-    </div>
-</div>
-
-<div class="row g-3 mb-4">
+<div class="row g-4 mb-4">
     <div class="col-12 col-lg-7">
-        <div class="card bg-dark border-0 shadow-sm">
-            <div class="card-body p-3">
-                <h6 class="section-heading">Tu Alineación</h6>
-                <div id="bloquePortero" class="mb-3"></div>
-                <div id="bloqueDefensa" class="mb-3"></div>
-                <div id="bloqueMedio" class="mb-3"></div>
-                <div id="bloqueDelantero" class="mb-3"></div>
+        <div class="card card-logo-fondo card-seccion once-card" style="--logo-color: #22c55e;">
+            <div class="card-body p-3 p-md-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <h2 class="vivo-titulo mb-0"><i class="bi bi-dribbble text-success"></i>Tu alineación</h2>
+                    <div class="d-flex align-items-center gap-2">
+                        <select id="selectFormacion" class="form-select form-select-sm once-formacion" aria-label="Formación">
+                            <option value="4-3-3">4-3-3</option>
+                            <option value="4-4-2">4-4-2</option>
+                            <option value="3-5-2">3-5-2</option>
+                        </select>
+                        <span class="once-contador"><span id="contadorJugadores">0</span>/11</span>
+                    </div>
+                </div>
+                <!-- Cancha: de arriba hacia abajo delanteros, medios, defensas y portero. Cada casillero vacío
+                     filtra el buscador por su posición; cada jugador se quita con la X -->
+                <div class="once-cancha">
+                    <div class="once-cancha__lineas" aria-hidden="true"><span class="once-cancha__medio"></span><span class="once-cancha__area"></span><span class="once-cancha__area once-cancha__area--abajo"></span></div>
+                    <div id="bloqueDelantero" class="once-linea"></div>
+                    <div id="bloqueMedio" class="once-linea"></div>
+                    <div id="bloqueDefensa" class="once-linea"></div>
+                    <div id="bloquePortero" class="once-linea"></div>
+                </div>
+                <button type="button" id="btnGuardarAlineacion" class="btn btn-success btn-lg fw-bold w-100 mt-3 rounded-pill" disabled>
+                    <i class="bi bi-check2-circle me-1"></i>Guardar Alineación
+                </button>
             </div>
         </div>
-
-        <button type="button" id="btnGuardarAlineacion" class="btn btn-success btn-lg fw-bold w-100 mt-3" disabled>
-            <i class="bi bi-check2-circle me-1"></i>Guardar Alineación
-        </button>
     </div>
 
     <div class="col-12 col-lg-5">
-        <div class="card bg-dark border-0 shadow-sm">
-            <div class="card-body p-3">
-                <h6 class="section-heading">Buscar Jugador</h6>
-                <input type="text" id="buscarJugador" class="form-control mb-2" placeholder="Nombre del jugador...">
-                <div class="row g-2 mb-3">
-                    <div class="col-6">
-                        <select id="filtroPais" class="form-select form-select-sm">
-                            <option value="">Todos los países</option>
-                            {% for pais in paises %}
-                                <option value="{{ pais.id }}">{{ pais.nombre }}</option>
-                            {% endfor %}
-                        </select>
+        <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: #38bdf8;">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="vivo-titulo"><i class="bi bi-search text-info"></i>Buscar jugador</h2>
+                <div class="panel-filtros p-2 mb-2">
+                    <div class="input-group input-group-sm mb-2">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" id="buscarJugador" class="form-control" placeholder="Nombre del jugador...">
                     </div>
-                    <div class="col-6">
-                        <select id="filtroPosicion" class="form-select form-select-sm">
-                            <option value="">Todas las posiciones</option>
-                            {% for posicion in posiciones %}
-                                <option value="{{ posicion.id }}">{{ posicion.nombre }} ({{ posicion.siglas }})</option>
-                            {% endfor %}
-                        </select>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <select id="filtroPais" class="form-select form-select-sm">
+                                <option value="">Todos los países</option>
+                                {% for pais in paises %}
+                                    <option value="{{ pais.id }}">{{ pais.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <select id="filtroPosicion" class="form-select form-select-sm">
+                                <option value="">Todas las posiciones</option>
+                                {% for posicion in posiciones %}
+                                    <option value="{{ posicion.id }}">{{ posicion.nombre }} ({{ posicion.siglas }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
                 </div>
-                <div id="resultadosBusqueda" class="list-group" style="max-height: 480px; overflow-y: auto;"></div>
+                <div id="resultadosBusqueda" class="d-flex flex-column gap-2 once-resultados"></div>
             </div>
         </div>
     </div>
 </div>
 
-<h2 class="section-heading">Historial de Cálculo de Puntos Fantasy</h2>
-<div class="card bg-dark border-0 shadow-sm mb-4">
-    <div class="card-body p-3">
+<div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #a78bfa;">
+    <img src="{{ imagen_perfil('bitacora') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+    <div class="card-body p-3 p-md-4">
+        <h2 class="vivo-titulo"><i class="bi bi-calculator-fill" style="color: #a78bfa;"></i>Cómo se calcularon tus puntos</h2>
         {% if historial_puntos %}
             <p class="text-muted small mb-3">Cada vez que se simula un partido, si un jugador de tu alineación participó, acá queda el detalle de cómo se calcularon sus puntos.</p>
             <div class="d-flex flex-column gap-2" style="max-height: 480px; overflow-y: auto;">
                 {% for evento in historial_puntos %}
-                    <div class="surface-soft p-2 px-3">
+                    <div class="puntos-evento {% if evento.puntos_finales > 0 %}puntos-evento--mas{% elif evento.puntos_finales < 0 %}puntos-evento--menos{% endif %}">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <div>
-                                <span class="fw-semibold">{{ evento.jugador_nombre }}</span>
+                                <span class="fw-semibold text-white">{{ evento.jugador_nombre }}</span>
                                 {% if evento.created_at %}
                                     <span class="text-muted small ms-2">{{ evento.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
                                 {% endif %}
@@ -140,7 +143,7 @@
                         </div>
                         <div class="small text-muted mt-1">
                             {% for item in evento.desglose %}
-                                <span class="d-inline-block me-3">{{ item.concepto }}: {{ item.cantidad }} × {{ item.puntos_unitarios }} = {{ "+" if item.subtotal > 0 else "" }}{{ item.subtotal }}</span>
+                                <span class="puntos-evento__chip">{{ item.concepto }} <strong>{{ item.cantidad }}×{{ item.puntos_unitarios }} = {{ "+" if item.subtotal > 0 else "" }}{{ item.subtotal }}</strong></span>
                             {% endfor %}
                         </div>
                         <div class="small mt-1 d-flex flex-wrap gap-2">
@@ -243,45 +246,42 @@ document.addEventListener('DOMContentLoaded', function () {
         for (const bloque of ['PORTERO', 'DEFENSA', 'MEDIO', 'DELANTERO']) {
             const contenedor = document.getElementById(`bloque${bloque.charAt(0)}${bloque.slice(1).toLowerCase()}`);
             const posicionesBloque = slots[bloque] || [];
-            let html = `<div class="text-muted small text-uppercase mb-2">${ETIQUETAS_BLOQUE[bloque]} (${posicionesBloque.filter(p => seleccionados[p.id]).length}/${posicionesBloque.length})</div><div class="row g-2">`;
+            let html = `<div class="once-linea__titulo">${ETIQUETAS_BLOQUE[bloque]} <span>${posicionesBloque.filter(p => seleccionados[p.id]).length}/${posicionesBloque.length}</span></div><div class="once-linea__fichas">`;
 
             posicionesBloque.forEach(slot => {
                 const jugador = seleccionados[slot.id];
                 if (jugador) {
                     const desempeno = DESEMPENO_LINEUP[jugador.id];
-                    const indicadorDesempeno = desempeno ? `
-                        <div class="${CLASE_ESTADO[desempeno.estado] || 'text-muted'}" style="font-size: 0.7rem;">
-                            <i class="bi bi-graph-up-arrow me-1"></i>${ETIQUETA_ESTADO[desempeno.estado] || ''}
-                            · Rend. ${desempeno.rendimiento.toFixed(1)} · ${desempeno.puntos_totales_fase} pts fantasy esta fase
-                        </div>` : '';
+                    const titulo = desempeno ? `${ETIQUETA_ESTADO[desempeno.estado] || ''} · Rend. ${desempeno.rendimiento.toFixed(1)} · ${desempeno.puntos_totales_fase} pts fantasy esta fase` : '';
                     html += `
-                        <div class="col-12 col-sm-6">
-                            <div class="surface-soft p-2 d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center gap-2 min-w-0">
-                                <span class="position-relative flex-shrink-0">${UI.avatar(jugador.id, jugador.pais_id)}<span class="avatar-dorsal">${UI.escapar(jugador.numero ?? '')}</span></span>
-                                <div class="min-w-0">
-                                    <div class="fw-semibold small">${UI.escapar(jugador.nombre)} <span class="text-muted">(${slot.siglas})</span></div>
-                                    <div class="text-muted" style="font-size: 0.75rem;">${UI.escapar(jugador.pais_nombre)} · OVR ${jugador.overall}</div>
-                                    ${indicadorDesempeno}
-                                </div>
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger btn-quitar" data-posicion-id="${slot.id}" aria-label="Quitar a ${UI.escapar(jugador.nombre)}" title="Quitar">
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                            </div>
+                        <div class="once-ficha" title="${UI.escapar(titulo)}">
+                            <span class="once-ficha__foto">${UI.avatar(jugador.id, jugador.pais_id)}<span class="avatar-dorsal">${UI.escapar(jugador.numero ?? '')}</span>
+                                ${desempeno ? `<span class="once-ficha__estado once-ficha__estado--${desempeno.estado}"></span>` : ''}</span>
+                            <button type="button" class="once-ficha__quitar btn-quitar" data-posicion-id="${slot.id}" aria-label="Quitar a ${UI.escapar(jugador.nombre)}" title="Quitar"><i class="bi bi-x"></i></button>
+                            <span class="once-ficha__nombre">${UI.escapar(jugador.nombre)}</span>
+                            <span class="once-ficha__meta">${slot.siglas} · ${jugador.overall}${desempeno ? ` · <b>${desempeno.puntos_totales_fase}p</b>` : ''}</span>
                         </div>`;
                 } else {
                     html += `
-                        <div class="col-12 col-sm-6">
-                            <div class="surface-soft p-2 text-center text-muted small" style="border: 1px dashed var(--border-color);">
-                                <i class="bi bi-plus-circle me-1"></i>Vacío — ${slot.nombre} (${slot.siglas})
-                            </div>
-                        </div>`;
+                        <button type="button" class="once-ficha once-ficha--vacia" data-buscar-posicion="${slot.id}" title="Buscar ${UI.escapar(slot.nombre)}">
+                            <span class="once-ficha__hueco"><i class="bi bi-plus-lg"></i></span>
+                            <span class="once-ficha__nombre">${slot.siglas}</span>
+                            <span class="once-ficha__meta">${UI.escapar(slot.nombre)}</span>
+                        </button>`;
                 }
             });
             html += '</div>';
             contenedor.innerHTML = html;
         }
+
+        // casillero vacío: filtra el buscador por esa posición
+        document.querySelectorAll('[data-buscar-posicion]').forEach(btn => {
+            btn.addEventListener('click', function () {
+                filtroPosicion.value = btn.dataset.buscarPosicion;
+                ejecutarBusqueda();
+                if (window.innerWidth < 992) resultadosBusqueda.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
 
         document.querySelectorAll('.btn-quitar').forEach(btn => {
             btn.addEventListener('click', function () {
@@ -348,15 +348,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
         resultadosBusqueda.innerHTML = ordenados.map((j, indice) => {
             const posicionCubierta = !!seleccionados[j.posicion_id];
-            const clases = posicionCubierta ? 'list-group-item-action bg-dark text-white border-secondary opacity-50' : 'list-group-item-action bg-dark text-white border-secondary';
-            const aviso = posicionCubierta ? '<div class="text-warning" style="font-size: .7rem;"><i class="bi bi-exclamation-circle me-1"></i>Posición ya cubierta — click para reemplazar</div>' : '';
+            const aviso = posicionCubierta ? '<span class="once-resultado__aviso"><i class="bi bi-arrow-repeat"></i> Reemplaza</span>' : '';
             return `
-                <button type="button" class="list-group-item ${clases} btn-agregar-jugador" data-indice="${indice}">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="d-flex align-items-center gap-2"><span class="position-relative flex-shrink-0">${UI.avatar(j.id, j.pais_id, 'sm')}<span class="avatar-dorsal">${UI.escapar(j.numero ?? '')}</span></span><span>${UI.escapar(j.nombre)} <span class="text-muted small">(${UI.escapar(j.posicion_nombre)} · ${UI.escapar(j.posicion_siglas)})</span></span></span>
-                        <span class="text-muted small">${UI.escapar(j.pais_nombre)} · OVR ${j.overall}</span>
-                    </div>
+                <button type="button" class="once-resultado ${posicionCubierta ? 'once-resultado--cubierta' : ''} btn-agregar-jugador" data-indice="${indice}">
+                    <span class="once-resultado__foto">${UI.avatar(j.id, j.pais_id, 'sm')}<span class="avatar-dorsal">${UI.escapar(j.numero ?? '')}</span></span>
+                    <span class="once-resultado__info">
+                        <strong>${UI.escapar(j.nombre)}</strong>
+                        <small>${UI.bandera ? UI.bandera('', { id: j.pais_id }) : ''} ${UI.escapar(j.pais_nombre)} · ${UI.escapar(j.posicion_siglas)}</small>
+                    </span>
                     ${aviso}
+                    <span class="once-resultado__ovr">${j.overall}</span>
+                    <i class="bi bi-plus-circle-fill once-resultado__mas"></i>
                 </button>
             `;
         }).join('') || '<div class="text-muted small p-2">Sin resultados.</div>';
@@ -437,6 +439,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 throw new Error(data.detail || 'No se pudo guardar la alineación.');
             }
             mostrarAlerta('¡Alineación guardada!', 'success');
+            UI.refrescarSaldo();   // saldo (si se cobró penalización) y XP de niveles
             setTimeout(() => window.location.reload(), 1000);
         })
         .catch(err => {

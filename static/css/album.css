@@ -1,0 +1,346 @@
+/* Álbum de estampas estilo Panini (/album-estampas/coleccion y /album-estampas/sobres).
+   Estampa = .estampa > .estampa__giro > (.estampa__frente + .estampa__reverso): giro 3D al pasar el
+   cursor (dispositivos con hover) o con .estampa--girada (toque / teclado). */
+
+/* ---------- Tapa del álbum ---------- */
+.album-tapa { border-radius: 18px; background: radial-gradient(120% 140% at 0% 0%, rgba(234, 179, 8, 0.22), transparent 55%), linear-gradient(135deg, #0f1d3a, var(--bg-card)) !important; }
+.album-tapa .card-logo-fondo__logo { right: 1%; top: 50%; bottom: auto; translate: 0 -50%; width: 170px; opacity: 0.1; }
+.album-tapa__sello { width: 3.6rem; height: 3.6rem; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center;
+    background: radial-gradient(circle at 35% 30%, #fde68a, #b45309); box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.35), 0 8px 20px rgba(0, 0, 0, 0.45); }
+.album-tapa__sello img { width: 72%; height: 72%; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4)); }
+.album-tapa__edicion { display: block; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #facc15; }
+.album-btn-sobre { box-shadow: 0 6px 18px rgba(234, 179, 8, 0.35); }
+.album-contador { display: flex; flex-direction: column; align-items: center; padding: 0.55rem 0.4rem; border-radius: 14px; color: #fff;
+    background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08); transition: border-color 0.2s ease, transform 0.2s ease; }
+.album-contador .bi { color: #facc15; }
+.album-contador strong { font-size: 1.5rem; line-height: 1.1; }
+.album-contador span { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bs-secondary-color); }
+
+
+/* ---------- Página del álbum (un país) ---------- */
+.album-pagina { position: relative; overflow: hidden; isolation: isolate; margin-bottom: 1.25rem; padding: 1rem; border-radius: 18px;
+    background: radial-gradient(110% 80% at 100% 0%, color-mix(in srgb, var(--logo-color) 18%, transparent), transparent 60%),
+        repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.015) 0 10px, transparent 10px 20px), var(--bg-card);
+    border: 1px solid color-mix(in srgb, var(--logo-color) 30%, var(--border-color)); }
+.album-pagina__escudo { position: absolute; z-index: -1; right: -3%; top: -6%; width: 220px; opacity: 0.06; rotate: -12deg; pointer-events: none; }
+.album-pagina__cabecera { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.9rem; }
+.album-pagina__cabecera a { color: inherit; text-decoration: none; }
+.album-pagina__cabecera a:hover { color: #facc15; }
+.album-pagina__cabecera .img-pais { height: 1.6rem; border-radius: 3px; }
+.album-pagina__conf { padding: 0 0.5rem; border-radius: 999px; font-size: 0.68rem; font-weight: 800; color: color-mix(in srgb, var(--logo-color) 55%, #fff); border: 1px solid color-mix(in srgb, var(--logo-color) 45%, transparent); }
+.album-pagina__progreso { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; color: var(--bs-secondary-color); min-width: 180px; }
+.album-pagina__progreso strong { color: #facc15; font-size: 1rem; }
+.album-pagina__barra { flex: 1; height: 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.album-pagina__barra span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ca8a04, #facc15); }
+.album-grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 0.85rem; }
+@media (max-width: 575.98px) {
+    .album-pagina { padding: 0.75rem; }
+    .album-grilla { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+    .estampa__banda strong { font-size: 0.62rem; }
+    .estampa__banda small { font-size: 0.52rem; }
+    .estampa__numero { font-size: 0.7rem; min-width: 1.3rem; top: 7px; left: 7px; }
+    .estampa__posicion { font-size: 0.55rem; top: 7px; right: 7px; }
+    .estampa__hueco-numero { font-size: 1.2rem; }
+    .estampa__hueco-nombre { font-size: 0.55rem; }
+    .estampa__reverso { padding: 0.4rem; gap: 0.2rem; }
+    .estampa__ovr { font-size: 1rem; }
+    .estampa__datos dd { font-size: 0.62rem; }
+}
+/* ---------- Álbum de 211 páginas: avance, hojeo, hoja e índice ---------- */
+.album-tapa__avance .album-pagina__barra { height: 9px; }
+.album-contador span small { font-weight: 600; letter-spacing: 0; text-transform: none; opacity: 0.8; }
+
+.album-hojeo { position: sticky; top: 0.5rem; z-index: 20; display: flex; align-items: stretch; gap: 0.5rem; }
+.album-hojeo__flecha { flex: 0 0 auto; width: 3rem; display: grid; place-items: center; border-radius: 14px; font-size: 1.3rem; color: #111827; text-decoration: none;
+    background: linear-gradient(135deg, #fde68a, #f59e0b); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); transition: transform 0.15s ease, filter 0.15s ease; }
+.album-hojeo__flecha:hover { color: #111827; transform: translateY(-2px); filter: brightness(1.08); }
+.album-hojeo__flecha[aria-disabled] { pointer-events: none; opacity: 0.3; filter: grayscale(1); }
+.album-hojeo__centro { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.9rem; border-radius: 14px; text-align: left; color: #fff;
+    background: color-mix(in srgb, var(--bg-card) 88%, transparent); backdrop-filter: blur(8px); border: 1px solid rgba(250, 204, 21, 0.3); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+.album-hojeo__centro:hover { border-color: rgba(250, 204, 21, 0.7); }
+.album-hojeo__pagina { flex: 0 0 auto; font-size: 0.78rem; color: var(--bs-secondary-color); }
+.album-hojeo__pagina strong { color: #facc15; font-size: 1rem; }
+.album-hojeo__pais { flex: 1; min-width: 0; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album-hojeo__indice { flex: 0 0 auto; padding: 0.15rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 800; color: #facc15; border: 1px solid rgba(250, 204, 21, 0.45); }
+
+.album-libro { perspective: 1800px; }
+.album-hoja { margin-bottom: 0; padding: 1.25rem; box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35), inset 6px 0 12px -8px rgba(0, 0, 0, 0.6); }
+.album-hoja__folio { position: absolute; right: 1rem; bottom: 0.6rem; font-size: 0.75rem; font-weight: 900; color: rgba(250, 204, 21, 0.55); }
+.album-hoja .album-pagina__escudo { width: 280px; opacity: 0.07; }
+.album-hoja__completa { padding: 0.05rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; color: #052e16; background: #4ade80; white-space: nowrap; }
+.album-hoja__portada { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 0.5rem; }
+.album-hoja__escudo-casilla { flex: 0 0 auto; width: 170px; }
+.album-hoja__resumen { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: center; gap: 0.6rem; }
+.album-hoja__dato { display: flex; align-items: center; gap: 0.55rem; padding: 0.55rem 0.85rem; border-radius: 14px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08); }
+.album-hoja__dato > .bi { font-size: 1.3rem; color: color-mix(in srgb, var(--logo-color) 60%, #fff); }
+.album-hoja__dato small { display: block; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bs-secondary-color); }
+.album-hoja__dato strong { font-size: 1.25rem; color: #fff; }
+.album-hoja__dato span { color: var(--bs-secondary-color); }
+.album-hoja__dato--lleno { border-color: rgba(74, 222, 128, 0.55); background: rgba(74, 222, 128, 0.08); }
+.album-hoja__dato--lleno > .bi, .album-hoja__dato--lleno strong { color: #4ade80; }
+.album-hoja__nota { flex-basis: 100%; font-size: 0.75rem; color: var(--bs-secondary-color); }
+.album-hoja__seccion { display: flex; align-items: center; gap: 0.5rem; margin: 1.4rem 0 0.8rem; padding-bottom: 0.4rem; font-size: 0.85rem; font-weight: 800;
+    letter-spacing: 0.08em; text-transform: uppercase; color: #fff; border-bottom: 1px dashed color-mix(in srgb, var(--logo-color) 40%, transparent); }
+.album-hoja__seccion .bi { color: color-mix(in srgb, var(--logo-color) 60%, #fff); }
+.album-hoja__seccion span { margin-left: auto; font-size: 0.75rem; letter-spacing: 0; color: var(--bs-secondary-color); }
+
+/* casilleros vacíos del escudo y las sedes */
+.estampa--vacia-pais .estampa__hueco { border-style: dashed; border-color: rgba(250, 204, 21, 0.3); }
+.estampa--vacia-pais .estampa__hueco > .bi { font-size: 3rem; }
+.estampa--vacia-ciudad .estampa__hueco > .bi { font-size: 1.9rem; }
+
+/* giro de página (hacia adelante sale por la izquierda, como un libro) */
+.album-hoja--sale-adelante { transform-origin: left center; animation: hoja-sale-adelante 0.26s ease-in forwards; }
+.album-hoja--sale-atras { transform-origin: right center; animation: hoja-sale-atras 0.26s ease-in forwards; }
+.album-hoja--entra-adelante { transform-origin: right center; animation: hoja-entra-adelante 0.32s ease-out; }
+.album-hoja--entra-atras { transform-origin: left center; animation: hoja-entra-atras 0.32s ease-out; }
+@keyframes hoja-sale-adelante { to { transform: rotateY(-70deg); opacity: 0; } }
+@keyframes hoja-sale-atras { to { transform: rotateY(70deg); opacity: 0; } }
+@keyframes hoja-entra-adelante { from { transform: rotateY(55deg); opacity: 0; } }
+@keyframes hoja-entra-atras { from { transform: rotateY(-55deg); opacity: 0; } }
+
+/* índice (offcanvas) */
+.album-indice { --bs-offcanvas-width: 380px; background: var(--bg-card); }
+.album-indice__filtros { position: sticky; top: 0; z-index: 2; padding: 0.25rem 0 0.75rem; background: var(--bg-card); }
+.album-indice__conf { display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0 0.4rem; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em;
+    color: color-mix(in srgb, var(--logo-color) 60%, #fff); }
+.album-indice__conf img { height: 1.1rem; }
+.album-indice__conf span { margin-left: auto; font-weight: 600; letter-spacing: 0; color: var(--bs-secondary-color); }
+.album-indice__item { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: 10px; color: #e2e8f0; text-decoration: none; font-size: 0.85rem; }
+.album-indice__item:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.album-indice__item.activo { background: rgba(250, 204, 21, 0.14); box-shadow: inset 3px 0 0 #facc15; }
+.album-indice__item .img-pais { height: 0.95rem; border-radius: 2px; }
+.album-indice__num { flex: 0 0 1.8rem; font-size: 0.7rem; font-weight: 800; color: var(--bs-secondary-color); text-align: right; }
+.album-indice__nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album-indice__avance { flex: 0 0 52px; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.album-indice__avance span { display: block; height: 100%; background: linear-gradient(90deg, #ca8a04, #facc15); }
+.album-indice__item small { flex: 0 0 2.6rem; text-align: right; font-size: 0.7rem; color: var(--bs-secondary-color); }
+.album-indice__item--vacia { color: var(--bs-secondary-color); }
+.album-indice__item--completa .album-indice__avance span { background: #4ade80; }
+
+/* página especial de árbitros (Platino) */
+.album-hoja--platino { background: radial-gradient(110% 80% at 100% 0%, rgba(226, 232, 240, 0.16), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0 10px, transparent 10px 20px), var(--bg-card); border-color: rgba(226, 232, 240, 0.35); }
+.album-hoja__marca { font-size: 15rem; line-height: 1; width: auto; color: #e2e8f0; }
+.album-hoja__sello-platino { width: 3rem; height: 3rem; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; color: #0f172a;
+    background: radial-gradient(circle at 35% 30%, #ffffff, #94a3b8); box-shadow: 0 0 0 3px rgba(226, 232, 240, 0.35), 0 8px 20px rgba(0, 0, 0, 0.45); }
+.album-hoja__edicion { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #e2e8f0; }
+.album-hoja--platino .album-pagina__progreso strong { color: #e2e8f0; }
+.album-hoja--platino .album-pagina__barra span { background: linear-gradient(90deg, #64748b, #f8fafc); }
+.album-puestos .filtro-conf strong { margin-right: 0.15rem; color: #e2e8f0; }
+.album-contador--platino { cursor: pointer; background: linear-gradient(160deg, rgba(226, 232, 240, 0.12), rgba(0, 0, 0, 0.3)); border-color: rgba(226, 232, 240, 0.3); transition: transform 0.2s ease, border-color 0.2s ease; }
+.album-contador--platino:hover { transform: translateY(-2px); border-color: rgba(226, 232, 240, 0.7); }
+.album-contador--platino .bi { color: #e2e8f0; }
+.album-indice__platino { flex: 0 0 auto; width: 1.4rem; text-align: center; color: #e2e8f0; }
+
+@media (max-width: 575.98px) {
+    .album-hoja { padding: 0.75rem; }
+    .album-hoja__portada { gap: 0.75rem; }
+    .album-hoja__escudo-casilla { width: 116px; }
+    .album-hoja__marca { font-size: 9rem; }
+    .estampa__sello-platino { font-size: 0.46rem; top: 7px; left: 7px; padding: 0 0.25rem; }
+    .album-hoja__resumen { gap: 0.4rem; }
+    .album-hoja__dato { flex: 1 1 100%; padding: 0.35rem 0.6rem; }
+    .album-hoja__dato strong { font-size: 1rem; }
+    .album-hoja__dato > .bi { font-size: 1rem; }
+    .album-hoja__nota { display: none; }
+    .album-hojeo__flecha { width: 2.6rem; }
+    .album-hojeo__centro { gap: 0.5rem; padding: 0.45rem 0.6rem; }
+    .album-hojeo__indice { display: none; }
+    .album-contador span small { display: block; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .album-hoja--sale-adelante, .album-hoja--sale-atras, .album-hoja--entra-adelante, .album-hoja--entra-atras { animation: none; }
+}
+
+.album-vacio { padding: 2.5rem 1rem; text-align: center; color: var(--bs-secondary-color); border-radius: 18px; border: 1px dashed rgba(250, 204, 21, 0.35); background: rgba(0, 0, 0, 0.2); }
+.album-vacio > .bi { display: block; font-size: 2.4rem; color: #facc15; margin-bottom: 0.5rem; }
+
+/* ---------- Estampa ---------- */
+.estampa { aspect-ratio: 5 / 7; perspective: 900px; cursor: pointer; outline: none; }
+.estampa__giro { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); }
+@media (hover: hover) { .estampa:not(.estampa--vacia):hover .estampa__giro { transform: rotateY(180deg); } }
+.estampa--girada .estampa__giro, .estampa:focus-visible .estampa__giro { transform: rotateY(180deg); }
+.estampa:focus-visible .estampa__cara { box-shadow: 0 0 0 3px #facc15; }
+.estampa__cara { position: absolute; inset: 0; overflow: hidden; border-radius: 10px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+
+/* frente: marco blanco con fondo de la bandera (como el papel de la figurita) */
+.estampa__frente { padding: 5px; background: linear-gradient(160deg, #f8fafc, #cbd5e1); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45); }
+.estampa__frente::before { content: ""; position: absolute; inset: 5px; border-radius: 6px; background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.55)), var(--bandera-url, linear-gradient(135deg, #1e3a8a, #0f172a)); background-size: cover; background-position: center; }
+.estampa__frente > * { position: relative; }
+.estampa__numero { position: absolute; z-index: 2; top: 9px; left: 9px; min-width: 1.7rem; padding: 0 0.3rem; border-radius: 6px; text-align: center;
+    font-size: 0.85rem; font-weight: 900; color: #111827; background: #facc15; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); }
+.estampa__posicion { position: absolute; z-index: 2; top: 9px; right: 9px; padding: 0 0.35rem; border-radius: 6px; font-size: 0.66rem; font-weight: 800; color: #fff; background: rgba(15, 23, 42, 0.75); }
+.estampa__regalia { position: absolute; z-index: 2; top: 32px; right: 9px; width: 1.4rem; height: 1.4rem; border-radius: 50%; display: grid; place-items: center; font-size: 0.75rem; color: #111827; background: #4ade80; }
+.estampa__foto, .estampa__escudo, .estampa__estadio { position: absolute; left: 5px; right: 5px; top: 5px; bottom: 34%; display: grid; place-items: end center; overflow: hidden; border-radius: 6px 6px 0 0; }
+.estampa__foto img { width: 112%; height: 112%; object-fit: contain; object-position: bottom; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45)); }
+.estampa__foto .bi { font-size: 3rem; color: rgba(255, 255, 255, 0.6); }
+.estampa__escudo { place-items: center; bottom: 30%; }
+.estampa__escudo img { width: 74%; height: 74%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55)); }
+.estampa__estadio { place-items: center; bottom: 32%; background: radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.18), transparent 70%); }
+.estampa__estadio img { width: 96%; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)); }
+.estampa__estadio .bi { font-size: 2.6rem; color: rgba(255, 255, 255, 0.7); }
+.estampa__banda { position: absolute; left: 5px; right: 5px; bottom: 5px; padding: 0.35rem 0.4rem 0.4rem; border-radius: 0 0 6px 6px; text-align: center;
+    background: linear-gradient(180deg, #0f172a, #020617); border-top: 2px solid #facc15; }
+.estampa__banda strong { display: block; font-size: 0.78rem; font-weight: 900; line-height: 1.15; color: #fff; text-transform: uppercase; letter-spacing: 0.02em;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.estampa__banda small { display: block; margin-top: 0.15rem; font-size: 0.62rem; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.estampa__banda .img-pais { height: 0.75rem; border-radius: 2px; }
+.estampa__conf { position: absolute; z-index: 2; top: 9px; left: 9px; height: 1.3rem; width: auto; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+.estampa__conf--claro { filter: brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+
+/* escudos metalizados (como los escudos brillantes del álbum de papel): marco dorado + reflejo holográfico */
+.estampa--pais .estampa__frente { background: linear-gradient(135deg, #fef3c7, #f59e0b 30%, #fde68a 50%, #b45309 75%, #fde68a); }
+.estampa--pais .estampa__banda { border-top-color: var(--conf-color, #facc15); }
+.estampa__frente--brillo::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: color-dodge; opacity: 0.35;
+    background: linear-gradient(115deg, transparent 20%, rgba(255, 0, 128, 0.35) 35%, rgba(0, 255, 255, 0.35) 50%, rgba(255, 255, 0, 0.35) 65%, transparent 80%);
+    background-size: 250% 250%; animation: estampa-holo 4s linear infinite; }
+@keyframes estampa-holo { from { background-position: 100% 100%; } to { background-position: 0% 0%; } }
+
+/* estampas PLATINO (árbitros): marco plateado + holograma arcoíris más intenso que el de los escudos */
+.estampa__frente--platino { background: linear-gradient(135deg, #f8fafc, #94a3b8 28%, #f1f5f9 48%, #64748b 72%, #e2e8f0); }
+.estampa__frente--platino::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: color-dodge; opacity: 0.5;
+    background: linear-gradient(115deg, transparent 15%, rgba(255, 0, 170, 0.4) 30%, rgba(0, 200, 255, 0.45) 42%, rgba(120, 255, 120, 0.4) 54%, rgba(255, 230, 0, 0.4) 66%, transparent 82%);
+    background-size: 260% 260%; animation: estampa-holo 3s linear infinite; }
+.estampa--arbitro .estampa__banda { border-top-color: #e2e8f0; background: linear-gradient(180deg, #1e293b, #020617); }
+.estampa__sello-platino { position: absolute; z-index: 4; top: 9px; left: 9px; padding: 0.05rem 0.4rem; border-radius: 6px; font-size: 0.56rem; font-weight: 900; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #0f172a; background: linear-gradient(135deg, #ffffff, #cbd5e1 50%, #94a3b8); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); }
+.estampa--arbitro .estampa__foto img { width: 106%; height: 106%; }
+.estampa--arbitro .estampa__reverso { border-color: #e2e8f0; background: radial-gradient(120% 80% at 50% 0%, rgba(226, 232, 240, 0.2), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 6px, transparent 6px 12px), #0b1220; }
+.estampa--arbitro .estampa__reverso-titulo span, .estampa--arbitro .estampa__ovr { color: #e2e8f0; }
+.estampa--arbitro .estampa__reverso-titulo { flex-shrink: 0; }
+.estampa__dato-ancho { grid-column: 1 / -1; }
+.estampa--arbitro .estampa__datos { gap: 0.1rem 0.35rem; }
+.estampa--arbitro .estampa__link { background: linear-gradient(135deg, #f8fafc, #cbd5e1); }
+.estampa--vacia-arbitro .estampa__hueco { border-color: rgba(226, 232, 240, 0.3); background: linear-gradient(160deg, rgba(226, 232, 240, 0.05), rgba(0, 0, 0, 0.25)); }
+.estampa--vacia-arbitro .estampa__hueco-numero { font-size: 1.2rem; color: rgba(226, 232, 240, 0.45); }
+
+/* reverso: ficha técnica */
+.estampa__reverso { transform: rotateY(180deg); display: flex; flex-direction: column; gap: 0.35rem; padding: 0.55rem;
+    background: radial-gradient(120% 80% at 50% 0%, rgba(250, 204, 21, 0.18), transparent 60%), repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 6px, transparent 6px 12px), #0b1220;
+    border: 2px solid #facc15; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45); color: #e2e8f0; }
+.estampa--pais .estampa__reverso { border-color: var(--conf-color, #facc15); }
+.estampa--ciudad .estampa__reverso { border-color: #38bdf8; }
+.estampa__reverso-titulo { font-size: 0.74rem; font-weight: 900; line-height: 1.15; text-transform: uppercase; color: #fff; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.estampa__reverso-titulo span { margin-right: 0.3rem; color: #facc15; }
+.estampa__reverso-titulo .img-pais { height: 0.8rem; }
+.estampa__ovr { display: flex; align-items: baseline; justify-content: center; gap: 0.35rem; padding: 0.2rem 0; border-radius: 8px; font-size: 1.35rem; font-weight: 900; color: #facc15; background: rgba(0, 0, 0, 0.35); }
+.estampa__ovr small { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bs-secondary-color); }
+.estampa__datos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.2rem 0.35rem; margin: 0; }
+.estampa__datos--1col { grid-template-columns: 1fr; }
+.estampa__datos > div { min-width: 0; }
+.estampa__datos dt { font-size: 0.55rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bs-secondary-color); }
+.estampa__datos dd { margin: 0; font-size: 0.74rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.estampa__nota { margin: 0; font-size: 0.6rem; line-height: 1.2; color: var(--bs-secondary-color); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.estampa__link { margin-top: auto; padding: 0.2rem; border-radius: 6px; text-align: center; font-size: 0.68rem; font-weight: 800; color: #111827; background: #facc15; text-decoration: none; }
+.estampa__link:hover { color: #111827; background: #fde047; }
+
+/* casillero vacío: número y nombre impresos, como el álbum de papel sin la figurita */
+.estampa--vacia { cursor: default; }
+.estampa__hueco { height: 100%; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; padding: 0.5rem;
+    text-align: center; color: rgba(148, 163, 184, 0.75); background: rgba(0, 0, 0, 0.25); border: 2px dashed rgba(148, 163, 184, 0.28); }
+.estampa__hueco-numero { font-size: 1.6rem; font-weight: 900; color: rgba(148, 163, 184, 0.5); }
+.estampa__hueco > .bi { font-size: 1.6rem; opacity: 0.35; }
+.estampa__hueco-nombre { font-size: 0.66rem; font-weight: 700; line-height: 1.15; text-transform: uppercase; }
+.estampa__hueco-posicion { font-size: 0.58rem; opacity: 0.7; }
+
+@media (prefers-reduced-motion: reduce) {
+    .estampa__giro { transition: none; }
+    .estampa__frente--brillo::after, .estampa__frente--platino::after { animation: none; }
+}
+
+/* ---------- Sobres: el sobre metalizado y la apertura ---------- */
+.sobre-escenario { position: relative; min-height: 380px; display: grid; place-items: center; padding: 1rem 0; overflow: hidden;
+    border-radius: 18px; background: radial-gradient(60% 70% at 50% 45%, rgba(250, 204, 21, 0.14), transparent 70%); }
+.sobre { position: relative; width: 210px; height: 300px; padding: 0; border: 0; background: none; cursor: pointer;
+    filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55)); transition: transform 0.25s ease, opacity 0.4s ease; animation: sobre-flota 3.5s ease-in-out infinite; }
+.sobre:hover { transform: translateY(-4px) rotate(-1deg); }
+@keyframes sobre-flota { 50% { translate: 0 -6px; } }
+.sobre__tapa, .sobre__cuerpo { position: absolute; left: 0; right: 0; display: block;
+    background: linear-gradient(135deg, #14532d, #16a34a 35%, #facc15 52%, #15803d 68%, #052e16); }
+/* borde "crimpado" del sobre (dientes de sierra arriba de la tapa) */
+.sobre__tapa { top: 0; height: 40px; border-radius: 4px 4px 0 0; transform-origin: 85% 100%;
+    -webkit-mask: linear-gradient(#000 0 0) bottom / 100% 30px no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) top / 12px 10px repeat-x;
+    mask: linear-gradient(#000 0 0) bottom / 100% 30px no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) top / 12px 10px repeat-x; }
+.sobre__cuerpo { top: 38px; bottom: 0; overflow: hidden; border-radius: 0 0 10px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem;
+    border-top: 2px dashed rgba(255, 255, 255, 0.45); box-shadow: inset 0 0 0 3px rgba(250, 204, 21, 0.35); }
+.sobre__copa { width: 92px; height: 92px; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5)); }
+.sobre__marca { font-size: 1.7rem; font-weight: 900; letter-spacing: 0.14em; color: #fff; text-shadow: 0 2px 0 #14532d, 0 0 14px rgba(250, 204, 21, 0.7); }
+.sobre__titulo { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: #fef9c3; }
+.sobre__cantidad { margin-top: 0.4rem; padding: 0.1rem 0.7rem; border-radius: 999px; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; color: #052e16; background: #facc15; }
+/* reflejo metalizado que barre el sobre */
+.sobre__brillo { position: absolute; inset: -40% -60%; background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, 0.55) 50%, transparent 58%);
+    animation: sobre-barrido 3s ease-in-out infinite; }
+@keyframes sobre-barrido { 0%, 40% { transform: translateX(-60%); } 80%, 100% { transform: translateX(60%); } }
+
+.sobre--temblando { animation: sobre-tiembla 0.12s linear infinite; }
+@keyframes sobre-tiembla { 0% { transform: rotate(-2deg) translateX(-2px); } 50% { transform: rotate(2deg) translateX(2px); } 100% { transform: rotate(-2deg) translateX(-2px); } }
+/* se rasga: la tapa sale volando, destello y el sobre baja y se desvanece */
+.sobre-escenario--rasgado .sobre__tapa { animation: tapa-vuela 0.6s ease-in forwards; }
+@keyframes tapa-vuela { to { transform: translate(90px, -140px) rotate(35deg); opacity: 0; } }
+.sobre-escenario--rasgado::after { content: ""; position: absolute; left: 50%; top: 42%; width: 40px; height: 40px; translate: -50% -50%; border-radius: 50%;
+    background: radial-gradient(circle, #fff, rgba(250, 204, 21, 0.8) 40%, transparent 70%); animation: destello 0.7s ease-out forwards; pointer-events: none; }
+@keyframes destello { from { transform: scale(0.2); opacity: 1; } to { transform: scale(14); opacity: 0; } }
+.sobre-escenario--abierto .sobre { opacity: 0; transform: translateY(60px) scale(0.85); pointer-events: none; animation: none; position: absolute; }
+
+/* las 5 estampas: salen del centro en abanico, boca abajo, y se dan vuelta de a una */
+.sobre-cartas { display: flex; justify-content: center; align-items: flex-start; gap: 1rem; flex-wrap: wrap; width: 100%; padding: 0.5rem; }
+.sobre-cartas:empty { display: none; }
+.carta-sobre { position: relative; width: 150px; aspect-ratio: 5 / 7; perspective: 900px;
+    transform: rotate(var(--abanico)) translateY(var(--alto)); animation: carta-sale 0.6s cubic-bezier(0.2, 0.8, 0.2, 1.2) both; animation-delay: var(--retraso); }
+@keyframes carta-sale { from { opacity: 0; transform: translateY(80px) scale(0.4) rotate(0deg); } }
+.carta-sobre__giro { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1); }
+.carta-sobre--revelada .carta-sobre__giro { transform: rotateY(180deg); }
+.carta-sobre__dorso, .carta-sobre__frente { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.carta-sobre__frente { transform: rotateY(180deg); }
+.carta-sobre__dorso { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; border: 3px solid #facc15;
+    background: radial-gradient(circle at 50% 40%, rgba(250, 204, 21, 0.35), transparent 60%), repeating-linear-gradient(45deg, #14532d 0 8px, #166534 8px 16px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5); }
+.carta-sobre__dorso img { width: 55%; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5)); }
+.carta-sobre__dorso span { font-weight: 900; letter-spacing: 0.18em; color: #fef9c3; }
+/* brillo al revelarse una nueva; las repetidas, más apagadas */
+.carta-sobre--nueva.carta-sobre--revelada .carta-sobre__frente { animation: carta-brilla 1.2s ease-out 0.45s; }
+@keyframes carta-brilla { 0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.9); } 100% { box-shadow: 0 0 0 18px rgba(250, 204, 21, 0); } }
+.carta-sobre--repetida.carta-sobre--revelada .carta-sobre__frente { filter: saturate(0.55) brightness(0.85); }
+.carta-sobre__cinta { position: absolute; z-index: 5; left: 50%; bottom: -10px; translate: -50% 0; padding: 0.1rem 0.7rem; border-radius: 999px; white-space: nowrap;
+    font-size: 0.72rem; font-weight: 900; text-transform: uppercase; color: #052e16; background: #4ade80; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+    opacity: 0; transform: scale(0.6); transition: opacity 0.3s ease 0.5s, transform 0.3s ease 0.5s; }
+.carta-sobre__cinta--repetida { color: #fff; background: #64748b; }
+.carta-sobre--revelada .carta-sobre__cinta { opacity: 1; transform: scale(1); }
+/* carta Platino en el sobre: dorso plateado, suspenso (brilla y tiembla) antes de darse vuelta y destello al revelarse */
+.carta-sobre--platino .carta-sobre__dorso { border-color: #e2e8f0;
+    background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.5), transparent 60%), repeating-linear-gradient(45deg, #475569 0 8px, #64748b 8px 16px); }
+.carta-sobre--platino .carta-sobre__dorso span { color: #fff; }
+.carta-sobre--suspenso .carta-sobre__giro { animation: carta-suspenso 0.9s ease-in-out; }
+@keyframes carta-suspenso {
+    0%, 100% { transform: none; filter: none; }
+    20%, 60% { transform: rotate(-3deg) scale(1.04); filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.9)); }
+    40%, 80% { transform: rotate(3deg) scale(1.04); filter: drop-shadow(0 0 22px rgba(186, 230, 253, 0.95)); }
+}
+.carta-sobre--platino.carta-sobre--revelada .carta-sobre__frente { animation: carta-platino 1.6s ease-out 0.45s; }
+@keyframes carta-platino { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.95), 0 0 30px 6px rgba(186, 230, 253, 0.8); } 100% { box-shadow: 0 0 0 26px rgba(255, 255, 255, 0), 0 0 0 0 rgba(186, 230, 253, 0); } }
+.carta-sobre__cinta--platino { color: #0f172a; background: linear-gradient(135deg, #ffffff, #cbd5e1 50%, #94a3b8); }
+/* sobres de regalo (recompensas de nivel): el Platino es plateado, también el sobre al abrirlo */
+.sobre-regalo--platino { color: #0f172a; background: linear-gradient(135deg, #ffffff, #cbd5e1 50%, #94a3b8); border: 0; box-shadow: 0 6px 18px rgba(226, 232, 240, 0.25); }
+.sobre-regalo--platino:hover { color: #0f172a; filter: brightness(1.06); }
+.sobre--platino .sobre__tapa, .sobre--platino .sobre__cuerpo { background: linear-gradient(135deg, #475569, #94a3b8 35%, #f8fafc 52%, #64748b 68%, #1e293b); }
+.sobre--platino .sobre__marca { text-shadow: 0 2px 0 #334155, 0 0 14px rgba(255, 255, 255, 0.8); }
+.sobre--platino .sobre__cantidad { background: #e2e8f0; color: #0f172a; }
+.sobre--platino .sobre__titulo { color: #0f172a; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6); }
+.sobre-texto-platino { background: linear-gradient(90deg, #f8fafc, #94a3b8, #f8fafc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sobre-resumen { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+.sobre-resumen__dato { padding: 0.25rem 0.8rem; border-radius: 999px; color: #cbd5e1; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08); }
+.sobre-resumen__dato strong { color: #facc15; }
+@media (max-width: 575.98px) {
+    .sobre-cartas { gap: 0.6rem; }
+    .carta-sobre { width: 30%; transform: none; }
+    .carta-sobre__cinta { font-size: 0.56rem; padding: 0.05rem 0.45rem; }
+    #btnAbrirSobre { font-size: 1rem; padding: 0.6rem 1.5rem; }
+    .sobre-escenario { min-height: 340px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sobre, .sobre__brillo, .sobre--temblando, .carta-sobre, .sobre-escenario--rasgado .sobre__tapa, .sobre-escenario--rasgado::after,
+    .carta-sobre--suspenso .carta-sobre__giro, .carta-sobre--platino .carta-sobre__frente { animation: none !important; }
+    .carta-sobre__giro { transition: none; }
+}

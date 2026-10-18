@@ -4,334 +4,193 @@
 {% block title %}{{ pais.nombre }} ({{ pais.siglas }}) - Ficha Técnica{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-2">
+{#
+  Ficha de una selección. Mismo lenguaje que el resto del sitio: encabezado .card-logo-fondo con el
+  color de su confederación y el escudo de marca de agua, KPIs con anillos, rendimiento, figuras de la
+  plantilla (avatares), últimos partidos / próximo (paises_service.obtener_partidos_pais), trayectoria
+  por Mundial, aficionados y sedes.
+#}
+{% set siglas_conf = {1: 'UEFA', 2: 'CONMEBOL', 3: 'CONCACAF', 4: 'CAF', 5: 'OFC', 6: 'AFC'} %}
+{% set sigla = siglas_conf.get(pais.confederacion_id, '') %}{% set lc = logo_confederacion(sigla) %}
+{% set color = lc.color if lc else '#22c55e' %}
+{% set est = estadisticas or pais.estadisticas or {} %}{# del torneo en curso ('internacional'), ver paises_service.obtener_estadisticas_torneo #}
+{% set estado = (pais.estado or '') | upper %}
+{% set fans = pais.aficionados | default(aficionados_base) %}
+<div class="container-fluid py-2 ficha-pais" style="--logo-color: {{ color }};">
 
-    <!-- Botón Volver y Header Principal -->
-    <div class="mb-4">
-        <a href="/paises" class="btn btn-sm btn-outline-secondary mb-3">
-            <i class="bi bi-arrow-left me-1"></i> Volver a Países
-        </a>
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <a href="/paises" class="btn btn-sm btn-outline-secondary rounded-pill px-3"><i class="bi bi-arrow-left me-1"></i>Volver a países</a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/jugadores/pais/{{ pais.id }}" class="btn btn-sm btn-outline-success rounded-pill px-3"><i class="bi bi-people-fill me-1"></i>Plantilla</a>
+            {% if puede('cara_a_cara') %}<a href="/cara-a-cara/?a={{ pais.id }}" class="btn btn-sm btn-outline-info rounded-pill px-3"><i class="bi bi-arrow-left-right me-1"></i>Cara a cara</a>{% endif %}
+        </div>
+    </div>
 
-        <div class="card border-0 shadow-lg p-4 bg-dark overflow-hidden position-relative">
-            <!-- Efecto visual de fondo -->
-            <div class="position-absolute top-0 end-0 opacity-10 me-4 mt-2 display-1 fw-bold text-uppercase text-white user-select-none">
-                {{ pais.siglas }}
-            </div>
-
-            <div class="row align-items-center position-relative z-1">
-                <div class="col-auto">
-                    <span class="display-1">{{ m.bandera(pais.bandera, tipo='escudo', clase='img-pais--hero') }}</span>
+    <!-- ENCABEZADO -->
+    {% set escudo = img_pais(pais.id, 'escudo') %}
+    <div class="card card-logo-fondo card-logo-fondo--sin-brillo ficha-pais__hero mb-4" style="--logo-color: {{ color }};">
+        {% if escudo %}<img src="{{ escudo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">{% endif %}
+        <div class="card-body p-3 p-md-4">
+            <div class="row align-items-center g-3">
+                <div class="col-12 col-md-auto text-center">
+                    <div class="ficha-pais__escudo">{{ m.bandera(pais.bandera, tipo='escudo', pais_id=pais.id) }}</div>
                 </div>
-                <div class="col">
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <h1 class="display-5 fw-bold text-white mb-0">{{ pais.nombre }}</h1>
-                        <span class="badge bg-dark border border-secondary text-muted fs-6">ISO: {{ pais.iso }}</span>
-                        {% if pais.estado|lower == 'disponible' or 'clasificado' in pais.estado|lower %}
-                            <span class="badge bg-success-subtle text-success border border-success-subtle">{{ pais.estado }}</span>
-                        {% elif pais.estado|lower == 'activo' %}
-                            <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">{{ pais.estado }}</span>
-                        {% else %}
-                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">{{ pais.estado }}</span>
-                        {% endif %}
+                <div class="col-12 col-md min-w-0 text-center text-md-start">
+                    <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 flex-wrap mb-1">
+                        {% if lc %}<span class="resumen-chip resumen-chip--conf"><img src="{{ lc.url }}" alt="">{{ sigla }}</span>{% endif %}
+                        <span class="resumen-chip">{{ m.bandera(pais.bandera, pais_id=pais.id) }} {{ pais.siglas }} · ISO {{ pais.iso }}</span>
+                        {% if 'ELIMINADO' in estado %}<span class="ficha-pais__estado ficha-pais__estado--fuera">{{ pais.estado | replace('_', ' ') | title }}</span>
+                        {% elif 'CALIFICADO' in estado or 'GANADOR' in estado %}<span class="ficha-pais__estado ficha-pais__estado--ok">{{ pais.estado | replace('_', ' ') | title }}</span>
+                        {% else %}<span class="ficha-pais__estado">{{ pais.estado | replace('_', ' ') | title }}</span>{% endif %}
                     </div>
-                    <p class="text-muted mb-0 fs-6">
-                        <i class="bi bi-building me-1 text-success"></i>{{ pais.federacion }}
-                    </p>
-                    <!-- Botón para redirigir a la vista de los jugadores del equipo -->
-                    <a href="/jugadores/pais/{{ pais.id }}" class="btn btn-outline-secondary btn-sm">Ver Jugadores del Equipo</a>
+                    <h1 class="display-5 fw-bold text-white mb-1">{{ pais.nombre }}</h1>
+                    <p class="text-muted mb-0"><i class="bi bi-building me-1"></i>{{ pais.federacion }}</p>
                 </div>
-                <div class="col-auto text-end mt-3 mt-md-0">
-                    <div class="p-3 bg-black bg-opacity-40 rounded-3 border border-secondary border-opacity-25 text-center">
-                        <span class="fs-7 text-muted text-uppercase d-block fw-semibold">Ranking FIFAV</span>
-                        <span class="display-6 fw-bold text-accent">#{{ pais.estadisticas.rankin }}</span>
+                <div class="col-12 col-xl-auto">
+                    <div class="d-flex gap-2 justify-content-center">
+                        <div class="ficha-pais__caja"><span>Ranking FIFAV</span><strong class="text-warning">#{{ est.rankin or '—' }}</strong></div>
+                        <div class="ficha-pais__caja"><span>Aficionados</span><strong>{{ fans | numero_compacto }}</strong>
+                            {% if fans > aficionados_base %}<small class="text-success"><i class="bi bi-graph-up-arrow"></i> en ascenso</small>
+                            {% elif fans < aficionados_base %}<small class="text-danger"><i class="bi bi-graph-down-arrow"></i> en descenso</small>
+                            {% else %}<small class="text-muted">estable</small>{% endif %}
+                        </div>
+                        <div class="ficha-pais__caja"><span>Valor plantilla</span><strong class="text-success">${{ "{:,}".format(pais.valor or 0) }}K</strong></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Malla de Rendimiento Táctico (Atributos) -->
-    <div class="row g-3 mb-4">
-        <!-- Poder del Equipo -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
-                <div class="card-body">
-                    <span class="text-muted fs-7 text-uppercase fw-semibold">Poder General</span>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <h2 class="fw-bold text-white mb-0">{{ [0, pais.estadisticas.poder] | max }}</h2>
-                        <i class="bi bi-lightning-charge-fill fs-2 text-success"></i>
+    <!-- PODER: anillos -->
+    <div class="row row-cols-2 row-cols-lg-4 g-3 mb-4">
+        {% set poder = est.poder or 0 %}
+        {% for etiqueta, valor, porcentaje, color_kpi, texto in [
+            ('Poder general', poder, ((poder + 40) * 100 / 95) | round, '#22c55e', 'Índice global de rendimiento'),
+            ('Poder ofensivo', est.p_ofensiva or 0, est.p_ofensiva or 0, '#f97316', 'Efectividad de ataque'),
+            ('Poder defensivo', est.p_defensiva or 0, est.p_defensiva or 0, '#38bdf8', 'Solidez en retaguardia'),
+            ('Posesión media', est.p_posesion or 0, est.p_posesion or 0, '#a78bfa', 'Control del juego')] %}
+        <div class="col">
+            <div class="card h-100 card-logo-fondo kpi-logo-fondo ficha-pais__kpi" style="--logo-color: {{ color_kpi }};">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="anillo-kpi" style="--pct: {{ [0, [100, porcentaje] | min] | max }};"><span>{{ valor }}{{ '' if loop.first else '%' }}</span></div>
+                    <div class="min-w-0">
+                        <span class="text-muted fs-8 text-uppercase fw-semibold d-block">{{ etiqueta }}</span>
+                        <small class="text-secondary">{{ texto }}</small>
                     </div>
-                    <span class="fs-8 text-muted">Índice global de rendimiento</span>
                 </div>
             </div>
         </div>
-
-        <!-- Potencial Ofensivo -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between text-muted fs-7 mb-1">
-                        <span class="text-uppercase fw-semibold">Poder Ofensivo</span>
-                        <span class="fw-bold text-white">{{ pais.estadisticas.p_ofensiva }}%</span>
-                    </div>
-                    <div class="progress bg-dark mb-2" style="height: 8px;">
-                        <div class="progress-bar progress-bar-green" style="width: {{ pais.estadisticas.p_ofensiva }}%;"></div>
-                    </div>
-                    <span class="fs-8 text-muted">Efectividad de ataque</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Potencial Defensivo -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between text-muted fs-7 mb-1">
-                        <span class="text-uppercase fw-semibold">Poder Defensivo</span>
-                        <span class="fw-bold text-white">{{ pais.estadisticas.p_defensiva }}%</span>
-                    </div>
-                    <div class="progress bg-dark mb-2" style="height: 8px;">
-                        <div class="progress-bar bg-info" style="width: {{ pais.estadisticas.p_defensiva }}%;"></div>
-                    </div>
-                    <span class="fs-8 text-muted">Solidez en retaguardia</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Posesión de Balón -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between text-muted fs-7 mb-1">
-                        <span class="text-uppercase fw-semibold">Posesión Media</span>
-                        <span class="fw-bold text-white">{{ pais.estadisticas.p_posesion }}%</span>
-                    </div>
-                    <div class="progress bg-dark mb-2" style="height: 8px;">
-                        <div class="progress-bar bg-accent" style="width: {{ pais.estadisticas.p_posesion }}%;"></div>
-                    </div>
-                    <span class="fs-8 text-muted">Control de juego</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Aficionados / Popularidad (independiente del ranking FIFA, ver services/fanbase_service.py) -->
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card border-0 shadow-sm h-100 border-start border-4 border-danger">
-                <div class="card-body">
-                    <span class="text-muted fs-7 text-uppercase fw-semibold">Base de Fans</span>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <h2 class="fw-bold text-white mb-0">{{ "{:,}".format(pais.aficionados | default(aficionados_base)) }}</h2>
-                        <i class="bi bi-heart-fill fs-2 text-danger"></i>
-                    </div>
-                    {% set aficionados_actual = pais.aficionados | default(aficionados_base) %}
-                    {% if aficionados_actual > aficionados_base %}
-                        <span class="badge bg-success-subtle text-success border border-success-subtle fs-8">
-                            <i class="bi bi-graph-up-arrow me-1"></i>Popularidad en ascenso
-                        </span>
-                    {% elif aficionados_actual < aficionados_base %}
-                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-8">
-                            <i class="bi bi-graph-down-arrow me-1"></i>Popularidad en descenso
-                        </span>
-                    {% else %}
-                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fs-8">
-                            <i class="bi bi-dash-lg me-1"></i>Base de fans estable
-                        </span>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+        {% endfor %}
     </div>
 
-    <!-- Historial de Aficionados (ver services/fanbase_service.py::obtener_historial_aficionados_pais) -->
-    {% if historial_aficionados %}
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header py-3 border-0 d-flex justify-content-between align-items-center">
-            <h5 class="card-title fw-bold text-white mb-0">
-                <i class="bi bi-heart-pulse-fill me-2 text-danger"></i>Historial de Aficionados
-            </h5>
-            <a href="/juegos" class="badge bg-dark border border-secondary text-muted fs-8">Ver partidos</a>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-dark table-hover mb-0 align-middle">
-                    <thead>
-                        <tr class="small text-uppercase text-muted">
-                            <th>Fecha</th>
-                            <th>Motivo</th>
-                            <th class="text-end">Variación</th>
-                            <th class="text-end">Total resultante</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for registro in historial_aficionados %}
-                        <tr>
-                            <td class="text-muted fs-8">
-                                {{ registro.created_at.strftime('%d/%m/%Y %H:%M') if registro.created_at else 'N/A' }}
-                            </td>
-                            <td>{{ registro.motivo }}</td>
-                            <td class="text-end fw-bold {% if registro.aficionados_ganados_perdidos > 0 %}text-success{% elif registro.aficionados_ganados_perdidos < 0 %}text-danger{% else %}text-muted{% endif %}">
-                                {{ "+" if registro.aficionados_ganados_perdidos > 0 else "" }}{{ "{:,}".format(registro.aficionados_ganados_perdidos) }}
-                            </td>
-                            <td class="text-end">{{ "{:,}".format(registro.aficionados_totales_resultantes) }}</td>
-                            <td class="text-end">
-                                {% if registro.partido_id %}
-                                    <a href="/juegos/{{ registro.partido_id }}" class="btn btn-sm btn-outline-secondary py-0 px-2" title="Ver partido" aria-label="Ver partido">
-                                        <i class="bi bi-arrow-up-right"></i>
-                                    </a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Sección Principal: Estadísticas de Partidos y Métricas -->
     <div class="row g-4 mb-4">
-
-        <!-- Tabla de Rendimiento / Historial -->
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header py-3 border-0 d-flex justify-content-between align-items-center">
-                    <h5 class="card-title fw-bold text-white mb-0">
-                        <i class="bi bi-bar-chart-line-fill me-2 text-success"></i>Estadísticas Históricas del Torneo
-                    </h5>
-                    <span class="badge bg-dark border border-secondary text-muted">Puntos Totales: {{ pais.estadisticas.puntos }}</span>
-                </div>
-                <div class="card-body">
-                    
-                    <!-- Resumen de Resultados -->
-                    <div class="row text-center g-2 mb-4">
-                        <div class="col-3">
-                            <div class="p-3 bg-dark rounded-3 border border-secondary border-opacity-25">
-                                <span class="fs-7 text-muted d-block text-uppercase">Jugados</span>
-                                <span class="fs-3 fw-bold text-white">{{ pais.estadisticas.juegos_jugados }}</span>
-                            </div>
-                        </div>
-                        <div class="col-3">
-                            <div class="p-3 bg-dark rounded-3 border border-success border-opacity-25">
-                                <span class="fs-7 text-success d-block text-uppercase">Ganados</span>
-                                <span class="fs-3 fw-bold text-success">{{ pais.estadisticas.juegos_ganados }}</span>
-                            </div>
-                        </div>
-                        <div class="col-3">
-                            <div class="p-3 bg-dark rounded-3 border border-warning border-opacity-25">
-                                <span class="fs-7 text-warning d-block text-uppercase">Empatados</span>
-                                <span class="fs-3 fw-bold text-warning">{{ pais.estadisticas.juegos_empatados }}</span>
-                            </div>
-                        </div>
-                        <div class="col-3">
-                            <div class="p-3 bg-dark rounded-3 border border-danger border-opacity-25">
-                                <span class="fs-7 text-danger d-block text-uppercase">Perdidos</span>
-                                <span class="fs-3 fw-bold text-danger">{{ pais.estadisticas.juegos_perdidos }}</span>
-                            </div>
-                        </div>
+        <!-- RENDIMIENTO EN EL TORNEO -->
+        <div class="col-lg-7">
+            <div class="card h-100 card-logo-fondo card-seccion" style="--logo-color: {{ color }};">
+                <img src="{{ imagen_perfil('historial') }}" alt="" aria-hidden="true" loading="lazy" class="card-logo-fondo__logo" onerror="this.remove()">
+                <div class="card-body p-3 p-md-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="vivo-titulo mb-0"><i class="bi bi-bar-chart-line-fill text-success"></i>Rendimiento en el torneo</h2>
+                        <span class="vivo-contador">{{ est.puntos or 0 }} pts</span>
+                    </div>
+                    {% set pj = est.juegos_jugados or 0 %}
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-white fw-semibold">{{ pj }} partido{{ 's' if pj != 1 }}</span>
+                        <span><strong class="text-success">{{ est.juegos_ganados or 0 }}G</strong> · <strong class="text-white">{{ est.juegos_empatados or 0 }}E</strong> · <strong class="text-danger">{{ est.juegos_perdidos or 0 }}P</strong></span>
+                    </div>
+                    <div class="barra-wdl mb-3">
+                        {% if est.juegos_ganados %}<span class="bg-success" style="flex: {{ est.juegos_ganados }};"></span>{% endif %}
+                        {% if est.juegos_empatados %}<span class="bg-secondary" style="flex: {{ est.juegos_empatados }};"></span>{% endif %}
+                        {% if est.juegos_perdidos %}<span class="bg-danger" style="flex: {{ est.juegos_perdidos }};"></span>{% endif %}
+                    </div>
+                    <div class="historial-fichas historial-fichas--4">
+                        <div class="historial-ficha"><span>Goles a favor</span><strong class="text-success">{{ est.goles_favor or 0 }}</strong></div>
+                        <div class="historial-ficha"><span>Goles en contra</span><strong class="text-danger">{{ est.goles_contra or 0 }}</strong></div>
+                        <div class="historial-ficha"><span>Diferencia</span><strong>{{ '+' if (est.diferencia_goles or 0) > 0 }}{{ est.diferencia_goles or 0 }}</strong></div>
+                        <div class="historial-ficha"><span>Gol/partido</span><strong class="text-info">{{ est.promedio_gol or 0 }}</strong></div>
                     </div>
 
-                    <!-- Balance de Goles -->
-                    <h6 class="fw-bold text-muted text-uppercase fs-7 mb-3">Balance de Goles</h6>
-                    <div class="table-responsive">
-                        <table class="table table-dark align-middle text-white mb-0">
-                            <thead class="text-muted fs-7 text-uppercase border-bottom border-secondary border-opacity-25">
-                                <tr>
-                                    <th>Goles a Favor (GF)</th>
-                                    <th>Goles en Contra (GC)</th>
-                                    <th>Diferencia (DG)</th>
-                                    <th>Promedio Gol/Partido</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="fs-5 fw-bold text-success">+{{ pais.estadisticas.goles_favor }}</td>
-                                    <td class="fs-5 fw-bold text-danger">-{{ pais.estadisticas.goles_contra }}</td>
-                                    <td class="fs-5 fw-bold text-white">
-                                        {% if pais.estadisticas.diferencia_goles > 0 %}
-                                            +{{ pais.estadisticas.diferencia_goles }}
-                                        {% else %}
-                                            {{ pais.estadisticas.diferencia_goles }}
-                                        {% endif %}
-                                    </td>
-                                    <td class="fs-5 fw-bold text-info">{{ pais.estadisticas.promedio_gol }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <!-- Últimos partidos y el próximo -->
+                    <span class="historial-grupo mt-3">Últimos partidos</span>
+                    {% if partidos.ultimos %}
+                    <div class="ficha-pais__forma mb-2">
+                        {% for p in partidos.ultimos | reverse %}<span class="ficha-pais__forma-punto ficha-pais__forma-punto--{{ p.resultado }}" title="{{ p.marcador }} vs {{ p.rival.nombre }}">{{ {'V': 'G', 'E': 'E', 'D': 'P'}[p.resultado] }}</span>{% endfor %}
                     </div>
-
-                </div>
-            </div>
-        </div>
-
-        <!-- Ficha de Datos Técnicos y Último Partido -->
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header py-3 border-0">
-                    <h5 class="card-title fw-bold text-white mb-0">
-                        <i class="bi bi-info-circle-fill me-2 text-info"></i>Información Técnica
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <span class="text-muted">Valor de Plantilla</span>
-                            <span class="fw-bold text-success">${{ "{:,}".format(pais.valor) }} K</span>
-                        </li>                                                
-                    </ul>
-
-                    <!-- Card del Último Partido -->
-                    {% if pais.estadisticas.ultima_actualizacion %}
-                    <div class="mt-4 p-3 bg-dark rounded-3 border border-secondary border-opacity-25">
-                        <div class="d-flex align-items-center justify-content-between mb-2">
-                            <span class="fs-8 text-uppercase fw-semibold text-muted">
-                                <i class="bi bi-clock-history me-1"></i>Último Partido
-                            </span>
-                            <span class="badge bg-secondary-subtle text-secondary fs-8">Simulado</span>
-                        </div>
-                        {% set ultimo_id = pais.estadisticas.ultima_actualizacion.partido_id %}
-                        {% if ultimo_id %}
-                        <a href="/juegos/{{ ultimo_id }}" class="fw-bold fs-6 link-success text-decoration-none">
-                            <i class="bi bi-box-arrow-up-right me-1"></i>Ver último partido
+                    <div class="d-flex flex-column gap-2">
+                        {% for p in partidos.ultimos %}
+                        <a href="/juegos/{{ p.id }}" class="bitacora-fila bitacora-fila--{{ p.resultado }}">
+                            <span class="bitacora-fila__fecha"><strong>{{ p.fecha }}</strong><small>{{ p.grupo or '' }}</small></span>
+                            <span class="bitacora-fila__rival"><small>{{ 'vs' if p.local else 'en' }}</small> {{ m.bandera(p.rival.bandera, pais_id=p.rival.id) }} <span class="text-truncate">{{ p.rival.nombre }}</span></span>
+                            <span class="bitacora-fila__marcador"><span class="bitacora-fila__res">{{ {'V': 'G', 'E': 'E', 'D': 'P'}[p.resultado] }}</span>{{ p.marcador }}</span>
+                            <span class="bitacora-fila__aporte"></span>
+                            <i class="bi bi-chevron-right bitacora-fila__ir"></i>
                         </a>
-                        {% else %}<span class="text-muted">Sin partidos todavía</span>{% endif %}
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted small mb-0">Todavía no jugó en este torneo.</p>
+                    {% endif %}
+                    {% if partidos.proximo %}{% set px = partidos.proximo %}
+                    <div class="ficha-pais__proximo mt-3">
+                        <span class="historial-grupo mb-1">Próximo partido</span>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <strong class="text-white">{{ 'vs' if px.local else 'en' }} {{ m.bandera(px.rival.bandera, pais_id=px.rival.id) }} {{ px.rival.nombre }}</strong>
+                            <span class="resumen-chip"><i class="bi bi-calendar-event"></i>{{ px.fecha }} · {{ px.hora }}</span>
+                            {% if px.estadio %}<span class="resumen-chip"><i class="bi bi-geo-alt-fill"></i>{{ px.estadio }}</span>{% endif %}
+                            {% if puede('scouter') %}<a href="/scouter/{{ px.id }}" class="btn btn-sm btn-outline-info rounded-pill ms-auto"><i class="bi bi-binoculars-fill me-1"></i>Scouter</a>{% endif %}
+                        </div>
                     </div>
                     {% endif %}
                 </div>
             </div>
         </div>
 
+        <!-- FIGURAS DE LA PLANTILLA -->
+        <div class="col-lg-5">
+            <div class="card h-100 card-logo-fondo card-seccion" style="--logo-color: #22c55e;">
+                <img src="{{ imagen_perfil('atributos') }}" alt="" aria-hidden="true" loading="lazy" class="card-logo-fondo__logo" onerror="this.remove()">
+                <div class="card-body p-3 p-md-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="vivo-titulo mb-0"><i class="bi bi-stars text-warning"></i>Figuras de la plantilla</h2>
+                        <a href="/jugadores/pais/{{ pais.id }}" class="btn btn-sm btn-outline-light rounded-pill px-3">Ver los 22</a>
+                    </div>
+                    <div class="row row-cols-2 row-cols-sm-3 g-2">
+                        {% for j in figuras %}
+                        <div class="col">
+                            <a href="/jugadores/{{ j.id }}" class="figura-mini">
+                                <span class="figura-mini__foto">{{ m.avatar(j.id, pais.id, '', j.nombre) }}<span class="figura-mini__dorsal">{{ j.numero }}</span></span>
+                                <strong class="text-truncate">{{ j.nombre }}</strong>
+                                <small>{{ j.posicion }} · <span class="text-warning">{{ j.overall | round(1) }}</span></small>
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Trayectoria por Mundial (services/paises_service.obtener_trayectoria_pais) -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm bg-dark">
+    <div class="row g-4 mb-4">
+        <!-- TRAYECTORIA POR MUNDIAL -->
+        <div class="col-lg-{{ '7' if historial_aficionados else '12' }}">
+            <div class="card h-100 card-logo-fondo card-seccion" style="--logo-color: #eab308;">
+                <img src="{{ imagen_inicio('copa') }}" alt="" aria-hidden="true" loading="lazy" class="card-logo-fondo__logo" onerror="this.remove()">
                 <div class="card-body p-3 p-md-4">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                        <h2 class="h5 fw-bold text-white mb-0"><i class="bi bi-signpost-split text-accent me-2"></i>Trayectoria por Mundial</h2>
-                        {% if puede('cara_a_cara') %}<a href="/cara-a-cara/?a={{ pais.id }}" class="btn btn-outline-light btn-sm"><i class="bi bi-arrow-left-right me-1"></i>Cara a cara</a>{% endif %}
-                    </div>
+                    <h2 class="vivo-titulo"><i class="bi bi-signpost-split-fill text-warning"></i>Trayectoria por Mundial</h2>
                     {% if trayectoria %}
-                    <div class="table-responsive">
-                        <table class="table table-dark table-sm align-middle mb-0">
-                            <thead><tr class="small text-muted"><th>Mundial</th><th>Hasta dónde llegó</th><th class="text-center">PJ</th><th class="text-center">G-E-P</th><th class="text-center">Goles</th></tr></thead>
-                            <tbody>
-                                {% for t in trayectoria %}
-                                <tr>
-                                    <td class="fw-semibold">{{ t.anio }}{% if t.activo %} <span class="badge bg-danger">En curso</span>{% endif %}</td>
-                                    <td>
-                                        {% if t.campeon %}<span class="badge bg-accent">🏆 Campeón</span>
-                                        {% else %}{{ t.fase }} <small class="{{ 'text-danger' if t.eliminado else 'text-success' }}">· {{ t.estado }}</small>{% endif %}
-                                    </td>
-                                    <td class="text-center">{{ t.pj }}</td>
-                                    <td class="text-center text-nowrap"><span class="text-success">{{ t.g }}</span>-{{ t.e }}-<span class="text-danger">{{ t.p }}</span></td>
-                                    <td class="text-center text-nowrap">{{ t.gf }}:{{ t.gc }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <div class="trayectoria">
+                        {% for t in trayectoria %}
+                        <div class="trayectoria__fila {{ 'trayectoria__fila--campeon' if t.campeon }}">
+                            <span class="trayectoria__anio">{{ t.anio }}{% if t.activo %}<small class="text-danger">en curso</small>{% endif %}</span>
+                            <div class="trayectoria__fase">
+                                {% if t.campeon %}<strong class="text-warning">🏆 Campeón</strong>
+                                {% else %}<strong class="text-white">{{ t.fase }}</strong> <small class="{{ 'text-danger' if t.eliminado else 'text-success' }}">{{ t.estado }}</small>{% endif %}
+                            </div>
+                            <span class="trayectoria__dato"><small>PJ</small>{{ t.pj }}</span>
+                            <span class="trayectoria__dato"><small>G-E-P</small><span class="text-success">{{ t.g }}</span>-{{ t.e }}-<span class="text-danger">{{ t.p }}</span></span>
+                            <span class="trayectoria__dato"><small>Goles</small>{{ t.gf }}:{{ t.gc }}</span>
+                        </div>
+                        {% endfor %}
                     </div>
                     {% else %}
                     <p class="text-muted mb-0">Todavía no participó de ningún Mundial registrado.</p>
@@ -339,68 +198,72 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Sección de Ciudades Sede y Estadios -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header py-3 border-0 d-flex justify-content-between align-items-center">
-                    <h5 class="card-title fw-bold text-white mb-0">
-                        <i class="bi bi-geo-alt-fill me-2 text-success"></i>Ciudades Sede y Estadios
-                    </h5>
-                    <span class="badge bg-dark border border-secondary text-muted">
-                        Total: {{ pais.ciudades|length if pais.ciudades else 0 }}
-                    </span>
-                </div>
-                <div class="card-body">
-                    {% if pais.ciudades and pais.ciudades|length > 0 %}
-                        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
-                            {% for ciudad in pais.ciudades %}
-                            <div class="col">
-                                <div class="bg-dark rounded-3 border border-secondary border-opacity-25 h-100 d-flex flex-column position-relative overflow-hidden">
-                                    {% set img_ciudad = img_estadio(ciudad.id) %}
-                                    {% if img_ciudad %}
-                                    <div class="estadio-ilustracion"><img src="{{ img_ciudad }}" alt="Estadio de {{ ciudad.nombre }}" loading="lazy" decoding="async" onerror="this.parentNode.remove()"></div>
-                                    {% endif %}
-                                    <div class="p-3 d-flex flex-column justify-content-between flex-grow-1">
-
-                                    <div class="position-relative z-1">
-                                        <div class="d-flex align-items-center gap-2 mb-1">
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle fs-8">
-                                                {{ ciudad.tipo }}
-                                            </span>
-                                            <span class="fs-8 text-muted">ID #{{ ciudad.id }}</span>
-                                        </div>
-                                        <h6 class="fw-bold text-white mb-2 text-truncate" title="{{ ciudad.nombre }}">
-                                            {{ ciudad.nombre }}
-                                        </h6>
-                                    </div>
-
-                                    <div class="pt-2 border-top border-secondary border-opacity-25 mt-2 position-relative z-1">
-                                        <span class="fs-8 text-muted d-block text-uppercase fw-semibold mb-1">
-                                            <i class="bi bi-stadium-fill text-accent me-1"></i>Estadio
-                                        </span>
-                                        <span class="fw-bold text-info fs-7 text-truncate d-block" title="{{ ciudad.estadio }}">
-                                            {{ ciudad.estadio }}
-                                        </span>
-                                    </div>
-                                    </div>
-
-                                </div>
+        <!-- HISTORIAL DE AFICIONADOS (services/fanbase_service.py) -->
+        {% if historial_aficionados %}
+        <div class="col-lg-5">
+            <div class="card h-100 card-logo-fondo card-seccion" style="--logo-color: #f43f5e;">
+                <img src="{{ imagen_perfil('animo_euforico') }}" alt="" aria-hidden="true" loading="lazy" class="card-logo-fondo__logo" onerror="this.remove()">
+                <div class="card-body p-3 p-md-4">
+                    <h2 class="vivo-titulo"><i class="bi bi-heart-pulse-fill text-danger"></i>Aficionados</h2>
+                    <div class="aficion-lista">
+                        {% for r in historial_aficionados %}
+                        {% set delta = r.aficionados_ganados_perdidos %}
+                        <div class="aficion-fila">
+                            <span class="aficion-fila__delta {{ 'aficion-fila__delta--mas' if delta > 0 else ('aficion-fila__delta--menos' if delta < 0) }}">{{ '+' if delta > 0 }}{{ delta | numero_compacto }}</span>
+                            <div class="min-w-0 flex-grow-1">
+                                <div class="text-white small text-truncate">{{ r.motivo }}</div>
+                                <small class="text-muted">{{ r.created_at.strftime('%d/%m/%Y') if r.created_at else '' }} · total {{ r.aficionados_totales_resultantes | numero_compacto }}</small>
                             </div>
-                            {% endfor %}
+                            {% if r.partido_id %}<a href="/juegos/{{ r.partido_id }}" class="aficion-fila__ir" title="Ver partido" aria-label="Ver partido"><i class="bi bi-arrow-up-right"></i></a>{% endif %}
                         </div>
-                    {% else %}
-                        <!-- Estado cuando el arreglo de ciudades viene vacío -->
-                        <div class="text-center py-4 text-muted">
-                            <i class="bi bi-geo fs-2 d-block mb-2"></i>
-                            No hay ciudades o estadios registrados para este país.
-                        </div>
-                    {% endif %}
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
+        {% endif %}
+    </div>
+
+    <!-- CIUDADES SEDE -->
+    <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #38bdf8;">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="vivo-titulo mb-0"><i class="bi bi-geo-alt-fill text-info"></i>Ciudades sede y estadios</h2>
+                <span class="vivo-contador">{{ pais.ciudades | length if pais.ciudades else 0 }}</span>
+            </div>
+            {% if pais.ciudades %}
+            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xxl-6 g-3" id="gridCiudades">
+                {% for ciudad in pais.ciudades %}
+                <div class="col ciudad-item">
+                    <div class="sede-tarjeta">
+                        {% set img_ciudad = img_estadio(ciudad.id) %}
+                        <div class="sede-tarjeta__estadio">{% if img_ciudad %}<img src="{{ img_ciudad }}" alt="Estadio de {{ ciudad.nombre }}" loading="lazy" decoding="async" onerror="this.remove()">{% else %}<i class="bi bi-building"></i>{% endif %}</div>
+                        <div class="sede-tarjeta__info">
+                            <strong class="text-truncate" title="{{ ciudad.nombre }}">{{ ciudad.nombre }}</strong>
+                            <small class="text-truncate" title="{{ ciudad.estadio }}"><i class="bi bi-dribbble"></i> {{ ciudad.estadio }}</small>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted"><i class="bi bi-geo fs-2 d-block mb-2"></i>No hay ciudades registradas para este país.</div>
+            {% endif %}
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Hasta 60 sedes por país: se muestran de a 12 ("Mostrar más")
+    document.addEventListener('DOMContentLoaded', () => {
+        const grid = document.getElementById('gridCiudades');
+        if (grid && window.UI && UI.paginador) {
+            const items = grid.querySelectorAll('.ciudad-item');
+            if (items.length > 12) UI.paginador({ items: () => items, porPagina: 12, despuesDe: grid, etiqueta: 'sedes' });
+        }
+    });
+</script>
 {% endblock %}

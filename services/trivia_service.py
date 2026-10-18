@@ -30,6 +30,8 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
+from config.niveles import XP_TRIVIA_BASE, XP_TRIVIA_POR_ACIERTO
+from services import niveles_service
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -399,6 +401,10 @@ def validate_trivia_answers(user_id: str, session_id: str, respuestas: List[Opti
             "completed_at": ahora
         }}
     )
+
+    # XP de niveles (nunca lanza): 5 por completarla + 5 por acierto
+    niveles_service.otorgar_xp(usuario_oid, "TRIVIA", sesion_oid, xp=XP_TRIVIA_BASE + XP_TRIVIA_POR_ACIERTO * correctas)
+    niveles_service.otorgar_logro(usuario_oid, "PRIMERA_TRIVIA")
 
     return {
         "correct_answers": correctas,

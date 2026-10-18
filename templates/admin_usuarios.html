@@ -97,6 +97,10 @@
                                 data-activo="{{ 'si' if u.activo is not sameas false else 'no' }}" aria-label="Editar {{ u.username }}">
                             <i class="bi bi-pencil"></i>
                         </button>
+                        <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalAbonar"
+                                data-id="{{ u._id }}" data-username="{{ u.username }}" data-saldo="{{ u.monto or 0 }}" aria-label="Abonar puntos a {{ u.username }}" title="Abonar puntos">
+                            <i class="bi bi-coin"></i>
+                        </button>
                         <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalPassword"
                                 data-id="{{ u._id }}" data-username="{{ u.username }}" aria-label="Restablecer contraseña de {{ u.username }}">
                             <i class="bi bi-key"></i>
@@ -141,6 +145,58 @@
     </div>
 </div>
 
+<!-- Últimos abonos (auditoría: colección ajustes_saldo) -->
+{% if ajustes %}
+<div class="card bg-dark border-secondary mt-4">
+    <div class="card-body">
+        <h2 class="h6 fw-bold text-white mb-3"><i class="bi bi-coin text-success me-1"></i>Últimos abonos de puntos</h2>
+        <div class="table-responsive">
+            <table class="table table-dark table-sm align-middle mb-0 small">
+                <thead><tr class="text-muted"><th>Fecha</th><th>Usuario</th><th class="text-end">Monto</th><th>Motivo</th><th class="d-none d-md-table-cell">Por</th></tr></thead>
+                <tbody>
+                    {% for a in ajustes %}
+                    <tr>
+                        <td class="text-muted text-nowrap">{{ a.creado_en.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="fw-semibold">{{ a.username }}</td>
+                        <td class="text-end text-success fw-bold">+{{ "{:,}".format(a.monto) }}</td>
+                        <td>{{ a.motivo }}</td>
+                        <td class="d-none d-md-table-cell text-muted">{{ a.admin_username }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal: abonar puntos -->
+<div class="modal fade" id="modalAbonar" tabindex="-1" aria-labelledby="modalAbonarTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content bg-dark text-white border border-secondary" method="post" id="formAbonar">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold" id="modalAbonarTitulo">Abonar puntos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">Saldo actual: <strong class="text-white" id="abonarSaldo">0</strong> pts</p>
+                <label class="form-label small text-muted" for="abonarMonto">Puntos a abonar</label>
+                <input class="form-control mb-2" id="abonarMonto" name="monto" type="number" min="1" max="1000000" step="1" required>
+                <div class="d-flex gap-2 flex-wrap mb-3">
+                    {% for v in [100, 500, 1000, 5000] %}<button type="button" class="btn btn-sm btn-outline-success" data-abono-rapido="{{ v }}">+{{ "{:,}".format(v) }}</button>{% endfor %}
+                </div>
+                <label class="form-label small text-muted" for="abonarMotivo">Motivo</label>
+                <input class="form-control" id="abonarMotivo" name="motivo" minlength="3" maxlength="200" required placeholder="Ej.: compensación por falla del Juego en Vivo">
+                <small class="text-muted d-block mt-2">Queda registrado y el usuario lo ve en el historial de su cuenta.</small>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success fw-bold"><i class="bi bi-coin me-1"></i>Abonar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modal: restablecer contraseña -->
 <div class="modal fade" id="modalPassword" tabindex="-1" aria-labelledby="modalPasswordTitulo" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -176,6 +232,18 @@
             document.getElementById('editarRol').value = d.rol;
             document.getElementById('editarActivo').checked = d.activo === 'si';
         });
+        document.getElementById('modalAbonar').addEventListener('show.bs.modal', ev => {
+            const d = ev.relatedTarget.dataset;
+            document.getElementById('formAbonar').action = `/admin/usuarios/${d.id}/abonar`;
+            document.getElementById('modalAbonarTitulo').textContent = `Abonar puntos a ${d.username}`;
+            document.getElementById('abonarSaldo').textContent = Number(d.saldo).toLocaleString('es-MX');
+            document.getElementById('abonarMonto').value = '';
+            document.getElementById('abonarMotivo').value = '';
+        });
+        document.querySelectorAll('[data-abono-rapido]').forEach(b => b.addEventListener('click', () => {
+            const campo = document.getElementById('abonarMonto');
+            campo.value = (Number(campo.value) || 0) + Number(b.dataset.abonoRapido);
+        }));
         document.getElementById('modalPassword').addEventListener('show.bs.modal', ev => {
             const d = ev.relatedTarget.dataset;
             document.getElementById('formPassword').action = `/admin/usuarios/${d.id}/password`;

@@ -1,106 +1,122 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Mis Quinielas - FutbolSim{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/album.css">
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-    <div>
-        <h1 class="display-6 fw-bold mb-1">Mis Quinielas</h1>
-        <p class="text-muted mb-0">Tus boletos y su estado.</p>
-    </div>
-    <div class="d-flex align-items-center gap-3">
-        <a href="{{ url_for('quinielas_rendimiento') }}" class="btn btn-outline-light btn-sm">
-            <i class="bi bi-graph-up-arrow me-1"></i>Mi rendimiento
-        </a>
-        <a href="{{ url_for('quinielas_home') }}" class="btn btn-success btn-sm fw-bold">
-            <i class="bi bi-plus-circle me-1"></i>Comprar Quiniela
-        </a>
+{#
+  Mis quinielas: cada boleto como un ticket (talón con estado, costo y premio; cuerpo con el pick
+  1-X-2 de cada partido, el resultado real y si acertó). Filtro por estado del boleto.
+#}
+{% set ganadas = boletos | selectattr('estado', 'equalto', 'GANADA') | list %}
+{% set pendientes = boletos | selectattr('estado', 'equalto', 'PENDIENTE') | list %}
+{% set invertido = boletos | sum(attribute='costo_pagado') %}
+{% set cobrado = boletos | sum(attribute='premio_ganado') %}
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo fixture-hero mb-4" style="--logo-color: #a855f7;">
+    <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-3 min-w-0">
+            <span class="quiniela-sello"><i class="bi bi-ticket-detailed-fill"></i></span>
+            <div class="min-w-0">
+                <h1 class="h2 fw-bold text-white mb-1">Mis Quinielas</h1>
+                <p class="text-muted mb-0 small">Tus boletos, tus pronósticos y lo que te dejaron.</p>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <div class="fixture-kpi"><span>Boletos</span><strong>{{ boletos | length }}</strong></div>
+            <div class="fixture-kpi"><span>Ganados</span><strong class="text-success">{{ ganadas | length }}</strong></div>
+            <div class="fixture-kpi"><span>Balance</span><strong class="{{ 'text-success' if cobrado >= invertido else 'text-danger' }}">{{ '+' if cobrado - invertido > 0 }}{{ "{:,}".format(cobrado - invertido) }}</strong></div>
+            <a href="{{ url_for('quinielas_rendimiento') }}" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-graph-up-arrow me-1"></i>Rendimiento</a>
+            <a href="{{ url_for('quinielas_home') }}" class="btn btn-success rounded-pill px-3 fw-bold"><i class="bi bi-plus-circle me-1"></i>Comprar</a>
+        </div>
     </div>
 </div>
 
 {% if boletos %}
-    <div class="row g-3">
-        {% for boleto in boletos %}
-            <div class="col-12 col-lg-6">
-                <div class="card bg-dark border-0 shadow-sm h-100">
-                    <div class="card-header bg-black bg-opacity-40 border-secondary d-flex justify-content-between align-items-center py-3">
-                        <div>
-                            <span class="fw-bold text-white">{{ boleto.config.nombre if boleto.config else "Quiniela" }}</span>
-                            <div class="text-muted small">{{ boleto.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</div>
-                        </div>
-                        {% if boleto.estado == 'GANADA' %}
-                            <span class="badge bg-success fs-7 px-3 py-2"><i class="bi bi-trophy-fill me-1"></i>Ganada</span>
-                        {% elif boleto.estado == 'PERDIDA' %}
-                            <span class="badge bg-danger fs-7 px-3 py-2"><i class="bi bi-x-circle-fill me-1"></i>Perdida</span>
-                        {% else %}
-                            <span class="badge bg-secondary fs-7 px-3 py-2"><i class="bi bi-hourglass-split me-1"></i>Pendiente</span>
-                        {% endif %}
-                    </div>
+<div class="d-flex gap-2 flex-wrap mb-3" id="filtroBoletos">
+    <button type="button" class="filtro-conf activo" data-estado="" style="--conf-color: #a855f7;">Todos <span>{{ boletos | length }}</span></button>
+    <button type="button" class="filtro-conf" data-estado="PENDIENTE" style="--conf-color: #94a3b8;"><i class="bi bi-hourglass-split"></i>Pendientes <span>{{ pendientes | length }}</span></button>
+    <button type="button" class="filtro-conf" data-estado="GANADA" style="--conf-color: #22c55e;"><i class="bi bi-trophy-fill"></i>Ganados <span>{{ ganadas | length }}</span></button>
+    <button type="button" class="filtro-conf" data-estado="PERDIDA" style="--conf-color: #ef4444;"><i class="bi bi-x-circle-fill"></i>Perdidos <span>{{ boletos | selectattr('estado', 'equalto', 'PERDIDA') | list | length }}</span></button>
+</div>
 
-                    <div class="card-body p-3">
-                        <div class="row g-2 mb-3">
-                            <div class="col-4">
-                                <div class="surface-soft p-2 text-center">
-                                    <div class="text-muted small text-uppercase">Costo</div>
-                                    <div class="fw-bold">{{ boleto.costo_pagado }}</div>
-                                </div>
-                            </div>
-                            <div class="col-4">
-                                <div class="surface-soft p-2 text-center">
-                                    <div class="text-muted small text-uppercase">Aciertos</div>
-                                    <div class="fw-bold">{{ boleto.aciertos }}/{{ boleto.selecciones | length }}</div>
-                                </div>
-                            </div>
-                            <div class="col-4">
-                                <div class="surface-soft p-2 text-center">
-                                    <div class="text-muted small text-uppercase">Premio</div>
-                                    <div class="fw-bold {% if boleto.premio_ganado > 0 %}text-success{% endif %}">
-                                        {{ boleto.premio_ganado }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="list-group list-group-flush">
-                            {% for seleccion in boleto.selecciones %}
-                                <div class="list-group-item bg-transparent border-secondary border-opacity-25 px-0 py-2 d-flex justify-content-between align-items-center">
-                                    <div>
-                                        {% if seleccion.partido %}
-                                            <span class="small">{{ seleccion.partido.equipo_local.nombre }} vs {{ seleccion.partido.equipo_visitante.nombre }}</span>
-                                        {% else %}
-                                            <span class="small text-muted">Partido no disponible</span>
-                                        {% endif %}
-                                        <div class="text-muted small">
-                                            Pronóstico:
-                                            <span class="fw-semibold text-white">
-                                                {{ {"LOCAL": "Local", "EMPATE": "Empate", "VISITA": "Visita"}.get(seleccion.pronostico, seleccion.pronostico) }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        {% if seleccion.estado == 'ACERTADO' %}
-                                            <span class="badge bg-success" title="Acertado"><i class="bi bi-check-lg" aria-hidden="true"></i><span class="visually-hidden">Acertado</span></span>
-                                        {% elif seleccion.estado == 'FALLADO' %}
-                                            <span class="badge bg-danger" title="Fallado"><i class="bi bi-x-lg" aria-hidden="true"></i><span class="visually-hidden">Fallado</span></span>
-                                        {% else %}
-                                            <span class="badge bg-secondary" title="Pendiente"><i class="bi bi-hourglass-split" aria-hidden="true"></i><span class="visually-hidden">Pendiente</span></span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
+<div class="row g-3" id="gridBoletos">
+    {% for boleto in boletos %}
+    {% set total = boleto.selecciones | length %}
+    {% set resueltas = boleto.selecciones | rejectattr('estado', 'equalto', 'PENDIENTE') | list | length %}
+    {% set clase = {'GANADA': 'ganada', 'PERDIDA': 'perdida'}.get(boleto.estado, 'pendiente') %}
+    <div class="col-12 col-xl-6 boleto-item" data-estado="{{ boleto.estado }}">
+        <article class="ticket ticket--{{ clase }}">
+            <!-- Talón -->
+            <div class="ticket__talon">
+                <span class="ticket__estado">
+                    {% if clase == 'ganada' %}<i class="bi bi-trophy-fill"></i>Ganado{% elif clase == 'perdida' %}<i class="bi bi-x-circle-fill"></i>Perdido{% else %}<i class="bi bi-hourglass-split"></i>En juego{% endif %}
+                </span>
+                <div class="ticket__aciertos"><strong>{{ boleto.aciertos }}</strong><small>/{{ total }}</small><span>aciertos</span></div>
+                <div class="ticket__dato"><small>Costo</small>{{ boleto.costo_pagado }}</div>
+                <div class="ticket__dato"><small>Premio</small><span class="{{ 'text-success' if boleto.premio_ganado > 0 }}">{{ "{:,}".format(boleto.premio_ganado) }}</span></div>
             </div>
-        {% endfor %}
+            <!-- Cuerpo -->
+            <div class="ticket__cuerpo">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <div class="min-w-0">
+                        <strong class="text-white d-block">{{ boleto.config.nombre if boleto.config else "Quiniela" }}</strong>
+                        <small class="text-muted">{{ boleto.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</small>
+                    </div>
+                    <small class="text-muted text-nowrap">{{ resueltas }}/{{ total }} jugados</small>
+                </div>
+                <div class="ticket__progreso">
+                    {% for s in boleto.selecciones %}<span class="ticket__punto ticket__punto--{{ (s.estado or 'PENDIENTE') | lower }}"></span>{% endfor %}
+                </div>
+                <ul class="ticket__picks">
+                    {% for s in boleto.selecciones %}
+                    {% set p = s.partido %}
+                    <li class="ticket__pick ticket__pick--{{ (s.estado or 'PENDIENTE') | lower }}">
+                        {% if p %}
+                        <a href="/juegos/{{ p._id }}" class="ticket__partido">
+                            {{ m.bandera(p.equipo_local.bandera, pais_id=p.equipo_local.id) }}<span class="text-truncate">{{ p.equipo_local.siglas or p.equipo_local.nombre }}</span>
+                            {% if p.estado == 'finalizado' and (p.transmision or {}).get('estado') != 'in_progress' %}
+                            <span class="ticket__marcador">{{ p.resultado.goles_local }}-{{ p.resultado.goles_visitante }}</span>
+                            {% else %}<span class="ticket__marcador ticket__marcador--vs">vs</span>{% endif %}
+                            <span class="text-truncate">{{ p.equipo_visitante.siglas or p.equipo_visitante.nombre }}</span>{{ m.bandera(p.equipo_visitante.bandera, pais_id=p.equipo_visitante.id) }}
+                        </a>
+                        {% else %}<span class="text-muted small">Partido no disponible</span>{% endif %}
+                        <span class="ticket__elegido" title="Tu pronóstico">{{ {"LOCAL": "1", "EMPATE": "X", "VISITA": "2"}.get(s.pronostico, s.pronostico) }}</span>
+                        <span class="ticket__resultado" title="{{ {'ACERTADO': 'Acertado', 'FALLADO': 'Fallado'}.get(s.estado, 'Pendiente') }}">
+                            {% if s.estado == 'ACERTADO' %}<i class="bi bi-check-lg"></i>{% elif s.estado == 'FALLADO' %}<i class="bi bi-x-lg"></i>{% else %}<i class="bi bi-hourglass-split"></i>{% endif %}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </article>
     </div>
+    {% endfor %}
+</div>
 {% else %}
-    <div class="text-center py-5">
-        <div class="display-1 mb-3">🎟️</div>
-        <h4 class="text-muted">Todavía no compraste ninguna quiniela</h4>
-        <a href="{{ url_for('quinielas_home') }}" class="btn btn-success fw-bold mt-3">
-            <i class="bi bi-plus-circle me-1"></i>Comprar mi primera quiniela
-        </a>
-    </div>
+<div class="album-vacio">
+    <i class="bi bi-ticket-perforated"></i>
+    <p class="mb-2">Todavía no compraste ninguna quiniela.</p>
+    <a href="{{ url_for('quinielas_home') }}" class="btn btn-success btn-sm rounded-pill fw-bold px-3"><i class="bi bi-plus-circle me-1"></i>Comprar mi primera quiniela</a>
+</div>
 {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Filtro por estado del boleto
+    document.addEventListener('DOMContentLoaded', () => {
+        const filtro = document.getElementById('filtroBoletos');
+        if (!filtro) return;
+        filtro.addEventListener('click', ev => {
+            const boton = ev.target.closest('.filtro-conf');
+            if (!boton) return;
+            filtro.querySelectorAll('.filtro-conf').forEach(b => b.classList.toggle('activo', b === boton));
+            document.querySelectorAll('.boleto-item').forEach(b => b.classList.toggle('d-none', !!boton.dataset.estado && b.dataset.estado !== boton.dataset.estado));
+        });
+    });
+</script>
 {% endblock %}

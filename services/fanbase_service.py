@@ -310,7 +310,7 @@ def obtener_ranking_aficionados(limite: int = 250) -> list:
     paises_coll = db["paises"]
     cursor = paises_coll.find(
         {},
-        {"_id": 0, "id": 1, "nombre": 1, "bandera": 1, "aficionados": 1, "estadisticas.rankin": 1}
+        {"_id": 0, "id": 1, "nombre": 1, "bandera": 1, "aficionados": 1, "estadisticas.rankin": 1, "confederacion_id": 1}
     ).sort("aficionados", -1).limit(limite)
 
     return [
@@ -319,7 +319,8 @@ def obtener_ranking_aficionados(limite: int = 250) -> list:
             "nombre": p.get("nombre", "?"),
             "bandera": p.get("bandera"),
             "aficionados": p.get("aficionados", AFICIONADOS_INICIAL),
-            "rankin_fifa": p.get("estadisticas", {}).get("rankin", 0)
+            "rankin_fifa": p.get("estadisticas", {}).get("rankin", 0),
+            "confederacion_id": p.get("confederacion_id"),  # vista /aficionados (color/logo); la API lo ignora
         }
         for p in cursor
     ]

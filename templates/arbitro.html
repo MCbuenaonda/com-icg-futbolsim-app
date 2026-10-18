@@ -3,71 +3,158 @@
 
 {% block title %}{{ nombre }} - Árbitros{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/album.css">
+{% endblock %}
+
 {% block content %}
-<a href="{{ url_for('arbitros') }}" class="btn btn-outline-secondary btn-sm mb-3"><i class="bi bi-arrow-left me-1"></i>Volver a Árbitros</a>
+{#
+  Perfil de un árbitro: encabezado con su avatar y la bandera de su país, cómo dirige como central
+  (anillos + comparación con el promedio de todos los centrales, arbitros_service.comparar_con_colegas),
+  resultados que dirigió, partidos por rol y la bitácora de partidos.
+#}
+<a href="{{ url_for('arbitros') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 mb-3"><i class="bi bi-arrow-left me-1"></i>Volver a árbitros</a>
 
 {% if not arbitro %}
-<div class="stat-card p-5 text-center text-muted">No hay partidos registrados para «{{ nombre }}».</div>
+<div class="album-vacio"><i class="bi bi-person-badge"></i><p class="mb-0">No hay partidos registrados para «{{ nombre }}».</p></div>
 {% else %}
-{% set c = arbitro.central %}
-<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
-    {{ m.avatar_arbitro(arbitro.nombre, 'lg', arbitro.nombre) }}
-    <div>
-        <h1 class="h2 fw-bold text-white mb-0">{{ arbitro.nombre }}</h1>
-        <p class="text-muted mb-0">{{ arbitro.pais or 'País desconocido' }}{% if arbitro.puesto %} · {{ arbitro.puesto }}{% endif %} · {{ arbitro.total_partidos }} partido{{ 's' if arbitro.total_partidos != 1 }}</p>
-    </div>
-</div>
+{% set c = arbitro.central %}{% set k = comparativa or {} %}
+{% set bandera_url = img_pais(arbitro.pais_id, 'bandera') if arbitro.pais_id else None %}
+{% set severo = k.pct_mas_estricto is defined and k.pct_mas_estricto >= 66 %}
+{% set permisivo = k.pct_mas_estricto is defined and k.pct_mas_estricto <= 33 %}
 
-<div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100 text-center">
-        <small class="text-secondary text-uppercase fw-semibold">Como central</small>
-        <div class="display-6 fw-bold text-white">{{ c.partidos }}</div><small class="text-muted">partidos</small>
-    </div></div>
-    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100 text-center">
-        <small class="text-secondary text-uppercase fw-semibold">Faltas por partido</small>
-        <div class="display-6 fw-bold text-white">{{ c.faltas_prom }}</div><small class="text-muted">{{ c.faltas }} en total</small>
-    </div></div>
-    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100 text-center">
-        <small class="text-secondary text-uppercase fw-semibold">Tarjetas por partido</small>
-        <div class="display-6 fw-bold text-warning">{{ c.tarjetas_prom }}</div><small class="text-muted">{{ c.tarjetas }} en total · {{ c.expulsiones }} expulsión{{ 'es' if c.expulsiones != 1 }}</small>
-    </div></div>
-    <div class="col-6 col-lg-3"><div class="stat-card p-3 h-100">
-        <small class="text-secondary text-uppercase fw-semibold d-block text-center">Resultados que dirigió</small>
-        {% if c.partidos %}
-        <div class="progress mt-3" style="height: 18px;" role="img" aria-label="Local {{ c.pct_gana_local }}%, empate {{ c.pct_empate }}%, visitante {{ c.pct_gana_visitante }}%">
-            <div class="progress-bar bg-primary" style="width: {{ c.pct_gana_local }}%">{{ c.pct_gana_local }}%</div>
-            <div class="progress-bar bg-secondary" style="width: {{ c.pct_empate }}%">{{ c.pct_empate }}%</div>
-            <div class="progress-bar bg-danger" style="width: {{ c.pct_gana_visitante }}%">{{ c.pct_gana_visitante }}%</div>
-        </div>
-        <div class="d-flex justify-content-between small text-muted mt-1"><span>Local</span><span>Empate</span><span>Visitante</span></div>
-        {% else %}<p class="text-muted small text-center mt-3 mb-0">Nunca fue central.</p>{% endif %}
-    </div></div>
-</div>
-
-<div class="row g-3">
-    <div class="col-12 col-lg-4">
-        <div class="stat-card p-3">
-            <h2 class="h6 text-uppercase text-secondary fw-bold mb-3">Partidos por rol</h2>
-            {% for r in arbitro.por_rol %}
-            <div class="d-flex justify-content-between py-1 border-bottom border-secondary border-opacity-25">
-                <span>{{ r.rol }}</span><span class="fw-bold">{{ r.partidos }}</span>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    <div class="col-12 col-lg-8">
-        <div class="stat-card p-3">
-            <h2 class="h6 text-uppercase text-secondary fw-bold mb-3">Partidos dirigidos</h2>
-            {% for p in arbitro.partidos %}
-            <a href="/juegos/{{ p.id }}" class="d-block text-decoration-none text-reset surface-soft p-2 px-3 mb-2">
-                <div class="d-flex justify-content-between align-items-center gap-2">
-                    <span class="text-truncate">{{ m.bandera(p.local.bandera) }} {{ p.local.nombre }}</span>
-                    <span class="fw-bold text-nowrap">{{ p.local.goles }} - {{ p.visitante.goles }}</span>
-                    <span class="text-truncate text-end">{{ p.visitante.nombre }} {{ m.bandera(p.visitante.bandera) }}</span>
+<!-- Encabezado -->
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo perfil-jugador-header perfil-arbitro mb-4" style="--logo-color: #94a3b8;">
+    {% set escudo = img_pais(arbitro.pais_id, 'escudo') if arbitro.pais_id else None %}
+    {% if escudo %}<img src="{{ escudo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo perfil-jugador-header__escudo" onerror="this.remove()">{% endif %}
+    <div class="card-body p-3 p-md-4">
+        <div class="row align-items-center g-3">
+            <div class="col-12 col-md-auto text-center">{{ m.avatar_arbitro(arbitro.nombre, 'lg', arbitro.nombre) }}</div>
+            <div class="col-12 col-md min-w-0 text-center text-md-start">
+                <div class="d-flex justify-content-center justify-content-md-start flex-wrap gap-2 mb-1">
+                    {% if arbitro.puesto %}<span class="resumen-chip"><i class="bi bi-person-badge"></i>{{ arbitro.puesto }}</span>{% endif %}
+                    {% if severo %}<span class="arbitro-perfil-etiqueta arbitro-perfil-etiqueta--estricto">🟨 Mano dura</span>
+                    {% elif permisivo %}<span class="arbitro-perfil-etiqueta arbitro-perfil-etiqueta--permisivo">🕊️ Deja jugar</span>{% endif %}
                 </div>
-                <small class="text-muted">{{ p.fase }} · {{ p.fecha }} · <span class="{{ 'text-accent' if p.es_central }}">{{ p.rol }}</span>{% if p.es_central %} · {{ p.faltas }} faltas · {{ p.tarjetas }} tarjetas{% endif %}</small>
-            </a>
-            {% endfor %}
+                <h1 class="display-6 fw-bold text-white mb-2">{{ arbitro.nombre }}</h1>
+                <div class="perfil-jugador-datos justify-content-center justify-content-md-start">
+                    <span class="perfil-dato">{% if arbitro.pais_id %}{{ m.bandera('', pais_id=arbitro.pais_id) }}{% else %}<i class="bi bi-flag-fill"></i>{% endif %}<span><small>País</small>{{ arbitro.pais or 'Desconocido' }}</span></span>
+                    <span class="perfil-dato"><i class="bi bi-calendar3 text-info"></i><span><small>Partidos</small>{{ arbitro.total_partidos }}</span></span>
+                    {% if k.ranking_partidos %}<span class="perfil-dato"><i class="bi bi-bar-chart-fill text-warning"></i><span><small>Más activo</small>#{{ k.ranking_partidos }} de {{ k.total_centrales }}</span></span>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if c.partidos %}
+<!-- Cómo dirige (como central) -->
+<div class="row row-cols-2 row-cols-lg-4 g-3 mb-4">
+    <div class="col">
+        <div class="card h-100 card-logo-fondo kpi-logo-fondo ficha-pais__kpi" style="--logo-color: #22c55e;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="anillo-kpi" style="--pct: 100;"><span>{{ c.partidos }}</span></div>
+                <div class="min-w-0"><span class="text-muted fs-8 text-uppercase fw-semibold d-block">Como central</span><small class="text-secondary">partidos dirigidos</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card h-100 card-logo-fondo kpi-logo-fondo ficha-pais__kpi" style="--logo-color: #f97316;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="anillo-kpi" style="--pct: {{ k.pct_mas_faltas or 0 }};"><span>{{ c.faltas_prom }}</span></div>
+                <div class="min-w-0"><span class="text-muted fs-8 text-uppercase fw-semibold d-block">Faltas por partido</span><small class="text-secondary">liga: {{ k.liga_faltas }} · {{ c.faltas }} en total</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card h-100 card-logo-fondo kpi-logo-fondo ficha-pais__kpi" style="--logo-color: #eab308;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="anillo-kpi" style="--pct: {{ k.pct_mas_estricto or 0 }};"><span>{{ c.tarjetas_prom }}</span></div>
+                <div class="min-w-0"><span class="text-muted fs-8 text-uppercase fw-semibold d-block">Tarjetas por partido</span><small class="text-secondary">liga: {{ k.liga_tarjetas }} · {{ c.tarjetas }} en total</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card h-100 card-logo-fondo kpi-logo-fondo ficha-pais__kpi" style="--logo-color: #ef4444;">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="anillo-kpi" style="--pct: {{ [100, c.expulsiones * 25] | min }};"><span>{{ c.expulsiones }}</span></div>
+                <div class="min-w-0"><span class="text-muted fs-8 text-uppercase fw-semibold d-block">Expulsiones</span><small class="text-secondary">tarjetas rojas mostradas</small></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-5 d-flex flex-column gap-4">
+        {% if c.partidos %}
+        <!-- Termómetro y resultados -->
+        <div class="card card-logo-fondo card-seccion" style="--logo-color: #eab308;">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="vivo-titulo"><i class="bi bi-thermometer-half text-warning"></i>Severidad</h2>
+                <p class="text-muted small mb-2">Saca más tarjetas que el <strong class="text-white">{{ k.pct_mas_estricto }}%</strong> de los árbitros centrales y cobra más faltas que el <strong class="text-white">{{ k.pct_mas_faltas }}%</strong>.</p>
+                <div class="termometro-arbitro" style="--pct: {{ k.pct_mas_estricto }};">
+                    <span class="termometro-arbitro__marca" title="{{ k.pct_mas_estricto }}%"></span>
+                </div>
+                <div class="d-flex justify-content-between small text-muted mt-1"><span>🕊️ Deja jugar</span><span>🟨 Mano dura</span></div>
+
+                <span class="historial-grupo mt-4">Resultados que dirigió</span>
+                <div class="barra-wdl" style="height: 10px;">
+                    {% if c.pct_gana_local %}<span style="flex: {{ c.pct_gana_local }}; background: #3987e5;"></span>{% endif %}
+                    {% if c.pct_empate %}<span class="bg-secondary" style="flex: {{ c.pct_empate }};"></span>{% endif %}
+                    {% if c.pct_gana_visitante %}<span style="flex: {{ c.pct_gana_visitante }}; background: #e66767;"></span>{% endif %}
+                </div>
+                <div class="d-flex justify-content-between small mt-1">
+                    <span class="resumen-color-local">Local {{ c.pct_gana_local }}%</span>
+                    <span class="text-muted">Empate {{ c.pct_empate }}%</span>
+                    <span class="resumen-color-visitante">Visita {{ c.pct_gana_visitante }}%</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Partidos por rol -->
+        <div class="card card-logo-fondo card-seccion" style="--logo-color: #94a3b8;">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="vivo-titulo"><i class="bi bi-diagram-3-fill text-secondary"></i>Partidos por rol</h2>
+                <div class="historial-fichas historial-fichas--4">
+                    {% for r in arbitro.por_rol %}
+                    <div class="historial-ficha {{ 'historial-ficha--activa' if r.partidos }}"><span>{{ r.rol }}</span><strong>{{ r.partidos }}</strong></div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bitácora -->
+    <div class="col-12 col-lg-7">
+        <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: #38bdf8;">
+            <img src="{{ imagen_perfil('bitacora') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="vivo-titulo"><i class="bi bi-journal-text text-info"></i>Partidos dirigidos <span class="vivo-contador">{{ arbitro.partidos | length }}</span></h2>
+                <div class="d-flex flex-column gap-2">
+                    {% for p in arbitro.partidos %}
+                    <a href="/juegos/{{ p.id }}" class="partido-arbitro {{ 'partido-arbitro--central' if p.es_central }}">
+                        <div class="partido-arbitro__equipos">
+                            <span class="text-truncate">{{ m.bandera(p.local.bandera, pais_id=p.local.id) }} {{ p.local.nombre }}</span>
+                            <span class="ticket__marcador">{{ p.local.goles }}-{{ p.visitante.goles }}</span>
+                            <span class="text-truncate text-end">{{ p.visitante.nombre }} {{ m.bandera(p.visitante.bandera, pais_id=p.visitante.id) }}</span>
+                        </div>
+                        <div class="partido-arbitro__meta">
+                            <span class="partido-arbitro__rol">{{ p.rol }}</span>
+                            <small>{{ p.fase }} · {{ p.fecha }}</small>
+                            {% if p.es_central %}
+                            <span class="ms-auto partido-arbitro__chips">
+                                <span class="bitacora-chip">🛑 {{ p.faltas }}</span>
+                                <span class="bitacora-chip">🟨 {{ p.tarjetas }}</span>
+                                {% if p.expulsiones %}<span class="bitacora-chip">🟥 {{ p.expulsiones }}</span>{% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

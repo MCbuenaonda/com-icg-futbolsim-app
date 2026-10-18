@@ -1,129 +1,129 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Quinielas - FutbolSim{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/album.css">
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-    <div>
-        <h1 class="display-6 fw-bold mb-1">Quinielas</h1>
-        <p class="text-muted mb-0">Pronosticá resultados y ganá puntos.</p>
-    </div>
-    <div class="d-flex align-items-center gap-3">
-        <a href="{{ url_for('quinielas_mias') }}" class="btn btn-outline-success btn-sm">
-            <i class="bi bi-ticket-perforated me-1"></i>Mis Quinielas
-        </a>
+{#
+  Quinielas: 1) elegir un formato (boletos con premios), 2) pronosticar partidos con botones 1-X-2
+  (tocar un pronóstico agrega el partido al boleto, tocarlo de nuevo lo quita) y 3) confirmar desde el
+  boleto lateral (resumen de las selecciones). La API (POST /pools/tickets) no cambia.
+#}
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo fixture-hero mb-4" style="--logo-color: #a855f7;">
+    <img src="{{ imagen_inicio('partidos') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+    <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div class="d-flex align-items-center gap-3 min-w-0">
+            <span class="quiniela-sello"><i class="bi bi-ticket-perforated-fill"></i></span>
+            <div class="min-w-0">
+                <h1 class="h2 fw-bold text-white mb-1">Quinielas</h1>
+                <p class="text-muted mb-0 small">Pronosticá resultados (local, empate o visita) y ganá puntos según tus aciertos.</p>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <div class="fixture-kpi"><span>Partidos</span><strong>{{ partidos | length }}</strong></div>
+            <div class="fixture-kpi"><span>Tu saldo</span><strong class="text-success">{{ "{:,}".format(usuario_actual.monto | int) }}</strong></div>
+            <a href="{{ url_for('quinielas_mias') }}" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-ticket-perforated me-1"></i>Mis quinielas</a>
+        </div>
     </div>
 </div>
 
-<!-- Catálogo de formatos -->
-<h2 class="section-heading">Elegí un formato</h2>
+<!-- 1. Formatos -->
+<h2 class="vivo-titulo"><span class="paso-num">1</span>Elegí un formato</h2>
 <div class="row g-3 mb-4">
     {% for config in configs %}
         {% set alcanza = usuario_actual.monto >= config.costo_puntos %}
         <div class="col-12 col-md-4">
-            <div class="card bg-dark border-0 shadow-sm h-100 config-quiniela {% if alcanza %}card-hover{% endif %}"
-                 data-config-id="{{ config.id }}"
-                 data-config-nombre="{{ config.nombre }}"
-                 data-config-cantidad="{{ config.cantidad_partidos }}"
-                 data-config-costo="{{ config.costo_puntos }}">
-                <div class="card-body p-4 text-center">
-                    <h5 class="fw-bold text-white mb-1">{{ config.nombre }}</h5>
-                    <div class="text-muted small mb-3">{{ config.cantidad_partidos }} pronósticos</div>
-
-                    <div class="display-6 fw-bold text-accent mb-3">
-                        <i class="bi bi-coin"></i> {{ config.costo_puntos }}
-                    </div>
-
-                    <div class="surface-soft p-2 mb-3 text-start">
-                        <div class="text-muted small text-uppercase mb-1">Premios</div>
-                        {% for regla in config.reglas_premio | sort(attribute="aciertos_requeridos", reverse=True) %}
-                            <div class="d-flex justify-content-between small">
-                                <span>{{ regla.aciertos_requeridos }}/{{ config.cantidad_partidos }} aciertos</span>
-                                <span class="fw-bold text-success">{{ "{:,}".format(regla.premio_puntos) }} pts</span>
-                            </div>
-                        {% endfor %}
-                    </div>
-
-                    {% if alcanza %}
-                        <button type="button" class="btn btn-success w-100 fw-bold btn-elegir-config">
-                            <i class="bi bi-check2-circle me-1"></i>Elegir
-                        </button>
-                    {% else %}
-                        <button type="button" class="btn btn-outline-secondary w-100" disabled>
-                            Saldo insuficiente
-                        </button>
-                    {% endif %}
+            <div class="boleto-formato config-quiniela {{ 'boleto-formato--sin-saldo' if not alcanza }}"
+                 data-config-id="{{ config.id }}" data-config-nombre="{{ config.nombre }}"
+                 data-config-cantidad="{{ config.cantidad_partidos }}" data-config-costo="{{ config.costo_puntos }}">
+                <div class="boleto-formato__cabeza">
+                    <span class="boleto-formato__nombre">{{ config.nombre }}</span>
+                    <span class="boleto-formato__partidos">{{ config.cantidad_partidos }} pronósticos</span>
                 </div>
+                <div class="boleto-formato__precio"><small>Costo</small>{{ config.costo_puntos }} <span>pts</span></div>
+                <div class="boleto-formato__corte" aria-hidden="true"></div>
+                <div class="boleto-formato__premios">
+                    {% for regla in config.reglas_premio | sort(attribute="aciertos_requeridos", reverse=True) %}
+                    <div class="boleto-formato__premio {{ 'boleto-formato__premio--top' if loop.first }}">
+                        <span>{{ regla.aciertos_requeridos }}/{{ config.cantidad_partidos }} aciertos</span>
+                        <strong>{{ "{:,}".format(regla.premio_puntos) }} pts</strong>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if alcanza %}
+                <button type="button" class="btn btn-elegir-config boleto-formato__boton"><i class="bi bi-check2-circle me-1"></i>Elegir</button>
+                {% else %}
+                <button type="button" class="btn boleto-formato__boton" disabled>Saldo insuficiente</button>
+                {% endif %}
             </div>
         </div>
     {% else %}
-        <div class="col-12">
-            <div class="alert alert-warning">No hay formatos de quiniela disponibles por el momento.</div>
-        </div>
+        <div class="col-12"><div class="album-vacio"><i class="bi bi-ticket-perforated"></i><p class="mb-0">No hay formatos de quiniela disponibles por el momento.</p></div></div>
     {% endfor %}
 </div>
 
-<!-- Armado del boleto -->
+<!-- 2 y 3. Pronósticos + boleto -->
 <div id="seccionArmarBoleto" class="d-none">
-    <h2 class="section-heading">
-        Armá tu quiniela: <span id="nombreConfigElegida" class="text-success"></span>
-    </h2>
-
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-        <div class="fs-5">
-            <span id="contadorSeleccion" class="fw-bold text-accent">0</span> / <span id="cantidadRequerida">0</span> partidos seleccionados
-        </div>
-        <input type="text" id="buscarPartido" class="form-control" style="max-width: 280px;" placeholder="Buscar equipo...">
-    </div>
-
     <div id="alertaBoleto" class="alert d-none" role="alert"></div>
+    <div class="row g-4">
+        <div class="col-12 col-lg-8">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <h2 class="vivo-titulo mb-0"><span class="paso-num">2</span>Pronosticá: <span id="nombreConfigElegida" class="text-info ms-1"></span></h2>
+                <div class="input-group input-group-sm" style="max-width: 260px;">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="buscarPartido" class="form-control" placeholder="Buscar equipo...">
+                </div>
+            </div>
+            <p class="text-muted small mb-3">Tocá <strong>1</strong> (gana local), <strong>X</strong> (empate) o <strong>2</strong> (gana visita). Tocá de nuevo para quitar el partido.</p>
+            <div class="d-flex flex-column gap-2" id="listaPartidos">
+                {% for partido in partidos %}
+                {% set l = partido.equipo_local %}{% set v = partido.equipo_visitante %}
+                {% set fav = partido.favoritismo or {'local': 50, 'visitante': 50} %}
+                <div class="pronostico-fila fila-partido" data-juego-id="{{ partido._id }}"
+                     data-local="{{ l.nombre }}" data-visita="{{ v.nombre }}"
+                     data-busqueda="{{ (l.nombre ~ ' ' ~ v.nombre) | lower }}">
+                    <div class="pronostico-fila__info">
+                        <small>{{ partido.fecha }} · {{ partido.hora }} · {{ partido.grupo }}</small>
+                        <div class="pronostico-fila__equipos">
+                            <span>{{ m.bandera(l.bandera, pais_id=l.id) }} <strong>{{ l.nombre }}</strong></span>
+                            <span class="text-muted">vs</span>
+                            <span><strong>{{ v.nombre }}</strong> {{ m.bandera(v.bandera, pais_id=v.id) }}</span>
+                        </div>
+                        <div class="pronostico-fila__fav" title="Probabilidad de victoria estimada (Elo)"><span style="width: {{ fav.local }}%;"></span></div>
+                    </div>
+                    <div class="pronostico-fila__opciones" role="group" aria-label="Pronóstico">
+                        <button type="button" class="opcion-1x2" data-pronostico="LOCAL" title="Gana {{ l.nombre }}">1<small>{{ fav.local | round | int }}%</small></button>
+                        <button type="button" class="opcion-1x2" data-pronostico="EMPATE" title="Empate">X</button>
+                        <button type="button" class="opcion-1x2" data-pronostico="VISITA" title="Gana {{ v.nombre }}">2<small>{{ fav.visitante | round | int }}%</small></button>
+                    </div>
+                </div>
+                {% else %}
+                <div class="album-vacio"><i class="bi bi-calendar-x"></i><p class="mb-0">No hay partidos disponibles para pronosticar.</p></div>
+                {% endfor %}
+            </div>
+        </div>
 
-    <div class="card bg-dark border-0 shadow-sm mb-3">
-        <div class="table-responsive" style="max-height: 480px;">
-            <table class="table table-dark table-hover align-middle mb-0">
-                <thead class="table-dark" style="position: sticky; top: 0; z-index: 1;">
-                    <tr>
-                        <th style="width: 3rem;"></th>
-                        <th>Partido</th>
-                        <th>Fecha</th>
-                        <th style="width: 12rem;">Pronóstico</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for partido in partidos %}
-                        <tr class="fila-partido"
-                            data-juego-id="{{ partido._id }}"
-                            data-busqueda="{{ (partido.equipo_local.nombre ~ ' ' ~ partido.equipo_visitante.nombre) | lower }}">
-                            <td>
-                                <input class="form-check-input chk-partido" type="checkbox">
-                            </td>
-                            <td>
-                                <span class="fw-semibold">{{ partido.equipo_local.nombre }}</span>
-                                <span class="text-muted mx-1">vs</span>
-                                <span class="fw-semibold">{{ partido.equipo_visitante.nombre }}</span>
-                                <div class="text-muted small">{{ partido.grupo }} · {{ partido.jornada }}</div>
-                            </td>
-                            <td class="text-muted small">{{ partido.fecha }} <br>{{ partido.hora }} hrs</td>
-                            <td>
-                                <select class="form-select form-select-sm select-pronostico" disabled>
-                                    <option value="">Elegí...</option>
-                                    <option value="LOCAL">Gana {{ partido.equipo_local.nombre }}</option>
-                                    <option value="EMPATE">Empate</option>
-                                    <option value="VISITA">Gana {{ partido.equipo_visitante.nombre }}</option>
-                                </select>
-                            </td>
-                        </tr>
-                    {% else %}
-                        <tr><td colspan="4" class="text-center text-muted py-4">No hay partidos disponibles para pronosticar.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <!-- Boleto lateral (resumen) -->
+        <div class="col-12 col-lg-4">
+            <div class="boleto-resumen">
+                <div class="boleto-resumen__cabeza">
+                    <span><span class="paso-num">3</span>Tu boleto</span>
+                    <strong><span id="contadorSeleccion">0</span>/<span id="cantidadRequerida">0</span></strong>
+                </div>
+                <div class="boleto-resumen__barra"><span id="barraSeleccion"></span></div>
+                <ol id="listaBoleto" class="boleto-resumen__lista"><li class="boleto-resumen__vacio">Todavía no elegiste ningún partido.</li></ol>
+                <div class="boleto-resumen__corte" aria-hidden="true"></div>
+                <div class="boleto-resumen__total"><span>Costo</span><strong><span id="costoBoleto">0</span> pts</strong></div>
+                <button type="button" id="btnConfirmarCompra" class="btn btn-lg fw-bold w-100 rounded-pill boleto-resumen__comprar" disabled>
+                    <i class="bi bi-bag-check-fill me-1"></i>Confirmar compra
+                </button>
+            </div>
         </div>
     </div>
-
-    <button type="button" id="btnConfirmarCompra" class="btn btn-success btn-lg fw-bold px-5" disabled>
-        <i class="bi bi-bag-check-fill me-1"></i>Confirmar Compra
-    </button>
 </div>
 
 <script>
@@ -139,119 +139,109 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnConfirmar = document.getElementById('btnConfirmarCompra');
     const alertaBoleto = document.getElementById('alertaBoleto');
     const buscarPartido = document.getElementById('buscarPartido');
+    const listaBoleto = document.getElementById('listaBoleto');
+    const barra = document.getElementById('barraSeleccion');
     const filas = document.querySelectorAll('.fila-partido');
+    const ETIQUETA = { LOCAL: '1', EMPATE: 'X', VISITA: '2' };
 
     let configActual = null;
+    // juego_id -> pronóstico, en el orden en que se eligieron
+    const selecciones = new Map();
 
     const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaBoleto, mensaje, tipo);
+    const paginador = UI.paginador({ items: () => filas, porPagina: 30, despuesDe: document.getElementById('listaPartidos'), etiqueta: 'partidos' });
 
-    function actualizarContador() {
-        const marcados = document.querySelectorAll('.chk-partido:checked').length;
-        contadorSeleccion.textContent = marcados;
-
-        const todasConPronostico = Array.from(document.querySelectorAll('.chk-partido:checked')).every(chk => {
-            const select = chk.closest('tr').querySelector('.select-pronostico');
-            return select.value !== '';
-        });
-
-        btnConfirmar.disabled = !(configActual && marcados === configActual.cantidad && todasConPronostico);
+    function actualizarBoleto() {
+        const total = configActual ? configActual.cantidad : 0;
+        contadorSeleccion.textContent = selecciones.size;
+        barra.style.width = total ? `${Math.min(100, selecciones.size * 100 / total)}%` : '0';
+        listaBoleto.innerHTML = selecciones.size ? [...selecciones.entries()].map(([id, pron]) => {
+            const fila = document.querySelector(`.fila-partido[data-juego-id="${id}"]`);
+            return `<li><span class="text-truncate">${UI.escapar(fila.dataset.local)} <span class="text-muted">vs</span> ${UI.escapar(fila.dataset.visita)}</span>
+                <span class="boleto-resumen__pick">${ETIQUETA[pron]}</span>
+                <button type="button" class="boleto-resumen__quitar" data-quitar="${id}" aria-label="Quitar"><i class="bi bi-x"></i></button></li>`;
+        }).join('') : '<li class="boleto-resumen__vacio">Todavía no elegiste ningún partido.</li>';
+        btnConfirmar.disabled = !(configActual && selecciones.size === configActual.cantidad);
     }
 
-    // Selección de formato de quiniela
+    function pintarFila(fila) {
+        const elegido = selecciones.get(fila.dataset.juegoId);
+        fila.classList.toggle('pronostico-fila--elegida', !!elegido);
+        fila.querySelectorAll('.opcion-1x2').forEach(b => b.classList.toggle('activa', b.dataset.pronostico === elegido));
+    }
+
+    // Selección de formato
     document.querySelectorAll('.btn-elegir-config').forEach(btn => {
         btn.addEventListener('click', function () {
             const card = btn.closest('.config-quiniela');
-            configActual = {
-                id: card.dataset.configId,
-                nombre: card.dataset.configNombre,
-                cantidad: parseInt(card.dataset.configCantidad, 10),
-                costo: parseInt(card.dataset.configCosto, 10)
-            };
-
+            document.querySelectorAll('.config-quiniela').forEach(c => c.classList.toggle('boleto-formato--elegido', c === card));
+            configActual = { id: card.dataset.configId, nombre: card.dataset.configNombre,
+                             cantidad: parseInt(card.dataset.configCantidad, 10), costo: parseInt(card.dataset.configCosto, 10) };
             nombreConfigElegida.textContent = configActual.nombre;
             cantidadRequeridaEl.textContent = configActual.cantidad;
+            document.getElementById('costoBoleto').textContent = configActual.costo;
             alertaBoleto.classList.add('d-none');
-
-            // Resetear selección previa
-            document.querySelectorAll('.chk-partido').forEach(chk => { chk.checked = false; });
-            document.querySelectorAll('.select-pronostico').forEach(sel => { sel.disabled = true; sel.value = ''; });
-
+            selecciones.clear();
+            filas.forEach(pintarFila);
             seccionArmar.classList.remove('d-none');
-            actualizarContador();
+            actualizarBoleto();
             seccionArmar.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
 
-    // Checkbox de cada partido: habilita el pronóstico y limita la cantidad al requerido
-    document.querySelectorAll('.chk-partido').forEach(chk => {
-        chk.addEventListener('change', function () {
-            const select = chk.closest('tr').querySelector('.select-pronostico');
-
-            if (chk.checked) {
-                const marcados = document.querySelectorAll('.chk-partido:checked').length;
-                if (configActual && marcados > configActual.cantidad) {
-                    chk.checked = false;
-                    mostrarAlerta(`Esta quiniela requiere exactamente ${configActual.cantidad} partidos.`, 'warning');
-                    return;
-                }
-                select.disabled = false;
-            } else {
-                select.disabled = true;
-                select.value = '';
+    // Botones 1-X-2
+    document.getElementById('listaPartidos').addEventListener('click', ev => {
+        const boton = ev.target.closest('.opcion-1x2');
+        if (!boton || !configActual) return;
+        const fila = boton.closest('.fila-partido');
+        const id = fila.dataset.juegoId;
+        if (selecciones.get(id) === boton.dataset.pronostico) {
+            selecciones.delete(id);
+        } else {
+            if (!selecciones.has(id) && selecciones.size >= configActual.cantidad) {
+                mostrarAlerta(`Esta quiniela requiere exactamente ${configActual.cantidad} partidos. Quitá uno para elegir otro.`, 'warning');
+                return;
             }
-
-            actualizarContador();
-        });
+            selecciones.set(id, boton.dataset.pronostico);
+        }
+        pintarFila(fila);
+        actualizarBoleto();
+    });
+    listaBoleto.addEventListener('click', ev => {
+        const quitar = ev.target.closest('[data-quitar]');
+        if (!quitar) return;
+        selecciones.delete(quitar.dataset.quitar);
+        pintarFila(document.querySelector(`.fila-partido[data-juego-id="${quitar.dataset.quitar}"]`));
+        actualizarBoleto();
     });
 
-    document.querySelectorAll('.select-pronostico').forEach(select => {
-        select.addEventListener('change', actualizarContador);
+    buscarPartido.addEventListener('input', function () {
+        const texto = buscarPartido.value.toLowerCase().trim();
+        filas.forEach(fila => fila.classList.toggle('d-none', !fila.dataset.busqueda.includes(texto)));
+        paginador.reiniciar();
     });
-
-    // Buscador de partidos (filtro simple por nombre de equipo)
-    if (buscarPartido) {
-        buscarPartido.addEventListener('input', function () {
-            const texto = buscarPartido.value.toLowerCase().trim();
-            filas.forEach(fila => {
-                fila.classList.toggle('d-none', !fila.dataset.busqueda.includes(texto));
-            });
-        });
-    }
 
     // Confirmar compra
     btnConfirmar.addEventListener('click', function () {
-        const selecciones = Array.from(document.querySelectorAll('.chk-partido:checked')).map(chk => {
-            const fila = chk.closest('tr');
-            return {
-                juego_id: fila.dataset.juegoId,
-                pronostico: fila.querySelector('.select-pronostico').value
-            };
-        });
-
+        const payload = [...selecciones.entries()].map(([juego_id, pronostico]) => ({ juego_id, pronostico }));
         btnConfirmar.disabled = true;
         btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
-
         fetch(urlCrearBoleto, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                usuario_id: usuarioId,
-                quiniela_config_id: configActual.id,
-                selecciones: selecciones
-            })
+            body: JSON.stringify({ usuario_id: usuarioId, quiniela_config_id: configActual.id, selecciones: payload })
         })
         .then(async resp => {
             const data = await resp.json();
-            if (!resp.ok) {
-                throw new Error(data.detail || 'No se pudo completar la compra.');
-            }
+            if (!resp.ok) throw new Error(data.detail || 'No se pudo completar la compra.');
             mostrarAlerta('¡Quiniela comprada con éxito! Redirigiendo a Mis Quinielas...', 'success');
+            UI.refrescarSaldo();
             setTimeout(() => { window.location.href = urlMisQuinielas; }, 1200);
         })
         .catch(err => {
             mostrarAlerta(err.message, 'danger');
             btnConfirmar.disabled = false;
-            btnConfirmar.innerHTML = '<i class="bi bi-bag-check-fill me-1"></i>Confirmar Compra';
+            btnConfirmar.innerHTML = '<i class="bi bi-bag-check-fill me-1"></i>Confirmar compra';
         });
     });
 });

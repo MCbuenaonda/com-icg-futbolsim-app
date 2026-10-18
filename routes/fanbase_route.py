@@ -3,13 +3,15 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from schemas.fanbase_schema import PaisFanbaseOut
-from services.fanbase_service import obtener_ranking_aficionados
+from services.fanbase_service import obtener_ranking_aficionados, AFICIONADOS_INICIAL
+from services.juegos_service import formatear_numero_compacto
 from services.auth_service import context_usuario_actual
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
 templates.env.globals.update(GLOBALES_JINJA)
+templates.env.filters["numero_compacto"] = formatear_numero_compacto
 
 # API JSON (contrato tal cual se pidió: GET /countries/fanbase-ranking)
 route = APIRouter(prefix="/countries", tags=["Fanbase"])
@@ -41,5 +43,5 @@ async def fanbase_ranking_view(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="aficionados.html",
-        context={"ranking": ranking}
+        context={"ranking": ranking, "aficionados_base": AFICIONADOS_INICIAL}
     )

@@ -1,129 +1,115 @@
 {% extends "base.html" %}
 {% import "partials/macros.html" as m %}
 
-{% block title %}Plantilla de Jugadores - FutbolSim{% endblock %}
+{% block title %}Plantilla{% if pais %} de {{ pais.nombre }}{% endif %} - FutbolSim{% endblock %}
 
 {% block content %}
+{#
+  Plantilla de una selección: encabezado con el escudo de marca de agua y fichas de jugador
+  agrupadas por línea (portero/defensa/medio/delantero, campo 'sector' de posiciones), con el avatar
+  grande sobre la bandera del país. Mismo lenguaje que el resto del sitio (.card-logo-fondo).
+#}
+{% set sigla_conf = {1: 'UEFA', 2: 'CONMEBOL', 3: 'CONCACAF', 4: 'CAF', 5: 'OFC', 6: 'AFC'}.get(pais.confederacion_id, '') if pais else '' %}
+{% set lc = logo_confederacion(sigla_conf) %}
+{% set pais_id = pais.id if pais else (jugadores[0].pais_id if jugadores else None) %}
+{% set nombre_pais = pais.nombre if pais else (jugadores[0].pais if jugadores else '') %}
 <div class="container-fluid py-2">
 
-    <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <div>
-            <h1 class="h2 fw-bold text-white mb-1">
-                <i class="bi bi-people-fill text-success me-2"></i>Plantilla de Jugadores
-            </h1>
-            <p class="text-muted mb-0">Gestión de convocados, rendimiento técnico y estadísticas acumuladas.</p>
-        </div>
-        <div class="badge bg-dark border border-secondary p-3 text-start">
-            <span class="fs-7 text-muted d-block">Total Convocados</span>
-            <span class="fs-4 fw-bold text-success" id="total-jugadores">{{ jugadores|length }}</span>
+    <!-- Encabezado de la selección -->
+    {% set escudo = img_pais(pais_id, 'escudo') %}
+    <div class="card card-logo-fondo card-logo-fondo--sin-brillo plantilla-hero mb-3" style="--logo-color: {{ lc.color if lc else '#22c55e' }};">
+        {% if escudo %}<img src="{{ escudo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">{% endif %}
+        <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-3 min-w-0">
+                <span class="plantilla-hero__bandera">{{ m.bandera(pais.bandera if pais else '', pais_id=pais_id) }}</span>
+                <div class="min-w-0">
+                    <span class="plantilla-hero__sub">Plantilla de jugadores{% if sigla_conf %} · {{ sigla_conf }}{% endif %}</span>
+                    <h1 class="h2 fw-bold text-white mb-0 text-truncate">{{ nombre_pais or 'Selección' }}</h1>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="fixture-kpi"><span>Convocados</span><strong id="total-jugadores">{{ jugadores|length }}</strong></div>
+                <div class="fixture-kpi"><span>Goles</span><strong>{{ jugadores | sum(attribute='goles') }}</strong></div>
+                <div class="fixture-kpi"><span>OVR medio</span><strong>{{ ((jugadores | sum(attribute='overall')) / (jugadores | length)) | round(1) if jugadores else '—' }}</strong></div>
+                {% if pais_id %}<a href="/paises/{{ pais_id }}" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-flag me-1"></i>Ver selección</a>{% endif %}
+            </div>
         </div>
     </div>
 
-    <!-- Buscador y Filtros -->
-    <div class="card border-0 shadow-sm mb-4">
+    <!-- Buscador y filtro -->
+    <div class="card panel-filtros mb-4">
         <div class="card-body p-3">
-            <div class="row g-3 align-items-center">
-                <!-- Buscador por Nombre -->
-                <div class="col-md-5">
-                    <div class="input-group">
-                        <span class="input-group-text bg-dark border-secondary text-muted">
-                            <i class="bi bi-search"></i>
-                        </span>
-                        <input type="text" id="searchJugador" class="form-control" placeholder="Buscar por nombre o número...">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-6">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" id="searchJugador" class="form-control" placeholder="Buscar por nombre o dorsal...">
                     </div>
                 </div>
-
-                <!-- Filtro por Posición -->
-                <div class="col-md-5">
-                    <select id="filterPosicion" class="form-select bg-dark border-secondary text-white">
+                <div class="col-8 col-md-4">
+                    <select id="filterPosicion" class="form-select form-select-sm">
                         <option value="TODAS">Todas las posiciones</option>
-                        <option value="Portero">Portero</option>
-                        <option value="Defensa">Defensa</option>
-                        <option value="Medio">Medio / Volante</option>
-                        <option value="Delantero">Delantero</option>
+                        <option value="Portero">Porteros</option>
+                        <option value="Defensa">Defensas</option>
+                        <option value="Medio">Mediocampistas</option>
+                        <option value="Delantero">Delanteros</option>
                     </select>
                 </div>
-
-                <div class="col-md-2 text-end">
-                    <button id="btnResetFilters" class="btn btn-outline-secondary w-100">
-                        <i class="bi bi-funnel-fill me-1"></i>Limpiar
-                    </button>
+                <div class="col-4 col-md-2">
+                    <button id="btnResetFilters" class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-x-circle me-1"></i>Limpiar</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Grid de Tarjetas de Jugadores -->
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3" id="jugadoresGrid">
-        {% for j in jugadores %}
-        <div class="col jugador-card-container" 
-             data-nombre="{{ j.nombre|lower }}" 
-             data-numero="{{ j.numero }}"
-             data-posicion="{{ j.posicion }}" data-sector="{{ j.sector }}">
-            
-            <div class="card h-100 border-0 shadow-sm card-hover p-3 position-relative overflow-hidden">
-                
-                <!-- Badge de Número de Camiseta -->
-                <span class="position-absolute top-0 start-0 m-3 display-6 fw-bold text-muted opacity-25 user-select-none">
-                    #{{ j.numero }}
-                </span>
-
-                <!-- Header de Tarjeta: Overall y Nombre -->
-                <div class="d-flex justify-content-between align-items-start mb-3 position-relative z-1 gap-2">
-                    {{ m.avatar(j.id, j.pais_id) }}
-                    <div class="flex-grow-1 min-w-0">
-                        <span class="badge bg-success-subtle text-success border border-success-subtle mb-1 fs-8">
-                            {{ j.posicion }}
-                        </span>
-                        <h5 class="fw-bold text-white mb-0 text-truncate" title="{{ j.nombre }}">{{ j.nombre }}</h5>
-                        <small class="text-muted"><i class="bi bi-flag-fill me-1"></i>{{ j.pais }}</small>
+    <!-- Fichas agrupadas por línea -->
+    {% set lineas = [('Portero', 'Porteros', '#eab308', 'bi-shield-fill'), ('Defensa', 'Defensas', '#3b82f6', 'bi-bricks'), ('Medio', 'Mediocampistas', '#22c55e', 'bi-diagram-3-fill'), ('Delantero', 'Delanteros', '#ef4444', 'bi-lightning-charge-fill')] %}
+    {% set sectores_conocidos = lineas | map('first') | list %}
+    {% for sector, titulo, color, icono in lineas + [('', 'Otros', '#64748b', 'bi-person-fill')] %}
+    {% set grupo = (jugadores | selectattr('sector', 'equalto', sector) | list) if sector else (jugadores | rejectattr('sector', 'in', sectores_conocidos) | list) %}
+    {% if grupo %}
+    <section class="plantilla-linea mb-4" style="--linea-color: {{ color }};">
+        <h2 class="plantilla-linea__titulo"><i class="bi {{ icono }}"></i>{{ titulo }} <span class="vivo-contador">{{ grupo | length }}</span></h2>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3">
+            {% for j in grupo | sort(attribute='numero') %}
+            <div class="col jugador-card-container" data-nombre="{{ j.nombre|lower }}" data-numero="{{ j.numero }}" data-posicion="{{ j.posicion }}" data-sector="{{ j.sector }}">
+                <a href="/jugadores/{{ j.id }}" class="card h-100 card-logo-fondo card-jugador ficha-jugador" style="--logo-color: {{ color }};">
+                    {{ m.fondo_bandera(j.pais_id) }}
+                    <div class="ficha-jugador__arriba">
+                        <div class="ficha-jugador__foto">
+                            {{ m.avatar(j.id, j.pais_id, '', j.nombre) }}
+                            <span class="ficha-jugador__dorsal">{{ j.numero }}</span>
+                        </div>
+                        <div class="ficha-jugador__ovr" style="--ovr: {{ j.overall|round(1) }};" title="Valoración general">
+                            <strong>{{ j.overall|round(1) }}</strong><small>OVR</small>
+                        </div>
                     </div>
-
-                    <!-- Overall Badge -->
-                    <div class="text-center p-2 bg-dark rounded-3 border border-secondary border-opacity-25 ms-2">
-                        <span class="fs-8 text-muted d-block fw-semibold text-uppercase">OVR</span>
-                        <span class="fw-bold text-accent fs-5">{{ j.overall|round(1) }}</span>
+                    <div class="ficha-jugador__info">
+                        <h3 class="text-truncate" title="{{ j.nombre }}">{{ j.nombre }}</h3>
+                        <div class="d-flex align-items-center gap-1 flex-wrap">
+                            <span class="ficha-jugador__posicion">{{ j.posicion }}</span>
+                            {% if j.titular == 1 %}<span class="ficha-jugador__titular">Titular</span>{% endif %}
+                            {% if j.edad %}<span class="ficha-jugador__edad">{{ j.edad }} años</span>{% endif %}
+                        </div>
                     </div>
-                </div>
-
-                <!-- Métricas Rápidas -->
-                <div class="row g-2 text-center my-2 py-2 bg-dark rounded-3 border border-secondary border-opacity-25">
-                    <div class="col-4 border-end border-secondary border-opacity-25">
-                        <span class="fs-8 text-muted d-block">Goles</span>
-                        <span class="fw-bold text-white"><i class="bi bi-disc text-success me-1"></i>{{ j.goles }}</span>
+                    <div class="ficha-jugador__metricas">
+                        <div><span>Goles</span><strong>{{ j.goles or 0 }}</strong></div>
+                        <div><span>Forma</span><strong class="text-info">{{ j.forma_actual }}%</strong></div>
+                        <div><span>Tarjetas</span><strong>{% if j.amarilla %}<span class="text-warning">🟨{{ j.amarilla }}</span>{% endif %}{% if j.roja %}<span class="text-danger ms-1">🟥{{ j.roja }}</span>{% endif %}{% if not j.amarilla and not j.roja %}0{% endif %}</strong></div>
                     </div>
-                    <div class="col-4 border-end border-secondary border-opacity-25">
-                        <span class="fs-8 text-muted d-block">Forma</span>
-                        <span class="fw-bold text-info">{{ j.forma_actual }}%</span>
-                    </div>
-                    <div class="col-4">
-                        <span class="fs-8 text-muted d-block">Tarjetas</span>
-                        <span class="fw-bold text-white">
-                            {% if j.amarilla > 0 %}<span class="text-warning">🟨 {{ j.amarilla }}</span>{% endif %}
-                            {% if j.roja > 0 %}<span class="text-danger ms-1">🟥 {{ j.roja }}</span>{% endif %}
-                            {% if j.amarilla == 0 and j.roja == 0 %}<span class="text-muted">0</span>{% endif %}
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Footer / Acción -->
-                <div class="mt-auto pt-2">
-                    <a href="/jugadores/{{ j.id }}" class="btn btn-sm btn-outline-success w-100">
-                        <i class="bi bi-person-lines-fill me-1"></i>Ver Detalle Completo
-                    </a>
-                </div>
-
+                </a>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
+    </section>
+    {% endif %}
+    {% endfor %}
 
-    <!-- Estado Vacío -->
+    <!-- Estado vacío -->
     <div id="noResultsJugadores" class="text-center py-5 d-none">
         <i class="bi bi-person-x fs-1 text-muted d-block mb-3"></i>
         <h4 class="text-white">No se encontraron jugadores</h4>
-        <p class="text-muted">Intenta ajustando el término de búsqueda o seleccionando otra posición.</p>
+        <p class="text-muted">Probá con otro nombre, dorsal o posición.</p>
     </div>
 
 </div>
@@ -136,6 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const filterPosicion = document.getElementById('filterPosicion');
     const btnReset = document.getElementById('btnResetFilters');
     const cards = document.querySelectorAll('.jugador-card-container');
+    const secciones = document.querySelectorAll('.plantilla-linea');
     const noResults = document.getElementById('noResultsJugadores');
     const totalCount = document.getElementById('total-jugadores');
 
@@ -150,29 +137,19 @@ document.addEventListener('DOMContentLoaded', function() {
             // Se filtra por SECTOR (Portero/Defensa/Medio/Delantero), no por el nombre granular de
             // la posición: "Lateral izquierdo" no contiene "Defensa" y quedaba afuera.
             const sector = (card.getAttribute('data-sector') || card.getAttribute('data-posicion') || '').toLowerCase();
-
-            const matchesSearch = nombre.includes(query) || numero.includes(query);
-            const matchesPosicion = (posicionSelected === 'todas' || sector.includes(posicionSelected));
-
-            if (matchesSearch && matchesPosicion) {
-                card.classList.remove('d-none');
-                visibleCount++;
-            } else {
-                card.classList.add('d-none');
-            }
+            const visible = (nombre.includes(query) || numero.includes(query)) && (posicionSelected === 'todas' || sector.includes(posicionSelected));
+            card.classList.toggle('d-none', !visible);
+            if (visible) visibleCount++;
         });
+        // una línea sin jugadores visibles no deja el título suelto
+        secciones.forEach(s => s.classList.toggle('d-none', !s.querySelector('.jugador-card-container:not(.d-none)')));
 
         totalCount.textContent = visibleCount;
-        if (visibleCount === 0) {
-            noResults.classList.remove('d-none');
-        } else {
-            noResults.classList.add('d-none');
-        }
+        noResults.classList.toggle('d-none', visibleCount > 0);
     }
 
     searchInput.addEventListener('input', filterJugadores);
     filterPosicion.addEventListener('change', filterJugadores);
-
     btnReset.addEventListener('click', function() {
         searchInput.value = '';
         filterPosicion.value = 'TODAS';

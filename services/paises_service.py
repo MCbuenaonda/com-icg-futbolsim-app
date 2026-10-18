@@ -306,3 +306,48 @@ def obtener_trayectoria_pais(pais_id: int) -> list:
             **balance,
         })
     return trayectoria
+
+
+def obtener_partidos_pais(pais_id: int, limite: int = 5) -> dict:
+    """
+    Para la ficha del país (/paises/{id}): sus últimos partidos jugados (más recientes primero, con
+    resultado desde el punto de vista del país: G/E/P) y el próximo partido pendiente.
+    Los partidos que se están revelando en vivo (transmision in_progress) no se muestran como
+    jugados, para no spoilear el resultado.
+    """
+    filtro_pais = {"$or": [{"equipo_local.id": pais_id}, {"equipo_visitante.id": pais_id}]}
+    proyeccion = {"equipo_local": 1, "equipo_visitante": 1, "fecha": 1, "hora": 1, "grupo": 1, "jornada": 1,
+                  "ubicacion.estadio": 1, "resultado.goles_local": 1, "resultado.goles_visitante": 1,
+                  "resultado.ganador_id": 1, "resultado.ganador_lado": 1}
+    ultimos = []
+    for j in db["juegos"].find({**filtro_pais, "estado": "finalizado", "transmision.estado": {"$ne": "in_progress"}},
+                               proyeccion).sort([("fecha", -1), ("hora", -1)]).limit(limite):
+        local, visitante, res = j.get("equipo_local") or {}, j.get("equipo_visitante") or {}, j.get("resultado") or {}
+        es_local = local.get("id") == pais_id
+        rival = visitante if es_local else local
+        gf = res.get("goles_local", 0) if es_local else res.get("goles_visitante", 0)
+        gc = res.get("goles_visitante", 0) if es_local else res.get("goles_local", 0)
+        ganador = res.get("ganador_id") if res.get("ganador_lado") in ("L", "V") else None
+        resultado = "V" if ganador == pais_id else ("D" if ganador == rival.get("id") else ("V" if gf > gc else "D" if gf < gc else "E"))
+        ultimos.append({"id": str(j["_id"]), "fecha": j.get("fecha"), "rival": {"id": rival.get("id"), "nombre": rival.get("nombre"), "bandera": rival.get("bandera")},
+                        "local": es_local, "marcador": f"{gf}-{gc}", "resultado": resultado, "grupo": j.get("grupo")})
+
+    proximo = db["juegos"].find_one({**filtro_pais, "estado": "creado"}, proyeccion, sort=[("fecha", 1), ("hora", 1)])
+    if proximo:
+        local, visitante = proximo.get("equipo_local") or {}, proximo.get("equipo_visitante") or {}
+        es_local = local.get("id") == pais_id
+        rival = visitante if es_local else local
+        proximo = {"id": str(proximo["_id"]), "fecha": proximo.get("fecha"), "hora": proximo.get("hora"), "local": es_local,
+                   "rival": {"id": rival.get("id"), "nombre": rival.get("nombre"), "bandera": rival.get("bandera")},
+                   "grupo": proximo.get("grupo"), "jornada": proximo.get("jornada"), "estadio": (proximo.get("ubicacion") or {}).get("estadio")}
+    return {"ultimos": ultimos, "proximo": proximo}
+
+
+def obtener_estadisticas_torneo(pais: dict) -> dict:
+    """
+    Estadísticas del torneo EN CURSO para la ficha del país: viven en 'internacional' (las actualiza
+    actualizar_estadisticas_pais); en 'paises' quedan en cero mientras se juega. Si el país no está
+    en el torneo actual, se usan las de 'paises'.
+    """
+    doc = db["internacional"].find_one({"id": pais.get("id")}, {"estadisticas": 1})
+    return (doc or {}).get("estadisticas") or pais.get("estadisticas") or {}

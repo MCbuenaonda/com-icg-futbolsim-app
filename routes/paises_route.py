@@ -2,7 +2,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from services.paises_service import get_paises, get_pais, obtener_trayectoria_pais
+from services.paises_service import get_paises, get_pais, obtener_trayectoria_pais, obtener_partidos_pais, obtener_estadisticas_torneo
+from services.jugadores_service import get_jugadores
+from services.juegos_service import formatear_numero_compacto
 from services.fanbase_service import obtener_historial_aficionados_pais, AFICIONADOS_INICIAL
 from services.auth_service import context_usuario_actual
 from services.imagenes_pais_service import GLOBALES_JINJA
@@ -13,6 +15,7 @@ import json
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
 templates.env.globals.update(GLOBALES_JINJA)
+templates.env.filters["numero_compacto"] = formatear_numero_compacto
 route = APIRouter(prefix=PREFIX_PAISES_PATH)
 tag='Mundial'
 
@@ -43,12 +46,17 @@ async def pais(request: Request, id: str):
         pais = get_pais(id, logger)
         historial_aficionados = obtener_historial_aficionados_pais(int(id)) if pais else []
         trayectoria = obtener_trayectoria_pais(int(id)) if pais else []
+        partidos = obtener_partidos_pais(int(id)) if pais else {"ultimos": [], "proximo": None}
+        estadisticas = obtener_estadisticas_torneo(pais) if pais else {}
+        # figuras de la plantilla: los 6 de mejor valoración (la plantilla completa está en /jugadores/pais/{id})
+        figuras = sorted(get_jugadores(id, logger), key=lambda j: -(j.get("overall") or 0))[:6] if pais else []
 
         return templates.TemplateResponse(
             request=request,
             name="pais.html",
             context={"pais": pais, "historial_aficionados": historial_aficionados, "aficionados_base": AFICIONADOS_INICIAL,
-                     "trayectoria": trayectoria}
+                     "trayectoria": trayectoria, "partidos": partidos, "figuras": figuras,
+                     "estadisticas": estadisticas}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")

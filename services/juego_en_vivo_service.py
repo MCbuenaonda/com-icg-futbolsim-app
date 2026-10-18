@@ -36,6 +36,7 @@ from pymongo.mongo_client import MongoClient
 from config import juego_en_vivo as cfg
 from config.settings import MONGODB_URI
 from services import juego_en_vivo_puntos as puntos
+from services import niveles_service
 from services.juegos_service import obtener_juego_activo
 from services.live_match_service import (
     DURACION_TRANSMISION_SEGUNDOS, TRANSMISION_EN_CURSO, _match_en_progreso,
@@ -421,6 +422,43 @@ def procesar_sesion(sesion: dict, juego: Optional[dict], ahora: Optional[datetim
     return sesion
 
 
+def liquidar_sesiones_abiertas(usuario_id: Any = None, juego_id: Any = None) -> int:
+    """
+    Cierra las sesiones que quedaron abiertas (pendiente / en_curso / eliminada) de partidos cuya
+    transmisión YA terminó: procesa los eventos que falten y acredita el pago final (o reembolsa si
+    el partido se simuló sin transmisión), con la misma lógica idempotente de procesar_sesion.
+
+    Existe porque los puntos se procesan al LEER el estado (cada poll de /en-vivo): si el usuario se
+    iba de /en-vivo y después arrancaba otro partido, nadie volvía a consultar el anterior y su
+    sesión quedaba abierta para siempre con la entrada cobrada y sin pago. Se llama al terminar
+    cada transmisión (live_match_service._disparar_efectos_pendientes, para todos los usuarios de
+    ese partido) y en cada consulta de estado del usuario (por si quedó alguna vieja).
+    Devuelve cuántas sesiones liquidó.
+    """
+    filtro: Dict[str, Any] = {"estado": {"$in": [ESTADO_PENDIENTE, ESTADO_EN_CURSO, ESTADO_ELIMINADA]}}
+    if usuario_id is not None:
+        filtro["usuario_id"] = _oid(usuario_id)
+    if juego_id is not None:
+        filtro["juego_id"] = _oid(juego_id, "Partido")
+    ahora = datetime.utcnow()
+    juegos: Dict[Any, Optional[dict]] = {}
+    liquidadas = 0
+    for sesion in db[COLECCION_SESIONES].find(filtro):
+        if sesion["juego_id"] not in juegos:
+            juegos[sesion["juego_id"]] = db["juegos"].find_one({"_id": sesion["juego_id"]})
+        juego = juegos[sesion["juego_id"]]
+        # solo partidos ya jugados y cuya transmisión terminó (los que están en vivo los procesa el poll)
+        if not juego or juego.get("estado") != "finalizado" or _en_transmision(juego, ahora):
+            continue
+        try:
+            sesion = procesar_sesion(sesion, juego, ahora)
+            if sesion and sesion.get("estado") in (ESTADO_FINALIZADA, ESTADO_CANCELADA):
+                liquidadas += 1
+        except Exception as e:  # una sesión con problemas no frena a las demás
+            logger.error(f"No se pudo liquidar la sesión {sesion.get('_id')} del Juego en Vivo: {e}")
+    return liquidadas
+
+
 def _guardar_lote(sesion: dict, desde: int, hasta: int, lote: dict, nuevo_estado: str, ahora: datetime) -> None:
     """Sesión (compare-and-set sobre 'ultimo_evento_procesado') + transacciones, atómico."""
     docs = [{
@@ -470,6 +508,12 @@ def _finalizar(sesion: dict, ahora: datetime) -> None:
 
     _ejecutar_en_transaccion(_tx)
 
+    # XP de niveles (nunca lanza; idempotente por sesión, así que da igual qué poll hizo el flip)
+    niveles_service.otorgar_xp(sesion["usuario_id"], "JUEGO_VIVO", sesion["_id"])
+    niveles_service.otorgar_logro(sesion["usuario_id"], "PRIMER_JUEGO_VIVO")
+    if pago > int(sesion.get("entrada_monto") or 0):
+        niveles_service.otorgar_xp(sesion["usuario_id"], "JUEGO_VIVO_GANANCIA", sesion["_id"])
+
 
 def _transaccion_monto(sesion_id, usuario_id, juego_id, tipo: str, monto: int, descripcion: str, ahora: datetime) -> dict:
     """Movimiento de usuarios.monto (ENTRADA/PAGO_FINAL/REEMBOLSO). 'evento_idx' negativo y
@@ -489,6 +533,8 @@ def obtener_estado_juego(usuario: dict, juego_id: Optional[str] = None) -> Dict[
     Estado del juego para /en-vivo/ (se consulta en cada poll). Sin 'juego_id' usa el partido
     en transmisión. Procesa los eventos pendientes antes de responder.
     """
+    # sesiones de partidos anteriores que quedaron abiertas (el usuario se fue de /en-vivo)
+    liquidar_sesiones_abiertas(usuario_id=usuario["_id"])
     if juego_id:
         juego = db["juegos"].find_one({"_id": _oid(juego_id, "Partido")})
     else:

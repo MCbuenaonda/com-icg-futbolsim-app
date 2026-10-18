@@ -4,7 +4,9 @@
  *   UI.escapar(texto)                 -> texto seguro para meter en innerHTML (evita inyección de HTML)
  *   UI.confirmar({titulo, mensaje, textoConfirmar, peligro}) -> Promise<boolean>, modal propio
  *                                        (reemplaza al confirm() nativo del navegador)
- *   UI.refrescarSaldo()               -> vuelve a pedir el saldo y actualiza la pill del navbar
+ *   UI.refrescarSaldo()               -> vuelve a pedir el saldo y actualiza la pill del navbar y la
+ *                                        insignia de nivel (avisa "+N XP" con un toast si sumó XP)
+ *   UI.toast(mensaje, {icono, tipo, enlace, duracion}) -> aviso flotante abajo a la derecha
  *   UI.alerta(contenedor, mensaje, tipo) -> alerta Bootstrap descartable dentro de 'contenedor'
  *   UI.bandera(emoji, {tipo, id, clase}) -> HTML de la imagen del país (bandera/escudo/icono/jersey)
  *                                        o el emoji escapado si no hay imagen; mismo criterio que
@@ -106,6 +108,45 @@
         });
     }
 
+    // ---------- Toast (aviso flotante) ----------
+    function toast(mensaje, { icono = 'bi-stars', tipo = 'xp', enlace = null, duracion = 4000 } = {}) {
+        let pila = document.getElementById('uiToasts');
+        if (!pila) {
+            pila = document.createElement('div');
+            pila.id = 'uiToasts';
+            pila.className = 'ui-toasts';
+            pila.setAttribute('aria-live', 'polite');
+            document.body.appendChild(pila);
+        }
+        const nodo = document.createElement(enlace ? 'a' : 'div');
+        nodo.className = `ui-toast ui-toast--${escapar(tipo)}`;
+        if (enlace) nodo.href = enlace;
+        nodo.innerHTML = `<i class="bi ${escapar(icono)}"></i><span>${escapar(mensaje)}</span>`;
+        pila.appendChild(nodo);
+        setTimeout(() => { nodo.classList.add('ui-toast--sale'); setTimeout(() => nodo.remove(), 400); }, duracion);
+    }
+
+    // Insignia de nivel del navbar (templates/base.html): aro de progreso, número y globito de pendientes
+    function actualizarInsigniaNivel({ xp, nivel, titulo, pct, pendientes }) {
+        const insignia = document.getElementById('nivelNavbar');
+        if (!insignia || xp === undefined) return;
+        const xpAnterior = Number(insignia.dataset.xp);
+        const nivelAnterior = Number(insignia.dataset.nivel);
+        insignia.dataset.xp = xp;
+        insignia.dataset.nivel = nivel;
+        insignia.style.setProperty('--pct', pct);
+        insignia.querySelector('.nivel-insignia__numero').textContent = nivel;
+        insignia.title = `Nivel ${nivel} · ${titulo} · ${Number(xp).toLocaleString('en-US')} XP`;
+        const globo = insignia.querySelector('.nivel-insignia__globo');
+        globo.textContent = pendientes;
+        globo.classList.toggle('d-none', !pendientes);
+        if (!Number.isNaN(xpAnterior) && xp > xpAnterior) toast(`+${xp - xpAnterior} XP`, { icono: 'bi-stars', enlace: '/niveles/' });
+        if (!Number.isNaN(nivelAnterior) && nivel > nivelAnterior) {
+            toast(`¡Subiste a nivel ${nivel} · ${titulo}!${pendientes ? ' Tenés una recompensa esperando' : ''}`,
+                  { icono: 'bi-trophy-fill', tipo: 'nivel', enlace: '/niveles/', duracion: 7000 });
+        }
+    }
+
     // ---------- Saldo del navbar ----------
     async function refrescarSaldo() {
         const pill = document.getElementById('saldoUsuarioNavbar');
@@ -113,7 +154,9 @@
         try {
             const resp = await fetch('/cuenta/saldo', { headers: { accept: 'application/json' } });
             if (!resp.ok) return;
-            const { monto } = await resp.json();
+            const datos = await resp.json();
+            const { monto } = datos;
+            actualizarInsigniaNivel(datos);
             const anterior = Number(pill.dataset.monto || NaN);
             pill.dataset.monto = monto;
             pill.innerHTML = `<i class="bi bi-coin me-1"></i>${Number(monto).toLocaleString('en-US')} pts`;
@@ -190,5 +233,5 @@
         if (pill && pill.dataset.monto === undefined) pill.dataset.monto = pill.textContent.replace(/[^\d]/g, '');
     });
 
-    window.UI = { escapar, bandera, urlImagenPais, jersey, avatar, confirmar, refrescarSaldo, alerta, mostrarAlertaEn, mejorarAccesibilidad, paginador };
+    window.UI = { escapar, bandera, urlImagenPais, jersey, avatar, confirmar, refrescarSaldo, toast, alerta, mostrarAlertaEn, mejorarAccesibilidad, paginador };
 })();

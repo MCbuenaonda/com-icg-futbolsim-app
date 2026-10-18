@@ -147,9 +147,18 @@ def imagen_inicio(nombre: str) -> str:
     return f"{IMAGENES_PAISES_URL}/inicio/{quote(nombre)}.png"
 
 
+def imagen_perfil(nombre: str) -> str:
+    """Imágenes de las tarjetas del perfil del jugador (bucket perfil/<nombre>.png): forma, moral,
+    pie_derecho/izquierdo/ambidiestro, especialidad y animo_<estado>. Acepta tildes y mayúsculas
+    ("animo_Eufórico" -> perfil/animo_euforico.png)."""
+    import unicodedata
+    limpio = unicodedata.normalize("NFKD", str(nombre or "")).encode("ascii", "ignore").decode().lower().replace(" ", "_")
+    return f"{IMAGENES_PAISES_URL}/perfil/{quote(limpio)}.png"
+
+
 GLOBALES_JINJA = {
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,
     "imagen_inicio": imagen_inicio, "img_estadio": url_estadio, "img_avatar": url_avatar,
-    "datos_arbitro": datos_arbitro,
+    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil,
 }

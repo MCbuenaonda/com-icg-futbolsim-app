@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from config.secciones import pagina_inicial
 from config.settings import COOKIE_SECURE
+from services.niveles_service import resumen_nivel
 from services.auth_service import (
     autenticar_usuario,
     crear_token_sesion,
@@ -154,4 +155,6 @@ async def cuenta_saldo(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return JSONResponse({"detail": "Inicia sesión."}, status_code=401)
-    return {"monto": usuario.get("monto", 0)}
+    nivel = resumen_nivel(usuario)
+    return {"monto": usuario.get("monto", 0), "xp": nivel["xp"], "nivel": nivel["nivel"], "titulo": nivel["titulo"],
+            "pct": nivel["pct"], "pendientes": nivel["pendientes"]}

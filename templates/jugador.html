@@ -12,19 +12,18 @@
             <i class="bi bi-arrow-left me-1"></i> Volver a la Plantilla
         </a>
 
-        <div class="card border-0 shadow-lg p-4 bg-dark overflow-hidden position-relative">
-            <!-- Camiseta de fondo -->
-            <div class="position-absolute top-0 end-0 me-4 mt-1 display-1 fw-bold text-white opacity-10 user-select-none">
-                #{{ jugador.numero }}
-            </div>
-
-            <div class="row align-items-center position-relative z-1">
-                <div class="col-auto">
+        {# Encabezado del perfil: el escudo de la selección como marca de agua, hacia la derecha e inclinado (como las cards de confederación del inicio) #}
+        {% set escudo_url = img_pais(jugador.pais_id, 'escudo') %}
+        {% set jersey_url = img_pais(jugador.pais_id, 'jersey') %}
+        <div class="card border-0 shadow-lg p-4 card-logo-fondo card-logo-fondo--sin-brillo perfil-jugador-header">
+            {% if escudo_url %}<img src="{{ escudo_url }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo perfil-jugador-header__escudo" onerror="this.remove()">{% endif %}
+            <div class="row align-items-center position-relative z-1 g-3">
+                <div class="col-12 col-md-auto text-center">
                     {{ m.avatar(jugador.id, jugador.pais_id, 'lg', jugador.nombre) }}
                 </div>
-                <div class="col">
-                    <div class="d-flex align-items-center gap-2 mb-1">
-                        <h1 class="display-5 fw-bold text-white mb-0">{{ jugador.nombre }}</h1>
+                <div class="col-12 col-md min-w-0">
+                    <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+                        <h1 class="display-5 fw-bold text-white mb-0 text-center text-md-start">{{ jugador.nombre }}</h1>
                         <span class="badge bg-success-subtle text-success border border-success-subtle fs-6">
                             {{ jugador.posicion }}
                         </span>
@@ -34,13 +33,35 @@
                             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Suplente</span>
                         {% endif %}
                     </div>
-                    <p class="text-muted mb-0 fs-6">
-                        <i class="bi bi-flag-fill me-1 text-success"></i>{{ jugador.pais }} | 
-                        <i class="bi bi-journal-check me-1 ms-2"></i>Juegos Jugados: {{ jugador.juegos_jugados }}
-                    </p>
+                    <!-- Datos del jugador: país, dorsal (sobre su jersey), edad, pie hábil y partidos -->
+                    <div class="perfil-jugador-datos">
+                        <span class="perfil-dato">
+                            {{ m.bandera(jugador.bandera, pais_id=jugador.pais_id) }}
+                            <span><small>País</small>{{ jugador.pais }}</span>
+                        </span>
+                        {% if jugador.edad %}
+                        <span class="perfil-dato">
+                            <i class="bi bi-cake2-fill text-warning"></i>
+                            <span><small>Edad</small>{{ jugador.edad }} años</span>
+                        </span>
+                        {% endif %}
+                        <span class="perfil-dato">
+                            <i class="bi bi-journal-check text-accent"></i>
+                            <span><small>Partidos</small>{{ jugador.juegos_jugados or 0 }}</span>
+                        </span>
+                    </div>
                 </div>
-                <div class="col-auto text-end mt-3 mt-md-0">
-                    <div class="d-flex gap-2">
+                <div class="col-12 col-xl-auto">
+                    <div class="d-flex gap-2 justify-content-center perfil-cajas">
+                        {% if jugador.numero is not none %}
+                        <!-- Dorsal: el jersey de su selección con el número encima -->
+                        <div class="p-2 bg-black bg-opacity-40 rounded-3 border border-secondary border-opacity-25 text-center perfil-dorsal">
+                            <span class="fs-8 text-muted text-uppercase d-block fw-semibold">Dorsal</span>
+                            <span class="jersey-dorsal perfil-dorsal__jersey {{ 'jersey-dorsal--sin-imagen' if not jersey_url }}">
+                                {% if jersey_url %}<img src="{{ jersey_url }}" alt="" loading="lazy" decoding="async" onerror="this.parentElement.classList.add('jersey-dorsal--sin-imagen')">{% endif %}<span>{{ jugador.numero }}</span>
+                            </span>
+                        </div>
+                        {% endif %}
                         <div class="p-3 bg-black bg-opacity-40 rounded-3 border border-secondary border-opacity-25 text-center">
                             <span class="fs-8 text-muted text-uppercase d-block fw-semibold">Valoración General</span>
                             <span class="display-6 fw-bold text-accent">{{ jugador.overall }}</span>
@@ -55,16 +76,18 @@
         </div>
     </div>
 
-    <!-- Indicadores Generales de Estado -->
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100">
+    <!-- Indicadores Generales de Estado: cada tarjeta con su ilustración (bucket perfil/, imagen_perfil) como
+         marca de agua sobre .card-logo-fondo, igual que las tarjetas de resumen del inicio -->
+    {% set pie = (jugador.pie_habil or 'derecho') | lower %}
+    {% set animo = jugador.estado_animo or 'Concentrado' %}
+    {% set color_animo = {'Eufórico': '#f59e0b', 'Motivado': '#10b981', 'Concentrado': '#3b82f6', 'Nervioso': '#a855f7', 'Insatisfecho': '#f97316', 'Decepcionado': '#64748b', 'Frustrado': '#ef4444'}.get(animo, '#3b82f6') %}
+    <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
+        <div class="col">
+            <div class="card shadow-sm h-100 card-logo-fondo kpi-logo-fondo" style="--logo-color: #ef4444;">
+                <img src="{{ imagen_perfil('forma') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
                 <div class="card-body">
                     <span class="text-muted fs-8 text-uppercase fw-semibold">Estado de Forma</span>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <h3 class="fw-bold text-white mb-0">{{ jugador.forma_actual }}%</h3>
-                        <i class="bi bi-heart-pulse-fill fs-3 text-danger"></i>
-                    </div>
+                    <h3 class="fw-bold text-white mb-0 mt-2">{{ jugador.forma_actual }}%</h3>
                     <div class="progress bg-dark mt-2" style="height: 6px;">
                         <div class="progress-bar bg-danger" style="width: {{ jugador.forma_actual }}%;"></div>
                     </div>
@@ -72,14 +95,12 @@
             </div>
         </div>
 
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100">
+        <div class="col">
+            <div class="card shadow-sm h-100 card-logo-fondo kpi-logo-fondo" style="--logo-color: #10b981;">
+                <img src="{{ imagen_perfil('moral') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
                 <div class="card-body">
                     <span class="text-muted fs-8 text-uppercase fw-semibold">Moral del Jugador</span>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <h3 class="fw-bold text-white mb-0">{{ jugador.moral }}%</h3>
-                        <i class="bi bi-emoji-smile-fill fs-3 text-accent"></i>
-                    </div>
+                    <h3 class="fw-bold text-white mb-0 mt-2">{{ jugador.moral }}%</h3>
                     <div class="progress bg-dark mt-2" style="height: 6px;">
                         <div class="progress-bar bg-accent" style="width: {{ jugador.moral }}%;"></div>
                     </div>
@@ -87,21 +108,20 @@
             </div>
         </div>
 
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100">
+        <div class="col">
+            <div class="card shadow-sm h-100 card-logo-fondo kpi-logo-fondo" style="--logo-color: #06b6d4;">
+                <img src="{{ imagen_perfil('pie_' ~ pie) }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
                 <div class="card-body">
                     <span class="text-muted fs-8 text-uppercase fw-semibold">Pie Hábil</span>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                        <h4 class="fw-bold text-white mb-0 text-capitalize">{{ jugador.pie_habil }}</h4>
-                        <i class="bi bi-lightning-fill fs-3 text-success"></i>
-                    </div>
-                    <span class="fs-8 text-muted d-block mt-2">Perfil natural</span>
+                    <h4 class="fw-bold text-white mb-0 mt-2 text-capitalize">{{ jugador.pie_habil or '—' }}</h4>
+                    <span class="fs-8 text-muted d-block mt-2">{{ 'Domina las dos piernas' if pie == 'ambidiestro' else 'Perfil natural' }}</span>
                 </div>
             </div>
         </div>
 
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100">
+        <div class="col">
+            <div class="card shadow-sm h-100 card-logo-fondo kpi-logo-fondo" style="--logo-color: #8b5cf6;">
+                <img src="{{ imagen_perfil('especialidad') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
                 <div class="card-body">
                     <span class="text-muted fs-8 text-uppercase fw-semibold">Especialidades</span>
                     <div class="mt-2">
@@ -118,117 +138,180 @@
                 </div>
             </div>
         </div>
+
+        <div class="col perfil-animo-col">
+            <div class="card shadow-sm h-100 card-logo-fondo kpi-logo-fondo" style="--logo-color: {{ color_animo }};">
+                <img src="{{ imagen_perfil('animo_' ~ animo) }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
+                <div class="card-body">
+                    <span class="text-muted fs-8 text-uppercase fw-semibold">Estado de Ánimo</span>
+                    <h4 class="fw-bold mb-0 mt-2" style="color: {{ color_animo }};">{{ animo }}</h4>
+                    <span class="fs-8 text-muted d-block mt-2">Según su último partido</span>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Bloque de Atributos Técnicos (Radar Chart) & Estadísticas de Competencia -->
+    <!-- Atributos (radar + barras por grupo) e Historial competitivo, con el mismo estilo de tarjeta
+         (.card-logo-fondo + ilustración de perfil/ como marca de agua) que las tarjetas de estado -->
+    {% set grupos_atributos = [
+        ('Técnica', '#22c55e', [('regate', 'Regate'), ('control_balon', 'Control'), ('precision_pase', 'Pase'), ('precision_tiro', 'Prec. tiro'), ('fuerza_disparo', 'Disparo'), ('vision_juego', 'Visión')]),
+        ('Físico', '#38bdf8', [('velocidad', 'Velocidad'), ('agilidad', 'Agilidad'), ('resistencia', 'Resistencia'), ('fuerza_fisica', 'Fuerza'), ('juego_aereo', 'Juego aéreo')]),
+        ('Mental', '#a78bfa', [('anticipacion', 'Anticipación'), ('concentracion', 'Concentración'), ('compostura', 'Compostura'), ('agresividad', 'Agresividad')]),
+    ] %}
     <div class="row g-4 mb-4">
-        
-        <!-- Gráfico de Radar de Atributos Técnicos -->
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header py-3 border-0 d-flex justify-content-between align-items-center">
-                    <h5 class="card-title fw-bold text-white mb-0">
-                        <i class="bi bi-radar me-2 text-success"></i>Perfil de Atributos Técnicos & Físicos
-                    </h5>
-                </div>
-                <div class="card-body d-flex align-items-center justify-content-center p-3" style="min-height: 380px;">
-                    <div style="width: 100%; max-width: 480px; position: relative;">
-                        <canvas id="atributosRadarChart"></canvas>
+
+        <!-- Perfil de atributos: radar con los 15 atributos (escala con zoom) + barras agrupadas -->
+        <div class="col-12">
+            <div class="card shadow-sm h-100 card-logo-fondo card-seccion" style="--logo-color: #22c55e;">
+                <img src="{{ imagen_perfil('atributos') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
+                <div class="card-body p-3 p-md-4">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                        <h2 class="h5 fw-bold text-white mb-0"><i class="bi bi-radar me-2 text-success"></i>Perfil de Atributos Técnicos & Físicos</h2>
+                        <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle" title="Valoración general">OVR {{ jugador.overall }}</span>
+                    </div>
+                    <div class="row g-4 align-items-center">
+                        <div class="col-lg-6">
+                            <div class="radar-atributos"><canvas id="atributosRadarChart"></canvas></div>
+                        </div>
+                        <div class="col-lg-6">
+                            {% for nombre_grupo, color, campos in grupos_atributos %}
+                            {% set acum = namespace(total=0) %}{% for campo, _ in campos %}{% set acum.total = acum.total + (jugador[campo] or 0) %}{% endfor %}
+                            <div class="grupo-atributos mb-3" style="--grupo-color: {{ color }};">
+                                <div class="d-flex justify-content-between align-items-baseline mb-1">
+                                    <span class="grupo-atributos__titulo">{{ nombre_grupo }}</span>
+                                    <span class="grupo-atributos__media">{{ (acum.total / (campos | length)) | round(1) }}</span>
+                                </div>
+                                {% for campo, etiqueta in campos %}
+                                {% set v = (jugador[campo] or 0) | round(1) %}
+                                <div class="barra-atributo">
+                                    <span class="barra-atributo__nombre">{{ etiqueta }}</span>
+                                    <span class="barra-atributo__pista"><span style="width: {{ v }}%;"></span></span>
+                                    <span class="barra-atributo__valor">{{ v }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Registro Disciplinario y Goles -->
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header py-3 border-0">
-                    <h5 class="card-title fw-bold text-white mb-0">
-                        <i class="bi bi-shield-lock-fill me-2 text-accent"></i>Historial Competitivo
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <span class="text-muted"><i class="bi bi-disc text-success me-2"></i>Goles Acumulados</span>
-                            <span class="fw-bold text-white fs-5">{{ jugador.goles }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <span class="text-muted"><i class="bi bi-signpost-split-fill text-info me-2"></i>Asistencias</span>
-                            <span class="fw-bold text-white fs-5">{{ jugador.asistencias or 0 }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <span class="text-muted"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Faltas Cometidas</span>
-                            <span class="fw-bold text-white">{{ jugador.faltas }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <span class="text-muted">🟨 Tarjetas Amarillas</span>
-                            <span class="fw-bold text-warning">{{ jugador.amarilla }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <span class="text-muted">🟥 Tarjetas Rojas</span>
-                            <span class="fw-bold text-danger">{{ jugador.roja }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <span class="text-muted"><i class="bi bi-bandaid-fill text-info me-2"></i>Lesiones</span>
-                            <span class="fw-bold text-white">{{ jugador.lesiones }}</span>
-                        </li>
-                    </ul>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- Historial competitivo: fichas por grupo (ataque, balón parado, juego, disciplina) -->
+        {% set tiros_total = (jugador.tiros_puerta or 0) + (jugador.tiros_desviados or 0) %}
+        {% set precision = ((jugador.tiros_puerta or 0) * 100 / tiros_total) | round | int if tiros_total else 0 %}
+        {% set tb = bitacora.totales if bitacora else {} %}
+        <div class="col-xl-5">
+            <div class="card shadow-sm h-100 card-logo-fondo card-seccion" style="--logo-color: #f59e0b;">
+                <img src="{{ imagen_perfil('historial') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
+                <div class="card-body p-3 p-md-4">
+                    <h2 class="h5 fw-bold text-white mb-3"><i class="bi bi-shield-lock-fill me-2 text-warning"></i>Historial Competitivo</h2>
+
+                    <!-- Ataque: anillo de precisión de tiro + goles/asistencias -->
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="anillo-precision" style="--pct: {{ precision }};" title="Tiros al arco sobre tiros totales">
+                            <span><strong>{{ precision }}%</strong><small>precisión</small></span>
+                        </div>
+                        <div class="flex-grow-1 historial-fichas historial-fichas--2">
+                            <div class="historial-ficha"><span>⚽ Goles</span><strong>{{ jugador.goles or 0 }}</strong></div>
+                            <div class="historial-ficha"><span>🎯 Asistencias</span><strong>{{ jugador.asistencias or 0 }}</strong></div>
+                            <div class="historial-ficha"><span>Tiros al arco</span><strong>{{ jugador.tiros_puerta or 0 }}</strong></div>
+                            <div class="historial-ficha"><span>Tiros desviados</span><strong>{{ jugador.tiros_desviados or 0 }}</strong></div>
+                        </div>
+                    </div>
+
+                    <span class="historial-grupo">Balón parado</span>
+                    <div class="historial-fichas historial-fichas--3 mb-3">
+                        <div class="historial-ficha"><span>Penal</span><strong>{{ tb.goles_penal or 0 }}</strong></div>
+                        <div class="historial-ficha"><span>Tiro libre</span><strong>{{ tb.goles_tiro_libre or 0 }}</strong></div>
+                        <div class="historial-ficha"><span>Córner</span><strong>{{ tb.goles_corner or 0 }}</strong></div>
+                    </div>
+
+                    <span class="historial-grupo">Juego</span>
+                    <div class="historial-fichas historial-fichas--3 mb-3">
+                        <div class="historial-ficha"><span>Recuperaciones</span><strong>{{ jugador.recuperaciones or 0 }}</strong></div>
+                        <div class="historial-ficha"><span>Faltas recibidas</span><strong>{{ jugador.faltas_recibidas or 0 }}</strong></div>
+                        {% if jugador.sector == 'Portero' or jugador.atajadas %}
+                        <div class="historial-ficha"><span>🧤 Atajadas</span><strong>{{ jugador.atajadas or 0 }}</strong></div>
+                        {% else %}
+                        <div class="historial-ficha"><span>Partidos</span><strong>{{ jugador.juegos_jugados or 0 }}</strong></div>
+                        {% endif %}
+                    </div>
+
+                    <span class="historial-grupo">Disciplina</span>
+                    <div class="historial-fichas historial-fichas--4">
+                        <div class="historial-ficha"><span>Faltas</span><strong>{{ jugador.faltas or 0 }}</strong></div>
+                        <div class="historial-ficha"><span>🟨</span><strong class="text-warning">{{ jugador.amarilla or 0 }}</strong></div>
+                        <div class="historial-ficha"><span>🟥</span><strong class="text-danger">{{ jugador.roja or 0 }}</strong></div>
+                        <div class="historial-ficha"><span><i class="bi bi-bandaid-fill text-info"></i> Lesiones</span><strong>{{ jugador.lesiones or 0 }}</strong></div>
+                    </div>
                 </div>
             </div>
         </div>
 
-    </div>
-
-    <!-- Bitácora de partidos (services/jugador_analisis_service.obtener_bitacora_jugador) -->
-    {% if bitacora %}{% set t = bitacora.totales %}
-    <div class="card border-0 shadow-sm bg-dark mt-4">
+        <!-- Bitácora de partidos (services/jugador_analisis_service.obtener_bitacora_jugador): cada fila lleva al detalle del partido -->
+        {% if bitacora %}{% set t = bitacora.totales %}
+        <div class="col-xl-7">
+    <div class="card shadow-sm card-logo-fondo card-seccion h-100" style="--logo-color: #38bdf8;">
+        <img src="{{ imagen_perfil('bitacora') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
         <div class="card-body p-3 p-md-4">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                <h2 class="h5 fw-bold text-white mb-0"><i class="bi bi-journal-text text-accent me-2"></i>Bitácora de partidos</h2>
+                <h2 class="h5 fw-bold text-white mb-0"><i class="bi bi-journal-text text-info me-2"></i>Bitácora de partidos</h2>
                 <a href="{{ url_for('comparar_jugadores') }}?a={{ jugador.id }}" class="btn btn-outline-light btn-sm"><i class="bi bi-people me-1"></i>Comparar con otro jugador</a>
             </div>
             {% if t.partidos %}
-            <div class="d-flex flex-wrap gap-3 small mb-3">
-                <span><strong class="text-white">{{ t.partidos }}</strong> <span class="text-muted">partidos</span></span>
-                <span><strong class="text-success">{{ t.victorias }}</strong> <span class="text-muted">G</span> · <strong class="text-white">{{ t.empates }}</strong> <span class="text-muted">E</span> · <strong class="text-danger">{{ t.derrotas }}</strong> <span class="text-muted">P</span></span>
-                <span>⚽ <strong class="text-white">{{ t.goles }}</strong></span>
-                {% if t.atajadas %}<span>🧤 <strong class="text-white">{{ t.atajadas }}</strong></span>{% endif %}
-                <span>🟨 <strong class="text-white">{{ t.amarillas }}</strong></span>
-                <span>🟥 <strong class="text-white">{{ t.rojas }}</strong></span>
+            <!-- Resumen: barra de victorias/empates/derrotas + totales -->
+            <div class="bitacora-resumen mb-3">
+                <div class="bitacora-resumen__wdl">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-white fw-semibold">{{ t.partidos }} partido{{ 's' if t.partidos != 1 }}</span>
+                        <span><strong class="text-success">{{ t.victorias }}G</strong> · <strong class="text-white">{{ t.empates }}E</strong> · <strong class="text-danger">{{ t.derrotas }}P</strong></span>
+                    </div>
+                    <div class="barra-wdl">
+                        {% if t.victorias %}<span class="bg-success" style="flex: {{ t.victorias }};"></span>{% endif %}
+                        {% if t.empates %}<span class="bg-secondary" style="flex: {{ t.empates }};"></span>{% endif %}
+                        {% if t.derrotas %}<span class="bg-danger" style="flex: {{ t.derrotas }};"></span>{% endif %}
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="bitacora-total">⚽ <strong>{{ t.goles }}</strong></span>
+                    {% if t.atajadas %}<span class="bitacora-total">🧤 <strong>{{ t.atajadas }}</strong></span>{% endif %}
+                    <span class="bitacora-total">🟨 <strong>{{ t.amarillas }}</strong></span>
+                    <span class="bitacora-total">🟥 <strong>{{ t.rojas }}</strong></span>
+                </div>
             </div>
-            <div class="table-responsive">
-                <table class="table table-dark table-hover table-sm align-middle mb-0" id="tablaBitacora">
-                    <thead><tr class="small text-muted"><th>Fecha</th><th>Fase</th><th>Rival</th><th class="text-center">Resultado</th><th class="text-center">Aporte</th></tr></thead>
-                    <tbody>
-                        {% for p in bitacora.partidos %}
-                        <tr>
-                            <td class="text-nowrap small">{{ p.fecha }}</td>
-                            <td class="small text-muted">{{ p.fase }}</td>
-                            <td><a href="/juegos/{{ p.id }}" class="link-light text-decoration-none">{{ 'vs' if p.local else 'en' }} {{ m.bandera(p.rival.bandera) }} {{ p.rival.nombre }}</a></td>
-                            <td class="text-center text-nowrap">
-                                <span class="badge {{ {'V': 'bg-success', 'E': 'bg-secondary', 'D': 'bg-danger'}[p.resultado] }}" title="{{ {'V': 'Victoria', 'E': 'Empate', 'D': 'Derrota'}[p.resultado] }}">{{ {'V': 'G', 'E': 'E', 'D': 'P'}[p.resultado] }}</span>
-                                <span class="fw-bold ms-1">{{ p.marcador }}</span>
-                            </td>
-                            <td class="text-center small text-nowrap">
-                                {% if p.goles %}<span title="Goles{% if p.detalle_goles %} ({{ p.detalle_goles | join(', ') }}){% endif %}">⚽×{{ p.goles }}</span>{% endif %}
-                                {% if p.atajadas %}<span title="Atajadas">🧤×{{ p.atajadas }}</span>{% endif %}
-                                {% if p.amarillas %}<span title="Amarillas">🟨×{{ p.amarillas }}</span>{% endif %}
-                                {% if p.rojas %}<span title="Rojas">🟥</span>{% endif %}
-                                {% if p.entro_de_cambio %}<span class="badge bg-info text-dark" title="Entró desde el banco">Súper sub</span>{% endif %}
-                                {% if not (p.goles or p.atajadas or p.amarillas or p.rojas) %}<span class="text-muted">—</span>{% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="d-flex flex-column gap-2" id="listaBitacora">
+                {% for p in bitacora.partidos %}
+                <a href="/juegos/{{ p.id }}" class="bitacora-fila bitacora-fila--{{ p.resultado }}" title="Ver el detalle del partido">
+                    <span class="bitacora-fila__fecha"><strong>{{ p.fecha }}</strong><small>{{ p.fase }}</small></span>
+                    <span class="bitacora-fila__rival">
+                        <small>{{ 'vs' if p.local else 'en' }}</small> {{ m.bandera(p.rival.bandera) }} <span class="text-truncate">{{ p.rival.nombre }}</span>
+                    </span>
+                    <span class="bitacora-fila__marcador" title="{{ {'V': 'Victoria', 'E': 'Empate', 'D': 'Derrota'}[p.resultado] }}">
+                        <span class="bitacora-fila__res">{{ {'V': 'G', 'E': 'E', 'D': 'P'}[p.resultado] }}</span>{{ p.marcador }}
+                    </span>
+                    <span class="bitacora-fila__aporte">
+                        {% if p.goles %}<span class="bitacora-chip" title="Goles{% if p.detalle_goles %} ({{ p.detalle_goles | join(', ') }}){% endif %}">⚽ {{ p.goles }}</span>{% endif %}
+                        {% if p.atajadas %}<span class="bitacora-chip" title="Atajadas">🧤 {{ p.atajadas }}</span>{% endif %}
+                        {% if p.amarillas %}<span class="bitacora-chip" title="Amarillas">🟨 {{ p.amarillas }}</span>{% endif %}
+                        {% if p.rojas %}<span class="bitacora-chip" title="Rojas">🟥</span>{% endif %}
+                        {% if p.entro_de_cambio %}<span class="bitacora-chip bitacora-chip--sub" title="Entró desde el banco">Súper sub</span>{% endif %}
+                    </span>
+                    <i class="bi bi-chevron-right bitacora-fila__ir"></i>
+                </a>
+                {% endfor %}
             </div>
             {% else %}
             <p class="text-muted mb-0">Todavía no jugó ningún partido en este torneo.</p>
             {% endif %}
         </div>
     </div>
-    {% endif %}
+        </div>
+        {% endif %}
+    </div>
 
 </div>
 
@@ -238,80 +321,58 @@
     document.addEventListener("DOMContentLoaded", function () {
         const ctx = document.getElementById('atributosRadarChart').getContext('2d');
         
+        // 15 atributos agrupados (técnica, físico, mental), en el mismo orden que las barras de al lado
+        const grupos = {{ grupos_atributos | tojson }};
+        const etiquetas = [], valores = [], colores = [];
+        const jugador = {{ {'regate': jugador.regate, 'control_balon': jugador.control_balon, 'precision_pase': jugador.precision_pase, 'precision_tiro': jugador.precision_tiro, 'fuerza_disparo': jugador.fuerza_disparo, 'vision_juego': jugador.vision_juego, 'velocidad': jugador.velocidad, 'agilidad': jugador.agilidad, 'resistencia': jugador.resistencia, 'fuerza_fisica': jugador.fuerza_fisica, 'juego_aereo': jugador.juego_aereo, 'anticipacion': jugador.anticipacion, 'concentracion': jugador.concentracion, 'compostura': jugador.compostura, 'agresividad': jugador.agresividad} | tojson }};
+        grupos.forEach(([, color, campos]) => campos.forEach(([campo, etiqueta]) => {
+            etiquetas.push(etiqueta); valores.push(Math.round((jugador[campo] || 0) * 10) / 10); colores.push(color);
+        }));
+        // "Zoom": la escala se ajusta al rango de ESTE jugador (de 5 en 5, con margen), no a 0-100, así el
+        // polígono ocupa el gráfico y se notan las diferencias; los valores de la escala quedan visibles
+        const angosto = window.innerWidth < 576;  // celular: etiquetas más chicas para que el radar gane espacio
+        const minimo = Math.max(0, Math.floor((Math.min(...valores) - 8) / 5) * 5);
+        const maximo = Math.min(100, Math.ceil((Math.max(...valores) + 6) / 5) * 5);
+        const degradado = ctx.createRadialGradient(ctx.canvas.width / 2, ctx.canvas.height / 2, 10, ctx.canvas.width / 2, ctx.canvas.height / 2, ctx.canvas.width / 2);
+        degradado.addColorStop(0, 'rgba(34, 197, 94, 0.15)');
+        degradado.addColorStop(1, 'rgba(34, 197, 94, 0.45)');
+
         new Chart(ctx, {
             type: 'radar',
             data: {
-                labels: [
-                    'Velocidad',
-                    'Regate',
-                    'Prec. Tiro',
-                    'Prec. Pase',
-                    'Fza. Disparo',
-                    'Resistencia',
-                    'Visión',
-                    'Anticipación',
-                    'Agresividad',
-                    'Compostura'
-                ],
+                labels: etiquetas,
                 datasets: [{
                     label: 'Atributos',
-                    data: [
-                        {{ jugador.velocidad }},
-                        {{ jugador.regate }},
-                        {{ jugador.precision_tiro }},
-                        {{ jugador.precision_pase }},
-                        {{ jugador.fuerza_disparo }},
-                        {{ jugador.resistencia|round(1) }},
-                        {{ jugador.vision_juego }},
-                        {{ jugador.anticipacion }},
-                        {{ jugador.agresividad }},
-                        {{ jugador.compostura|round(1) }}
-                    ],
-                    backgroundColor: 'rgba(25, 135, 84, 0.25)', // Verde semi-transparente estilo Bootstrap Success
-                    borderColor: '#198754',
-                    pointBackgroundColor: '#20c997',
-                    pointBorderColor: '#fff',
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: '#20c997',
-                    borderWidth: 2,
-                    pointRadius: 3
+                    data: valores,
+                    backgroundColor: degradado,
+                    borderColor: '#22c55e',
+                    borderWidth: 2.5,
+                    pointBackgroundColor: colores,
+                    pointBorderColor: '#0b1220',
+                    pointBorderWidth: 2,
+                    pointRadius: 4.5,
+                    pointHoverRadius: 7
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
+                layout: { padding: 4 },
                 plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return ` ${context.label}: ${context.raw}`;
-                            }
-                        }
-                    }
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: (c) => ` ${c.label}: ${c.raw}` } }
                 },
                 scales: {
                     r: {
-                        min: 0,
-                        max: 100,
-                        ticks: {
-                            stepSize: 20,
-                            display: false // Oculta los números internos para mayor limpieza visual
-                        },
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.1)' // Líneas internas sutiles para tema oscuro
-                        },
-                        angleLines: {
-                            color: 'rgba(255, 255, 255, 0.15)'
-                        },
+                        min: minimo,
+                        max: maximo,
+                        ticks: { stepSize: 5, color: 'rgba(255, 255, 255, 0.35)', backdropColor: 'transparent', font: { size: 9 }, z: 1 },
+                        grid: { color: 'rgba(255, 255, 255, 0.08)', circular: true },
+                        angleLines: { color: 'rgba(255, 255, 255, 0.12)' },
                         pointLabels: {
-                            color: '#adb5bd', // Color claro para las etiquetas en tema oscuro
-                            font: {
-                                size: 11,
-                                family: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
-                            }
+                            color: colores,
+                            padding: angosto ? 2 : 6,
+                            font: { size: angosto ? 9 : 11, weight: '600', family: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' }
                         }
                     }
                 }

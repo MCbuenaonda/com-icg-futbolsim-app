@@ -205,6 +205,158 @@ def obtener_juegos_programados(db: Database, mundial_id: Any = None) -> List[Dic
         
     return juegos
 
+def enriquecer_juegos_programados(juegos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Para las tarjetas de /juegos: el ranking ACTUAL de cada equipo (paises.estadisticas.rankin; el
+    'rankin' copiado en el partido al crearlo queda viejo, casi siempre en 1) y el favoritismo
+    (misma fórmula Elo sobre 'poder' que el Scouter, prematch_service._probabilidad_victoria_elo,
+    así los porcentajes coinciden entre las dos vistas). Se llama solo con la página visible.
+    """
+    from services.prematch_service import _probabilidad_victoria_elo
+
+    ids = {j[lado].get("id") for j in juegos for lado in ("equipo_local", "equipo_visitante") if j.get(lado)}
+    datos = {p["id"]: p.get("estadisticas") or {} for p in db["paises"].find(
+        {"id": {"$in": list(ids)}}, {"id": 1, "estadisticas.rankin": 1, "estadisticas.poder": 1})}
+    for juego in juegos:
+        local, visitante = juego.get("equipo_local") or {}, juego.get("equipo_visitante") or {}
+        est_l, est_v = datos.get(local.get("id"), {}), datos.get(visitante.get("id"), {})
+        local["ranking_actual"] = est_l.get("rankin")
+        visitante["ranking_actual"] = est_v.get("rankin")
+        prob_l, prob_v = _probabilidad_victoria_elo(est_l.get("poder") or 0, est_v.get("poder") or 0)
+        juego["favoritismo"] = {"local": prob_l, "visitante": prob_v}
+    return juegos
+
+
+# --- Resumen de un partido jugado (/juegos/{id}, templates/resumen.html) ---------------------------
+TIPOS_RELLENO_CRONOLOGIA = ("EN TRANSICIÓN", "PREPARACIÓN", "PRESIÓN DEFENSIVA")
+
+
+def categoria_evento(tipo: str) -> str:
+    """Categoría visual de un evento (misma clasificación que la cronología de /en-vivo, live_match.js)."""
+    t = tipo or ""
+    if "ANULADO" in t:
+        return "var"
+    if "GOL" in t:
+        return "gol"
+    if "ROJA" in t:
+        return "roja"
+    if "AMARILLA" in t:
+        return "amarilla"
+    if "SUSTITUCIÓN" in t:
+        return "cambio"
+    if any(x in t for x in ("ATAJADA", "DISPARO", "CÓRNER", "TIRO LIBRE", "ERROR")):
+        return "ocasion"
+    if any(x in t for x in ("SILBATO", "PITIDO", "FINAL DEL", "SAQUE DE CENTRO")):
+        return "hito"
+    if any(x in t for x in TIPOS_RELLENO_CRONOLOGIA):
+        return "relleno"
+    return "jugada"
+
+
+def armar_detalle_partido(juego: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Datos derivados para el resumen de un partido jugado, todo desde el propio documento (más una
+    consulta a 'jugadores' para los ids/avatares de los titulares):
+      - 'eventos': cada evento con 'categoria' y 'lado' (local/visitante/neutral) para la cronología
+      - 'goles': {'local': [...], 'visitante': [...]} con minuto, jugador, id y tipo (penal/tiro libre/córner)
+      - 'comparativa': filas de estadísticas enfrentadas (posesión, tiros, al arco, atajadas, faltas, tarjetas...)
+      - 'titulares': {'local': [...], 'visitante': [...]} con id, nombre, dorsal y si hizo gol
+      - 'figura': jugador destacado (más goles del ganador o, si no hubo, el arquero con más atajadas)
+    """
+    resultado = juego.get("resultado") or {}
+    local, visitante = juego.get("equipo_local") or {}, juego.get("equipo_visitante") or {}
+    nombre_l, nombre_v = local.get("nombre"), visitante.get("nombre")
+    eventos = resultado.get("eventos") or []
+
+    def lado_de(equipo):
+        return "local" if equipo == nombre_l else ("visitante" if equipo == nombre_v else "neutral")
+
+    # ids de jugadores de ambos equipos por nombre (los eventos y los titulares solo traen nombres)
+    jugadores = {(j.get("pais_id"), j.get("nombre")): j for j in db["jugadores"].find(
+        {"pais_id": {"$in": [local.get("id"), visitante.get("id")]}}, {"id": 1, "nombre": 1, "numero": 1, "pais_id": 1})}
+
+    def jugador(lado, nombre):
+        pais_id = local.get("id") if lado == "local" else visitante.get("id")
+        return jugadores.get((pais_id, nombre)) or {}
+
+    eventos_vista, goles = [], {"local": [], "visitante": []}
+    conteo = {lado: {"al_arco": 0, "desviados": 0, "faltas": 0, "amarillas": 0, "rojas": 0, "offside": 0, "cambios": 0}
+              for lado in ("local", "visitante")}
+    for ev in eventos:
+        tipo, lado = ev.get("tipo") or "", lado_de(ev.get("equipo"))
+        categoria = categoria_evento(tipo)
+        eventos_vista.append({**ev, "categoria": categoria, "lado": lado})
+        if lado == "neutral":
+            continue
+        c = conteo[lado]
+        if categoria == "gol":
+            nombre = (ev.get("jugadores") or [None])[0]
+            tipo_gol = "tiro libre" if "TIRO LIBRE" in tipo else ("córner" if "CÓRNER" in tipo else ("penal" if "PENAL" in tipo else ""))
+            goles[lado].append({"minuto": ev.get("minuto"), "nombre": nombre, "id": jugador(lado, nombre).get("id"), "tipo": tipo_gol})
+            c["al_arco"] += 1
+        elif "ATAJADA" in tipo:
+            # la atajada la registra el equipo del arquero: el tiro al arco es del rival
+            conteo["visitante" if lado == "local" else "local"]["al_arco"] += 1
+        elif "DISPARO DESVIADO" in tipo:
+            c["desviados"] += 1
+        elif "FALTA" in tipo:
+            c["faltas"] += 1
+        elif categoria == "amarilla":
+            c["amarillas"] += 1
+        elif categoria == "roja":
+            c["rojas"] += 1
+        elif "FUERA DE LUGAR" in tipo:
+            c["offside"] += 1
+        elif categoria == "cambio":
+            c["cambios"] += 1
+
+    est = juego.get("estadisticas") or {}
+    est_l, est_v = est.get("local") or {}, est.get("visitante") or {}
+    atajadas = {a.get("jugador_id"): a.get("atajadas", 0) for a in resultado.get("atajadores") or []}
+    ids_l = {j["id"] for (pid, _), j in jugadores.items() if pid == local.get("id")}
+    ataj_l = sum(v for k, v in atajadas.items() if k in ids_l)
+    ataj_v = sum(atajadas.values()) - ataj_l
+    comparativa = [
+        ("Posesión", est_l.get("p_posesion", 0), est_v.get("p_posesion", 0), "%"),
+        ("Tiros", est_l.get("tiros_totales", 0), est_v.get("tiros_totales", 0), ""),
+        ("Tiros al arco", conteo["local"]["al_arco"], conteo["visitante"]["al_arco"], ""),
+        ("Atajadas", ataj_l, ataj_v, ""),
+        ("Faltas", conteo["local"]["faltas"], conteo["visitante"]["faltas"], ""),
+        ("Fueras de lugar", conteo["local"]["offside"], conteo["visitante"]["offside"], ""),
+        ("Amarillas", conteo["local"]["amarillas"], conteo["visitante"]["amarillas"], ""),
+        ("Rojas", conteo["local"]["rojas"], conteo["visitante"]["rojas"], ""),
+        ("Cambios", conteo["local"]["cambios"], conteo["visitante"]["cambios"], ""),
+    ]
+
+    goleadores_ids = {g.get("jugador_id"): g.get("goles", 0) for g in resultado.get("goleadores") or []}
+    titulares = {}
+    for lado, clave in (("local", "titulares_local"), ("visitante", "titulares_visitante")):
+        titulares[lado] = []
+        for nombre in resultado.get(clave) or []:
+            j = jugador(lado, nombre)
+            titulares[lado].append({"id": j.get("id"), "nombre": nombre, "numero": j.get("numero"), "goles": goleadores_ids.get(j.get("id"), 0)})
+
+    # Figura: el que más goles hizo (desempata a favor del ganador); si no hubo goles, el arquero con más atajadas
+    figura = None
+    lado_ganador = {"L": "local", "V": "visitante"}.get(resultado.get("ganador_lado"))
+    candidatos = [(g.get("goles", 0), 1 if lado_de(g.get("equipo")) == lado_ganador else 0, g) for g in resultado.get("goleadores") or []]
+    if candidatos:
+        _, _, g = max(candidatos, key=lambda c: (c[0], c[1]))
+        lado = lado_de(g.get("equipo"))
+        figura = {"id": g.get("jugador_id"), "nombre": g.get("jugador_nombre"), "lado": lado,
+                  "pais_id": local.get("id") if lado == "local" else visitante.get("id"),
+                  "detalle": f"{g.get('goles')} gol{'es' if g.get('goles', 0) != 1 else ''}"}
+    elif atajadas:
+        jid, n = max(atajadas.items(), key=lambda kv: kv[1])
+        lado = "local" if jid in ids_l else "visitante"
+        nombre = next((a.get("jugador_nombre") for a in resultado.get("atajadores") or [] if a.get("jugador_id") == jid), "")
+        figura = {"id": jid, "nombre": nombre, "lado": lado, "pais_id": local.get("id") if lado == "local" else visitante.get("id"),
+                  "detalle": f"{n} atajadas"}
+
+    return {"eventos": eventos_vista, "goles": goles, "comparativa": comparativa, "titulares": titulares, "figura": figura,
+            "claves": sum(1 for e in eventos_vista if e["categoria"] != "relleno")}
+
+
 # funcion para obtener todos los juegos con fecha asignada (programados y finalizados) para la vista de calendario
 def obtener_juegos_calendario(db: Database, mundial_id: Any = None) -> List[Dict[str, Any]]:
     juegos_coll = db["juegos"]
@@ -1407,8 +1559,25 @@ def get_data_clasificados_mundial():
     }
     
     paises = list(paises_coll.find(query))
-    
+
+    # 'paises' solo guarda confederacion_id: se agrega la sigla (para el badge y el filtro del inicio)
+    # y una etiqueta de cómo terminó cada uno en el Mundial (None = clasificado, sigue en carrera)
+    siglas = {c["id"]: c.get("nombre", "") for c in db["confederaciones"].find({}, {"id": 1, "nombre": 1})}
+    for pais in paises:
+        pais["confederacion"] = siglas.get(pais.get("confederacion_id"), "")
+        pais["resultado_mundial"] = _etiqueta_estado_mundial(pais.get("estado") or "")
+    paises.sort(key=lambda p: (p["confederacion"], p.get("rankin") or 999, p.get("nombre", "")))
     return paises
+
+
+def _etiqueta_estado_mundial(estado: str) -> Optional[str]:
+    """'ELIMINADO_8VOS' -> 'Eliminado en 8vos', 'GANADOR_...' -> 'Campeón'; None si sigue en carrera."""
+    estado = estado.upper()
+    if estado.startswith("GANADOR"):
+        return "Campeón"
+    etiquetas = {"ELIMINADO_FASE_GRUPOS": "Fuera en grupos", "ELIMINADO_16VOS": "Fuera en 16vos",
+                 "ELIMINADO_8VOS": "Fuera en 8vos", "ELIMINADO_4TOS": "Fuera en 4tos"}
+    return etiquetas.get(estado)
 
 # funcion para obtener el ultimo partido jugado de un equipo
 def obtener_ultimo_partido(equipo_id):

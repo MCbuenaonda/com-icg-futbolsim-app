@@ -48,7 +48,7 @@ def listar_arbitros() -> List[dict]:
         info = datos.get(nombre, {})
         n = f["partidos"]
         resultado.append({
-            "nombre": nombre, "pais": info.get("pais", ""), "puesto": info.get("puesto", ""),
+            "nombre": nombre, "pais": info.get("pais", ""), "pais_id": info.get("pais_id"), "puesto": info.get("puesto", ""),
             "partidos": n, "faltas_prom": round(f["faltas"] / n, 1), "tarjetas_prom": round(f["tarjetas"] / n, 1),
             "expulsiones": f["expulsiones"], "pct_gana_local": round(100 * f["gana_local"] / n),
         })
@@ -85,13 +85,13 @@ def perfil_arbitro(nombre: str) -> Optional[Dict[str, Any]]:
         partidos.append({
             "id": str(j["_id"]), "fecha": j.get("fecha"), "fase": nombres_fase.get(j.get("fase_id"), ""),
             "rol": dict(ROLES)[rol], "es_central": rol == "central",
-            "local": {"nombre": local.get("nombre"), "bandera": local.get("bandera") or "", "goles": res.get("goles_local", 0)},
-            "visitante": {"nombre": visitante.get("nombre"), "bandera": visitante.get("bandera") or "", "goles": res.get("goles_visitante", 0)},
-            "faltas": faltas, "tarjetas": tarjetas,
+            "local": {"id": local.get("id"), "nombre": local.get("nombre"), "bandera": local.get("bandera") or "", "goles": res.get("goles_local", 0)},
+            "visitante": {"id": visitante.get("id"), "nombre": visitante.get("nombre"), "bandera": visitante.get("bandera") or "", "goles": res.get("goles_visitante", 0)},
+            "faltas": faltas, "tarjetas": tarjetas, "expulsiones": expulsiones,
         })
     n = central["partidos"]
     return {
-        "nombre": nombre, "pais": info.get("pais", ""), "puesto": info.get("puesto", ""),
+        "nombre": nombre, "pais": info.get("pais", ""), "pais_id": info.get("pais_id"), "puesto": info.get("puesto", ""),
         "total_partidos": len(juegos), "por_rol": [{"rol": etiqueta, "partidos": por_rol[r]} for r, etiqueta in ROLES],
         "central": {**central,
                     "faltas_prom": round(central["faltas"] / n, 1) if n else 0,
@@ -100,4 +100,24 @@ def perfil_arbitro(nombre: str) -> Optional[Dict[str, Any]]:
                     "pct_empate": round(100 * central["empates"] / n) if n else 0,
                     "pct_gana_visitante": round(100 * central["gana_visitante"] / n) if n else 0},
         "partidos": partidos,
+    }
+
+
+def comparar_con_colegas(perfil: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Cómo dirige este árbitro comparado con todos los centrales del torneo: promedios de la liga y
+    qué porcentaje de colegas saca MENOS tarjetas / cobra MENOS faltas por partido que él.
+    """
+    todos = listar_arbitros()
+    c = perfil.get("central") or {}
+    if not todos or not c.get("partidos"):
+        return {}
+    n = len(todos)
+    return {
+        "liga_tarjetas": round(sum(a["tarjetas_prom"] for a in todos) / n, 1),
+        "liga_faltas": round(sum(a["faltas_prom"] for a in todos) / n, 1),
+        "pct_mas_estricto": round(100 * sum(1 for a in todos if a["tarjetas_prom"] < c["tarjetas_prom"]) / n),
+        "pct_mas_faltas": round(100 * sum(1 for a in todos if a["faltas_prom"] < c["faltas_prom"]) / n),
+        "ranking_partidos": 1 + sum(1 for a in todos if a["partidos"] > c["partidos"]),
+        "total_centrales": n,
     }

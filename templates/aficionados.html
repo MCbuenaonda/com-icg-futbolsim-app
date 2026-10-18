@@ -3,60 +3,99 @@
 
 {% block title %}Popularidad de Selecciones - FutbolSim{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/album.css">
+{% endblock %}
+
 {% block content %}
+{#
+  Ranking de aficionados (independiente del ranking FIFAV): podio de las 3 más populares, luego
+  una fila por selección con barra relativa a la líder y la variación respecto de la base inicial
+  (todas arrancan con aficionados_base). Datos: fanbase_service.obtener_ranking_aficionados.
+#}
+{% set siglas = {1: 'UEFA', 2: 'CONMEBOL', 3: 'CONCACAF', 4: 'CAF', 5: 'OFC', 6: 'AFC'} %}
+{% set maximo = (ranking[0].aficionados if ranking else 1) or 1 %}
+{% set total = ranking | sum(attribute='aficionados') %}
+{% set subieron = ranking | selectattr('aficionados', 'gt', aficionados_base) | list | length %}
 <div class="container-fluid py-2">
 
-    <div class="mb-4">
-        <h1 class="h2 fw-bold text-white mb-1">
-            <i class="bi bi-people-fill text-success me-2"></i>Popularidad de Selecciones
-        </h1>
-        <p class="text-muted mb-0">
-            Ranking de aficionados por selección — independiente del ranking FIFAV. Sube con victorias,
-            actuaciones destacadas en derrota/empate y sorpresas ante rivales muy mejor rankeados.
-        </p>
-    </div>
-
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-dark table-hover mb-0 align-middle" id="tablaAficionados">
-                    <thead>
-                        <tr class="small text-uppercase text-muted">
-                            <th>#</th>
-                            <th>Selección</th>
-                            <th class="text-end">Aficionados</th>
-                            <th class="text-end">Ranking FIFAV</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fila in ranking %}
-                        <tr>
-                            <td class="text-muted">{{ loop.index }}</td>
-                            <td>
-                                <a href="/paises/{{ fila.pais_id }}" class="text-decoration-none text-reset fw-semibold">
-                                    {{ m.bandera(fila.bandera) }} {{ fila.nombre }}
-                                </a>
-                            </td>
-                            <td class="text-end">
-                                <span class="badge bg-success-subtle text-success border border-success-subtle fs-7">
-                                    <i class="bi bi-heart-fill me-1"></i>{{ "{:,}".format(fila.aficionados) }}
-                                </span>
-                            </td>
-                            <td class="text-end text-muted">#{{ fila.rankin_fifa }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <div class="card card-logo-fondo card-logo-fondo--sin-brillo fixture-hero mb-4" style="--logo-color: #f43f5e;">
+        <img src="{{ imagen_perfil('animo_euforico') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+        <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="min-w-0" style="max-width: 640px;">
+                <h1 class="h2 fw-bold text-white mb-1 d-flex align-items-center gap-2"><i class="bi bi-heart-fill text-danger"></i>Popularidad de Selecciones</h1>
+                <p class="text-muted mb-0 small">Independiente del ranking FIFAV: sube con victorias, actuaciones destacadas en derrota o empate y sorpresas ante rivales mucho mejor rankeados.</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <div class="fixture-kpi"><span>Aficionados</span><strong>{{ total | numero_compacto }}</strong></div>
+                <div class="fixture-kpi"><span>En ascenso</span><strong class="text-success">{{ subieron }}</strong></div>
+                <div class="fixture-kpi"><span>En descenso</span><strong class="text-danger">{{ ranking | selectattr('aficionados', 'lt', aficionados_base) | list | length }}</strong></div>
             </div>
         </div>
     </div>
 
+    {% if ranking | length >= 3 %}
+    <!-- Podio de las 3 más populares -->
+    <div class="podio podio--grande mb-4">
+        {% for i, clase, medalla in [(1, 'plata', '🥈'), (0, 'oro', '👑'), (2, 'bronce', '🥉')] %}
+        {% set f = ranking[i] %}
+        <div class="podio__lugar podio__lugar--{{ clase }}">
+            <span class="podio__medalla">{{ medalla }}</span>
+            <a href="/paises/{{ f.pais_id }}" class="podio__equipo">
+                {{ m.bandera(f.bandera, tipo='escudo', pais_id=f.pais_id) }}
+                <strong>{{ f.nombre }}</strong>
+            </a>
+            <span class="podio__puesto"><i class="bi bi-heart-fill text-danger"></i> {{ f.aficionados | numero_compacto }}</span>
+            <span class="podio__escalon"></span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card panel-filtros mb-3">
+        <div class="card-body p-3">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="search" id="buscarAficion" class="form-control" placeholder="Buscar selección...">
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex flex-column gap-2" id="tablaAficionados">
+        {% for fila in ranking %}
+        {% set sigla = siglas.get(fila.confederacion_id, '') %}{% set lc = logo_confederacion(sigla) %}
+        {% set delta = fila.aficionados - aficionados_base %}
+        <a href="/paises/{{ fila.pais_id }}" class="aficion-ranking {{ 'aficion-ranking--top' if loop.index <= 10 }}" data-busqueda="{{ fila.nombre | lower }}" style="--logo-color: {{ lc.color if lc else '#64748b' }};">
+            <span class="aficion-ranking__pos">{{ loop.index }}</span>
+            {{ m.bandera(fila.bandera, pais_id=fila.pais_id) }}
+            <span class="aficion-ranking__nombre">
+                <strong class="text-truncate">{{ fila.nombre }}</strong>
+                <small>{% if sigla %}{{ sigla }} · {% endif %}FIFAV #{{ fila.rankin_fifa }}</small>
+            </span>
+            <span class="aficion-ranking__barra"><span style="width: {{ (fila.aficionados * 100 / maximo) | round(1) }}%;"></span></span>
+            <span class="aficion-ranking__total"><i class="bi bi-heart-fill"></i>{{ fila.aficionados | numero_compacto }}</span>
+            <span class="aficion-ranking__delta {{ 'aficion-ranking__delta--mas' if delta > 0 else ('aficion-ranking__delta--menos' if delta < 0) }}">
+                {% if delta > 0 %}<i class="bi bi-caret-up-fill"></i>{% elif delta < 0 %}<i class="bi bi-caret-down-fill"></i>{% endif %}{{ (delta | abs) | numero_compacto if delta else '—' }}
+            </span>
+        </a>
+        {% endfor %}
+    </div>
+    <p id="sinAficion" class="text-muted text-center py-4 d-none">Ninguna selección coincide con la búsqueda.</p>
 </div>
 <script>
-    // Ranking de hasta 250 selecciones: de a 50 filas ("Mostrar más")
     document.addEventListener('DOMContentLoaded', () => {
-        const tabla = document.getElementById('tablaAficionados');
-        if (tabla) UI.paginador({ items: () => tabla.querySelectorAll('tbody tr'), porPagina: 50, despuesDe: tabla.closest('.card'), etiqueta: 'selecciones' });
+        const lista = document.getElementById('tablaAficionados');
+        if (!lista) return;
+        const filas = lista.querySelectorAll('.aficion-ranking');
+        // Ranking de hasta 250 selecciones: de a 50 filas ("Mostrar más")
+        const paginador = UI.paginador({ items: () => filas, porPagina: 50, despuesDe: lista, etiqueta: 'selecciones' });
+        document.getElementById('buscarAficion').addEventListener('input', ev => {
+            const texto = ev.target.value.toLowerCase().trim();
+            let visibles = 0;
+            filas.forEach(f => { const ok = f.dataset.busqueda.includes(texto); f.classList.toggle('d-none', !ok); visibles += ok; });
+            document.getElementById('sinAficion').classList.toggle('d-none', visibles > 0);
+            paginador.reiniciar();
+        });
     });
 </script>
 {% endblock %}

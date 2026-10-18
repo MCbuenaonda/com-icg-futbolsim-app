@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from services.juegos_service import obtener_juegos_programados, obtener_juego_activo, obtener_juegos_calendario, resaltar_jugadores_en_descripcion
+from services.juegos_service import obtener_juegos_programados, enriquecer_juegos_programados, armar_detalle_partido, obtener_juego_activo, obtener_juegos_calendario, resaltar_jugadores_en_descripcion
 from services.auth_service import context_usuario_actual, obtener_usuario_actual, tiene_permiso
 from services.imagenes_pais_service import GLOBALES_JINJA
 from services.juego_en_vivo_service import sesiones_pendientes_usuario
@@ -71,7 +71,7 @@ async def juegos(request: Request, q: str = "", confederacion: str = "", grupo: 
         filtrados = _filtrar_juegos(juegos, q, confederacion, grupo, fecha, jornada)
         total_paginas = max(1, -(-len(filtrados) // JUEGOS_POR_PAGINA))
         pagina = min(max(1, pagina), total_paginas)
-        juegos = filtrados[(pagina - 1) * JUEGOS_POR_PAGINA: pagina * JUEGOS_POR_PAGINA]
+        juegos = enriquecer_juegos_programados(filtrados[(pagina - 1) * JUEGOS_POR_PAGINA: pagina * JUEGOS_POR_PAGINA])
         filtros = {"q": q, "confederacion": confederacion, "grupo": grupo, "fecha": fecha, "jornada": jornada}
             
         # Elecciones pendientes del Juego en Vivo del usuario (badge "Vas con X" en cada tarjeta)
@@ -183,10 +183,11 @@ async def juego(request: Request, id: str):
             # vivo -- no mostrar el resultado crudo acá, mandar a la vista de transmisión.
             return RedirectResponse(url=request.url_for("live_match_view"), status_code=303)
 
+        detalle = armar_detalle_partido(juego) if juego and juego.get("resultado") else None
         return templates.TemplateResponse(
             request=request,
             name="resumen.html",
-            context={"partido": juego}
+            context={"partido": juego, "detalle": detalle}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")

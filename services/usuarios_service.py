@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 from bson.errors import InvalidId
+from pymongo import ReturnDocument
 from pymongo.mongo_client import MongoClient
 
 from config.secciones import CODIGOS_SECCIONES, PERMISO_TODO, ROL_ADMIN, secciones_por_grupo
@@ -193,3 +194,45 @@ def cambiar_password_propia(usuario_id: str, actual: str, nueva: str, confirmaci
     if verificar_password(nueva, usuario.get("password_hash")):
         raise GestionUsuariosError("La contraseña nueva debe ser distinta de la actual.")
     db["usuarios"].update_one({"_id": usuario["_id"]}, {"$set": {"password_hash": hashear_password(nueva), "debe_cambiar_password": False}})
+
+
+# ==========================================
+# Abonos de puntos (admin)
+# ==========================================
+MONTO_MAXIMO_ABONO = 1_000_000
+
+
+def abonar_puntos(admin_actual: dict, usuario_id: str, monto: Any, motivo: str) -> dict:
+    """
+    El admin suma puntos al saldo (usuarios.monto) de un usuario. Siempre deja registro en
+    'ajustes_saldo' (quién, a quién, cuánto, motivo, saldo resultante), que también se muestra en
+    el historial de movimientos de la cuenta del usuario (account_service, categoría "Ajuste").
+    Solo montos positivos: no es una herramienta para descontar.
+    """
+    oid = _oid(usuario_id)
+    try:
+        monto = int(str(monto).replace(".", "").replace(",", "").strip())
+    except (TypeError, ValueError):
+        raise GestionUsuariosError("El monto debe ser un número entero.")
+    if monto <= 0:
+        raise GestionUsuariosError("El monto a abonar debe ser mayor que 0.")
+    if monto > MONTO_MAXIMO_ABONO:
+        raise GestionUsuariosError(f"El monto máximo por abono es {MONTO_MAXIMO_ABONO:,}.")
+    motivo = (motivo or "").strip()
+    if len(motivo) < 3:
+        raise GestionUsuariosError("Indica el motivo del abono (queda registrado).")
+    usuario = db["usuarios"].find_one_and_update(
+        {"_id": oid}, {"$inc": {"monto": monto}}, projection={"username": 1, "monto": 1}, return_document=ReturnDocument.AFTER
+    )
+    if not usuario:
+        raise GestionUsuariosError("El usuario no existe.")
+    db["ajustes_saldo"].insert_one({
+        "user_id": oid, "username": usuario.get("username"), "monto": monto, "motivo": motivo[:200],
+        "saldo_resultante": usuario.get("monto"), "admin_id": admin_actual.get("_id"),
+        "admin_username": admin_actual.get("username"), "creado_en": datetime.now(),
+    })
+    return {"username": usuario.get("username"), "monto": monto, "saldo": usuario.get("monto")}
+
+
+def listar_ajustes_recientes(limite: int = 10) -> List[dict]:
+    return list(db["ajustes_saldo"].find({}, {"_id": 0}).sort("creado_en", -1).limit(limite))

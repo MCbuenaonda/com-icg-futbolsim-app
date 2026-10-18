@@ -32,6 +32,7 @@ from typing import Any, Dict, Optional
 from bson import ObjectId
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
+from services import niveles_service
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -111,6 +112,11 @@ def check_in(user_id: str) -> dict:
     })
 
     total_checkins = registro.get("total_checkins", 0) + 1
+
+    # XP de niveles (nunca lanza): el check-in del día y, si cerró la racha de 5, el bonus
+    niveles_service.otorgar_xp(usuario_oid, "CHECKIN", hoy_str)
+    if bono_especial_otorgado:
+        niveles_service.otorgar_xp(usuario_oid, "CHECKIN_RACHA", hoy_str)
 
     return {
         "bono_otorgado": bono,

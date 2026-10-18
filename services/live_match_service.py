@@ -223,6 +223,15 @@ def _disparar_efectos_pendientes(juego: Dict[str, Any]) -> None:
     finally:
         db["juegos"].update_one({"_id": juego["_id"]}, {"$unset": {"efectos_pendientes": ""}})
 
+    # Juego en Vivo: liquida (pago final) las sesiones de este partido de TODOS los usuarios, aunque
+    # ninguno esté mirando /en-vivo (antes solo se liquidaban con el poll del propio usuario).
+    # Import local: juego_en_vivo_service importa este módulo.
+    try:
+        from services.juego_en_vivo_service import liquidar_sesiones_abiertas
+        liquidar_sesiones_abiertas(juego_id=juego["_id"])
+    except Exception as e:
+        logger.error(f"No se pudieron liquidar las sesiones del Juego en Vivo del partido {juego_id}: {str(e)}")
+
 
 def obtener_estado_live() -> Optional[Dict[str, Any]]:
     """

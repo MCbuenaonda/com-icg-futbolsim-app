@@ -182,23 +182,84 @@ document.addEventListener('DOMContentLoaded', function () {
         return texto;
     }
 
-    function renderEventos(eventos) {
+    // Cronología: cada evento con su categoría (color/peso visual) y el lado del equipo. Los
+    // eventos de "relleno" (transición, preparación, presión; ~70% del total) se marcan para que el
+    // filtro "Jugadas clave" (por defecto) los oculte vía CSS sin volver a renderizar.
+    const TIPOS_RELLENO = ['EN TRANSICIÓN', 'PREPARACIÓN', 'PRESIÓN DEFENSIVA'];
+    function categoriaEvento(tipo) {
+        const t = tipo || '';
+        if (t.includes('ANULADO')) return 'var';
+        if (t.includes('GOL')) return 'gol';
+        if (t.includes('ROJA')) return 'roja';
+        if (t.includes('AMARILLA')) return 'amarilla';
+        if (t.includes('SUSTITUCIÓN')) return 'cambio';
+        if (t.includes('ATAJADA') || t.includes('DISPARO') || t.includes('CÓRNER') || t.includes('TIRO LIBRE') || t.includes('ERROR')) return 'ocasion';
+        if (t.includes('SILBATO') || t.includes('PITIDO') || t.includes('FINAL DEL') || t.includes('SAQUE DE CENTRO')) return 'hito';
+        if (TIPOS_RELLENO.some(r => t.includes(r))) return 'relleno';
+        return 'jugada';
+    }
+    const contadorEventos = document.getElementById('contadorEventos');
+    document.querySelectorAll('[data-filtro-cronologia]').forEach(boton => boton.addEventListener('click', () => {
+        document.querySelectorAll('[data-filtro-cronologia]').forEach(b => b.classList.toggle('active', b === boton));
+        listaEventos.classList.toggle('cronologia--clave', boton.dataset.filtroCronologia === 'clave');
+    }));
+
+    let cronologiaUltimoTotal = 0;
+    let cronologiaMatchId = null;
+    function renderEventos(eventos, nombreEquipoLocal, nombreEquipoVisitante, matchId) {
+        // Solo los eventos que no estaban en el poll anterior se animan (el innerHTML se rehace cada 3 s)
+        if (cronologiaMatchId !== matchId) { cronologiaMatchId = matchId; cronologiaUltimoTotal = 0; }
+        const totalAnterior = cronologiaUltimoTotal;
+        cronologiaUltimoTotal = (eventos || []).length;
         if (!eventos || eventos.length === 0) {
             listaEventos.innerHTML = '<div class="text-muted text-center py-3">Esperando el primer evento del partido...</div>';
+            if (contadorEventos) contadorEventos.textContent = '';
             return;
         }
+        let claves = 0;
         // Del más reciente al más antiguo, igual que una transmisión real
-        const items = eventos.slice().reverse().map(evento => `
-            <div class="list-group-item bg-dark text-white d-flex align-items-start py-3 border-bottom border-secondary">
+        const items = eventos.slice().reverse().map((evento, i) => {
+            const categoria = categoriaEvento(evento.tipo);
+            if (categoria !== 'relleno') claves += 1;
+            const lado = evento.equipo === nombreEquipoLocal ? 'local' : (evento.equipo === nombreEquipoVisitante ? 'visitante' : 'neutral');
+            const nuevo = totalAnterior > 0 && i < eventos.length - totalAnterior;
+            return `
+            <div class="evento evento--${categoria} evento--${lado}${nuevo ? ' evento--nuevo' : ''}">
                 ${badgeMinuto(evento)}
-                <div>
-                    <strong>${evento.tipo}</strong>
-                    <span class="text-muted">(${evento.equipo})</span>:
-                    <span>${resaltarJugadores(evento.descripcion, evento.jugadores)}</span>
+                <div class="evento__cuerpo">
+                    <div class="evento__tipo">${evento.tipo}${evento.equipo ? ` <span class="evento__equipo">${escaparHtml(evento.equipo)}</span>` : ''}</div>
+                    <div class="evento__texto">${resaltarJugadores(evento.descripcion, evento.jugadores)}</div>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
         listaEventos.innerHTML = items;
+        if (contadorEventos) contadorEventos.textContent = `${claves} clave · ${eventos.length}`;
+    }
+
+    // Marcador estilo TV: banderas, siglas, escudos de marca de agua y la ilustración del estadio.
+    // Las imágenes solo se cargan cuando cambia el partido (el polling de 3 s no las vuelve a pedir).
+    let marcadorTvMatchId = null;
+    function ponerImagen(id, url) {
+        const img = document.getElementById(id);
+        if (!img) return;
+        if (!url) { img.classList.add('d-none'); return; }
+        img.onerror = () => img.classList.add('d-none');
+        img.src = url;
+        img.classList.remove('d-none');
+    }
+    function renderMarcadorTv(data) {
+        if (marcadorTvMatchId === data.match_id) return;
+        marcadorTvMatchId = data.match_id;
+        const url = (id, tipo) => (id && window.UI && UI.urlImagenPais) ? UI.urlImagenPais(id, tipo) : null;
+        ponerImagen('marcadorBanderaLocal', url(data.id_local, 'bandera'));
+        ponerImagen('marcadorBanderaVisitante', url(data.id_visita, 'bandera'));
+        ponerImagen('marcadorEscudoLocal', url(data.id_local, 'escudo'));
+        ponerImagen('marcadorEscudoVisitante', url(data.id_visita, 'escudo'));
+        ponerImagen('marcadorEstadio', data.estadio_img);
+        const siglasL = document.getElementById('marcadorSiglasLocal');
+        const siglasV = document.getElementById('marcadorSiglasVisitante');
+        if (siglasL) siglasL.textContent = data.siglas_local || '';
+        if (siglasV) siglasV.textContent = data.siglas_visitante || '';
     }
 
     // Cancha en Vivo: posiciona el balón (<div>#canchaBalon, left/top en %) según
@@ -1692,8 +1753,10 @@ document.addEventListener('DOMContentLoaded', function () {
         nombreVisitante.textContent = data.visitante;
         marcador.textContent = `${data.goles_local} - ${data.goles_visitante}`;
         renderMarcadorAgua(data);
-        minutoActual.textContent = `${data.minuto_actual}'`;
-        renderEventos(data.eventos);
+        minutoActual.textContent = data.finalizado ? 'FINAL' : `${data.minuto_actual}'`;
+        minutoActual.classList.toggle('marcador-tv__minuto--final', !!data.finalizado);
+        renderEventos(data.eventos, data.local, data.visitante, data.match_id);
+        renderMarcadorTv(data);
         await actualizarPlantillasSiCorresponde(data.match_id);
         renderCancha(data);
         reiniciarJugadoresCanchaSiCambioPartido(data.match_id);
@@ -2074,6 +2137,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="small text-muted mb-1">Eventos que más te impactaron</div>
                 <div class="jev-feed">${destacados}</div>
             </div>`;
+        // una sola vez por partido: saldo del navbar + XP de niveles ganada (toast)
+        if (contenedor.dataset.saldoRefrescado !== String(estado.juego_id) && window.UI) {
+            contenedor.dataset.saldoRefrescado = String(estado.juego_id);
+            UI.refrescarSaldo();
+        }
     }
 
     // Fuera de transmisión: resumen del último partido visto + selector del próximo

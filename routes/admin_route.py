@@ -13,8 +13,8 @@ from fastapi.templating import Jinja2Templates
 from services.auth_service import context_usuario_actual, obtener_usuario_actual
 from services.imagenes_pais_service import GLOBALES_JINJA
 from services.usuarios_service import (
-    GestionUsuariosError, actualizar_usuario, borrar_rol, crear_usuario, generar_password_temporal, guardar_rol,
-    listar_roles, listar_usuarios, matriz_secciones, restablecer_password,
+    GestionUsuariosError, abonar_puntos, actualizar_usuario, borrar_rol, crear_usuario, generar_password_temporal, guardar_rol,
+    listar_ajustes_recientes, listar_roles, listar_usuarios, matriz_secciones, restablecer_password,
 )
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
@@ -34,7 +34,7 @@ def _pagina_usuarios(request: Request, error: Optional[str] = None, exito: Optio
     return templates.TemplateResponse(
         request=request, name="admin_usuarios.html", status_code=status_code,
         context={
-            "usuarios": listar_usuarios(), "roles": listar_roles(),
+            "usuarios": listar_usuarios(), "roles": listar_roles(), "ajustes": listar_ajustes_recientes(),
             "error": error, "exito": exito, "password_mostrada": password_mostrada,
         }
     )
@@ -78,6 +78,17 @@ async def reset_password(request: Request, usuario_id: str, username: str = Form
         request, exito=f"Contraseña de '{username}' restablecida. Deberá cambiarla al ingresar.",
         password_mostrada={"username": username, "password": nueva},
     )
+
+
+@route.post("/usuarios/{usuario_id}/abonar", response_class=HTMLResponse, name="admin_abonar_puntos")
+async def abonar(request: Request, usuario_id: str, monto: str = Form(...), motivo: str = Form("")):
+    """Suma puntos al saldo del usuario (queda auditado en 'ajustes_saldo')."""
+    try:
+        r = abonar_puntos(obtener_usuario_actual(request), usuario_id, monto, motivo)
+    except GestionUsuariosError as e:
+        return _pagina_usuarios(request, error=str(e), status_code=400)
+    return RedirectResponse(url=request.url_for("admin_usuarios").include_query_params(
+        exito=f"Se abonaron {r['monto']:,} pts a '{r['username']}'. Saldo actual: {r['saldo']:,} pts."), status_code=303)
 
 
 # ==========================================

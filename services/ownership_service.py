@@ -45,6 +45,7 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
+from services import niveles_service
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -197,6 +198,10 @@ def buy_team(user_id: str, pais_id: int) -> dict:
         "amount_points": -costo,
         "created_at": datetime.now()
     })
+
+    # XP de niveles (nunca lanza). Vender no da XP: así no sirve el bucle comprar-vender.
+    niveles_service.otorgar_xp(usuario_oid, "SELECCION_COMPRA", inversion["_id"])
+    niveles_service.otorgar_logro(usuario_oid, "PRIMERA_SELECCION")
 
     return _serializar_inversion(inversion, pais)
 
@@ -374,7 +379,7 @@ def _abonar_puntos_dueno(user_id: Any, pais_id: int, monto: int, tipo: str) -> N
         {"pais_id": pais_id, "status": ESTADO_INVERSION_ACTIVO},
         {"$inc": {"total_dividends_earned": monto_final}}
     )
-    db['ownership_transactions'].insert_one({
+    transaccion = db['ownership_transactions'].insert_one({
         "user_id": usuario_oid,
         "pais_id": pais_id,
         "type": tipo,
@@ -382,6 +387,7 @@ def _abonar_puntos_dueno(user_id: Any, pais_id: int, monto: int, tipo: str) -> N
         "album_synergy_applied": dueno_tiene_estampa,
         "created_at": datetime.now()
     })
+    niveles_service.otorgar_xp(usuario_oid, "SELECCION_DIVIDENDO", transaccion.inserted_id)
 
     # Recompensa pasiva (+20 pts) para todo el resto de usuarios que tienen la estampa
     # de este país en su álbum, sin ser los dueños de la selección.

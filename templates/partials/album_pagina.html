@@ -1,0 +1,99 @@
+{#
+  Una hoja del álbum: un país (escudo, ciudades sede y plantel) o la página especial de árbitros
+  (h.tipo == 'arbitros', estampas Platino en pestañas por puesto). Trae TODOS los casilleros (las
+  estampas que faltan, como hueco con el nombre impreso). Se incluye en album_coleccion.html y se
+  sirve suelta en /album-estampas/coleccion/pagina/{n} para hojear sin recargar.
+  Datos: album_service.obtener_album_pagina.
+#}
+{% import "partials/macros.html" as m %}
+{% import "partials/estampas.html" as e %}
+{% set h = album.pagina %}
+{% if h.tipo == 'arbitros' %}
+{# Página especial: los árbitros del torneo como estampas Platino, una pestaña por puesto #}
+<section class="album-pagina album-hoja album-hoja--platino" style="--logo-color: #cbd5e1;"
+         data-pagina="{{ h.numero }}" data-nombre="{{ h.nombre }}" data-total="{{ album.total_paginas }}"
+         data-anterior="{{ h.anterior or '' }}" data-siguiente="{{ h.siguiente or '' }}">
+    <i class="bi bi-person-badge album-pagina__escudo album-hoja__marca" aria-hidden="true"></i>
+    <span class="album-hoja__folio">{{ h.numero }}</span>
+
+    <header class="album-pagina__cabecera">
+        <div class="d-flex align-items-center gap-2 min-w-0">
+            <span class="album-hoja__sello-platino"><i class="bi bi-star-fill"></i></span>
+            <div class="min-w-0">
+                <span class="album-hoja__edicion">Edición Platino · estampas raras</span>
+                <h2 class="h4 fw-bold text-white mb-0">Árbitros del torneo</h2>
+            </div>
+        </div>
+        <div class="album-pagina__progreso">
+            <span><strong>{{ h.obtenidas }}</strong>/{{ h.total }}</span>
+            <div class="album-pagina__barra"><span style="width: {{ h.porcentaje }}%;"></span></div>
+            {% if h.obtenidas == h.total %}<span class="album-hoja__completa"><i class="bi bi-patch-check-fill"></i> Completa</span>{% endif %}
+        </div>
+    </header>
+    <p class="text-muted small mb-3">Salen en los sobres con un 5% de probabilidad por estampa. Una platino repetida se vende sola por 30 pts.</p>
+
+    <div class="d-flex gap-2 flex-wrap mb-3 album-puestos" role="tablist">
+        {% for g in h.puestos %}
+        <button type="button" class="filtro-conf {{ 'activo' if loop.first }}" data-puesto="{{ g.codigo }}" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" style="--conf-color: #cbd5e1;">
+            <strong>{{ g.sigla }}</strong> {{ g.nombre }} <span>{{ g.obtenidas }}/{{ g.total }}</span>
+        </button>
+        {% endfor %}
+    </div>
+    {% for g in h.puestos %}
+    <div class="album-grilla {{ 'd-none' if not loop.first }}" data-grilla-puesto="{{ g.codigo }}" role="tabpanel">
+        {% for a in g.arbitros %}{% if a.obtenida %}{{ e.arbitro(a) }}{% else %}{{ e.vacia_arbitro(a) }}{% endif %}{% endfor %}
+    </div>
+    {% endfor %}
+</section>
+{% else %}
+{% set color = (logo_confederacion(h.confederacion) or {}).get('color', '#22c55e') %}
+<section class="album-pagina album-hoja" style="--logo-color: {{ color }};"
+         data-pagina="{{ h.numero }}" data-nombre="{{ h.nombre }}" data-total="{{ album.total_paginas }}"
+         data-anterior="{{ h.anterior or '' }}" data-siguiente="{{ h.siguiente or '' }}">
+    {% set escudo_url = img_pais(h.pais_id, 'escudo') %}
+    {% if escudo_url %}<img src="{{ escudo_url }}" alt="" aria-hidden="true" class="album-pagina__escudo" onerror="this.remove()">{% endif %}
+    <span class="album-hoja__folio">{{ h.numero }}</span>
+
+    <header class="album-pagina__cabecera">
+        <div class="d-flex align-items-center gap-2 min-w-0">
+            {{ m.bandera(h.bandera, pais_id=h.pais_id) }}
+            <h2 class="h4 fw-bold text-white mb-0 text-truncate"><a href="/paises/{{ h.pais_id }}">{{ h.nombre }}</a></h2>
+            {% if h.confederacion %}<span class="album-pagina__conf">{{ h.confederacion }}</span>{% endif %}
+        </div>
+        <div class="album-pagina__progreso">
+            <span><strong>{{ h.obtenidas }}</strong>/{{ h.total }}</span>
+            <div class="album-pagina__barra"><span style="width: {{ h.porcentaje }}%;"></span></div>
+            {% if h.obtenidas == h.total %}<span class="album-hoja__completa"><i class="bi bi-patch-check-fill"></i> Completa</span>{% endif %}
+        </div>
+    </header>
+
+    <!-- Escudo + resumen de la página -->
+    <div class="album-hoja__portada">
+        <div class="album-hoja__escudo-casilla">
+            {% if h.escudo_estampa.obtenida %}{{ e.pais(h.escudo_estampa) }}{% else %}{{ e.vacia_pais(h.escudo_estampa) }}{% endif %}
+        </div>
+        <div class="album-hoja__resumen">
+            {% for icono, etiqueta, tengo, total in [
+                ('bi-shield-fill', 'Escudo', 1 if h.escudo else 0, 1),
+                ('bi-building', 'Sedes', h.ciudades, h.total_ciudades),
+                ('bi-person-fill', 'Plantel', h.jugadores, h.total_jugadores)] %}
+            <div class="album-hoja__dato {{ 'album-hoja__dato--lleno' if tengo == total }}">
+                <i class="bi {{ icono }}"></i>
+                <span><small>{{ etiqueta }}</small><strong>{{ tengo }}</strong>/{{ total }}</span>
+            </div>
+            {% endfor %}
+            {% if h.siglas %}<p class="album-hoja__nota mb-0">Página {{ h.numero }} de {{ album.total_paginas }} · {{ h.siglas }}</p>{% endif %}
+        </div>
+    </div>
+
+    <h3 class="album-hoja__seccion"><i class="bi bi-building"></i>Ciudades y estadios <span>{{ h.ciudades }}/{{ h.total_ciudades }}</span></h3>
+    <div class="album-grilla">
+        {% for c in h.ciudades_estampa %}{% if c.obtenida %}{{ e.ciudad(c) }}{% else %}{{ e.vacia_ciudad(c) }}{% endif %}{% endfor %}
+    </div>
+
+    <h3 class="album-hoja__seccion"><i class="bi bi-person-fill"></i>Plantel <span>{{ h.jugadores }}/{{ h.total_jugadores }}</span></h3>
+    <div class="album-grilla">
+        {% for j in h.plantel %}{% if j.obtenida %}{{ e.jugador(j, h.pais_id, h.bandera) }}{% else %}{{ e.vacia(j) }}{% endif %}{% endfor %}
+    </div>
+</section>
+{% endif %}

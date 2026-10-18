@@ -15,7 +15,7 @@ from services.imagenes_pais_service import GLOBALES_JINJA
 from services.cara_a_cara_service import listar_paises, obtener_cara_a_cara
 from services.cuadro_service import obtener_cuadro
 from services.palmares_service import obtener_palmares
-from services.arbitros_service import listar_arbitros, perfil_arbitro
+from services.arbitros_service import listar_arbitros, perfil_arbitro, comparar_con_colegas
 from services.ranking_usuarios_service import obtener_ranking_usuarios
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
@@ -58,7 +58,9 @@ async def arbitros(request: Request):
 @route_arbitros.get("/perfil", response_class=HTMLResponse, name="arbitro_perfil")
 async def arbitro(request: Request, nombre: str):
     # Por query string: los nombres de árbitro tienen espacios y caracteres especiales
-    return templates.TemplateResponse(request=request, name="arbitro.html", context={"arbitro": perfil_arbitro(nombre), "nombre": nombre})
+    perfil = perfil_arbitro(nombre)
+    return templates.TemplateResponse(request=request, name="arbitro.html", context={"arbitro": perfil, "nombre": nombre,
+                                      "comparativa": comparar_con_colegas(perfil) if perfil else {}})
 
 
 @route_ranking.get("/", response_class=HTMLResponse, name="ranking_usuarios")

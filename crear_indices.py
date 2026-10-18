@@ -55,6 +55,8 @@ def crear_indices():
 
     arbitros = db['arbitros']
     arbitros.create_index("puesto", name="puesto")
+    # 'id' numérico (asignar_id_arbitros.py): estampas de árbitro del álbum (user_albums.owned_arbitros)
+    arbitros.create_index("id", name="id", unique=True)
     print("✅ Índices creados en 'arbitros'")
 
     usuarios = db['usuarios']
@@ -122,6 +124,15 @@ def crear_indices():
     pack_purchases = db['pack_purchases']
     pack_purchases.create_index("user_id", name="user_id")
     print("✅ Índice creado en 'pack_purchases'")
+
+    # Niveles (services/niveles_service.py): el índice único es lo que hace idempotente a otorgar_xp
+    # (una acción nunca suma XP dos veces) y el de fecha cuenta los topes diarios.
+    xp_eventos = db['xp_eventos']
+    xp_eventos.create_index([("user_id", 1), ("accion", 1), ("ref", 1)], name="user_accion_ref", unique=True)
+    xp_eventos.create_index([("user_id", 1), ("fecha", 1), ("accion", 1)], name="user_fecha_accion")
+    xp_eventos.create_index([("user_id", 1), ("creado_en", -1)], name="user_creado")
+    db['recompensas_nivel'].create_index([("user_id", 1), ("nivel", 1)], name="user_nivel", unique=True)
+    print("✅ Índices creados en 'xp_eventos' y 'recompensas_nivel'")
 
     # Nota: 'jugadores.pais_id' ya tiene índice (creado más arriba, sección de 'jugadores')
     # y lo reutilizan tanto ownership_service como fantasy_service/album_service.

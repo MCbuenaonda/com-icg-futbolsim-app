@@ -115,6 +115,18 @@
                     </li>
                     {% endif %}
 
+                    {% if nivel_actual %}
+                    <!-- Nivel de socio: aro de progreso al siguiente nivel + globito de recompensas por reclamar (services/niveles_service.py) -->
+                    <li class="nav-item ms-lg-2 my-2 my-lg-0">
+                        <a href="/niveles/" id="nivelNavbar" class="nivel-insignia {{ 'nivel-insignia--activo' if nav_activo('/niveles') }}" style="--pct: {{ nivel_actual.pct }};"
+                           data-xp="{{ nivel_actual.xp }}" data-nivel="{{ nivel_actual.nivel }}"
+                           title="Nivel {{ nivel_actual.nivel }} · {{ nivel_actual.titulo }} · {{ '{:,}'.format(nivel_actual.xp) }} XP">
+                            <span class="nivel-insignia__aro"><span class="nivel-insignia__numero">{{ nivel_actual.nivel }}</span></span>
+                            <span class="nivel-insignia__texto d-lg-none">Nivel {{ nivel_actual.nivel }} · {{ nivel_actual.titulo }}</span>
+                            <span class="nivel-insignia__globo {{ 'd-none' if not nivel_actual.pendientes }}">{{ nivel_actual.pendientes }}</span>
+                        </a>
+                    </li>
+                    {% endif %}
                     <!-- Saldo siempre visible (antes escondido dentro del menú del usuario) -->
                     <li class="nav-item ms-lg-2 my-2 my-lg-0">
                         <span class="saldo-pill" id="saldoUsuarioNavbar" title="Tu saldo" data-monto="{{ usuario_actual.monto or 0 }}" aria-live="polite">
@@ -148,6 +160,27 @@
         <!-- Aquí se inyectará el contenido de las distintas vistas -->
         {% endblock %}
     </main>
+
+    {% if nivel_actual and nivel_actual.sin_ver and not request.url.path.startswith('/en-vivo') %}
+    <!-- "¡Subiste de nivel!": una sola vez por nivel nuevo (POST /niveles/visto al cerrarlo). Sirve aunque la
+         subida haya venido de algo automático (dividendo, regalía, quiniela liquidada al simular). -->
+    <div class="modal fade" id="modalSubidaNivel" tabindex="-1" aria-labelledby="modalSubidaNivelTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content nivel-modal text-center">
+                <div class="modal-body p-4">
+                    <div class="nivel-modal__aro" style="--pct: 100;"><span>{{ nivel_actual.nivel }}</span></div>
+                    <span class="nivel-modal__eyebrow">¡Subiste de nivel!</span>
+                    <h2 class="h3 fw-bold text-white mb-1" id="modalSubidaNivelTitulo">Nivel {{ nivel_actual.nivel }} · {{ nivel_actual.titulo }}</h2>
+                    <p class="text-muted mb-3">{% if nivel_actual.pendientes %}Tenés {{ nivel_actual.pendientes }} recompensa{{ 's' if nivel_actual.pendientes != 1 }} esperando para reclamar.{% else %}Seguí jugando para llegar al próximo nivel.{% endif %}</p>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <a href="/niveles/" class="btn btn-warning fw-bold rounded-pill px-4" data-nivel-visto><i class="bi bi-gift-fill me-1"></i>{{ 'Reclamar' if nivel_actual.pendientes else 'Ver mi nivel' }}</a>
+                        <button type="button" class="btn btn-outline-light rounded-pill px-3" data-bs-dismiss="modal">Después</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Footer -->
     <footer class="app-footer text-center py-3 mt-auto">
@@ -484,6 +517,17 @@
     <script>window.PAISES_IMG = {{ mapa_banderas_json() | safe }};</script>
     <!-- Utilidades compartidas: UI.escapar, UI.confirmar (modal propio), UI.refrescarSaldo, accesibilidad -->
     <script src="{{ url_for('static', path='/js/ui.js') }}"></script>
+    {% if nivel_actual and nivel_actual.sin_ver and not request.url.path.startswith('/en-vivo') %}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const el = document.getElementById('modalSubidaNivel');
+            const marcarVisto = () => fetch('/niveles/visto', { method: 'POST', keepalive: true }).catch(() => {});
+            el.addEventListener('hidden.bs.modal', marcarVisto, { once: true });
+            el.querySelector('[data-nivel-visto]').addEventListener('click', marcarVisto);
+            bootstrap.Modal.getOrCreateInstance(el).show();
+        });
+    </script>
+    {% endif %}
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

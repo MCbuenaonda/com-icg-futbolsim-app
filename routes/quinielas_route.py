@@ -13,7 +13,7 @@ from services.quinielas_service import (
     obtener_boletos_usuario,
     obtener_rendimiento_quinielas
 )
-from services.juegos_service import obtener_juegos_programados
+from services.juegos_service import obtener_juegos_programados, enriquecer_juegos_programados
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 from services.imagenes_pais_service import GLOBALES_JINJA
 import certifi
@@ -86,7 +86,8 @@ async def quinielas_home(request: Request):
     mundial_id = mundial_activo["_id"] if mundial_activo else None
 
     configs = obtener_configs_activas()
-    partidos_disponibles = obtener_juegos_programados(db, mundial_id)
+    # con ranking actual y favoritismo (Elo, mismo cálculo que /juegos y el Scouter) para ayudar a pronosticar
+    partidos_disponibles = enriquecer_juegos_programados(obtener_juegos_programados(db, mundial_id))
 
     return templates.TemplateResponse(
         request=request,
@@ -118,9 +119,11 @@ async def quinielas_mias(request: Request):
     if ids_juegos:
         cursor = db["juegos"].find(
             {"_id": {"$in": list(ids_juegos)}},
-            {"equipo_local": 1, "equipo_visitante": 1, "fecha": 1}
+            {"equipo_local": 1, "equipo_visitante": 1, "fecha": 1, "estado": 1, "grupo": 1,
+             "resultado.goles_local": 1, "resultado.goles_visitante": 1, "transmision.estado": 1}
+            # (_id se convierte a str abajo, para el link al partido)
         )
-        partidos_por_id = {str(j["_id"]): j for j in cursor}
+        partidos_por_id = {str(j["_id"]): {**j, "_id": str(j["_id"])} for j in cursor}
 
     ids_configs = {ObjectId(boleto["quiniela_config_id"]) for boleto in boletos}
     configs_por_id = {}

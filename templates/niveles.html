@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Nivel - FutbolSim{% endblock %}
+
+{% block content %}
+{#
+  Niveles de Socio FIFAV: nivel actual y barra de XP, la escalera de los niveles con su recompensa
+  (reclamar = POST /niveles/reclamar/{n}), cómo se gana XP con el avance de hoy contra cada tope,
+  logros únicos e historial. Reglas en config/niveles.py; datos: niveles_service.obtener_progreso.
+#}
+{% set p = progreso %}
+{% macro recompensa(r) -%}
+{%- if r.tipo == 'PUNTOS' -%}<span class="nivel-premio nivel-premio--puntos"><i class="bi bi-coin"></i>{{ "{:,}".format(r.cantidad) }} pts</span>
+{%- elif r.tipo == 'PLATINO' -%}<span class="nivel-premio nivel-premio--platino"><i class="bi bi-star-fill"></i>Sobre Platino</span>
+{%- else -%}<span class="nivel-premio nivel-premio--sobre"><i class="bi bi-gift-fill"></i>{{ r.cantidad }} sobre{{ 's' if r.cantidad != 1 }}</span>{%- endif -%}
+{%- endmacro %}
+
+<!-- Encabezado: nivel actual -->
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo nivel-hero mb-4" style="--logo-color: #eab308;">
+    <img src="{{ imagen_inicio('copa') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+    <div class="card-body p-3 p-md-4">
+        <div class="d-flex align-items-center gap-3 gap-md-4 flex-wrap">
+            <div class="nivel-hero__aro" style="--pct: {{ p.pct }};"><span><small>Nivel</small>{{ p.nivel }}</span></div>
+            <div class="flex-grow-1 min-w-0">
+                <span class="nivel-modal__eyebrow">Socio FIFAV</span>
+                <h1 class="h2 fw-bold text-white mb-2">{{ p.titulo }}</h1>
+                {% if p.maximo %}
+                <p class="text-muted small mb-0"><i class="bi bi-trophy-fill text-warning me-1"></i>Llegaste al nivel máximo. Tu XP sigue sumando para los próximos niveles.</p>
+                {% else %}
+                <div class="d-flex justify-content-between small mb-1">
+                    <span class="text-muted">Hacia nivel {{ p.nivel + 1 }}</span>
+                    <span><strong class="text-warning">{{ "{:,}".format(p.xp - p.xp_base) }}</strong><span class="text-muted"> / {{ "{:,}".format(p.xp_siguiente - p.xp_base) }} XP</span></span>
+                </div>
+                <div class="nivel-barra"><span style="width: {{ p.pct }}%;"></span></div>
+                <p class="text-muted small mb-0 mt-1">Te faltan <strong class="text-white">{{ "{:,}".format(p.xp_siguiente - p.xp) }} XP</strong>.</p>
+                {% endif %}
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <div class="fixture-kpi"><span>XP total</span><strong>{{ "{:,}".format(p.xp) }}</strong></div>
+                <div class="fixture-kpi"><span>XP hoy</span><strong class="text-warning">+{{ p.xp_hoy }}</strong></div>
+                <div class="fixture-kpi"><span>Logros</span><strong>{{ p.logros_obtenidos }}/{{ p.logros | length }}</strong></div>
+            </div>
+        </div>
+        {% if p.sobres_gratis or p.sobres_platino %}
+        <a href="/album-estampas/sobres" class="nivel-sobres-aviso mt-3">
+            <i class="bi bi-gift-fill"></i>
+            <span>Tenés {% if p.sobres_gratis %}<strong>{{ p.sobres_gratis }} sobre{{ 's' if p.sobres_gratis != 1 }} gratis</strong>{% endif %}{% if p.sobres_gratis and p.sobres_platino %} y {% endif %}{% if p.sobres_platino %}<strong>{{ p.sobres_platino }} sobre{{ 's' if p.sobres_platino != 1 }} Platino</strong>{% endif %} para abrir</span>
+            <i class="bi bi-arrow-right ms-auto"></i>
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div id="alertaNiveles" class="alert d-none" role="alert"></div>
+
+<!-- Escalera de niveles -->
+<h2 class="vivo-titulo"><i class="bi bi-bar-chart-steps text-warning"></i>Niveles y recompensas</h2>
+<div class="nivel-escalera mb-4">
+    {% for n in p.escalera %}
+    <div class="nivel-paso nivel-paso--{{ n.estado }} {{ 'nivel-paso--actual' if n.nivel == p.nivel }}" data-nivel="{{ n.nivel }}">
+        <div class="nivel-paso__cabecera">
+            <span class="nivel-paso__numero">{{ n.nivel }}</span>
+            <span class="nivel-paso__estado">
+                {% if n.estado == 'reclamada' %}<i class="bi bi-check-circle-fill"></i>
+                {% elif n.estado == 'pendiente' %}<i class="bi bi-gift-fill"></i>
+                {% elif n.estado == 'bloqueada' %}<i class="bi bi-lock-fill"></i>
+                {% else %}<i class="bi bi-check-circle"></i>{% endif %}
+            </span>
+        </div>
+        <strong class="nivel-paso__titulo">{{ n.titulo }}</strong>
+        <small class="nivel-paso__xp">{{ "{:,}".format(n.xp_requerida) }} XP</small>
+        <div class="nivel-paso__premios">
+            {% for r in n.recompensas %}{{ recompensa(r) }}{% else %}<span class="text-muted small">Punto de partida</span>{% endfor %}
+        </div>
+        {% if n.estado == 'pendiente' %}
+        <button type="button" class="btn btn-warning btn-sm fw-bold rounded-pill w-100 mt-auto" data-reclamar="{{ n.nivel }}"><i class="bi bi-gift-fill me-1"></i>Reclamar</button>
+        {% elif n.estado == 'reclamada' %}
+        <span class="nivel-paso__pie text-success"><i class="bi bi-check2 me-1"></i>Reclamada</span>
+        {% elif n.estado == 'bloqueada' %}
+        <span class="nivel-paso__pie text-muted">Faltan {{ "{:,}".format(n.xp_requerida - p.xp) }} XP</span>
+        {% else %}
+        <span class="nivel-paso__pie text-muted">Alcanzado</span>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-4">
+    <!-- Cómo ganar XP -->
+    <div class="col-12 col-xl-7">
+        <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: #22c55e;">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="vivo-titulo"><i class="bi bi-lightning-charge-fill text-success"></i>Cómo ganar XP</h2>
+                <p class="text-muted small mb-3">Hacer de todo un poco rinde más que repetir lo mismo: cada acción tiene un tope por día. Vender no da XP.</p>
+                <div class="d-flex flex-column gap-2">
+                    {% for r in p.reglas %}
+                    {% set lleno = r.tope_diario and r.hoy >= r.tope_diario %}
+                    <div class="nivel-regla {{ 'nivel-regla--lleno' if lleno }}">
+                        <span class="nivel-regla__icono"><i class="bi {{ r.icono }}"></i></span>
+                        <span class="nivel-regla__titulo">{{ r.titulo }}</span>
+                        <span class="nivel-regla__xp">{{ '+' ~ r.xp if r.xp else '5–20' }} XP</span>
+                        <span class="nivel-regla__tope">
+                            {% if r.tope_diario %}
+                            <span class="nivel-regla__barra"><span style="width: {{ [100, (r.hoy / r.tope_diario * 100) | round] | min }}%;"></span></span>
+                            <small>{{ r.hoy }}/{{ r.tope_diario }} hoy</small>
+                            {% else %}<small class="text-muted">sin tope{{ ' · ' ~ r.hoy ~ ' hoy' if r.hoy }}</small>{% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-5 d-flex flex-column gap-4">
+        <!-- Logros -->
+        <div class="card card-logo-fondo card-seccion" style="--logo-color: #eab308;">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="vivo-titulo"><i class="bi bi-award-fill text-warning"></i>Logros <span class="vivo-contador">{{ p.logros_obtenidos }}/{{ p.logros | length }}</span></h2>
+                <div class="nivel-logros">
+                    {% for l in p.logros %}
+                    <div class="nivel-logro {{ 'nivel-logro--ok' if l.obtenido_en }}" title="{{ l.descripcion }}{{ ' · ' ~ l.obtenido_en.strftime('%d/%m/%Y') if l.obtenido_en }}">
+                        <i class="bi {{ l.icono }}"></i>
+                        <strong>{{ l.titulo }}</strong>
+                        <small>{{ 'Conseguido' if l.obtenido_en else '+' ~ l.xp ~ ' XP' }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Historial -->
+        <div class="card card-logo-fondo card-seccion" style="--logo-color: #38bdf8;">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="vivo-titulo"><i class="bi bi-clock-history text-info"></i>Últimos movimientos de XP</h2>
+                {% if p.historial %}
+                <div class="d-flex flex-column gap-1">
+                    {% for h in p.historial %}
+                    <div class="nivel-historial">
+                        <i class="bi {{ h.icono }}"></i>
+                        <span class="text-truncate">{{ h.titulo }}{% if h.retroactivo %} <small class="text-muted">(retroactivo)</small>{% endif %}</span>
+                        <small class="text-muted text-nowrap">{{ h.fecha.strftime('%d/%m %H:%M') }}</small>
+                        <strong class="text-warning text-nowrap">+{{ h.xp }}</strong>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">Todavía no ganaste XP. Empezá por el <a href="/misiones/">check-in diario</a> o abrí un <a href="/album-estampas/sobres">sobre</a>.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('click', async ev => {
+        const boton = ev.target.closest('[data-reclamar]');
+        if (!boton) return;
+        const nivel = boton.dataset.reclamar;
+        boton.disabled = true;
+        boton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Reclamando…';
+        try {
+            const resp = await fetch(`/niveles/reclamar/${encodeURIComponent(nivel)}`, { method: 'POST', headers: { accept: 'application/json' } });
+            const datos = await resp.json();
+            if (!resp.ok) throw new Error(datos.detail || 'No se pudo reclamar la recompensa');
+            const paso = boton.closest('.nivel-paso');
+            paso.classList.replace('nivel-paso--pendiente', 'nivel-paso--reclamada');
+            paso.querySelector('.nivel-paso__estado').innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+            boton.outerHTML = '<span class="nivel-paso__pie text-success"><i class="bi bi-check2 me-1"></i>Reclamada</span>';
+            const textos = datos.recompensas.map(r => r.tipo === 'PUNTOS' ? `+${Number(r.cantidad).toLocaleString('en-US')} pts`
+                : r.tipo === 'PLATINO' ? 'un sobre Platino' : `${r.cantidad} sobre${r.cantidad == 1 ? '' : 's'} gratis`);
+            const conSobres = datos.recompensas.some(r => r.tipo !== 'PUNTOS');
+            UI.toast(`¡Recompensa del nivel ${datos.nivel}: ${textos.join(' y ')}!`,
+                     { icono: conSobres ? 'bi-gift-fill' : 'bi-coin', tipo: 'nivel', enlace: conSobres ? '/album-estampas/sobres' : null, duracion: 6000 });
+            UI.refrescarSaldo();
+        } catch (err) {
+            UI.mostrarAlertaEn(document.getElementById('alertaNiveles'), err.message, 'danger');
+            boton.disabled = false;
+            boton.innerHTML = '<i class="bi bi-gift-fill me-1"></i>Reclamar';
+        }
+    });
+</script>
+{% endblock %}

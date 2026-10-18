@@ -37,6 +37,7 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo.mongo_client import MongoClient
 from config.settings import IMAGENES_PAISES_URL, MONGODB_URI
+from services import niveles_service
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -234,6 +235,10 @@ def buy_city_venue(user_id: str, ciudad_id: int) -> dict:
     resultado = db['city_ownerships'].insert_one(inversion)
     inversion["_id"] = resultado.inserted_id
 
+    # XP de niveles (nunca lanza). Vender no da XP.
+    niveles_service.otorgar_xp(usuario_oid, "SEDE_COMPRA", inversion["_id"])
+    niveles_service.otorgar_logro(usuario_oid, "PRIMERA_SEDE")
+
     pais = db['paises'].find_one({"id": pais_id}, {"nombre": 1})
     return _serializar_sede(inversion, ciudad, pais)
 
@@ -354,6 +359,7 @@ def process_match_city_revenue(match_data: Dict[str, Any]) -> None:
             "album_synergy_applied": dueno_tiene_estampa,
             "created_at": ahora
         })
+        niveles_service.otorgar_xp(dueno_oid, "SEDE_REGALIA", f"{match_id}:{ciudad_id}")
         ids_con_estampa.discard(dueno_str)  # el dueño ya cobró arriba, no cobra pasivo de nuevo
 
     # Recompensa pasiva (+20 pts) para todo el resto de usuarios que tienen la estampa

@@ -5,108 +5,98 @@
 
 {% block content %}
 <div class="container-fluid py-2">
+    {#
+      Directorio de selecciones FIFAV. Mismo lenguaje que el resto del sitio: encabezado .card-logo-fondo,
+      filtro por confederación con su logo y una tarjeta por país con el color de su confederación y el
+      escudo de marca de agua. 'paises' solo guarda confederacion_id: la sigla sale de este mapa.
+    #}
+    {% set siglas = {1: 'UEFA', 2: 'CONMEBOL', 3: 'CONCACAF', 4: 'CAF', 5: 'OFC', 6: 'AFC'} %}
+    {% set total_fans = paises | sum(attribute='aficionados') %}
 
-    <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <div>
-            <h1 class="h2 fw-bold text-white mb-1">
-                <i class="bi bi-globe2 text-success me-2"></i>Países Afiliados a la FIFAV
-            </h1>
-            <p class="text-muted mb-0">Directorio de las 211 asociaciones nacionales divididas en sus 6 confederaciones.</p>
-        </div>
-        <div class="badge bg-dark border border-secondary p-3 text-start">
-            <span class="fs-7 text-muted d-block">Total de Selecciones</span>
-            <span class="fs-4 fw-bold text-success" id="total-count">{{ paises|length }}</span>
+    <div class="card card-logo-fondo card-logo-fondo--sin-brillo fixture-hero mb-3" style="--logo-color: #22c55e;">
+        <img src="{{ imagen_inicio('confederaciones') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+        <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="min-w-0">
+                <h1 class="h2 fw-bold text-white mb-1 d-flex align-items-center gap-2"><i class="bi bi-globe2 text-success"></i>Países afiliados a la FIFAV</h1>
+                <p class="text-muted mb-0">Las asociaciones nacionales y sus 6 confederaciones.</p>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="fixture-kpi"><span>Selecciones</span><strong id="total-count">{{ paises|length }}</strong></div>
+                <div class="fixture-kpi"><span>Confederaciones</span><strong>6</strong></div>
+                <div class="fixture-kpi"><span>Aficionados</span><strong>{{ total_fans | numero_compacto }}</strong></div>
+            </div>
         </div>
     </div>
 
-    <!-- Barra de Búsqueda y Filtros por Confederación -->
-    <div class="card border-0 shadow-sm mb-4">
+    <!-- Buscador, orden y filtro por confederación -->
+    <div class="card panel-filtros mb-3">
         <div class="card-body p-3">
-            <div class="row g-3 align-items-center">
-                <!-- Buscador -->
-                <div class="col-md-4">
-                    <div class="input-group">
-                        <span class="input-group-text bg-dark border-secondary text-muted">
-                            <i class="bi bi-search"></i>
-                        </span>
+            <div class="row g-2 align-items-center mb-2">
+                <div class="col-md-7">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
                         <input type="text" id="searchInput" class="form-control" placeholder="Buscar país por nombre...">
                     </div>
                 </div>
-
-                <!-- Botones de Filtrado por Confederación -->
-                <div class="col-md-8">
-                    <div class="d-flex gap-2 flex-wrap justify-content-md-end" id="filter-buttons">
-                        <button class="btn btn-sm btn-success filter-btn active" data-filter="TODOS">Todos</button>
-                        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="2">CONMEBOL</button>
-                        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="1">UEFA</button>
-                        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="3">CONCACAF</button>
-                        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="4">CAF</button>
-                        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="6">AFC</button>
-                        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="5">OFC</button>
-                    </div>
+                <div class="col-md-5">
+                    <select id="ordenPaises" class="form-select form-select-sm" aria-label="Ordenar">
+                        <option value="nombre">Orden: nombre (A-Z)</option>
+                        <option value="ranking">Orden: ranking FIFAV</option>
+                        <option value="aficionados">Orden: más aficionados</option>
+                    </select>
                 </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap" id="filter-buttons">
+                <button type="button" class="filtro-conf filter-btn activo" data-filter="TODOS">Todas <span>{{ paises|length }}</span></button>
+                {% for cid in [1, 2, 3, 4, 6, 5] %}{% set lc = logo_confederacion(siglas[cid]) %}
+                <button type="button" class="filtro-conf filter-btn" data-filter="{{ cid }}" style="--conf-color: {{ lc.color if lc else '#64748b' }};">
+                    {% if lc %}<img src="{{ lc.url }}" alt="">{% endif %}{{ siglas[cid] }} <span>{{ paises | selectattr('confederacion_id', 'equalto', cid) | list | length }}</span>
+                </button>
+                {% endfor %}
             </div>
         </div>
     </div>
 
-    <!-- Grid de Países -->
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-6 g-3" id="paisesGrid">
-        {% for pais in paises %}
-        <div class="col pais-card-container" data-nombre="{{ pais.nombre|lower }}" data-confederacion="{{ pais.confederacion_id }}">
-            <div class="card h-100 border-0 shadow-sm card-hover text-center p-3 position-relative">
-                
-                <!-- ID de FIFA en la esquina -->
-                <span class="position-absolute top-0 start-0 m-2 badge bg-dark text-muted border border-secondary fs-8">
-                    #{{ pais.id }}
-                </span>
-
-                <!-- Bandera Emoji -->
-                <div class="display-3 my-2">{{ m.bandera(pais.bandera, tipo='escudo', clase='img-pais--hero') }}</div>
-
-                <!-- Nombre del País -->
-                <h5 class="fw-bold text-white mb-1 text-truncate" title="{{ pais.nombre }}">{{ pais.nombre }}</h5>
-
-                <!-- Badge de Confederación -->
-                <div class="mt-1 mb-3">
-                    {{ m.badge_confederacion(pais.confederacion) }}
+    <!-- Grilla de países -->
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 row-cols-xxl-6 g-3" id="paisesGrid">
+        {% for pais in paises | sort(attribute='nombre') %}
+        {% set sigla = siglas.get(pais.confederacion_id, '') %}{% set lc = logo_confederacion(sigla) %}
+        {% set est = pais.estadisticas or {} %}
+        {% set estado = (pais.estado or '') | upper %}
+        <div class="col pais-card-container" data-nombre="{{ pais.nombre|lower }}" data-confederacion="{{ pais.confederacion_id }}"
+             data-ranking="{{ est.rankin or 999 }}" data-aficionados="{{ pais.aficionados | default(aficionados_base) }}">
+            <a href="/paises/{{ pais.id }}" class="card h-100 card-logo-fondo pais-tarjeta" style="--logo-color: {{ lc.color if lc else '#64748b' }};">
+                {% if lc %}<img src="{{ lc.url }}" alt="" aria-hidden="true" class="card-logo-fondo__logo {{ 'card-logo-fondo__logo--claro' if lc.claro }}" loading="lazy" onerror="this.remove()">{% endif %}
+                <div class="pais-tarjeta__arriba">
+                    <span class="pais-tarjeta__rank" title="Ranking FIFAV">#{{ est.rankin or '—' }}</span>
+                    {% if 'ELIMINADO' in estado %}<span class="pais-tarjeta__estado pais-tarjeta__estado--fuera" title="{{ pais.estado }}">Eliminado</span>
+                    {% elif 'CALIFICADO' in estado or 'GANADOR' in estado %}<span class="pais-tarjeta__estado pais-tarjeta__estado--ok" title="{{ pais.estado }}">Clasificado</span>{% endif %}
                 </div>
-
-                <!-- Aficionados (independiente del ranking FIFA) -->
-                <div class="mb-2">
-                    <span class="badge bg-dark border border-secondary text-muted fs-8">
-                        <i class="bi bi-heart-fill text-danger me-1"></i>{{ "{:,}".format(pais.aficionados | default(aficionados_base)) }} aficionados
-                    </span>
+                <div class="pais-tarjeta__escudo">{{ m.bandera(pais.bandera, tipo='escudo', pais_id=pais.id) }}</div>
+                <h2 class="pais-tarjeta__nombre" title="{{ pais.nombre }}">{{ pais.nombre }}</h2>
+                <div class="pais-tarjeta__meta">
+                    {{ m.bandera(pais.bandera, pais_id=pais.id) }}
+                    <span class="pais-tarjeta__conf">{{ sigla }}</span>
                 </div>
-
-                <!-- Botón de Acción -->
-                <div class="mt-auto">
-                    <a href="/paises/{{ pais.id }}" class="btn btn-sm btn-outline-success w-100">
-                        <i class="bi bi-eye-fill me-1"></i> Ver Ficha
-                    </a>
-                </div>
-
-            </div>
+                <div class="pais-tarjeta__fans"><i class="bi bi-heart-fill"></i>{{ pais.aficionados | default(aficionados_base) | numero_compacto }} fans</div>
+            </a>
         </div>
         {% endfor %}
     </div>
 
-    <!-- Mensaje cuando no hay resultados de búsqueda -->
     <div id="noResults" class="text-center py-5 d-none">
         <i class="bi bi-search fs-1 text-muted d-block mb-3"></i>
         <h4 class="text-white">No se encontraron países</h4>
-        <p class="text-muted">Intenta con otro término de búsqueda o cambia el filtro de confederación.</p>
+        <p class="text-muted">Probá con otro nombre o cambiá el filtro de confederación.</p>
     </div>
-
 </div>
 {% endblock %}
-
 {% block extra_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     const filterButtons = document.querySelectorAll('.filter-btn');
-    const cards = document.querySelectorAll('.pais-card-container');
+    let cards = document.querySelectorAll('.pais-card-container');
     const noResults = document.getElementById('noResults');
     const totalCount = document.getElementById('total-count');
 
@@ -146,20 +136,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listener para buscador
     searchInput.addEventListener('input', filterCountries);
 
-    // Event listeners para botones de filtro
+    // Filtro por confederación
     filterButtons.forEach(btn => {
         btn.addEventListener('click', function() {
-            filterButtons.forEach(b => {
-                b.classList.remove('btn-success', 'active');
-                b.classList.add('btn-outline-secondary');
-            });
-
-            this.classList.remove('btn-outline-secondary');
-            this.classList.add('btn-success', 'active');
-
+            filterButtons.forEach(b => b.classList.toggle('activo', b === this));
             currentFilter = this.getAttribute('data-filter');
             filterCountries();
         });
+    });
+
+    // Orden (reordena los nodos de la grilla y vuelve a paginar)
+    const grid = document.getElementById('paisesGrid');
+    document.getElementById('ordenPaises').addEventListener('change', function () {
+        const criterio = this.value;
+        const lista = Array.from(cards);
+        lista.sort((a, b) => {
+            if (criterio === 'ranking') return Number(a.dataset.ranking) - Number(b.dataset.ranking);
+            if (criterio === 'aficionados') return Number(b.dataset.aficionados) - Number(a.dataset.aficionados);
+            return a.dataset.nombre.localeCompare(b.dataset.nombre, 'es');
+        });
+        lista.forEach(c => grid.appendChild(c));
+        cards = grid.querySelectorAll('.pais-card-container');
+        filterCountries();
     });
 });
 </script>

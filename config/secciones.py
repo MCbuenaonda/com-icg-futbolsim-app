@@ -36,6 +36,7 @@ SECCIONES = [
     ("album", "Álbum de Estampas", "Mi Juego", "Comprar sobres y ver la colección"),
     ("misiones", "Misiones y Trivia", "Mi Juego", "Check-in diario, beca y trivia"),
     ("ranking_usuarios", "Ranking de usuarios", "Mi Juego", "Comparación de patrimonio y logros entre usuarios"),
+    ("niveles", "Niveles y recompensas", "Mi Juego", "Experiencia por actividad, niveles de socio y sus recompensas"),
     # --- Administración (acciones sensibles) ---
     ("simular_partidos", "Simular partidos", "Administración", "Simular partidos y avanzar el torneo (incluye la reproducción automática)"),
     ("reiniciar_torneo", "Reiniciar torneo", "Administración", "Borrar el torneo actual y empezar de cero"),
@@ -57,7 +58,7 @@ def secciones_por_grupo():
 # Roles que siembra configurar_roles.py ('admin' es de sistema: no se borra ni se recorta)
 ROL_ADMIN = "admin"
 _CONSULTA = ["inicio", "partidos", "cuadro", "en_vivo", "paises", "estadisticas", "cara_a_cara", "palmares", "scouter", "aficionados", "arbitros"]
-_META_JUEGO = ["juego_en_vivo", "quinielas", "selecciones", "sedes", "once_ideal", "album", "misiones", "ranking_usuarios"]
+_META_JUEGO = ["juego_en_vivo", "quinielas", "selecciones", "sedes", "once_ideal", "album", "misiones", "ranking_usuarios", "niveles"]
 ROLES_INICIALES = [
     {"codigo": ROL_ADMIN, "nombre": "Administrador", "descripcion": "Acceso total, incluida la gestión de usuarios", "permisos": [PERMISO_TODO], "es_sistema": True},
     {"codigo": "jugador", "nombre": "Jugador", "descripcion": "Consulta del torneo y todo el meta-juego, sin acciones de administración", "permisos": _CONSULTA + _META_JUEGO, "es_sistema": False},
@@ -73,7 +74,7 @@ URL_SECCION = {
     "palmares": "/palmares/", "aficionados": "/aficionados/", "arbitros": "/arbitros/", "juego_en_vivo": "/en-vivo/",
     "ranking_usuarios": "/ranking/",
     "quinielas": "/quinielas/", "selecciones": "/selecciones/mercado", "sedes": "/sedes/directorio",
-    "once_ideal": "/once-ideal/", "album": "/album-estampas/sobres", "misiones": "/misiones/",
+    "once_ideal": "/once-ideal/", "album": "/album-estampas/sobres", "misiones": "/misiones/", "niveles": "/niveles/",
     "gestion_usuarios": "/admin/usuarios",
 }
 

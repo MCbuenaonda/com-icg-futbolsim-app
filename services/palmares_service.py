@@ -49,12 +49,13 @@ def _goleador(mundial_id: str) -> Optional[dict]:
                             "equipo": "$resultado.goleadores.equipo"}, "goles": {"$sum": "$resultado.goleadores.goles"}}},
         {"$sort": {"goles": -1}}, {"$limit": 1},
     ]))
-    return {"nombre": res[0]["_id"].get("nombre"), "equipo": res[0]["_id"].get("equipo"), "goles": res[0]["goles"]} if res else None
+    return {"id": res[0]["_id"].get("id"), "nombre": res[0]["_id"].get("nombre"), "equipo": res[0]["_id"].get("equipo"),
+            "goles": res[0]["goles"]} if res else None
 
 
 def obtener_palmares() -> Dict[str, Any]:
     mundiales = list(db["mundiales"].find({}).sort("anio", -1))
-    paises = {p["id"]: {"nombre": p.get("nombre", "?"), "bandera": p.get("bandera") or ""}
+    paises = {p["id"]: {"id": p["id"], "nombre": p.get("nombre", "?"), "bandera": p.get("bandera") or ""}
               for p in db["paises"].find({}, {"id": 1, "nombre": 1, "bandera": 1})}
     nombres_fase = {f["id"]: f.get("nombre", "") for f in db["fases"].find({}, {"id": 1, "nombre": 1})}
 

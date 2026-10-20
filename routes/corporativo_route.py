@@ -17,6 +17,8 @@ templates.env.globals.update(GLOBALES_JINJA)
 
 # Corporativos Deportivos: carrera del usuario como CEO de un corporativo (reglas en config/corporativos.py).
 # API (acciones, siempre sobre el usuario de la sesión) bajo /corporativos; vistas bajo /corporativo.
+# Los handlers son `def` (no `async def`) a propósito: hacen I/O bloqueante con pymongo (poner_al_dia puede procesar
+# varios ciclos) y FastAPI los corre en su threadpool; con `async def` una espera larga congelaba el servidor entero.
 route = APIRouter(prefix="/corporativos", tags=["Corporativos"])
 route_vistas = APIRouter(prefix="/corporativo", tags=["Corporativos"])
 
@@ -44,7 +46,7 @@ def _accion(funcion, *args):
 
 
 @route_vistas.get("/", response_class=HTMLResponse, name="corporativo_inicio")
-async def corporativo_inicio(request: Request):
+def corporativo_inicio(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -52,7 +54,7 @@ async def corporativo_inicio(request: Request):
 
 
 @route_vistas.get("/mercado", response_class=HTMLResponse, name="corporativo_mercado")
-async def corporativo_mercado(request: Request, tipo: str = "jugador", vista: str = "libres", q: str = "", conf: Optional[int] = None,
+def corporativo_mercado(request: Request, tipo: str = "jugador", vista: str = "libres", q: str = "", conf: Optional[int] = None,
                               region: bool = False, edad_max: Optional[int] = None, orden: str = "valor", pagina: int = 1):
     usuario = obtener_usuario_actual(request)
     if not usuario:
@@ -64,7 +66,7 @@ async def corporativo_mercado(request: Request, tipo: str = "jugador", vista: st
 
 
 @route_vistas.get("/bolsa", response_class=HTMLResponse, name="corporativo_bolsa")
-async def corporativo_bolsa(request: Request):
+def corporativo_bolsa(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -75,7 +77,7 @@ async def corporativo_bolsa(request: Request):
 
 
 @route_vistas.get("/ranking", response_class=HTMLResponse, name="corporativo_ranking")
-async def corporativo_ranking(request: Request):
+def corporativo_ranking(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -84,7 +86,7 @@ async def corporativo_ranking(request: Request):
 
 
 @route_vistas.get("/{sigla}", response_class=HTMLResponse, name="corporativo_perfil")
-async def corporativo_perfil(sigla: str, request: Request):
+def corporativo_perfil(sigla: str, request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -95,7 +97,7 @@ async def corporativo_perfil(sigla: str, request: Request):
 
 
 @route.post("/activar", name="corporativos_activar")
-async def activar(request: Request):
+def activar(request: Request):
     """Entra al módulo: crea el universo del usuario y lo pone a buscar empleo."""
     usuario = _usuario_api(request)
     _accion(crear_universo, usuario["_id"])
@@ -103,27 +105,27 @@ async def activar(request: Request):
 
 
 @route.post("/ofertas/{oferta_id}/aceptar", name="corporativos_aceptar")
-async def aceptar(oferta_id: str, request: Request):
+def aceptar(oferta_id: str, request: Request):
     return _accion(carrera.aceptar_oferta, _usuario_api(request)["_id"], oferta_id)
 
 
 @route.post("/ofertas/{oferta_id}/rechazar", name="corporativos_rechazar")
-async def rechazar(oferta_id: str, request: Request):
+def rechazar(oferta_id: str, request: Request):
     return _accion(carrera.rechazar_oferta, _usuario_api(request)["_id"], oferta_id)
 
 
 @route.post("/renunciar", name="corporativos_renunciar")
-async def renunciar(request: Request):
+def renunciar(request: Request):
     return _accion(carrera.renunciar, _usuario_api(request)["_id"])
 
 
 @route.post("/contratos/{contrato_id}/renovar", name="corporativos_renovar")
-async def renovar(contrato_id: str, request: Request):
+def renovar(contrato_id: str, request: Request):
     return _accion(renovar_contrato, _usuario_api(request)["_id"], contrato_id)
 
 
 @route.post("/contratos/{contrato_id}/rescindir", name="corporativos_rescindir")
-async def rescindir(contrato_id: str, request: Request):
+def rescindir(contrato_id: str, request: Request):
     return _accion(rescindir_contrato, _usuario_api(request)["_id"], contrato_id)
 
 
@@ -136,30 +138,30 @@ class OfertaFichaje(BaseModel):
 
 
 @route.post("/fichajes", name="corporativos_ofertar")
-async def ofertar(oferta: OfertaFichaje, request: Request):
+def ofertar(oferta: OfertaFichaje, request: Request):
     """Oferta del CEO por un libre o (en ventana de traspasos) por un representado de un rival."""
     return _accion(fichajes.ofertar, _usuario_api(request)["_id"], oferta.tipo, oferta.ref_id, oferta.prima, oferta.duracion, oferta.monto)
 
 
 @route.post("/fichajes/{oferta_id}/cancelar", name="corporativos_cancelar_oferta")
-async def cancelar(oferta_id: str, request: Request):
+def cancelar(oferta_id: str, request: Request):
     return _accion(fichajes.cancelar_oferta, _usuario_api(request)["_id"], oferta_id)
 
 
 @route.post("/propuestas/{oferta_id}/{respuesta}", name="corporativos_responder")
-async def responder(oferta_id: str, respuesta: str, request: Request):
+def responder(oferta_id: str, respuesta: str, request: Request):
     if respuesta not in ("aceptar", "rechazar"):
         raise HTTPException(status_code=400, detail="Respuesta inválida")
     return _accion(fichajes.responder, _usuario_api(request)["_id"], oferta_id, respuesta == "aceptar")
 
 
 @route.post("/scouting", name="corporativos_scouting")
-async def scouting(request: Request):
+def scouting(request: Request):
     return _accion(fichajes.scouting, _usuario_api(request)["_id"])
 
 
 @route.post("/marketing", name="corporativos_marketing")
-async def marketing(request: Request):
+def marketing(request: Request):
     return _accion(fichajes.marketing, _usuario_api(request)["_id"])
 
 
@@ -169,12 +171,12 @@ class OperacionBolsa(BaseModel):
 
 
 @route.post("/bolsa/comprar", name="corporativos_comprar_acciones")
-async def comprar_acciones(op: OperacionBolsa, request: Request):
+def comprar_acciones(op: OperacionBolsa, request: Request):
     return _accion(bolsa.comprar, _usuario_api(request)["_id"], op.sigla, int(op.cantidad))
 
 
 @route.post("/bolsa/vender", name="corporativos_vender_acciones")
-async def vender_acciones(op: OperacionBolsa, request: Request):
+def vender_acciones(op: OperacionBolsa, request: Request):
     return _accion(bolsa.vender, _usuario_api(request)["_id"], op.sigla, op.cantidad)
 
 
@@ -183,6 +185,6 @@ class Dividendo(BaseModel):
 
 
 @route.post("/dividendo", name="corporativos_dividendo")
-async def dividendo(d: Dividendo, request: Request):
+def dividendo(d: Dividendo, request: Request):
     """El CEO en funciones reparte un dividendo de su corporativo."""
     return _accion(bolsa.repartir_dividendo, _usuario_api(request)["_id"], d.fraccion)

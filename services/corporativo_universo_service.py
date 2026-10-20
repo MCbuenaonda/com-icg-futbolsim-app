@@ -12,6 +12,7 @@ partidos nuevos y cierra los ciclos que se completaron (ciclo c = seq hasta c * 
 tareas en segundo plano y un usuario que no entra no cuesta nada.
 """
 import logging
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Optional
@@ -32,33 +33,44 @@ logger = logging.getLogger(__name__)
 
 SEGUNDOS_CANDADO = 60
 _indices_listos = False
+_hilo_indices = None
+MS_INDICES = 120000   # tope por índice: en el cluster compartido de Atlas un createIndexes puede no confirmar nunca
 
 
 def asegurar_indices() -> None:
-    """Índices del módulo (idempotente; también los crea crear_indices.py)."""
-    global _indices_listos
-    if _indices_listos:
+    """
+    Crea los índices del módulo en un hilo de fondo (una sola vez por proceso; también los crea crear_indices.py).
+    ⚠️ Nunca en el camino de un request: Atlas a veces tarda minutos en confirmar un createIndexes (write concern),
+    y esperarlo dentro de una ruta dejaba colgado el servidor entero.
+    """
+    global _hilo_indices
+    if _indices_listos or (_hilo_indices is not None and _hilo_indices.is_alive()):
         return
-    try:
-        _crear_indices()
-    except Exception as e:   # Atlas a veces tarda (WTimeoutError): no frena la activación, se reintenta la próxima vez
-        logger.error(f"Corporativos: no se pudieron crear los índices todavía: {e}")
+
+    def _trabajo():
+        try:
+            _crear_indices()
+        except Exception as e:   # se reintenta en la próxima activación del módulo
+            logger.error(f"Corporativos: no se pudieron crear los índices todavía: {e}")
+
+    _hilo_indices = threading.Thread(target=_trabajo, name="corp-indices", daemon=True)
+    _hilo_indices.start()
 
 
 def _crear_indices() -> None:
     global _indices_listos
-    db["corp_registro_partidos"].create_index("juego_id", unique=True)
-    db["corp_registro_partidos"].create_index("seq", unique=True)
-    db["corp_corporativos"].create_index([("universo_id", ASCENDING), ("sigla", ASCENDING)], unique=True)
+    db["corp_registro_partidos"].create_index("juego_id", unique=True, maxTimeMS=MS_INDICES)
+    db["corp_registro_partidos"].create_index("seq", unique=True, maxTimeMS=MS_INDICES)
+    db["corp_corporativos"].create_index([("universo_id", ASCENDING), ("sigla", ASCENDING)], unique=True, maxTimeMS=MS_INDICES)
     db["corp_contratos"].create_index([("universo_id", ASCENDING), ("tipo", ASCENDING), ("ref_id", ASCENDING)], unique=True,
-                                      partialFilterExpression={"activo": True}, name="contrato_activo_unico")
-    db["corp_contratos"].create_index([("universo_id", ASCENDING), ("sigla", ASCENDING), ("activo", ASCENDING)])
-    db["corp_ofertas_empleo"].create_index([("universo_id", ASCENDING), ("estado", ASCENDING)])
-    db["corp_avisos"].create_index([("universo_id", ASCENDING), ("creado_en", -1)])
-    db["corp_ofertas"].create_index([("universo_id", ASCENDING), ("estado", ASCENDING), ("tipo", ASCENDING)])
-    db["corp_movimientos"].create_index([("universo_id", ASCENDING), ("sigla", ASCENDING), ("creado_en", -1)])
-    db["corp_tenencias"].create_index([("universo_id", ASCENDING), ("sigla", ASCENDING)], unique=True)
-    db["corp_operaciones_bolsa"].create_index([("universo_id", ASCENDING), ("creado_en", -1)])
+                                      partialFilterExpression={"activo": True}, name="contrato_activo_unico", maxTimeMS=MS_INDICES)
+    db["corp_contratos"].create_index([("universo_id", ASCENDING), ("sigla", ASCENDING), ("activo", ASCENDING)], maxTimeMS=MS_INDICES)
+    db["corp_ofertas_empleo"].create_index([("universo_id", ASCENDING), ("estado", ASCENDING)], maxTimeMS=MS_INDICES)
+    db["corp_avisos"].create_index([("universo_id", ASCENDING), ("creado_en", -1)], maxTimeMS=MS_INDICES)
+    db["corp_ofertas"].create_index([("universo_id", ASCENDING), ("estado", ASCENDING), ("tipo", ASCENDING)], maxTimeMS=MS_INDICES)
+    db["corp_movimientos"].create_index([("universo_id", ASCENDING), ("sigla", ASCENDING), ("creado_en", -1)], maxTimeMS=MS_INDICES)
+    db["corp_tenencias"].create_index([("universo_id", ASCENDING), ("sigla", ASCENDING)], unique=True, maxTimeMS=MS_INDICES)
+    db["corp_operaciones_bolsa"].create_index([("universo_id", ASCENDING), ("creado_en", -1)], maxTimeMS=MS_INDICES)
     _indices_listos = True
 
 

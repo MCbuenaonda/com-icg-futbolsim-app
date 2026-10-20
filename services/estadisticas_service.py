@@ -3,33 +3,36 @@ from collections import defaultdict
 from pymongo.database import Database
 from typing import Dict, Optional
 import certifi
+import time
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
 
-def obtener_estadisticas_generales():
-    """Retorna un diccionario completo con todas las métricas históricas y del torneo."""
-    # Una sola consulta (con proyección liviana) para los récords por partido y las tendencias
-    # del torneo -- ver sección 4b.
-    juegos_records = _juegos_finalizados_para_records()
-    partidos = _get_stats_partidos()
-    partidos.update(_obtener_records_primer_gol(juegos_records))
-    partidos["sede_mas_goleadora"] = _obtener_sede_mas_goleadora(juegos_records)
-    stats = {
-        "jugadores": _get_stats_jugadores(),
-        "porteros": _get_stats_porteros(),
-        "arbitros": _get_stats_arbitros(),
-        "arbitros_avanzado": _get_stats_arbitros_avanzado(juegos_records),
-        "partidos": partidos,
-        "tendencias": _get_stats_tendencias(juegos_records),
-        "paises": _get_stats_paises(),
-        "torneos": _get_stats_torneos(),
-        "once_ideal": _get_11_ideal()
-    }
-    _completar_ids_jugadores(stats)
-    return stats
+_cache_mundial = {"id": None, "hasta": 0.0}
+
+
+def _mundial_activo_id() -> Optional[str]:
+    """Id del Mundial activo, cacheado 30 s (cada carga de la vista arma ~12 consultas con este filtro)."""
+    ahora = time.monotonic()
+    if ahora >= _cache_mundial["hasta"]:
+        mundial = db["mundiales"].find_one({"activo": True}, {"_id": 1})
+        _cache_mundial.update(id=str(mundial["_id"]) if mundial else None, hasta=ahora + 30)
+    return _cache_mundial["id"]
+
+
+def _filtro_finalizados() -> dict:
+    """
+    Filtro base de TODAS las consultas de partidos de esta vista: jugados, del Mundial activo
+    ('juegos' conserva los de mundiales anteriores) y sin el que todavía se está transmitiendo en
+    vivo (ya está simulado, pero su resultado no debe adelantarse acá).
+    """
+    filtro = {"estado": "finalizado", "transmision.estado": {"$ne": "in_progress"}}
+    mundial_id = _mundial_activo_id()
+    if mundial_id:
+        filtro["mundial_id"] = mundial_id
+    return filtro
 
 
 def _completar_ids_jugadores(stats: dict) -> None:
@@ -75,469 +78,13 @@ def _completar_ids_jugadores(stats: dict) -> None:
 # ==========================================
 # 1. ESTADÍSTICAS DE JUGADORES Y RACHAS
 # ==========================================
-def _get_stats_jugadores():
-    jugadores_coll = db["jugadores"]
-    paises_coll = db["paises"]
-
-    # Jugadores destacados directos de la colección 'jugadores'.
-    # Proyectan 'pais_id' (el campo real) en vez de 'pais' (nunca existió en 'jugadores' —
-    # el país se guarda como id numérico, resuelto más abajo con un solo lookup en batch).
-    mas_partidos = jugadores_coll.find_one({}, {
-            "_id": 0,
-            "nombre": 1,
-            "pais_id": 1,
-            "juegos_jugados": 1
-        }, sort=[("juegos_jugados", -1)])
-
-    mas_goles = jugadores_coll.find_one({},{
-            "_id": 0,
-            "id": 1,
-            "nombre": 1,
-            "pais_id": 1,
-            "goles": 1
-        }, sort=[("goles", -1)])
-
-    mas_amarillas = jugadores_coll.find_one({}, {
-            "_id": 0,
-            "nombre": 1,
-            "pais_id": 1,
-            "amarilla": 1
-        }, sort=[("amarilla", -1)])
-
-    mas_rojas = jugadores_coll.find_one({}, {
-            "_id": 0,
-            "nombre": 1,
-            "pais_id": 1,
-            "roja": 1
-        }, sort=[("roja", -1)])
-
-    mas_faltas = jugadores_coll.find_one({}, {
-            "_id": 0,
-            "nombre": 1,
-            "pais_id": 1,
-            "faltas": 1
-        }, sort=[("faltas", -1)])
-
-    # Jugador con mejor % de conversión de gol (goles / disparos totales)
-    mejor_efectividad_gol = _obtener_mejor_efectividad_gol(jugadores_coll)
-
-    # Jugador más infringido (víctima): el que más faltas RECIBIÓ, no el que más cometió
-    mas_infringido = jugadores_coll.find_one({}, {
-            "_id": 0,
-            "nombre": 1,
-            "pais_id": 1,
-            "faltas_recibidas": 1
-        }, sort=[("faltas_recibidas", -1)])
-
-    # Resolución en batch de pais_id -> nombre (un solo find en vez de 7 lookups sueltos),
-    # y se le agrega el campo 'pais' a cada líder para no romper el contrato con la vista.
-    lideres = [mas_partidos, mas_goles, mas_amarillas, mas_rojas, mas_faltas, mejor_efectividad_gol, mas_infringido]
-    ids_paises = {l["pais_id"] for l in lideres if l and l.get("pais_id") is not None}
-    nombres_paises = {p["id"]: p.get("nombre", "?") for p in paises_coll.find({"id": {"$in": list(ids_paises)}}, {"id": 1, "nombre": 1})}
-    for lider in lideres:
-        if lider:
-            lider["pais"] = nombres_paises.get(lider.get("pais_id"), "?")
-
-    # Partidos donde el máximo goleador anotó, para el modal de "ver partidos" de esa tarjeta
-    if mas_goles and mas_goles.get("id") is not None:
-        mas_goles["partidos"] = _obtener_partidos_jugador_por_evento(mas_goles["id"], "goleadores")
-
-    # Racha de partidos seguidos anotando (procesando 'juegos')
-    racha_goles = _obtener_mayor_racha_goles()
-    if racha_goles.get("jugador_id") is not None:
-        racha_goles["partidos"] = _obtener_partidos_jugador_por_evento(racha_goles["jugador_id"], "goleadores")
-        
-    # Jugador con mas asistencias, se obtiene desde jugadores
-    mas_asistencias = jugadores_coll.find_one({}, {
-            "_id": 0,
-            "nombre": 1,
-            "pais_id": 1,
-            "asistencias": 1,
-            "pais": 1
-        }, sort=[("asistencias", -1)])
-
-    # Súper Sub: jugador con más goles anotados en partidos donde entró de cambio
-    super_sub = _obtener_super_sub()
-    
-    # Obtener el jugador con mejor juego aereo
-    mejor_juego_aereo = jugadores_coll.find_one({}, {
-            "_id": 0,
-            "nombre": 1,
-            "pais_id": 1,
-            "juego_aereo": 1,
-            "pais": 1
-        }, sort=[("juego_aereo", -1)])
-
-    # Jugador con mas recuperaciones de balón, se obtiene desde jugadores
-    mas_recuperaciones = jugadores_coll.find_one({}, {
-            "_id": 0,
-            "nombre": 1,
-            "pais_id": 1,
-            "recuperaciones": 1,
-            "pais": 1
-        }, sort=[("recuperaciones", -1)])
-
-    # Especialista a Balón Parado: jugador con más goles de penal en tandas de definición
-    # (único tipo de balón parado -- de tiro libre/penal/córner -- que existe en el motor)
-    especialista_balon_parado = _obtener_especialista_balon_parado()
-
-    return {
-        "mas_partidos": mas_partidos,
-        "mas_goles": mas_goles,
-        "mas_amarillas": mas_amarillas,
-        "mas_rojas": mas_rojas,
-        "mas_faltas": mas_faltas,
-        "mayor_racha_goles": racha_goles,
-        "mas_asistencias": mas_asistencias,
-        "super_sub": super_sub,
-        "mejor_efectividad_gol": mejor_efectividad_gol,
-        "especialista_aereo": mejor_juego_aereo,
-        "mas_infringido": mas_infringido,
-        "mas_recuperaciones": mas_recuperaciones,
-        "especialista_balon_parado": especialista_balon_parado
-    }
-
 # Mínimo de disparos totales para calificar al ranking de efectividad de gol -- evita que un
 # jugador con, por ejemplo, 1 disparo y 1 gol (100%) encabece el ranking sin ser representativo.
 MINIMO_TIROS_EFECTIVIDAD_GOL = 5
 
-def _obtener_mejor_efectividad_gol(jugadores_coll):
-    """
-    Jugador con mejor % de conversión de gol (goles / disparos totales) de todo el torneo.
-    'disparos totales' = 'tiros_puerta' + 'tiros_desviados', contadores de carrera acumulados
-    en 'jugadores' por services/jugadores_service.py::actualizar_jugadores_post_partido junto
-    al resto de stats de partido -- antes de este cambio esos dos campos se calculaban por
-    partido en el motor de simulación pero se descartaban ahí mismo, nunca se persistían (mismo
-    caveat que 'entro_de_cambio' para Súper Sub: solo cuenta desde los próximos partidos
-    simulados en adelante; los jugadores viejos no tienen estos campos hasta que vuelvan a jugar).
-    """
-    pipeline = [
-        {
-            "$project": {
-                "nombre": 1,
-                "pais_id": 1,
-                "goles": 1,
-                "tiros_totales": {
-                    "$add": [{"$ifNull": ["$tiros_puerta", 0]}, {"$ifNull": ["$tiros_desviados", 0]}]
-                }
-            }
-        },
-        {"$match": {"tiros_totales": {"$gte": MINIMO_TIROS_EFECTIVIDAD_GOL}}},
-        {"$addFields": {
-            "efectividad_gol": {"$round": [{"$multiply": [{"$divide": ["$goles", "$tiros_totales"]}, 100]}, 1]}
-        }},
-        {"$sort": {"efectividad_gol": -1}},
-        {"$limit": 1}
-    ]
-    resultados = list(jugadores_coll.aggregate(pipeline))
-    if not resultados:
-        return None
-
-    top = resultados[0]
-    return {
-        "nombre": top.get("nombre"),
-        "pais_id": top.get("pais_id"),
-        "goles": top.get("goles", 0),
-        "tiros_totales": top.get("tiros_totales", 0),
-        "efectividad_gol": top.get("efectividad_gol", 0)
-    }
-
-def _obtener_super_sub():
-    """
-    Jugador con más goles anotados (sumando TODO el torneo) en partidos donde entró de cambio.
-    Usa 'resultado.goleadores[].entro_de_cambio' -- flag agregado a la construcción de
-    'goleadores' en services/juegos_service.py junto al resto de sus campos estructurados
-    (mismo patrón que 'resultado.goleadores'/'resultado.participantes', ver
-    _obtener_mayor_racha_goles). Los partidos simulados ANTES de agregar ese flag no lo tienen
-    guardado y no participan en el conteo -- no hay forma de reconstruirlo retroactivamente.
-    """
-    juegos_coll = db["juegos"]
-    juegos = juegos_coll.find(
-        {"estado": "finalizado", "resultado.goleadores.entro_de_cambio": True},
-        {"resultado.goleadores": 1}
-    )
-
-    goles_por_jugador = defaultdict(lambda: {"nombre": None, "equipo": None, "goles": 0})
-    for juego in juegos:
-        for g in (juego.get("resultado") or {}).get("goleadores") or []:
-            if not g.get("entro_de_cambio"):
-                continue
-            registro = goles_por_jugador[g["jugador_id"]]
-            registro["nombre"] = g.get("jugador_nombre", "?")
-            registro["equipo"] = g.get("equipo", "?")
-            registro["goles"] += g.get("goles", 0)
-
-    if not goles_por_jugador:
-        return None
-
-    top_id, top = max(goles_por_jugador.items(), key=lambda kv: kv[1]["goles"])
-    return {
-        "nombre": top["nombre"],
-        "pais": top["equipo"],
-        "goles": top["goles"],
-        "partidos": _obtener_partidos_super_sub(top_id)
-    }
-
-
-def _obtener_partidos_super_sub(jugador_id: int) -> list:
-    """
-    Partidos finalizados donde 'jugador_id' anotó habiendo entrado de cambio, para el modal de
-    "ver partidos" de la tarjeta Súper Sub -- mismo patrón que
-    _obtener_partidos_jugador_por_evento, pero exige que AMBAS condiciones (el jugador y el
-    flag 'entro_de_cambio') valgan sobre el MISMO elemento del array 'goleadores' ($elemMatch),
-    no sobre elementos distintos de la lista.
-    """
-    juegos_coll = db["juegos"]
-    juegos = juegos_coll.find(
-        {
-            "estado": "finalizado",
-            "resultado.goleadores": {"$elemMatch": {"jugador_id": jugador_id, "entro_de_cambio": True}}
-        },
-        {
-            "equipo_local": 1, "equipo_visitante": 1, "tag": 1, "fecha": 1,
-            "resultado.goles_local": 1, "resultado.goles_visitante": 1
-        }
-    ).sort("fecha", 1)
-    return [
-        _formatear_partido_resumen(
-            j, (j.get("resultado") or {}).get("goles_local", 0) or 0, (j.get("resultado") or {}).get("goles_visitante", 0) or 0
-        )
-        for j in juegos
-    ]
-
-
-def _obtener_especialista_balon_parado():
-    """
-    Jugador con más goles de balón parado -- tiro libre + penal + córner sumados -- de TODO el
-    torneo. Los tres son jugadas reales en el motor de simulación (ver
-    services/simular_service.py::ejecutar_tiro_libre/ejecutar_penal/ejecutar_corner).
-
-    Usa 'resultado.goleadores[].{goles_tiro_libre,goles_penal,goles_corner}' -- campos
-    agregados junto al resto de campos estructurados de 'goleadores' en
-    services/juegos_service.py (mismo patrón que 'entro_de_cambio' para Súper Sub, ver
-    _obtener_super_sub). Los partidos simulados ANTES de agregar estos campos no los tienen
-    guardados y no participan en el conteo -- no hay forma de reconstruirlo retroactivamente.
-    """
-    juegos_coll = db["juegos"]
-    juegos = juegos_coll.find(
-        {
-            "estado": "finalizado",
-            "$or": [
-                {"resultado.goleadores.goles_tiro_libre": {"$gt": 0}},
-                {"resultado.goleadores.goles_penal": {"$gt": 0}},
-                {"resultado.goleadores.goles_corner": {"$gt": 0}}
-            ]
-        },
-        {"resultado.goleadores": 1}
-    )
-
-    goles_por_jugador = defaultdict(lambda: {"nombre": None, "equipo": None, "goles": 0})
-    for juego in juegos:
-        for g in (juego.get("resultado") or {}).get("goleadores") or []:
-            goles_balon_parado = g.get("goles_tiro_libre", 0) + g.get("goles_penal", 0) + g.get("goles_corner", 0)
-            if not goles_balon_parado:
-                continue
-            registro = goles_por_jugador[g["jugador_id"]]
-            registro["nombre"] = g.get("jugador_nombre", "?")
-            registro["equipo"] = g.get("equipo", "?")
-            registro["goles"] += goles_balon_parado
-
-    if not goles_por_jugador:
-        return None
-
-    top_id, top = max(goles_por_jugador.items(), key=lambda kv: kv[1]["goles"])
-    return {
-        "nombre": top["nombre"],
-        "pais": top["equipo"],
-        "goles": top["goles"],
-        "partidos": _obtener_partidos_especialista_balon_parado(top_id)
-    }
-
-
-def _obtener_partidos_especialista_balon_parado(jugador_id: int) -> list:
-    """
-    Partidos finalizados donde 'jugador_id' anotó al menos un gol de tiro libre, penal o
-    córner, para el modal de "ver partidos" de la tarjeta Especialista a Balón Parado --
-    mismo patrón que _obtener_partidos_super_sub ($elemMatch para exigir que el jugador y AL
-    MENOS uno de los tres tipos de gol valgan sobre el MISMO elemento del array).
-    """
-    juegos_coll = db["juegos"]
-    juegos = juegos_coll.find(
-        {
-            "estado": "finalizado",
-            "resultado.goleadores": {
-                "$elemMatch": {
-                    "jugador_id": jugador_id,
-                    "$or": [
-                        {"goles_tiro_libre": {"$gt": 0}},
-                        {"goles_penal": {"$gt": 0}},
-                        {"goles_corner": {"$gt": 0}}
-                    ]
-                }
-            }
-        },
-        {
-            "equipo_local": 1, "equipo_visitante": 1, "tag": 1, "fecha": 1,
-            "resultado.goles_local": 1, "resultado.goles_visitante": 1
-        }
-    ).sort("fecha", 1)
-    return [
-        _formatear_partido_resumen(
-            j, (j.get("resultado") or {}).get("goles_local", 0) or 0, (j.get("resultado") or {}).get("goles_visitante", 0) or 0
-        )
-        for j in juegos
-    ]
-
-def _obtener_mayor_racha_goles():
-    """
-    Calcula la racha más larga de partidos consecutivos (JUGADOS) en los que un jugador
-    anotó gol.
-
-    Usa dos listas estructuradas que routes/simular_route.py arma desde 'stats_jugadores'
-    y guarda en cada partido al finalizarlo (no se parsea texto de 'resultado.eventos'):
-      - 'resultado.goleadores': quiénes anotaron.
-      - 'resultado.participantes': TODOS los jugadores que jugaron ese partido (titulares +
-        suplentes que entraron), estén o no en 'goleadores'.
-    'participantes' es necesario para poder distinguir "jugó este partido pero no anotó"
-    (corta la racha) de "no jugó este partido" (no participa) — sin esa lista, dos partidos
-    en los que un jugador anotó pero que en el medio tuvo partidos sin anotar entre uno y
-    otro se contaban igual que si hubiera anotado en partidos realmente consecutivos.
-
-    NOTA: los partidos simulados ANTES de este fix no tienen 'participantes' guardado (ese
-    campo no existía todavía), así que no participan en el cálculo — no hay forma de
-    reconstruir retroactivamente quién jugó esos partidos.
-    """
-    juegos_coll = db["juegos"]
-
-    juegos = list(juegos_coll.find(
-        {"estado": "finalizado", "resultado.participantes": {"$exists": True, "$ne": []}},
-        {"fecha": 1, "resultado.goleadores": 1, "resultado.participantes": 1}
-    ).sort("fecha", 1))
-
-    # Mapa: jugador_id -> {'nombre': str, 'racha_actual': x, 'max_racha': y}
-    historial_jugadores = defaultdict(lambda: {"nombre": None, "racha_actual": 0, "max_racha": 0})
-
-    for juego in juegos:
-        resultado = juego.get("resultado", {})
-        participantes = resultado.get("participantes", [])
-        goleadores = resultado.get("goleadores", [])
-        nombres_por_goleador = {g["jugador_id"]: g.get("jugador_nombre", "?") for g in goleadores if g.get("jugador_id") is not None}
-
-        for jugador_id in participantes:
-            registro = historial_jugadores[jugador_id]
-            if jugador_id in nombres_por_goleador:
-                registro["nombre"] = nombres_por_goleador[jugador_id]
-                registro["racha_actual"] += 1
-                if registro["racha_actual"] > registro["max_racha"]:
-                    registro["max_racha"] = registro["racha_actual"]
-            else:
-                # Jugó este partido y no anotó: corta la racha
-                registro["racha_actual"] = 0
-
-    # Obtener el líder de la racha (jugador_id es la propia clave del dict, se necesita para
-    # poder buscar después en qué partidos concretos anotó -- ver _obtener_partidos_jugador_por_evento)
-    top_racha_id, top_racha = max(
-        historial_jugadores.items(), key=lambda kv: kv[1]["max_racha"],
-        default=(None, {"nombre": None, "max_racha": 0})
-    )
-    return {"jugador": top_racha["nombre"], "jugador_id": top_racha_id, "partidos_consecutivos": top_racha["max_racha"]}
-
 # ==========================================
 # 2. ESTADÍSTICAS DE PORTEROS (Vía 'eventos' y 'jugadores')
 # ==========================================
-def _get_stats_porteros():
-    juegos_coll = db["juegos"]
-    jugadores_coll = db["jugadores"]
-    paises_coll = db["paises"]
-    posiciones_coll = db["posiciones"]
-
-    # Posiciones granulares reales cuyo 'sector' es Portero (colección 'posiciones' —
-    # 'jugadores' no tiene un campo 'posicion'/'equipo' de texto, solo 'posicion_id'/'pais_id').
-    ids_posicion_portero = [p["id"] for p in posiciones_coll.find({"sector": "Portero"}, {"id": 1})]
-
-    # 1. Portero con más atajadas ACUMULADAS. Antes se armaba agrupando eventos de 'juegos'
-    #    por 'resultado.eventos.jugador' — un campo que el motor de simulación nunca guarda
-    #    (los eventos solo tienen minuto/equipo/tipo/descripcion) — así que el $ifNull caía
-    #    siempre a la descripción completa de la jugada en vez de un nombre. Ahora se usa el
-    #    contador acumulado real en 'jugadores.atajadas' (ver jugadores_service.py).
-    portero_mas_atajadas = None
-    if ids_posicion_portero:
-        top_atajadas = jugadores_coll.find_one(
-            {"posicion_id": {"$in": ids_posicion_portero}, "atajadas": {"$gt": 0}},
-            {"id": 1, "nombre": 1, "pais_id": 1, "atajadas": 1},
-            sort=[("atajadas", -1)]
-        )
-        if top_atajadas:
-            pais_doc = paises_coll.find_one({"id": top_atajadas.get("pais_id")}, {"nombre": 1})
-            portero_mas_atajadas = {
-                "portero": top_atajadas.get("nombre"),
-                "equipo": pais_doc.get("nombre", "?") if pais_doc else "?",
-                "total_atajadas": top_atajadas.get("atajadas", 0),
-                # Partidos donde este portero atajó, para el modal de "ver partidos" de la
-                # tarjeta Guante de Oro (ver _obtener_partidos_jugador_por_evento)
-                "partidos": _obtener_partidos_jugador_por_evento(top_atajadas["id"], "atajadores") if top_atajadas.get("id") is not None else []
-            }
-
-    # 2. Portero con más juegos sin recibir gol (Valla Invicta Individual), aproximado por
-    #    país (no hay registro de qué portero puntual atajó cada partido). Antes filtraba
-    #    'jugadores' por un campo 'posicion' (string) que no existe — solo existe
-    #    'posicion_id' (numérico) — así que nunca encontraba porteros y siempre daba N/A.
-    pipeline_clean_sheets = [
-        {"$match": {"estado": "finalizado"}},
-        {
-            "$project": {
-                "valla_invicta_local": {"$eq": ["$resultado.goles_visitante", 0]},
-                "valla_invicta_visitante": {"$eq": ["$resultado.goles_local", 0]},
-                "local_id": "$equipo_local.id",
-                "visitante_id": "$equipo_visitante.id"
-            }
-        }
-    ]
-
-    vallas_por_pais: Dict[int, int] = defaultdict(int)
-    for juego in juegos_coll.aggregate(pipeline_clean_sheets):
-        if juego["valla_invicta_local"]:
-            vallas_por_pais[juego["local_id"]] += 1
-        if juego["valla_invicta_visitante"]:
-            vallas_por_pais[juego["visitante_id"]] += 1
-
-    top_portero_valla = {"portero": "N/A", "pais": "N/A", "partidos_sin_recibir_gol": 0}
-    if ids_posicion_portero and vallas_por_pais:
-        porteros = list(jugadores_coll.find(
-            {"posicion_id": {"$in": ids_posicion_portero}, "pais_id": {"$in": list(vallas_por_pais.keys())}},
-            {"nombre": 1, "pais_id": 1}
-        ))
-        if porteros:
-            nombres_paises = {p["id"]: p.get("nombre", "?") for p in paises_coll.find({"id": {"$in": list(vallas_por_pais.keys())}}, {"id": 1, "nombre": 1})}
-            mejor = max(porteros, key=lambda p: vallas_por_pais.get(p["pais_id"], 0))
-            top_portero_valla = {
-                "portero": mejor.get("nombre"),
-                "pais": nombres_paises.get(mejor["pais_id"], "?"),
-                "partidos_sin_recibir_gol": vallas_por_pais.get(mejor["pais_id"], 0)
-            }
-
-    # Portero con más penales atajados (contador 'atajadas_penales' de jugadores, que solo crece
-    # en tandas de penales). Antes se ordenaba por 'penales_atajados' -- campo inexistente -- y
-    # se devolvía 'nombre' en vez de las claves 'portero'/'total' que lee el template.
-    portero_mas_penales = None
-    top_penales = jugadores_coll.find_one(
-        {"atajadas_penales": {"$gt": 0}}, {"nombre": 1, "pais_id": 1, "atajadas_penales": 1},
-        sort=[("atajadas_penales", -1)]
-    )
-    if top_penales:
-        pais_doc = paises_coll.find_one({"id": top_penales.get("pais_id")}, {"nombre": 1})
-        portero_mas_penales = {
-            "portero": top_penales.get("nombre"),
-            "pais": pais_doc.get("nombre", "?") if pais_doc else "?",
-            "total": top_penales.get("atajadas_penales", 0),
-        }
-
-    return {
-        "atajapenales": portero_mas_penales,
-        "portero_mas_atajadas": portero_mas_atajadas,
-        "portero_mas_vallas_invictas": top_portero_valla
-    }
-
 # ==========================================
 # 3. ÁRBITROS CON MÁS JUEGOS PITADOS
 # ==========================================
@@ -545,7 +92,7 @@ def _get_stats_arbitros():
     def _top_arbitro(rol_field):
         juegos_coll = db["juegos"]
         pipeline = [
-            {"$match": {"estado": "finalizado", f"resultado.arbitros.{rol_field}": {"$ne": None}}},
+            {"$match": {**_filtro_finalizados(), f"resultado.arbitros.{rol_field}": {"$ne": None}}},
             {"$group": {"_id": f"$resultado.arbitros.{rol_field}", "juegos": {"$sum": 1}}},
             {"$sort": {"juegos": -1}},
             {"$limit": 1}
@@ -594,40 +141,13 @@ def _formatear_partido_resumen(juego: dict, goles_local: int, goles_visitante: i
     }
 
 
-def _obtener_partidos_jugador_por_evento(jugador_id: int, campo: str) -> list:
-    """
-    Partidos finalizados donde 'jugador_id' aparece en 'resultado.<campo>' (lista de eventos
-    estructurados por jugador -- 'goleadores' o 'atajadores', ver rutes/simular_route.py y
-    services/juegos_service.registrar_resultado_juego), para los modales de "ver partidos" de
-    las tarjetas de líderes individuales (Máximo Goleador, Guante de Oro, Mayor Racha Gol) en
-    la sección 'Líderes Individuales' -- mismo patrón que estadio_mas_frecuente/pais_mas_remontador
-    más abajo en este archivo.
-
-    NOTA: al igual que 'participantes' (ver _obtener_mayor_racha_goles), estos campos solo
-    existen en partidos simulados después de que se agregaron -- los partidos viejos no
-    aparecen acá aunque el jugador haya anotado/atajado en ellos.
-    """
-    juegos_coll = db["juegos"]
-    juegos = juegos_coll.find(
-        {"estado": "finalizado", f"resultado.{campo}.jugador_id": jugador_id},
-        {
-            "equipo_local": 1, "equipo_visitante": 1, "tag": 1, "fecha": 1,
-            "resultado.goles_local": 1, "resultado.goles_visitante": 1
-        }
-    ).sort("fecha", 1)
-    return [
-        _formatear_partido_resumen(
-            j, (j.get("resultado") or {}).get("goles_local", 0) or 0, (j.get("resultado") or {}).get("goles_visitante", 0) or 0
-        )
-        for j in juegos
-    ]
-
-
-def _get_stats_partidos():
+def _get_stats_partidos(juegos: Optional[list] = None):
     juegos_coll = db["juegos"]
 
-    # Partidos con más goles (Tiempo Regular vs Tiempo Extra vs Penales)
-    juegos_finalizados = list(juegos_coll.find({"estado": "finalizado"}))
+    # Partidos con más goles (Tiempo Regular vs Tiempo Extra vs Penales). Con la lista compartida
+    # de obtener_estadisticas_generales se trabaja sobre COPIAS: más abajo se borran campos
+    # ('resultado', 'ubicacion'...) de los partidos récord, y eso no debe tocar la lista común.
+    juegos_finalizados = [dict(j) for j in juegos] if juegos is not None else list(juegos_coll.find({**_filtro_finalizados()}))
 
     mas_goles_regular = None
     mas_goles_extra = None
@@ -682,6 +202,7 @@ def _get_stats_partidos():
                 clave_estadio = (nombre_estadio, ubicacion.get("pais"))
             grupo_estadio = partidos_por_estadio[clave_estadio]
             grupo_estadio["estadio"] = nombre_estadio
+            grupo_estadio["ciudad_id"] = ubicacion.get("id")
             grupo_estadio["ciudad"] = ubicacion.get("nombre")
             grupo_estadio["pais"] = ubicacion.get("pais")
             grupo_estadio["partidos"].append(_formatear_partido_resumen(j, gl, gv))
@@ -810,6 +331,7 @@ def _get_stats_partidos():
             "estadio": grupo_top_estadio["estadio"],
             "ciudad": grupo_top_estadio["ciudad"],
             "pais": grupo_top_estadio["pais"],
+            "ciudad_id": grupo_top_estadio.get("ciudad_id"),
             "total_juegos": len(grupo_top_estadio["partidos"]),
             "partidos": sorted(grupo_top_estadio["partidos"], key=lambda p: p.get("fecha") or "")
         }
@@ -847,10 +369,7 @@ def _juegos_finalizados_para_records() -> list:
     traer 'estadisticas', posiciones del balón, descripciones, etc.). Solo del Mundial ACTIVO:
     'juegos' conserva los partidos de mundiales anteriores (clean_and_update no los borra) y sin
     este filtro los récords y tendencias mezclaban torneos."""
-    filtro = {"estado": "finalizado", "resultado": {"$exists": True}}
-    mundial = db["mundiales"].find_one({"activo": True}, {"_id": 1})
-    if mundial:
-        filtro["mundial_id"] = str(mundial["_id"])
+    filtro = {**_filtro_finalizados(), "resultado": {"$exists": True}}
     return list(db["juegos"].find(
         filtro,
         {
@@ -969,14 +488,14 @@ def _obtener_sede_mas_goleadora(juegos: list) -> Optional[dict]:
         if clave is None:
             clave = (ubicacion.get("estadio"), ubicacion.get("pais"))
         sede = sedes[clave]
-        sede.update({"estadio": ubicacion.get("estadio"), "ciudad": ubicacion.get("nombre"), "pais": ubicacion.get("pais")})
+        sede.update({"estadio": ubicacion.get("estadio"), "ciudad": ubicacion.get("nombre"), "pais": ubicacion.get("pais"), "ciudad_id": ubicacion.get("id")})
         sede["goles"] += sum(_goles_partido(j))
         sede["partidos"].append(_resumen_partido(j))
     if not sedes:
         return None
     top = max(sedes.values(), key=lambda s: (s["goles"], s["goles"] / len(s["partidos"])))
     return {
-        "estadio": top["estadio"], "ciudad": top["ciudad"], "pais": top["pais"],
+        "estadio": top["estadio"], "ciudad": top["ciudad"], "pais": top["pais"], "ciudad_id": top.get("ciudad_id"),
         "total_goles": top["goles"], "total_juegos": len(top["partidos"]),
         "promedio_goles": round(top["goles"] / len(top["partidos"]), 1),
         "partidos": sorted(top["partidos"], key=lambda p: p.get("fecha") or ""),
@@ -1056,7 +575,7 @@ def _get_stats_tendencias(juegos: list) -> dict:
 # ==========================================
 # 5. ESTADÍSTICAS DE PAÍSES (Vía 'juegos', agregando todo el torneo)
 # ==========================================
-def _calcular_estadisticas_reales_paises() -> Dict[int, dict]:
+def _calcular_estadisticas_reales_paises(juegos_lista: Optional[list] = None) -> Dict[int, dict]:
     """
     Recalcula las estadísticas acumuladas REALES de cada país agregando directamente sobre
     'juegos' (única fuente que acumula de verdad a lo largo de TODO el torneo):
@@ -1070,8 +589,8 @@ def _calcular_estadisticas_reales_paises() -> Dict[int, dict]:
         que tampoco sirve para "mejor país de todo el torneo".
     """
     juegos_coll = db["juegos"]
-    juegos = juegos_coll.find(
-        {"estado": "finalizado"},
+    juegos = juegos_lista if juegos_lista is not None else juegos_coll.find(
+        {**_filtro_finalizados()},
         {
             "equipo_local.id": 1, "equipo_local.nombre": 1, "equipo_local.bandera": 1,
             "equipo_visitante.id": 1, "equipo_visitante.nombre": 1, "equipo_visitante.bandera": 1,
@@ -1159,54 +678,8 @@ def _calcular_estadisticas_reales_paises() -> Dict[int, dict]:
 MINIMO_TIROS_EFECTIVIDAD_GOL_PAIS = 10
 
 
-def _obtener_fair_play(estadisticas_por_pais: Dict[int, dict]) -> Optional[dict]:
-    """
-    País con menos tarjetas + faltas acumuladas en el torneo (menor total = juego más limpio).
-
-    'juegos.estadisticas.local/visitante' (ver simular_service.calcular_metricas_equipo) NO
-    persiste faltas/tarjetas a nivel de equipo, solo por jugador -- así que en vez de parsear
-    'juegos.eventos[]' de todo el torneo, se suma directo sobre 'jugadores' (contador por-torneo,
-    se resetea en cada restart_mundial, no arrastra mundiales viejos) agrupando por 'pais_id'.
-
-    Solo participan países que ya jugaron al menos un partido (mismo universo de
-    'estadisticas_por_pais' que usa el resto de _get_stats_paises).
-    """
-    jugadores_coll = db["jugadores"]
-    disciplina_por_pais = {
-        reg["_id"]: {
-            "faltas": reg.get("faltas", 0) or 0,
-            "amarillas": reg.get("amarillas", 0) or 0,
-            "rojas": reg.get("rojas", 0) or 0
-        }
-        for reg in jugadores_coll.aggregate([
-            {"$group": {
-                "_id": "$pais_id",
-                "faltas": {"$sum": "$faltas"},
-                "amarillas": {"$sum": "$amarilla"},
-                "rojas": {"$sum": "$roja"}
-            }}
-        ])
-    }
-
-    candidatos = []
-    for pais_id, datos in estadisticas_por_pais.items():
-        disciplina = disciplina_por_pais.get(pais_id, {"faltas": 0, "amarillas": 0, "rojas": 0})
-        candidatos.append({
-            "nombre": datos["nombre"],
-            "bandera": datos["bandera"],
-            "faltas": disciplina["faltas"],
-            "amarillas": disciplina["amarillas"],
-            "rojas": disciplina["rojas"],
-            "total_infracciones": disciplina["faltas"] + disciplina["amarillas"] + disciplina["rojas"]
-        })
-
-    if not candidatos:
-        return None
-    return min(candidatos, key=lambda p: p["total_infracciones"])
-
-
-def _get_stats_paises():
-    estadisticas_por_pais = _calcular_estadisticas_reales_paises()
+def _get_stats_paises(juegos: Optional[list] = None):
+    estadisticas_por_pais = _calcular_estadisticas_reales_paises(juegos)
 
     if not estadisticas_por_pais:
         return {"pais_mas_goleador": None, "mejor_ofensiva": None, "mejor_defensiva": None, "mejor_efectividad_gol": None}
@@ -1230,8 +703,8 @@ def _get_stats_paises():
         if paises_calificados else None
     )
     
-    # pais con menos tarjetas y faltas acumuladas en el torneo (juego limpio) -- solo participan países con al menos 1 partido jugado
-    fair_play = _obtener_fair_play(estadisticas_por_pais)
+    # Fair play: lo calcula obtener_estadisticas_generales desde el agregado del Mundial (tarjetas y faltas por partido)
+    fair_play = None
 
     return {
         "pais_mas_goleador": pais_goleador,
@@ -1285,3 +758,461 @@ def _get_11_ideal():
                 "overall": mejor_jugador["overall"]
             })
     return once_ideal
+
+
+# ==========================================
+# 7. AGREGADO DEL MUNDIAL EN CURSO, TOP 10 Y DETALLE
+# ==========================================
+# Todo lo de esta sección sale de los partidos del Mundial activo (no de los contadores de
+# 'jugadores', que NO se reinician entre mundiales: solo restart_mundial los pone en 0). Los
+# eventos traen NOMBRES de jugadores; el rol de cada nombre según el tipo de evento sale del motor
+# (simular_service.construir_evento):
+#   ⚽ GOL*            -> [goleador, arquero rival, asistente?]   (equipo = el que anota)
+#   🛑 FALTA / 🟨       -> [infractor, infractado?]               (equipo = el del infractor)
+#   🟥 / 🟨🟥           -> [expulsado]
+#   🧠 ROBO DE BALÓN   -> [quien recupera];  ⚡ REGATE DESTACADO -> [quien regatea]
+#   🎯 / 🧱             -> [quien dispara];   🧤 ATAJADA -> [arquero, tirador?] (equipo = el del arquero)
+#   ❌ PENAL FALLADO   -> [arquero, pateador] (equipo = el del arquero)
+
+PROYECCION_JUEGOS_MUNDIAL = {
+    "equipo_local": 1, "equipo_visitante": 1, "tag": 1, "fecha": 1, "hora": 1, "ubicacion": 1, "aforo": 1,
+    "tiempo_extra": 1, "jornada": 1, "grupo": 1, "fase_id": 1, "estadisticas.local": 1, "estadisticas.visitante": 1,
+    **{f"resultado.{k}": 1 for k in ("goles_local", "goles_visitante", "penaltis_local", "penaltis_visitante", "ganador_id",
+                                     "empate", "arbitros", "goleadores", "atajadores", "participantes")},
+    "resultado.eventos.tipo": 1, "resultado.eventos.minuto": 1, "resultado.eventos.segundos_acumulados": 1,
+    "resultado.eventos.equipo": 1, "resultado.eventos.jugadores": 1,
+}
+
+METRICAS_JUGADOR = ("partidos", "goles", "goles_penal", "goles_tiro_libre", "goles_corner", "goles_suplente", "asistencias",
+                    "atajadas", "penales_atajados", "disparos", "faltas", "faltas_recibidas", "amarillas", "rojas",
+                    "recuperaciones", "regates")
+
+# (código, título, ícono, sufijo, mínimo para entrar a la lista)
+TOP_JUGADORES = [
+    ("goles", "Goleadores", "bi-dribbble", "goles", 1),
+    ("asistencias", "Asistidores", "bi-share-fill", "asist.", 1),
+    ("contribucion", "Goles + asistencias", "bi-plus-circle-fill", "G+A", 1),
+    ("atajadas", "Arqueros (atajadas)", "bi-hand-index-thumb-fill", "atajadas", 1),
+    ("recuperaciones", "Recuperadores", "bi-shield-fill-check", "recup.", 1),
+    ("regates", "Regateadores", "bi-lightning-charge-fill", "regates", 1),
+    ("disparos", "Más disparos", "bi-bullseye", "disparos", 1),
+    ("partidos", "Más presencias", "bi-person-check-fill", "PJ", 1),
+    ("tarjetas", "Más amonestados", "bi-file-earmark-fill", "pts", 1),
+    ("faltas_recibidas", "Más infractados", "bi-bandaid-fill", "faltas", 1),
+    ("valoracion", "Mejor valoración", "bi-star-fill", "OVR", 0),
+]
+TOP_SELECCIONES = [
+    ("puntos", "Puntos", "bi-trophy-fill", "pts"),
+    ("victorias", "Victorias", "bi-check-circle-fill", "G"),
+    ("goles_favor", "Goles a favor", "bi-dribbble", "GF"),
+    ("defensa", "Mejor defensa", "bi-shield-fill", "GC/PJ"),
+    ("diferencia", "Diferencia de gol", "bi-plus-slash-minus", "DG"),
+    ("efectividad", "Efectividad de tiro", "bi-bullseye", "%"),
+    ("posesion", "Posesión", "bi-pie-chart-fill", "%"),
+    ("vallas", "Vallas invictas", "bi-lock-fill", "vallas"),
+    ("fair_play", "Fair play", "bi-hand-thumbs-up-fill", "tarj./PJ"),
+    ("aficionados", "Más aficionados", "bi-people-fill", "fans"),
+]
+MINIMO_PJ_RANKING_SELECCION = 3
+
+_cache_vista = {"clave": None, "stats": None, "juegos": None, "agregado": None, "paises": None}
+
+
+def _juegos_del_mundial() -> list:
+    """Partidos jugados del Mundial activo, con la proyección que usan todas las secciones (una sola carga)."""
+    return list(db["juegos"].find({**_filtro_finalizados()}, PROYECCION_JUEGOS_MUNDIAL).sort([("fecha", 1), ("hora", 1)]))
+
+
+def _agregar_jugadores_mundial(juegos: list) -> dict:
+    """
+    {jugador_id: {nombre, pais_id, posicion_id, overall, metricas: {m: total}, partidos_por: {m: {juego_id: n}}}}
+    recorriendo UNA vez los partidos. Los nombres de los eventos se resuelven a id con (país, nombre),
+    así dos jugadores homónimos de selecciones distintas no se mezclan.
+    """
+    ids = {pid for j in juegos for pid in ((j.get("resultado") or {}).get("participantes") or [])}
+    ids |= {g.get("jugador_id") for j in juegos for g in ((j.get("resultado") or {}).get("goleadores") or [])}
+    info = {d["id"]: d for d in db["jugadores"].find({"id": {"$in": [i for i in ids if i is not None]}},
+                                                     {"_id": 0, "id": 1, "nombre": 1, "pais_id": 1, "posicion_id": 1, "overall": 1})}
+    por_clave = {(d.get("pais_id"), d.get("nombre")): d["id"] for d in info.values()}
+    agregado: Dict[int, dict] = {}
+
+    def sumar(jugador_id, metrica, juego_id, n=1):
+        if jugador_id is None or not n:
+            return
+        a = agregado.get(jugador_id)
+        if a is None:
+            d = info.get(jugador_id, {})
+            a = agregado[jugador_id] = {"id": jugador_id, "nombre": d.get("nombre", "?"), "pais_id": d.get("pais_id"),
+                                        "posicion_id": d.get("posicion_id"), "overall": d.get("overall"),
+                                        "metricas": defaultdict(int), "partidos_por": defaultdict(dict)}
+        a["metricas"][metrica] += n
+        a["partidos_por"][metrica][juego_id] = a["partidos_por"][metrica].get(juego_id, 0) + n
+
+    for j in juegos:
+        jid = str(j["_id"])
+        res = j.get("resultado") or {}
+        local, visita = j.get("equipo_local") or {}, j.get("equipo_visitante") or {}
+        pais_de_equipo = {local.get("nombre"): local.get("id"), visita.get("nombre"): visita.get("id")}
+        rival = {local.get("id"): visita.get("id"), visita.get("id"): local.get("id")}
+        for pid in res.get("participantes") or []:
+            sumar(pid, "partidos", jid)
+        for g in res.get("goleadores") or []:
+            pid = g.get("jugador_id")
+            sumar(pid, "goles", jid, g.get("goles", 0) or 0)
+            for campo in ("goles_penal", "goles_tiro_libre", "goles_corner"):
+                sumar(pid, campo, jid, g.get(campo, 0) or 0)
+            if g.get("entro_de_cambio"):
+                sumar(pid, "goles_suplente", jid, g.get("goles", 0) or 0)
+        for a in res.get("atajadores") or []:
+            sumar(a.get("jugador_id"), "atajadas", jid, a.get("atajadas", 0) or 0)
+
+        for ev in res.get("eventos") or []:
+            tipo, nombres = ev.get("tipo") or "", ev.get("jugadores") or []
+            pais = pais_de_equipo.get(ev.get("equipo"))
+            if pais is None or not nombres:
+                continue
+            propio = lambda i: por_clave.get((pais, nombres[i])) if len(nombres) > i else None
+            del_rival = lambda i: por_clave.get((rival.get(pais), nombres[i])) if len(nombres) > i else None
+            if tipo.startswith("⚽"):
+                sumar(propio(0), "disparos", jid)
+                sumar(propio(2), "asistencias", jid)
+            elif tipo in ("🎯 DISPARO DESVIADO", "🧱 TIRO LIBRE BLOQUEADO"):
+                sumar(propio(0), "disparos", jid)
+            elif tipo == "🧤 ATAJADA ESPECTACULAR":
+                sumar(del_rival(1), "disparos", jid)
+            elif tipo == "❌ PENAL FALLADO":
+                sumar(propio(0), "penales_atajados", jid)
+                sumar(del_rival(1), "disparos", jid)
+            elif tipo == "🟨 TARJETA AMARILLA":
+                sumar(propio(0), "amarillas", jid)
+                sumar(propio(0), "faltas", jid)
+                sumar(del_rival(1), "faltas_recibidas", jid)
+            elif tipo in ("🟥 TARJETA ROJA", "🟨🟥 DOBLE AMARILLA"):
+                sumar(propio(0), "rojas", jid)
+            elif tipo == "🛑 FALTA":
+                sumar(propio(0), "faltas", jid)
+                sumar(del_rival(1), "faltas_recibidas", jid)
+            elif tipo == "🧠 ROBO DE BALÓN":
+                sumar(propio(0), "recuperaciones", jid)
+            elif tipo == "⚡ REGATE DESTACADO":
+                sumar(propio(0), "regates", jid)
+    return agregado
+
+
+def _valor_jugador(a: dict, codigo: str):
+    m = a["metricas"]
+    if codigo == "contribucion":
+        return m["goles"] + m["asistencias"]
+    if codigo == "tarjetas":
+        return m["amarillas"] + 3 * m["rojas"]
+    if codigo == "valoracion":
+        return round(a.get("overall") or 0, 1)
+    return m[codigo]
+
+
+def _agregar_paises_mundial(juegos: list, agregado: dict) -> dict:
+    """{pais_id: {nombre, bandera, pj, g, e, p, gf, gc, vallas, tiros, suma_posesion, tarjetas, faltas, partidos: [juego_id]}}"""
+    paises: Dict[int, dict] = {}
+    for j in juegos:
+        res = j.get("resultado") or {}
+        gl, gv = res.get("goles_local", 0) or 0, res.get("goles_visitante", 0) or 0
+        est = j.get("estadisticas") or {}
+        for lado, rival, gf, gc in (("equipo_local", "equipo_visitante", gl, gv), ("equipo_visitante", "equipo_local", gv, gl)):
+            eq = j.get(lado) or {}
+            pid = eq.get("id")
+            if pid is None:
+                continue
+            p = paises.setdefault(pid, {"id": pid, "nombre": eq.get("nombre"), "bandera": eq.get("bandera"), "pj": 0, "g": 0, "e": 0,
+                                        "p": 0, "gf": 0, "gc": 0, "vallas": 0, "tiros": 0, "suma_posesion": 0.0, "tarjetas": 0,
+                                        "faltas": 0, "partidos": []})
+            p["pj"] += 1
+            p["gf"] += gf
+            p["gc"] += gc
+            p["vallas"] += 1 if gc == 0 else 0
+            ganador = res.get("ganador_id")
+            if res.get("empate") or ganador is None:
+                p["e"] += 1
+            elif ganador == pid:
+                p["g"] += 1
+            else:
+                p["p"] += 1
+            lado_est = est.get("local" if lado == "equipo_local" else "visitante") or {}
+            p["tiros"] += lado_est.get("tiros_totales", 0) or 0
+            p["suma_posesion"] += lado_est.get("p_posesion", 0) or 0
+            p["partidos"].append(str(j["_id"]))
+    for a in agregado.values():
+        p = paises.get(a.get("pais_id"))
+        if p:
+            p["tarjetas"] += a["metricas"]["amarillas"] + a["metricas"]["rojas"]
+            p["faltas"] += a["metricas"]["faltas"]
+    aficionados = {d["id"]: d.get("aficionados", 0) for d in db["paises"].find({"id": {"$in": list(paises)}}, {"id": 1, "aficionados": 1})}
+    for p in paises.values():
+        p["puntos"] = p["g"] * 3 + p["e"]
+        p["dg"] = p["gf"] - p["gc"]
+        p["aficionados"] = aficionados.get(p["id"], 0)
+        p["posesion"] = round(p["suma_posesion"] / p["pj"], 1) if p["pj"] else 0
+        p["efectividad"] = round(p["gf"] * 100 / p["tiros"], 1) if p["tiros"] >= 10 else None
+        p["defensa"] = round(p["gc"] / p["pj"], 2) if p["pj"] >= MINIMO_PJ_RANKING_SELECCION else None
+        p["fair_play"] = round((p["tarjetas"] + p["faltas"] / 4) / p["pj"], 2) if p["pj"] >= MINIMO_PJ_RANKING_SELECCION else None
+    return paises
+
+
+def _armar_top_jugadores(agregado: dict, nombres_paises: dict) -> list:
+    tops = []
+    candidatos = list(agregado.values())
+    for codigo, titulo, icono, sufijo, minimo in TOP_JUGADORES:
+        lista = candidatos if codigo != "atajadas" else [a for a in candidatos if a["metricas"]["atajadas"] > 0]
+        ordenados = sorted(lista, key=lambda a: (-_valor_jugador(a, codigo), a["metricas"]["partidos"], a["nombre"]))
+        filas = [a for a in ordenados if _valor_jugador(a, codigo) >= max(minimo, 0.0001)][:10]
+        maximo = _valor_jugador(filas[0], codigo) if filas else 0
+        tops.append({"codigo": codigo, "titulo": titulo, "icono": icono, "sufijo": sufijo, "filas": [{
+            "posicion": i + 1, "id": a["id"], "nombre": a["nombre"], "pais_id": a["pais_id"],
+            "pais": nombres_paises.get(a["pais_id"], {}).get("nombre", "?"), "bandera": nombres_paises.get(a["pais_id"], {}).get("bandera"),
+            "valor": _valor_jugador(a, codigo), "partidos": a["metricas"]["partidos"],
+            "pct": round(_valor_jugador(a, codigo) * 100 / maximo) if maximo else 0,
+        } for i, a in enumerate(filas)]})
+    return tops
+
+
+def _armar_top_selecciones(paises: dict) -> list:
+    tops = []
+    asc = {"defensa", "fair_play"}
+    for codigo, titulo, icono, sufijo in TOP_SELECCIONES:
+        clave = {"victorias": "g", "goles_favor": "gf", "diferencia": "dg"}.get(codigo, codigo)
+        lista = [p for p in paises.values() if p.get(clave) is not None]
+        lista.sort(key=lambda p: (p[clave] if codigo in asc else -p[clave], -p["pj"], p["nombre"] or ""))
+        filas = lista[:10]
+        valores = [abs(p[clave]) for p in filas] or [0]
+        maximo = max(valores)
+        tops.append({"codigo": codigo, "titulo": titulo, "icono": icono, "sufijo": sufijo, "asc": codigo in asc, "filas": [{
+            "posicion": i + 1, "id": p["id"], "nombre": p["nombre"], "bandera": p["bandera"], "valor": p[clave], "partidos": p["pj"],
+            # en las métricas "menos es mejor" la barra se invierte: el líder (el menor) llena la barra
+            "pct": (round((min(valores) or 0.01) * 100 / (abs(p[clave]) or 0.01)) if codigo in asc else (round(abs(p[clave]) * 100 / maximo) if maximo else 0)),
+        } for i, p in enumerate(filas)]})
+    return tops
+
+
+def _lider(agregado: dict, codigo: str, nombres_paises: dict, clave_salida: str) -> Optional[dict]:
+    """Líder de una métrica del agregado con la forma que ya usaba la vista (nombre, pais, pais_id, jugador_id, <clave>)."""
+    candidatos = [a for a in agregado.values() if _valor_jugador(a, codigo) > 0]
+    if not candidatos:
+        return None
+    a = max(candidatos, key=lambda x: (_valor_jugador(x, codigo), -x["metricas"]["partidos"]))
+    return {"nombre": a["nombre"], "pais_id": a["pais_id"], "jugador_id": a["id"], "id": a["id"],
+            "pais": nombres_paises.get(a["pais_id"], {}).get("nombre", "?"), clave_salida: _valor_jugador(a, codigo),
+            "metrica": codigo}
+
+
+def _jugadores_desde_agregado(juegos: list, agregado: dict, paises_agregado: dict, nombres_paises: dict) -> tuple:
+    """
+    Líderes de jugadores y arqueros del Mundial en curso, todos desde el agregado (sin consultas
+    extra): (jugadores, porteros) con la misma forma que usaba la vista.
+    """
+    pais = lambda pid: nombres_paises.get(pid, {}).get("nombre", "?")
+    lider = lambda codigo, campo: _lider(agregado, codigo, nombres_paises, campo)
+    jugadores = {clave: lider(codigo, campo) for clave, codigo, campo in (
+        ("mas_partidos", "partidos", "juegos_jugados"), ("mas_goles", "goles", "goles"), ("mas_amarillas", "amarillas", "amarilla"),
+        ("mas_rojas", "rojas", "roja"), ("mas_faltas", "faltas", "faltas"), ("mas_infringido", "faltas_recibidas", "faltas_recibidas"),
+        ("mas_asistencias", "asistencias", "asistencias"), ("mas_recuperaciones", "recuperaciones", "recuperaciones"),
+        ("super_sub", "goles_suplente", "goles"))}
+    # Balón parado: goles de penal + tiro libre + córner
+    balon = max(agregado.values(), key=lambda a: (a["metricas"]["goles_penal"] + a["metricas"]["goles_tiro_libre"] + a["metricas"]["goles_corner"]), default=None)
+    total_balon = (balon["metricas"]["goles_penal"] + balon["metricas"]["goles_tiro_libre"] + balon["metricas"]["goles_corner"]) if balon else 0
+    jugadores["especialista_balon_parado"] = ({"nombre": balon["nombre"], "jugador_id": balon["id"], "pais_id": balon["pais_id"], "pais": pais(balon["pais_id"]),
+                                               "goles": total_balon, "metrica": "balon_parado"} if total_balon else None)
+    # Efectividad: goles / disparos (mínimo MINIMO_TIROS_EFECTIVIDAD_GOL disparos)
+    calificados = [a for a in agregado.values() if a["metricas"]["disparos"] >= MINIMO_TIROS_EFECTIVIDAD_GOL]
+    efect = max(calificados, key=lambda a: (a["metricas"]["goles"] / a["metricas"]["disparos"], a["metricas"]["goles"]), default=None)
+    jugadores["mejor_efectividad_gol"] = ({"nombre": efect["nombre"], "jugador_id": efect["id"], "pais_id": efect["pais_id"], "pais": pais(efect["pais_id"]),
+                                           "goles": efect["metricas"]["goles"], "tiros_totales": efect["metricas"]["disparos"],
+                                           "efectividad_gol": round(efect["metricas"]["goles"] * 100 / efect["metricas"]["disparos"], 1), "metrica": "goles"} if efect else None)
+    # Racha: partidos SEGUIDOS (de los que jugó) anotando, en orden cronológico
+    racha_actual, mejor = defaultdict(int), {"jugador": None, "partidos_consecutivos": 0}
+    for j in juegos:
+        res = j.get("resultado") or {}
+        anotaron = {g.get("jugador_id") for g in res.get("goleadores") or [] if (g.get("goles") or 0) > 0}
+        for pid in res.get("participantes") or []:
+            racha_actual[pid] = racha_actual[pid] + 1 if pid in anotaron else 0
+            if racha_actual[pid] > mejor["partidos_consecutivos"] and pid in agregado:
+                a = agregado[pid]
+                mejor = {"jugador": a["nombre"], "jugador_id": pid, "pais_id": a["pais_id"], "pais": pais(a["pais_id"]),
+                         "partidos_consecutivos": racha_actual[pid], "metrica": "goles"}
+    jugadores["mayor_racha_goles"] = mejor if mejor["jugador"] else None
+    jugadores["especialista_aereo"] = db["jugadores"].find_one({"id": {"$in": list(agregado)}}, {"_id": 0, "id": 1, "nombre": 1, "pais_id": 1, "juego_aereo": 1},
+                                                              sort=[("juego_aereo", -1)])
+    if jugadores["especialista_aereo"]:
+        ea = jugadores["especialista_aereo"]
+        ea.update(jugador_id=ea["id"], pais=pais(ea.get("pais_id")))
+
+    arqueros = [a for a in agregado.values() if a["metricas"]["atajadas"] > 0]
+    guante = max(arqueros, key=lambda a: (a["metricas"]["atajadas"], -a["metricas"]["partidos"]), default=None)
+    atajapenales = max(arqueros, key=lambda a: a["metricas"]["penales_atajados"], default=None)
+    pais_vallas = max(paises_agregado.values(), key=lambda p: (p["vallas"], -p["gc"]), default=None)
+    arquero_vallas = max((a for a in arqueros if pais_vallas and a["pais_id"] == pais_vallas["id"]), key=lambda a: a["metricas"]["partidos"], default=None)
+    porteros = {
+        "portero_mas_atajadas": ({"portero": guante["nombre"], "jugador_id": guante["id"], "pais_id": guante["pais_id"], "equipo": pais(guante["pais_id"]),
+                                  "total_atajadas": guante["metricas"]["atajadas"], "metrica": "atajadas"} if guante else None),
+        "portero_mas_vallas_invictas": ({"portero": arquero_vallas["nombre"], "jugador_id": arquero_vallas["id"], "pais_id": pais_vallas["id"],
+                                         "pais": pais_vallas["nombre"], "partidos_sin_recibir_gol": pais_vallas["vallas"], "metrica": "vallas"}
+                                        if arquero_vallas and pais_vallas["vallas"] else None),
+        "atajapenales": ({"portero": atajapenales["nombre"], "jugador_id": atajapenales["id"], "pais_id": atajapenales["pais_id"],
+                          "pais": pais(atajapenales["pais_id"]), "total": atajapenales["metricas"]["penales_atajados"], "metrica": "penales_atajados"}
+                         if atajapenales and atajapenales["metricas"]["penales_atajados"] else None),
+    }
+    return jugadores, porteros
+
+
+def obtener_estadisticas_generales():
+    """
+    Todas las métricas de /estadisticas DEL MUNDIAL EN CURSO. Se cachean en memoria hasta que termina
+    otro partido (clave: Mundial activo + cantidad de partidos jugados, un conteo barato): armar todo
+    lleva unos segundos porque recorre los eventos de cada partido.
+    """
+    clave = (_mundial_activo_id(), db["juegos"].count_documents({**_filtro_finalizados()}))
+    if _cache_vista["clave"] == clave and _cache_vista["stats"] is not None:
+        return _cache_vista["stats"]
+
+    juegos = _juegos_del_mundial()
+    agregado = _agregar_jugadores_mundial(juegos)
+    paises_agregado = _agregar_paises_mundial(juegos, agregado)
+    nombres_paises = {p["id"]: {"nombre": p.get("nombre"), "bandera": p.get("bandera")} for p in db["paises"].find({}, {"id": 1, "nombre": 1, "bandera": 1})}
+
+    partidos = _get_stats_partidos(juegos)
+    partidos.update(_obtener_records_primer_gol(juegos))
+    partidos["sede_mas_goleadora"] = _obtener_sede_mas_goleadora(juegos)
+
+    # Líderes del Mundial en curso desde el agregado (los contadores de 'jugadores' acumulan mundiales)
+    jugadores, porteros = _jugadores_desde_agregado(juegos, agregado, paises_agregado, nombres_paises)
+
+    paises = _get_stats_paises(juegos)
+    con_pj = [p for p in paises_agregado.values() if p["defensa"] is not None]
+    if con_pj:
+        mejor = min(con_pj, key=lambda p: (p["defensa"], -p["pj"]))
+        paises["mejor_defensiva"] = {"id": mejor["id"], "nombre": mejor["nombre"], "bandera": mejor["bandera"],
+                                     "estadisticas": {"goles_contra": mejor["gc"], "diferencia_goles": mejor["dg"], "partidos": mejor["pj"],
+                                                      "gc_por_partido": mejor["defensa"], "vallas": mejor["vallas"]}}
+        limpio = min(con_pj, key=lambda p: (p["fair_play"], -p["pj"]))
+        paises["fair_play"] = {"id": limpio["id"], "nombre": limpio["nombre"], "bandera": limpio["bandera"], "faltas": limpio["faltas"],
+                               "tarjetas": limpio["tarjetas"], "total_infracciones": limpio["tarjetas"] + limpio["faltas"], "partidos": limpio["pj"]}
+    for clave_pais in ("pais_mas_goleador", "mejor_ofensiva", "mejor_efectividad_gol"):
+        reg = paises.get(clave_pais)
+        if reg and reg.get("id") is None:
+            reg["id"] = next((pid for pid, p in paises_agregado.items() if p["nombre"] == reg.get("nombre")), None)
+
+    tendencias = _get_stats_tendencias(juegos)
+    stats = {
+        "jugadores": jugadores,
+        "porteros": porteros,
+        "arbitros": _get_stats_arbitros(),
+        "arbitros_avanzado": _get_stats_arbitros_avanzado(juegos),
+        "partidos": partidos,
+        "tendencias": tendencias,
+        "paises": paises,
+        "torneos": _get_stats_torneos(),
+        "once_ideal": _get_11_ideal(),
+        "top_jugadores": _armar_top_jugadores(agregado, nombres_paises),
+        "top_selecciones": _armar_top_selecciones(paises_agregado),
+        "mundial": db["mundiales"].find_one({"activo": True}, {"_id": 0, "anio": 1}),
+    }
+    _completar_ids_jugadores(stats)
+    _cache_vista.update(clave=clave, stats=stats, juegos={str(j["_id"]): j for j in juegos}, agregado=agregado,
+                        paises=paises_agregado, nombres_paises=nombres_paises)
+    return stats
+
+
+# --- Detalle al hacer clic (GET /estadisticas/api/detalle) ---
+TITULOS_METRICA_JUGADOR = {
+    "goles": "Goles", "asistencias": "Asistencias", "contribucion": "Goles + asistencias", "atajadas": "Atajadas",
+    "recuperaciones": "Recuperaciones", "regates": "Regates", "disparos": "Disparos", "partidos": "Partidos jugados",
+    "tarjetas": "Tarjetas", "amarillas": "Amarillas", "rojas": "Rojas", "faltas": "Faltas cometidas",
+    "faltas_recibidas": "Faltas recibidas", "goles_suplente": "Goles saliendo del banco", "valoracion": "Partidos jugados",
+    "balon_parado": "Goles a balón parado", "penales_atajados": "Penales atajados",
+}
+NOTA_METRICA = {"goles": ("gol", "goles"), "asistencias": ("asistencia", "asistencias"), "atajadas": ("atajada", "atajadas"),
+                "recuperaciones": ("recuperación", "recuperaciones"), "regates": ("regate", "regates"), "disparos": ("disparo", "disparos"),
+                "amarillas": ("🟨 amarilla", "🟨 amarillas"), "rojas": ("🟥 roja", "🟥 rojas"), "faltas": ("falta", "faltas"),
+                "faltas_recibidas": ("falta recibida", "faltas recibidas"), "goles_suplente": ("gol desde el banco", "goles desde el banco"),
+                "penales_atajados": ("penal atajado", "penales atajados")}
+METRICAS_COMPUESTAS = {"contribucion": ("goles", "asistencias"), "tarjetas": ("amarillas", "rojas"),
+                       "balon_parado": ("goles_penal", "goles_tiro_libre", "goles_corner"), "valoracion": ("partidos",)}
+
+
+def _nota(metrica: str, n: int) -> str:
+    sing, plur = NOTA_METRICA.get(metrica, (metrica, metrica))
+    return f"{n} {sing if n == 1 else plur}"
+
+
+def _partido_detalle(j: dict, nota: str, fases: dict) -> dict:
+    res = j.get("resultado") or {}
+    local, visita = j.get("equipo_local") or {}, j.get("equipo_visitante") or {}
+    return {"id": str(j["_id"]), "fecha": j.get("fecha"), "fase": fases.get(j.get("fase_id"), ""), "grupo": j.get("grupo"),
+            "local": {"id": local.get("id"), "nombre": local.get("nombre"), "bandera": local.get("bandera"), "goles": res.get("goles_local", 0)},
+            "visitante": {"id": visita.get("id"), "nombre": visita.get("nombre"), "bandera": visita.get("bandera"), "goles": res.get("goles_visitante", 0)},
+            "penales": (f"{res.get('penaltis_local')}-{res.get('penaltis_visitante')}" if res.get("penaltis_local") is not None else None),
+            "nota": nota}
+
+
+def obtener_detalle_estadistica(tipo: str, sujeto_id: int, metrica: str) -> Optional[dict]:
+    """
+    Detalle de una tarjeta o de una fila de los top 10: quién es, cuánto suma y EN QUÉ PARTIDOS sumó,
+    con la contribución de cada partido. Usa el agregado cacheado por obtener_estadisticas_generales.
+    """
+    obtener_estadisticas_generales()   # arma (o reutiliza) el caché
+    juegos, nombres_paises = _cache_vista["juegos"], _cache_vista["nombres_paises"]
+    fases = {f["id"]: f.get("nombre", "") for f in db["fases"].find({}, {"id": 1, "nombre": 1})}
+
+    if tipo == "jugador":
+        a = _cache_vista["agregado"].get(sujeto_id)
+        if not a:
+            return None
+        partes = METRICAS_COMPUESTAS.get(metrica, (metrica,))
+        if any(p not in METRICAS_JUGADOR for p in partes):
+            return None
+        por_partido = defaultdict(list)
+        for parte in partes:
+            for jid, n in a["partidos_por"].get(parte, {}).items():
+                if parte != "partidos":
+                    por_partido[jid].append(_nota(parte if parte not in ("goles_penal", "goles_tiro_libre", "goles_corner") else "goles", n)
+                                            + {"goles_penal": " de penal", "goles_tiro_libre": " de tiro libre", "goles_corner": " de córner"}.get(parte, ""))
+                else:
+                    por_partido[jid]
+        lista = [_partido_detalle(juegos[jid], " · ".join(notas) or "Jugó el partido", fases) for jid, notas in por_partido.items() if jid in juegos]
+        total = _valor_jugador(a, metrica) if metrica in ("contribucion", "tarjetas", "valoracion") else \
+            sum(a["metricas"][p] for p in partes)
+        pais = nombres_paises.get(a["pais_id"], {})
+        sujeto = {"tipo": "jugador", "id": a["id"], "nombre": a["nombre"], "pais_id": a["pais_id"], "pais": pais.get("nombre"),
+                  "bandera": pais.get("bandera"), "total": total, "partidos_jugados": a["metricas"]["partidos"],
+                  "goles": a["metricas"]["goles"], "asistencias": a["metricas"]["asistencias"], "url": f"/jugadores/{a['id']}"}
+    elif tipo == "seleccion":
+        p = _cache_vista["paises"].get(sujeto_id)
+        if not p:
+            return None
+        lista = []
+        for jid in p["partidos"]:
+            j = juegos.get(jid)
+            if not j:
+                continue
+            res = j.get("resultado") or {}
+            es_local = (j.get("equipo_local") or {}).get("id") == sujeto_id
+            gf, gc = (res.get("goles_local", 0), res.get("goles_visitante", 0)) if es_local else (res.get("goles_visitante", 0), res.get("goles_local", 0))
+            ganador = res.get("ganador_id")
+            resultado = "Empate" if (res.get("empate") or ganador is None) else ("Victoria" if ganador == sujeto_id else "Derrota")
+            notas = [resultado]
+            if metrica == "vallas" and gc == 0:
+                notas.append("valla invicta")
+            if metrica in ("goles_favor", "diferencia", "defensa"):
+                notas.append(f"{gf} a favor · {gc} en contra")
+            if metrica == "vallas" and gc != 0:
+                continue
+            if metrica == "victorias" and resultado != "Victoria":
+                continue
+            lista.append(_partido_detalle(j, " · ".join(notas), fases))
+        clave = {"victorias": "g", "goles_favor": "gf", "diferencia": "dg"}.get(metrica, metrica)
+        sujeto = {"tipo": "seleccion", "id": p["id"], "nombre": p["nombre"], "pais_id": p["id"], "bandera": p["bandera"],
+                  "total": p.get(clave), "partidos_jugados": p["pj"], "g": p["g"], "e": p["e"], "p": p["p"], "gf": p["gf"], "gc": p["gc"],
+                  "url": f"/paises/{p['id']}"}
+    else:
+        return None
+    lista.sort(key=lambda x: x.get("fecha") or "", reverse=True)
+    titulo = TITULOS_METRICA_JUGADOR.get(metrica) if tipo == "jugador" else next((t[1] for t in TOP_SELECCIONES if t[0] == metrica), metrica)
+    return {"titulo": titulo, "metrica": metrica, "sujeto": sujeto, "partidos": lista}

@@ -282,6 +282,26 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
             "monto": jt.get("puntos_netos", 0)
         })
 
+    # Corporativos Deportivos: sueldo + bono del CEO y operaciones de la bolsa (lo que mueve usuarios.monto).
+    # universo_id = _id del usuario como string; los asientos de sueldo están en negativo para el corporativo.
+    for mv in db['corp_movimientos'].find({"universo_id": str(user_id), "tipo": "SUELDO_CEO"}):
+        feed.append({
+            "fecha": mv["creado_en"],
+            "categoria": "Corporativo",
+            "descripcion": f"Sueldo de CEO en {mv['sigla']} (ciclo {mv['ciclo']})",
+            "monto": -mv.get("monto", 0),
+        })
+    for op in db['corp_operaciones_bolsa'].find({"universo_id": str(user_id), "tipo": {"$in": ["COMPRA", "VENTA", "DIVIDENDO"]}}):
+        if not op.get("monto"):
+            continue
+        feed.append({
+            "fecha": op["creado_en"],
+            "categoria": "Bolsa",
+            "descripcion": {"COMPRA": "Compra", "VENTA": "Venta", "DIVIDENDO": "Dividendo"}[op["tipo"]]
+                           + f" de acciones de {op['sigla']}" + (f" ({op['cantidad']:,.0f})" if op["tipo"] != "DIVIDENDO" else ""),
+            "monto": op.get("monto", 0),
+        })
+
     feed.sort(key=lambda x: x["fecha"], reverse=True)
 
     # ---------------------------------------------------------------

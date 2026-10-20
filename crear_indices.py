@@ -134,6 +134,12 @@ def crear_indices():
     db['recompensas_nivel'].create_index([("user_id", 1), ("nivel", 1)], name="user_nivel", unique=True)
     print("✅ Índices creados en 'xp_eventos' y 'recompensas_nivel'")
 
+    # Corporativos Deportivos (services/corporativo_universo_service.py): registro global de partidos (seq y
+    # juego_id únicos), un corporativo por sigla en cada universo y la exclusividad de los contratos activos.
+    from services.corporativo_universo_service import asegurar_indices
+    asegurar_indices()
+    print("✅ Índices creados en las colecciones 'corp_*'")
+
     # Nota: 'jugadores.pais_id' ya tiene índice (creado más arriba, sección de 'jugadores')
     # y lo reutilizan tanto ownership_service como fantasy_service/album_service.
 

@@ -24,6 +24,7 @@
                 <div class="col-12 col-md min-w-0">
                     <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
                         <h1 class="display-5 fw-bold text-white mb-0 text-center text-md-start">{{ jugador.nombre }}</h1>
+                        {% if puede('corporativos') %}{{ m.insignia_corp(corp_representantes(usuario_actual), 'jugador', jugador.id) }}{% endif %}
                         <span class="badge bg-success-subtle text-success border border-success-subtle fs-6">
                             {{ jugador.posicion }}
                         </span>

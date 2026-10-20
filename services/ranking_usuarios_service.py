@@ -3,7 +3,8 @@ Ranking entre usuarios (/ranking/): compara a todos los usuarios activos en el m
 
 Patrimonio = saldo (usuarios.monto) + valor actual de sus selecciones activas
 (team_ownerships.current_value) + lo pagado por sus sedes activas (city_ownerships.purchase_price;
-las sedes no tienen valor de mercado). Además: puntos fantasy acumulados, aciertos en quinielas y
+las sedes no tienen valor de mercado) + sus acciones de la bolsa de Corporativos (corp_tenencias x precio
+del corporativo en SU universo). Además: puntos fantasy acumulados, aciertos en quinielas y
 neto del Juego en Vivo (monto acreditado - entrada de las partidas terminadas).
 """
 import certifi
@@ -41,6 +42,12 @@ def obtener_ranking_usuarios() -> List[Dict[str, Any]]:
                 q["resueltas"] += 1
                 q["acertadas"] += 1 if s["estado"] == "ACERTADO" else 0
 
+    # Bolsa de Corporativos Deportivos: cada usuario opera en su universo (universo_id = _id como string)
+    precios = {(c["universo_id"], c["sigla"]): c.get("precio", 0) for c in db["corp_corporativos"].find({}, {"universo_id": 1, "sigla": 1, "precio": 1})}
+    acciones = defaultdict(float)
+    for t in db["corp_tenencias"].find({"cantidad": {"$gt": 0}}, {"universo_id": 1, "sigla": 1, "cantidad": 1}):
+        acciones[str(t["universo_id"])] += t["cantidad"] * precios.get((t["universo_id"], t["sigla"]), 0)
+
     juego_en_vivo = {str(d["_id"]): d for d in db["match_live_sessions"].aggregate([
         {"$match": {"estado": "finalizada"}},
         {"$group": {"_id": "$usuario_id", "neto": {"$sum": {"$subtract": ["$monto_acreditado", "$entrada_monto"]}}, "partidas": {"$sum": 1}}},
@@ -56,7 +63,8 @@ def obtener_ranking_usuarios() -> List[Dict[str, Any]]:
             "usuario_id": uid, "username": u.get("username"), "nombre": u.get("nombre") or u.get("username"),
             "saldo": saldo,
             "valor_selecciones": int(selecciones.get(uid, 0)), "valor_sedes": int(sedes.get(uid, 0)),
-            "patrimonio": int(saldo + selecciones.get(uid, 0) + sedes.get(uid, 0)),
+            "valor_acciones": int(acciones.get(uid, 0)),
+            "patrimonio": int(saldo + selecciones.get(uid, 0) + sedes.get(uid, 0) + acciones.get(uid, 0)),
             "ingresos_pasivos": int(dividendos.get(uid, 0) + regalias.get(uid, 0)),
             "fantasy": int(fantasy.get(uid, 0)),
             "quinielas_boletos": q["boletos"],

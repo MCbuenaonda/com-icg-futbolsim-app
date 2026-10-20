@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as m %}
+
+{% block title %}Corporativos Deportivos{% endblock %}
+
+{% block content %}
+{#
+  Corporativos Deportivos (services/corporativo_service.obtener_vista_inicio): sin universo, la presentación del
+  módulo + "Buscar empleo"; con universo, el estado de la carrera (ofertas, cargo o pausa), la bandeja de avisos y
+  los 10 corporativos de tu universo. Las acciones van por fetch a /corporativos/* y recargan la página.
+#}
+{% macro tier_badge(tier) -%}<span class="corp-tier corp-tier--{{ tier | lower }}">Tier {{ tier }}</span>{%- endmacro %}
+
+{% macro tarjeta_corp(c, enlace=True) -%}
+<{{ 'a href=/corporativo/' ~ c.sigla if enlace else 'div' }} class="card card-logo-fondo corp-card h-100 {{ 'corp-card--mio' if c.es_del_usuario }}" style="--logo-color: {{ c.color }}; --corp-acento: {{ c.acento }};">
+    <img src="{{ c.logo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+    <div class="card-body p-3 d-flex flex-column gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <img src="{{ c.logo }}" alt="{{ c.sigla }}" class="corp-logo" loading="lazy">
+            <div class="min-w-0">
+                <div class="d-flex align-items-center gap-2 flex-wrap"><strong class="text-white">{{ c.sigla }}</strong>{{ tier_badge(c.tier) }}
+                    {% if c.es_del_usuario %}<span class="corp-mio"><i class="bi bi-person-badge-fill me-1"></i>Tu corporativo</span>{% endif %}</div>
+                <div class="small text-muted text-truncate" title="{{ c.nombre }}">{{ c.nombre }}</div>
+            </div>
+        </div>
+        <div class="small text-muted"><i class="bi bi-globe2 me-1"></i>{{ c.region }}</div>
+        <div class="corp-cifras mt-auto">
+            <div><span>Capital</span><strong>{{ '{:,}'.format(c.capital if c.capital is defined else c.capital_inicial) }}</strong></div>
+            <div><span>Selecciones</span><strong>{{ c.n_selecciones }}</strong></div>
+            <div><span>Jugadores</span><strong>{{ c.n_jugadores }}</strong></div>
+            {% if c.precio is defined %}
+            <div><span>Acción</span><strong>{{ '%.2f' | format(c.precio) }} <small class="{{ 'text-success' if c.variacion > 0 else ('text-danger' if c.variacion < 0 else 'text-muted') }}">{{ '%+.1f' | format(c.variacion) }}%</small></strong></div>
+            {% else %}
+            <div><span>Fama mínima</span><strong>{{ c.fama_minima }}</strong></div>
+            {% endif %}
+        </div>
+    </div>
+</{{ 'a' if enlace else 'div' }}>
+{%- endmacro %}
+
+{% macro tarjeta_oferta(o) -%}
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo corp-oferta h-100 {{ 'corp-oferta--' ~ (o.tipo | lower) }}" style="--logo-color: {{ o.corp.color }}; --corp-acento: {{ o.corp.acento }};">
+  <img src="{{ o.corp.logo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+  <div class="card-body p-3 d-flex flex-column gap-2">
+    <span class="corp-panel__titulo mb-0">{{ o.etiqueta }}</span>
+    <div class="d-flex align-items-center gap-2">
+      <img src="{{ o.corp.logo }}" alt="{{ o.sigla }}" class="corp-logo">
+      <div class="min-w-0"><div class="d-flex gap-2 align-items-center"><strong class="text-white">{{ o.sigla }}</strong>{{ tier_badge(o.corp.tier) }}</div>
+        <div class="small text-muted text-truncate">{{ o.corp.nombre }}</div></div>
+      <span class="ms-auto corp-vence" title="Vence al cierre del ciclo {{ o.vence_ciclo }}"><i class="bi bi-hourglass-split me-1"></i>{{ o.ciclos_restantes }} ciclo{{ 's' if o.ciclos_restantes != 1 }}</span>
+    </div>
+    <div class="corp-cifras">
+      <div><span>Sueldo base</span><strong>{{ '{:,}'.format(o.sueldo_base) }}<small class="text-muted"> /ciclo</small></strong></div>
+      <div><span>Bono</span><strong>{{ '%.1f' | format(o.bono_pct * 100) }}%<small class="text-muted"> utilidad</small></strong></div>
+      <div><span>Capital</span><strong>{{ '{:,}'.format(o.corp.capital_inicial) }}</strong></div>
+    </div>
+    {% if o.tipo != 'RETENCION' %}
+    <div class="corp-panel__titulo mt-1">Objetivos que te pide el directorio</div>
+    <ul class="corp-objetivos mb-2">{% for t in o.objetivos_texto %}<li><i class="bi bi-circle"></i>{{ t }}</li>{% endfor %}</ul>
+    {% endif %}
+    <div class="d-flex gap-2 mt-auto">
+      <button class="btn btn-success fw-bold rounded-pill flex-grow-1" data-corp-accion="aceptar" data-oferta="{{ o._id }}" data-sigla="{{ o.sigla }}" data-texto="{{ o.si }}" data-msg="{{ o.si_msg }}"><i class="bi bi-check2-circle me-1"></i>{{ o.si }}</button>
+      {% if o.no %}<button class="btn btn-outline-secondary rounded-pill" data-corp-accion="rechazar" data-oferta="{{ o._id }}" data-sigla="{{ o.sigla }}" data-texto="{{ o.no }}" data-msg="{{ o.no_msg }}">{{ o.no }}</button>{% endif %}
+      <a href="/corporativo/{{ o.sigla }}" class="btn btn-outline-light rounded-pill" title="Ver su cartera"><i class="bi bi-eye"></i></a>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+<div class="container-fluid py-3 px-md-4" id="corpRaiz">
+  <div id="alertaCorp"></div>
+
+  {% if not universo %}
+  <!-- ===== PRESENTACIÓN ===== -->
+  <div class="card card-logo-fondo card-logo-fondo--sin-brillo corp-hero mb-4" style="--logo-color: #22c55e;">
+    <img src="{{ logo_corporativo('VESA') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+    <div class="card-body p-3 p-md-4">
+      <span class="corp-sobretitulo">Nuevo modo carrera</span>
+      <h1 class="h2 fw-bold text-white mb-2">Corporativos Deportivos</h1>
+      <p class="text-muted mb-3 corp-hero__texto">Diez corporativos se disputan la representación de selecciones y jugadores de todo el mundo.
+        Postulate como CEO: si te contratan, manejás el capital de la empresa para atraer talento, ganás según los resultados
+        de tus representados y cobrás un sueldo con bono por desempeño. Si el directorio pierde la confianza, te despiden.</p>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="resumen-chip"><i class="bi bi-envelope-paper-fill"></i>Ofertas de trabajo según tu fama</span>
+        <span class="resumen-chip"><i class="bi bi-graph-up-arrow"></i>Sueldo + bono por utilidad</span>
+        <span class="resumen-chip"><i class="bi bi-people-fill"></i>Directorio que te evalúa contra la competencia</span>
+        <span class="resumen-chip"><i class="bi bi-clock-history"></i>El tiempo avanza con cada partido jugado</span>
+      </div>
+      <button class="btn btn-success fw-bold rounded-pill px-4" data-corp-accion="activar"><i class="bi bi-search me-1"></i>Buscar empleo</button>
+    </div>
+  </div>
+  <h2 class="vivo-titulo"><i class="bi bi-buildings-fill text-success"></i>Los 10 corporativos
+    <a href="/corporativo/ranking" class="btn btn-sm btn-outline-light rounded-pill ms-auto"><i class="bi bi-trophy me-1"></i>Ranking de CEOs</a></h2>
+  <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-5">
+    {% for c in catalogo %}<div class="col">{{ tarjeta_corp(c, enlace=False) }}</div>{% endfor %}
+  </div>
+
+  {% else %}
+  {% set u = universo %}
+  <!-- ===== ENCABEZADO DE LA CARRERA ===== -->
+  <div class="card card-logo-fondo card-logo-fondo--sin-brillo corp-hero mb-4" style="--logo-color: {{ mi_corporativo.color if mi_corporativo else '#22c55e' }};">
+    {% if mi_corporativo %}<img src="{{ mi_corporativo.logo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">{% endif %}
+    <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div class="min-w-0">
+        <span class="corp-sobretitulo">Tu carrera · ciclo {{ ciclo }}</span>
+        <h1 class="h2 fw-bold text-white mb-1">{% if mi_corporativo %}CEO de {{ mi_corporativo.sigla }}{% else %}Corporativos Deportivos{% endif %}</h1>
+        <span class="corp-estado corp-estado--{{ estado.color }}"><i class="bi {{ estado.icono }} me-1"></i>{{ estado.titulo }}</span>
+      </div>
+      <div class="d-flex gap-2 flex-wrap align-items-center">
+        <div class="corp-fama" title="Fama del CEO (0-100): abre las puertas de los corporativos grandes">
+          <div class="anillo-kpi" style="--pct: {{ u.fama }};"><span>{{ u.fama }}</span></div><small>Fama</small>
+        </div>
+        <div class="fixture-kpi"><span>Cargos</span><strong>{{ (u.historial_cargos or []) | length + (1 if mi_corporativo else 0) }}</strong></div>
+        <div class="corp-reloj" title="El tiempo del módulo avanza con los partidos jugados">
+          <span>Cierre del ciclo {{ reloj.ciclo }}</span>
+          <div class="corp-barra"><i style="width: {{ reloj.pct }}%"></i></div>
+          <small>faltan {{ reloj.faltan }} partido{{ 's' if reloj.faltan != 1 }}</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% if puesta_al_dia.atraso %}
+  <div class="alert alert-info small"><i class="bi bi-hourglass-split me-1"></i>Tu universo se está poniendo al día con los partidos jugados mientras no estabas; recargá para seguir.</div>
+  {% endif %}
+
+  <div class="row g-4">
+    <div class="col-xl-8">
+      {% if mi_corporativo and ofertas %}
+      <h2 class="vivo-titulo"><i class="bi bi-incognito text-warning"></i>Ofertas para vos</h2>
+      <div class="row g-3 row-cols-1 row-cols-md-2 mb-4">{% for o in ofertas %}<div class="col">{{ tarjeta_oferta(o) }}</div>{% endfor %}</div>
+      {% endif %}
+      {% if mi_corporativo %}
+      {% set mc = mi_corporativo %}
+      {% if mc.preaviso %}
+      <div class="alert alert-warning small d-flex gap-2 align-items-center"><i class="bi bi-box-arrow-right"></i>
+        <span>Estás en preaviso: al cierre del ciclo {{ mc.preaviso.hasta_ciclo }} pasás a <strong>{{ mc.preaviso.sigla }}</strong>. Seguís cobrando, pero no podés operar en el mercado.</span></div>
+      {% endif %}
+      <!-- ===== MI CORPORATIVO ===== -->
+      <h2 class="vivo-titulo"><i class="bi bi-briefcase-fill text-success"></i>Tu corporativo</h2>
+      <div class="card card-logo-fondo card-logo-fondo--sin-brillo corp-mio-card mb-4" style="--logo-color: {{ mc.color }}; --corp-acento: {{ mc.acento }};">
+        <img src="{{ mc.logo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+        <div class="card-body p-3 p-md-4">
+          <div class="d-flex align-items-center gap-3 mb-3">
+            <img src="{{ mc.logo }}" alt="{{ mc.sigla }}" class="corp-logo corp-logo--grande">
+            <div class="min-w-0">
+              <div class="d-flex align-items-center gap-2 flex-wrap"><h3 class="h4 fw-bold text-white mb-0">{{ mc.nombre }}</h3>{{ tier_badge(mc.tier) }}</div>
+              <div class="small text-muted">{{ mc.region }} · en el cargo desde el ciclo {{ mc.cargo.desde_ciclo }} ({{ mc.ciclos_en_cargo }} ciclo{{ 's' if mc.ciclos_en_cargo != 1 }})</div>
+            </div>
+          </div>
+          <div class="corp-cifras corp-cifras--grande mb-3">
+            <div><span>Capital</span><strong>{{ '{:,}'.format(mc.capital) }}</strong></div>
+            <div><span>Valor de cartera</span><strong>{{ '{:,}'.format(mc.valor_cartera) }}</strong></div>
+            <div><span>Representados</span><strong>{{ mc.n_selecciones }} <small class="text-muted">sel.</small> · {{ mc.n_jugadores }} <small class="text-muted">jug.</small></strong></div>
+            <div><span>Acción</span><strong>{{ '%.2f' | format(mc.precio) }} <small class="{{ 'text-success' if mc.variacion > 0 else ('text-danger' if mc.variacion < 0 else 'text-muted') }}">{{ '%+.1f' | format(mc.variacion) }}%</small></strong></div>
+          </div>
+          {% if mc.por_vencer %}
+          <a href="/corporativo/{{ mc.sigla }}" class="alert alert-warning d-flex align-items-center gap-2 small py-2 text-decoration-none">
+            <i class="bi bi-hourglass-split"></i><span><strong>{{ mc.por_vencer }}</strong> contrato{{ 's' if mc.por_vencer != 1 }} vence{{ 'n' if mc.por_vencer != 1 }} en los próximos {{ 3 }} ciclos: si no los renovás, esos representados quedan libres.</span>
+            <i class="bi bi-chevron-right ms-auto"></i></a>
+          {% endif %}
+          {% set uc = mc.ultimo_ciclo %}{% set ca = mc.ciclo_actual %}
+          <div class="corp-panel mb-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+              <div class="corp-panel__titulo mb-0"><i class="bi bi-graph-up-arrow me-1"></i>Resultados</div>
+              <small class="text-muted">Ciclo en curso: renta <strong class="text-white">{{ '{:,}'.format(ca.renta or 0) }}</strong> · honorarios estimados al cierre <strong class="text-white">{{ '{:,}'.format(mc.honorarios_estimados) }}</strong></small>
+            </div>
+            {% if uc %}
+            <div class="corp-cifras mb-2">
+              <div><span>Renta ciclo {{ uc.ciclo }}</span><strong>{{ '{:,}'.format(uc.renta) }}</strong></div>
+              <div><span>Honorarios</span><strong>{{ '{:,}'.format(uc.honorarios) }}</strong></div>
+              <div><span>Utilidad</span><strong class="{{ 'text-success' if uc.utilidad > 0 else ('text-danger' if uc.utilidad < 0 else '') }}">{{ '{:+,}'.format(uc.utilidad) }}</strong></div>
+              <div><span>ROI</span><strong class="{{ 'text-success' if uc.roi > 0 else ('text-danger' if uc.roi < 0 else '') }}">{{ '%+.2f' | format(uc.roi * 100) }}%</strong></div>
+            </div>
+            {% if mc.historial | length > 1 %}<div class="corp-grafico"><canvas id="graficoCorp" data-historial='{{ mc.historial | tojson }}'></canvas></div>{% endif %}
+            {% else %}
+            <p class="small text-muted mb-0">El primer balance llega al cierre del ciclo {{ reloj.ciclo }}. Cada partido de tus representados ya suma (o resta) a la renta del ciclo.</p>
+            {% endif %}
+          </div>
+          {% if mc.movimientos %}
+          <div class="corp-panel mb-3">
+            <div class="corp-panel__titulo"><i class="bi bi-journal-text me-1"></i>Últimos movimientos</div>
+            <div class="corp-movimientos">
+              {% for mv in mc.movimientos %}
+              <div class="corp-mov"><span class="corp-mov__tipo">C{{ mv.ciclo }}</span><span class="text-truncate flex-grow-1">{{ mv.detalle }}</span>
+                <strong class="{{ 'text-success' if mv.monto > 0 else ('text-danger' if mv.monto < 0 else 'text-muted') }}">{{ '{:+,}'.format(mv.monto) }}</strong></div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+          <!-- Mercado -->
+          <div class="corp-panel mb-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+              <div class="corp-panel__titulo mb-0"><i class="bi bi-shop me-1"></i>Mercado</div>
+              {% if mc.ventana.abierta %}<span class="corp-oferta-estado corp-oferta-estado--ACEPTADA"><i class="bi bi-door-open-fill me-1"></i>Ventana abierta hasta el ciclo {{ mc.ventana.hasta_ciclo }}</span>
+              {% else %}<span class="corp-oferta-estado corp-oferta-estado--CONTRAOFERTA"><i class="bi bi-door-closed-fill me-1"></i>Ventana cerrada: solo libres</span>{% endif %}
+            </div>
+            <div class="corp-herramientas mb-2">
+              <a href="/corporativo/mercado" class="corp-herramienta"><i class="bi bi-search"></i><strong>Buscar talento</strong><small>Libres y figuras de rivales</small></a>
+              <button class="corp-herramienta" data-corp-accion="scouting" {{ 'disabled' if not mc.scouting_disponible }}><i class="bi bi-binoculars-fill"></i>
+                <strong>Informe de scouting</strong><small>{{ '{:,}'.format(mc.costo_scouting) }} · {{ 'uno por ciclo' if mc.scouting_disponible else 'ya pedido este ciclo' }}</small></button>
+              <button class="corp-herramienta" data-corp-accion="marketing" {{ 'disabled' if not mc.marketing_disponible }}><i class="bi bi-megaphone-fill"></i>
+                <strong>Campaña de marketing</strong><small>{{ '{:,}'.format(mc.costo_marketing) }} · +5 reputación ({{ mc.reputacion }})</small></button>
+              <a href="/corporativo/bolsa" class="corp-herramienta"><i class="bi bi-graph-up-arrow"></i><strong>Bolsa y dividendo</strong><small>Cotizaciones, tus acciones y el dividendo</small></a>
+            </div>
+            {% if mc.propuestas %}
+            <div class="corp-panel__titulo mt-3">Propuestas para responder</div>
+            {% for p in mc.propuestas %}
+            <div class="corp-propuesta">
+              {% if p.ref_tipo == 'jugador' %}{{ m.avatar(p.ref_id, p.pais_id) }}{% else %}{{ m.bandera(None, tipo='escudo', pais_id=p.ref_id) }}{% endif %}
+              <div class="min-w-0 flex-grow-1">
+                <div class="small text-white fw-semibold"><i class="bi {{ p.icono }} text-warning me-1"></i>{{ p.nombre }} · {{ p.titulo | lower }}</div>
+                <div class="small text-muted">
+                  {% if p.tipo == 'PROPUESTA' %}Pide {{ '{:,}'.format(p.prima) }} de prima por {{ p.duracion }} ciclos (valor {{ '{:,}'.format(p.valor) }})
+                  {% elif p.tipo == 'OFERTA_IA' %}{{ p.sigla_comprador }} ofrece {{ '{:,}'.format(p.monto) }} (valor {{ '{:,}'.format(p.valor) }})
+                  {% elif p.tipo == 'CONTRAOFERTA' %}{{ p.sigla_vendedor }} pide {{ '{:,}'.format(p.monto) }} + {{ '{:,}'.format(p.prima) }} de prima
+                  {% else %}Su satisfacción está por el piso: si te negás, baja más{% endif %}
+                  · vence en el ciclo {{ p.vence_ciclo }}</div>
+              </div>
+              <button class="btn btn-sm btn-success rounded-pill" data-corp-accion="responder" data-respuesta="aceptar" data-oferta="{{ p._id }}" data-nombre="{{ p.nombre }}" data-texto="{{ p.si }}" data-costo="{{ p.costo }}" data-tipo-prop="{{ p.tipo }}">{{ p.si }}</button>
+              <button class="btn btn-sm btn-outline-secondary rounded-pill" data-corp-accion="responder" data-respuesta="rechazar" data-oferta="{{ p._id }}" data-nombre="{{ p.nombre }}" data-texto="{{ p.no }}">{{ p.no }}</button>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% if mc.mis_ofertas %}
+            <div class="corp-panel__titulo mt-3">Tus ofertas</div>
+            {% for o in mc.mis_ofertas %}
+            <div class="corp-propuesta">
+              <span class="corp-oferta-estado corp-oferta-estado--{{ o.estado }}">{{ o.estado | capitalize }}</span>
+              <div class="min-w-0 flex-grow-1 small">
+                <span class="text-white fw-semibold">{{ o.nombre }}</span>
+                <span class="text-muted">· prima {{ '{:,}'.format(o.prima) }}{% if o.tipo == 'TRASPASO' %} + {{ '{:,}'.format(o.monto) }} a {{ o.sigla_vendedor }}{% endif %}
+                  {% if o.estado == 'PENDIENTE' %}· responde en {{ o.faltan }} partido{{ 's' if o.faltan != 1 }}{% elif o.resultado %}· {{ o.resultado }}{% endif %}</span>
+              </div>
+              {% if o.estado == 'PENDIENTE' %}<button class="btn btn-sm btn-outline-danger rounded-pill" data-corp-accion="cancelar" data-oferta="{{ o._id }}" data-nombre="{{ o.nombre }}">Retirar</button>{% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% if mc.scouting %}
+            <div class="corp-panel__titulo mt-3"><i class="bi bi-binoculars-fill me-1"></i>Informe de scouting (ciclo {{ mc.scouting.ciclo }})</div>
+            {% for s in mc.scouting.jugadores %}
+            <a href="/corporativo/mercado?q={{ s.nombre | urlencode }}" class="corp-propuesta text-decoration-none">
+              {{ m.avatar(s.ref_id, s.pais_id) }}
+              <div class="min-w-0 flex-grow-1 small"><div class="text-white fw-semibold">{{ s.nombre }}</div><div class="text-muted">{{ s.nota }} · valor {{ '{:,}'.format(s.valor) }}</div></div>
+              <i class="bi bi-chevron-right text-muted"></i>
+            </a>
+            {% endfor %}
+            {% endif %}
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="corp-panel h-100">
+                <div class="corp-panel__titulo"><i class="bi bi-people-fill me-1"></i>Confianza del directorio</div>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="corp-barra corp-barra--{{ 'ok' if mc.confianza >= 50 else ('alerta' if mc.confianza >= 35 else 'peligro') }} flex-grow-1"><i style="width: {{ mc.confianza }}%"></i></div><strong class="text-white">{{ mc.confianza }}</strong>
+                </div>
+                <small class="text-muted d-block mt-1">{% if mc.cargo.ultima_posicion %}Puesto <strong class="text-white">{{ mc.cargo.ultima_posicion }} de 10</strong> en ROI de los últimos 4 ciclos ({{ 'tier A espera top 3' if mc.tier == 'A' else ('tier B espera top 6' if mc.tier == 'B' else 'tier C espera top 8') }}). {% endif %}Por debajo de 35 llega un ultimátum; por debajo de 20 (o con el capital bajo el 25% del inicial), el despido.</small>
+                <div class="corp-panel__titulo mt-3"><i class="bi bi-cash-coin me-1"></i>Tu contrato</div>
+                <div class="small text-muted">Sueldo base <strong class="text-white">{{ '{:,}'.format(mc.cargo.sueldo_base) }}</strong> por ciclo
+                  + <strong class="text-white">{{ '%.1f' | format(mc.cargo.bono_pct * 100) }}%</strong> de bono sobre la utilidad media de 4 ciclos (25% en acciones).</div>
+                {% if mc.ultimo_pago %}<div class="small text-muted mt-1">Último cobro (ciclo {{ mc.ultimo_pago.ciclo }}): <strong class="text-success">+{{ '{:,}'.format(-mc.ultimo_pago.monto) }}</strong> a tu saldo{% if mc.ultimo_pago.bono_acciones %} y {{ '{:,}'.format(mc.ultimo_pago.bono_acciones) }} en acciones{% endif %}.</div>{% endif %}
+                {% if mc.acciones_bloqueadas %}<div class="small text-muted mt-1"><i class="bi bi-lock-fill text-warning me-1"></i>{{ mc.acciones_bloqueadas | length }} paquete{{ 's' if mc.acciones_bloqueadas | length != 1 }} de acciones bloqueadas ({{ '{:,}'.format(mc.acciones_bloqueadas_valor) }} al otorgarse): consolidan a los 3 ciclos y se pierden si te vas antes.</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="corp-panel h-100">
+                <div class="corp-panel__titulo"><i class="bi bi-bullseye me-1"></i>Objetivos de la temporada</div>
+                <ul class="corp-objetivos">{% for o in mc.objetivos %}
+                  <li><i class="bi {{ 'bi-check-circle-fill text-success' if o.ok else ('bi-circle' if o.ok is none else 'bi-x-circle text-danger') }}"></i>
+                    <span>{{ o.texto }} <small class="text-muted d-block">{{ o.detalle }}</small></span></li>{% endfor %}</ul>
+                <small class="text-muted">Al cierre de la temporada (cuando empiece el próximo Mundial): con 2 o más cumplidos te renuevan con aumento.</small>
+              </div>
+            </div>
+          </div>
+          <div class="d-flex gap-2 flex-wrap mt-3">
+            <a href="/corporativo/{{ mc.sigla }}" class="btn btn-success fw-bold rounded-pill px-4"><i class="bi bi-diagram-3-fill me-1"></i>Ver cartera</a>
+            <button class="btn btn-outline-danger rounded-pill px-3" data-corp-accion="renunciar" data-sigla="{{ mc.sigla }}"><i class="bi bi-door-open me-1"></i>Renunciar</button>
+          </div>
+        </div>
+      </div>
+
+      {% elif u.estado == 'PAUSA' %}
+      <h2 class="vivo-titulo"><i class="bi bi-pause-circle-fill text-warning"></i>Carrera en pausa</h2>
+      <div class="card corp-panel mb-4"><div class="card-body p-4 text-center">
+        <i class="bi bi-cup-hot-fill fs-1 text-warning d-block mb-2"></i>
+        <p class="mb-1 text-white fw-bold">Estás fuera del mercado {{ pausa_restante }} ciclo{{ 's' if pausa_restante != 1 }} más.</p>
+        <p class="text-muted small mb-0">Cuando termine la pausa, los corporativos vuelven a considerar tu perfil.</p>
+      </div></div>
+
+      {% else %}
+      <!-- ===== OFERTAS ===== -->
+      <h2 class="vivo-titulo"><i class="bi bi-envelope-paper-fill text-info"></i>Ofertas de trabajo</h2>
+      {% if ofertas %}
+      <div class="row g-3 row-cols-1 row-cols-md-2 mb-4">
+        {% for o in ofertas %}<div class="col">{{ tarjeta_oferta(o) }}</div>{% endfor %}
+      </div>
+      {% else %}
+      <div class="card corp-panel mb-4"><div class="card-body p-4 text-center">
+        <i class="bi bi-mailbox2 fs-1 text-info d-block mb-2"></i>
+        {% if reloj.partidos_para_ofertas is defined %}
+        <p class="text-white fw-bold mb-1">Tu perfil está circulando.</p>
+        <p class="text-muted small mb-0">Las primeras ofertas llegan en {{ reloj.partidos_para_ofertas }} partido{{ 's' if reloj.partidos_para_ofertas != 1 }}.</p>
+        {% else %}
+        <p class="text-white fw-bold mb-1">Sin ofertas por ahora.</p>
+        <p class="text-muted small mb-0">En cada cierre de ciclo algún corporativo puede interesarse en vos: con más fama, más probabilidad y mejores empresas.</p>
+        {% endif %}
+      </div></div>
+      {% endif %}
+      {% endif %}
+
+      <!-- ===== MERCADO ===== -->
+      <h2 class="vivo-titulo"><i class="bi bi-buildings-fill text-success"></i>Los corporativos de tu universo
+        <a href="/corporativo/bolsa" class="btn btn-sm btn-outline-warning rounded-pill ms-auto"><i class="bi bi-graph-up-arrow me-1"></i>Bolsa FIFAV 10</a>
+        <a href="/corporativo/ranking" class="btn btn-sm btn-outline-light rounded-pill"><i class="bi bi-trophy me-1"></i>Ranking de CEOs</a></h2>
+      <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-xxl-3 mb-4">
+        {% for c in corporativos %}<div class="col">{{ tarjeta_corp(c) }}</div>{% endfor %}
+      </div>
+    </div>
+
+    <!-- ===== BANDEJA ===== -->
+    <div class="col-xl-4">
+      <h2 class="vivo-titulo"><i class="bi bi-bell-fill text-warning"></i>Bandeja</h2>
+      <div class="card corp-panel mb-4"><div class="card-body p-2">
+        {% for a in avisos %}
+        <div class="corp-aviso">
+          <i class="bi {{ a.icono }}"></i>
+          <div class="min-w-0"><div class="text-white fw-semibold small">{{ a.titulo }}</div><div class="text-muted small">{{ a.texto }}</div></div>
+          <small class="corp-aviso__ciclo">C{{ a.ciclo }}</small>
+        </div>
+        {% else %}
+        <p class="text-muted small text-center my-3">Sin novedades.</p>
+        {% endfor %}
+      </div></div>
+
+      {% if historial %}
+      <h2 class="vivo-titulo"><i class="bi bi-clock-history text-info"></i>Trayectoria</h2>
+      <div class="card corp-panel"><div class="card-body p-2">
+        {% for h in historial %}
+        <div class="corp-aviso">
+          <img src="{{ logo_corporativo(h.sigla) }}" alt="{{ h.sigla }}" class="corp-logo corp-logo--mini">
+          <div class="min-w-0"><div class="text-white fw-semibold small">{{ h.sigla }}</div>
+            <div class="text-muted small">Ciclos {{ h.desde_ciclo }}–{{ h.hasta_ciclo }} · {{ 'Renuncia' if h.motivo == 'RENUNCIA' else 'Despido' }}</div></div>
+        </div>
+        {% endfor %}
+      </div></div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+    (() => {
+        const lienzo = document.getElementById('graficoCorp');
+        if (!lienzo || !window.Chart) return;
+        const h = JSON.parse(lienzo.dataset.historial);
+        new Chart(lienzo, {
+            data: {
+                labels: h.map(x => `C${x.ciclo}`),
+                datasets: [
+                    { type: 'bar', label: 'Utilidad', data: h.map(x => x.utilidad), yAxisID: 'y',
+                      backgroundColor: h.map(x => x.utilidad >= 0 ? 'rgba(34,197,94,.55)' : 'rgba(239,68,68,.55)'), borderRadius: 4 },
+                    { type: 'line', label: 'Capital', data: h.map(x => x.capital), yAxisID: 'y1', borderColor: '#facc15',
+                      backgroundColor: '#facc15', tension: .3, pointRadius: 2 },
+                ],
+            },
+            options: {
+                maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { labels: { color: '#cbd5e1', boxWidth: 12 } } },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                    y: { position: 'left', ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,.06)' } },
+                    y1: { position: 'right', ticks: { color: '#facc15' }, grid: { display: false } },
+                },
+            },
+        });
+    })();
+
+    document.addEventListener('click', async ev => {
+        const boton = ev.target.closest('[data-corp-accion]');
+        if (!boton) return;
+        const { corpAccion: accion, oferta, sigla, nombre, respuesta, texto, costo, tipoProp } = boton.dataset;
+        const fmt = n => Number(n).toLocaleString('en-US');
+        const preguntas = {
+            scouting: { titulo: '¿Pedir un informe de scouting?', mensaje: 'Tus ojeadores marcan a los 3 libres jóvenes que más rinden por lo que valen en el Mundial.', textoConfirmar: 'Pedir informe' },
+            marketing: { titulo: '¿Lanzar una campaña de marketing?', mensaje: 'Sube 5 puntos la reputación del corporativo: los talentos aceptan con más facilidad.', textoConfirmar: 'Lanzar campaña' },
+            cancelar: { titulo: `¿Retirar la oferta por ${nombre}?`, mensaje: 'No se cobra nada.', textoConfirmar: 'Retirar', peligro: true },
+            responder: { titulo: `${texto}: ${nombre}`, mensaje: respuesta === 'aceptar' && Number(costo) ? `Se paga ${fmt(costo)} del capital del corporativo.` : '¿Confirmás?', textoConfirmar: texto, peligro: respuesta !== 'aceptar' },
+            aceptar: { titulo: `${texto} · ${sigla}`, mensaje: boton.dataset.msg, textoConfirmar: texto },
+            rechazar: { titulo: `${texto} · ${sigla}`, mensaje: boton.dataset.msg, textoConfirmar: texto, peligro: true },
+            renunciar: { titulo: `¿Renunciar a ${sigla}?`, mensaje: 'Tu carrera entra en pausa un ciclo. Si renunciás antes de 3 ciclos en el cargo, perdés fama.', textoConfirmar: 'Renunciar', peligro: true },
+        };
+        if (preguntas[accion] && !(await UI.confirmar(preguntas[accion]))) return;
+        const url = { activar: '/corporativos/activar', renunciar: '/corporativos/renunciar',
+                      scouting: '/corporativos/scouting', marketing: '/corporativos/marketing',
+                      cancelar: `/corporativos/fichajes/${encodeURIComponent(oferta)}/cancelar`,
+                      responder: `/corporativos/propuestas/${encodeURIComponent(oferta)}/${respuesta}`,
+                      aceptar: `/corporativos/ofertas/${encodeURIComponent(oferta)}/aceptar`,
+                      rechazar: `/corporativos/ofertas/${encodeURIComponent(oferta)}/rechazar` }[accion];
+        boton.disabled = true;
+        try {
+            const resp = await fetch(url, { method: 'POST', headers: { accept: 'application/json' } });
+            const datos = await resp.json().catch(() => ({}));
+            if (!resp.ok) throw new Error(datos.detail || 'No se pudo completar la acción');
+            location.reload();
+        } catch (err) {
+            UI.mostrarAlertaEn(document.getElementById('alertaCorp'), err.message, 'danger');
+            boton.disabled = false;
+        }
+    });
+</script>
+{% endblock %}

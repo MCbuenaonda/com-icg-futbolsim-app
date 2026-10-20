@@ -765,6 +765,11 @@ def aplicar_efectos_secundarios(
 
         crear_siguiente_fase(siguiente_fase, confederacion_id, mundial_id)
 
+    # Corporativos Deportivos: anota el partido en el reloj del módulo (al final, con el avance de fase ya
+    # aplicado; nunca lanza). Import diferido para no sumar dependencias al arranque de este módulo.
+    from services.corporativo_universo_service import registrar_partido
+    registrar_partido(juego_id, juego_doc)
+
     return {"delta_aficionados": delta_aficionados}
 
 

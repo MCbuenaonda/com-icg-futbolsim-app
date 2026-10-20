@@ -73,3 +73,16 @@
     </div>
 </div>
 {%- endmacro %}
+
+
+{# Insignia de Corporativos Deportivos: quién representa a una selección/jugador en el universo del usuario.
+   reps = corp_representantes(usuario_actual) (una vez por página); enlace=False dentro de otro <a>. #}
+{% macro insignia_corp(reps, tipo, ref_id, enlace=True) -%}
+{%- set r = (reps.get(tipo) or {}).get(ref_id) if reps else None -%}
+{%- if r -%}
+{%- set texto = ('Tu corporativo · ' ~ r.sigla) if r.mio else ('Representado por ' ~ r.sigla) -%}
+{%- if enlace %}<a href="/corporativo/{{ r.sigla }}" class="corp-insignia {{ 'corp-insignia--mia' if r.mio }}" title="Corporativos Deportivos: {{ texto }}">{% else %}<span class="corp-insignia {{ 'corp-insignia--mia' if r.mio }}" title="Corporativos Deportivos: {{ texto }}">{% endif -%}
+<img src="{{ r.logo }}" alt="" aria-hidden="true">{{ texto }}
+{%- if enlace %}</a>{% else %}</span>{% endif -%}
+{%- endif -%}
+{%- endmacro %}

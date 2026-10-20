@@ -15,7 +15,7 @@ from datetime import datetime
 
 from config.niveles import REGLAS_XP, XP_LOGRO, XP_TRIVIA_BASE, XP_TRIVIA_POR_ACIERTO, datos_nivel, nivel_para_xp
 from services import niveles_service as N
-from services.album_service import CAMPO_ALBUM_POR_TIPO, _catalogo_album
+from services.album_service import ACCION_XP_POR_TIPO, CAMPO_ALBUM_POR_TIPO, LOGRO_POR_TIPO, _catalogo_album
 
 db = N.db
 
@@ -47,10 +47,9 @@ def _eventos_por_usuario() -> dict:
         for e in p.get("stickers_obtained", []):
             if e.get("duplicado"):
                 continue
-            platino = e["tipo"] == "ARBITRO"
-            agregar(p["user_id"], p["created_at"], "ESTAMPA_PLATINO" if platino else "ESTAMPA_NUEVA", f"{mundial}:{e['tipo']}:{e['id']}")
-            if platino:
-                agregar(p["user_id"], p["created_at"], "LOGRO", "PRIMERA_PLATINO")
+            agregar(p["user_id"], p["created_at"], ACCION_XP_POR_TIPO[e["tipo"]], f"{mundial}:{e['tipo']}:{e['id']}")
+            if e["tipo"] in LOGRO_POR_TIPO:
+                agregar(p["user_id"], p["created_at"], "LOGRO", LOGRO_POR_TIPO[e["tipo"]])
 
     # Páginas completas: desde el estado actual del álbum (misma regla que album_service._paginas_completas)
     catalogo = _catalogo_album()

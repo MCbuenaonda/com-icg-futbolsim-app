@@ -20,7 +20,14 @@
             <div class="min-w-0">
                 <span class="album-tapa__edicion">Sobres oficiales · {{ costo_sobre }} pts</span>
                 <h1 class="h2 fw-bold text-white mb-0">Sobres de Estampas</h1>
-                <p class="text-muted small mb-0">5 estampas por sobre: jugadores, escudos, sedes y, muy de vez en cuando, un árbitro <strong class="sobre-texto-platino">platino</strong>. Las repetidas se venden solas.</p>
+                <p class="text-muted small mb-2">5 estampas por sobre, cada una de una categoría de rareza. Las repetidas se venden solas.</p>
+                <div class="d-flex flex-wrap gap-1 sobre-rarezas">
+                    {% for cat in categorias %}
+                    <span class="sobre-rareza sobre-rareza--{{ cat.codigo | lower }}" style="--cat-color: {{ cat.color }};" title="Repetida: +{{ cat.bonus_repetida }} pts">
+                        <strong>{{ cat.nombre }}</strong> {{ cat.estampa }} · {{ (cat.probabilidad * 100) | round | int }}%
+                    </span>
+                    {% endfor %}
+                </div>
             </div>
         </div>
         <a href="{{ url_for('album_coleccion_vista') }}" class="btn btn-outline-warning rounded-pill px-3">
@@ -55,8 +62,8 @@
         <button type="button" class="btn btn-outline-warning fw-bold rounded-pill px-4 sobre-regalo {{ 'd-none' if not sobres_gratis }}" data-origen="GRATIS">
             <i class="bi bi-gift-fill me-1"></i>Abrir sobre gratis <span class="badge rounded-pill text-bg-warning ms-1" data-contador>{{ sobres_gratis }}</span>
         </button>
-        <button type="button" class="btn fw-bold rounded-pill px-4 sobre-regalo sobre-regalo--platino {{ 'd-none' if not sobres_platino }}" data-origen="PLATINO">
-            <i class="bi bi-star-fill me-1"></i>Abrir sobre Platino <span class="badge rounded-pill text-bg-light ms-1" data-contador>{{ sobres_platino }}</span>
+        <button type="button" class="btn fw-bold rounded-pill px-4 sobre-regalo sobre-regalo--platino {{ 'd-none' if not sobres_platino }}" data-origen="PLATINO" title="Trae un escudo (estampa Platino) garantizado">
+            <i class="bi bi-gem me-1"></i>Abrir sobre Platino <span class="badge rounded-pill text-bg-light ms-1" data-contador>{{ sobres_platino }}</span>
         </button>
     </div>
     <div id="resumenSobre" class="sobre-resumen d-none"></div>
@@ -82,6 +89,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const url = (id, tipo) => (id && UI.urlImagenPais) ? UI.urlImagenPais(id, tipo) : null;
     const esc = UI.escapar;
 
+    // Categoría de rareza de cada estampa (la manda el backend en 'categoria'; respaldo por tipo)
+    const CATEGORIA_POR_TIPO = { JUGADOR: 'normal', CIUDAD: 'especial', ARBITRO: 'dorada', PAIS: 'platino' };
+    const SELLO = {
+        especial: '<span class="estampa__sello"><i class="bi bi-building"></i> Especial</span>',
+        dorada: '<span class="estampa__sello"><i class="bi bi-star-fill"></i> Dorada</span>',
+        platino: '<span class="estampa__sello"><i class="bi bi-gem"></i> Platino</span>',
+    };
+    const categoriaDe = e => e.categoria || CATEGORIA_POR_TIPO[e.tipo] || 'normal';
+
     // Frente de la estampa: mismo markup/clases que partials/estampas.html
     function frenteEstampa(e) {
         const bandera = url(e.pais_id, 'bandera');
@@ -96,19 +112,21 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (e.tipo === 'PAIS') {
             const escudo = url(e.id, 'escudo');
-            return `<div class="estampa__cara estampa__frente estampa__frente--brillo" ${fondo}>
+            return `<div class="estampa__cara estampa__frente" ${fondo}>
+                ${SELLO.platino}
                 <div class="estampa__escudo">${escudo ? `<img src="${esc(escudo)}" alt="">` : ''}</div>
                 <div class="estampa__banda"><strong>${esc(e.nombre || '?')}</strong><small>${banderita} ${esc(e.confederacion || '')}</small></div>
             </div>`;
         }
         if (e.tipo === 'ARBITRO') {
-            return `<div class="estampa__cara estampa__frente estampa__frente--platino" ${fondo}>
-                <span class="estampa__sello-platino"><i class="bi bi-star-fill"></i> Platino</span><span class="estampa__posicion">${esc(e.puesto_corto || '')}</span>
+            return `<div class="estampa__cara estampa__frente" ${fondo}>
+                ${SELLO.dorada}<span class="estampa__posicion">${esc(e.puesto_corto || '')}</span>
                 <div class="estampa__foto">${e.avatar_url ? `<img src="${esc(e.avatar_url)}" alt="">` : '<i class="bi bi-person-badge"></i>'}</div>
                 <div class="estampa__banda"><strong>${esc(e.nombre || '?')}</strong><small>${banderita} ${esc(e.pais_nombre || 'Árbitro FIFAV')}</small></div>
             </div>`;
         }
         return `<div class="estampa__cara estampa__frente" ${fondo}>
+            ${SELLO.especial}
             <div class="estampa__estadio">${e.estadio_img ? `<img src="${esc(e.estadio_img)}" alt="">` : '<i class="bi bi-building"></i>'}</div>
             <div class="estampa__banda"><strong>${esc(e.nombre || '?')}</strong><small>${esc(e.estadio || e.pais_nombre || '')}</small></div>
         </div>`;
@@ -116,12 +134,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function cartaSobre(e, i, total) {
         const tipo = { JUGADOR: 'jugador', PAIS: 'pais', CIUDAD: 'ciudad', ARBITRO: 'arbitro' }[e.tipo] || 'jugador';
-        const platino = e.tipo === 'ARBITRO';
+        const cat = categoriaDe(e);
+        const nombreCat = e.categoria_nombre || cat.charAt(0).toUpperCase() + cat.slice(1);
+        const NUEVA = { normal: '¡Nueva!', especial: '¡Especial!', dorada: '★ ¡Dorada!', platino: '◆ ¡Platino!' };
         const etiqueta = e.duplicado
-            ? `<span class="carta-sobre__cinta carta-sobre__cinta--repetida">${platino ? 'Platino repetida' : 'Repetida'} +${e.bonus_puntos} pts</span>`
-            : `<span class="carta-sobre__cinta ${platino ? 'carta-sobre__cinta--platino' : ''}">${platino ? '★ ¡Platino!' : '¡Nueva!'}</span>`;
+            ? `<span class="carta-sobre__cinta carta-sobre__cinta--repetida">${cat === 'normal' ? 'Repetida' : esc(nombreCat) + ' repetida'} +${e.bonus_puntos} pts</span>`
+            : `<span class="carta-sobre__cinta carta-sobre__cinta--${cat}">${NUEVA[cat] || '¡Nueva!'}</span>`;
         const nodo = document.createElement('div');
-        nodo.className = `carta-sobre estampa--${tipo} ${platino ? 'carta-sobre--platino' : ''} ${e.duplicado ? 'carta-sobre--repetida' : 'carta-sobre--nueva'}`;
+        nodo.className = `carta-sobre estampa--${tipo} estampa--${cat} carta-sobre--${cat} ${e.duplicado ? 'carta-sobre--repetida' : 'carta-sobre--nueva'}`;
         // posición en el abanico (rotación y altura según su lugar)
         const centro = (total - 1) / 2;
         nodo.style.setProperty('--abanico', `${(i - centro) * 4}deg`);
@@ -143,13 +163,16 @@ document.addEventListener('DOMContentLoaded', function () {
         cartas.forEach(c => contenedor.appendChild(c));
         await esperar(650);                       // salen del sobre en abanico
         for (const carta of cartas) {            // y se dan vuelta una por una
-            if (carta.classList.contains('carta-sobre--platino')) {   // suspenso: brilla y tiembla antes de darse vuelta
+            // suspenso: las raras brillan y tiemblan antes de darse vuelta (la Platino, más tiempo)
+            const rara = carta.classList.contains('carta-sobre--dorada') || carta.classList.contains('carta-sobre--platino');
+            const platino = carta.classList.contains('carta-sobre--platino');
+            if (rara) {
                 carta.classList.add('carta-sobre--suspenso');
-                await esperar(900);
+                await esperar(platino ? 1300 : 900);
                 carta.classList.remove('carta-sobre--suspenso');
             }
             carta.classList.add('carta-sobre--revelada');
-            await esperar(carta.classList.contains('carta-sobre--platino') ? 900 : 420);
+            await esperar(rara ? 900 : 420);
         }
         const nuevas = estampas.filter(e => !e.duplicado).length;
         const bonus = estampas.reduce((s, e) => s + (e.duplicado ? (e.bonus_puntos || 0) : 0), 0);

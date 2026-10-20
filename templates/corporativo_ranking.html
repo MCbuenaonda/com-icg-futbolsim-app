@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as m %}
+
+{% block title %}Ranking de CEOs · Corporativos{% endblock %}
+
+{% block content %}
+{#
+  Ranking de CEOs entre usuarios (services/corporativo_service.obtener_ranking_ceos). Cada uno juega en su propio
+  universo, pero todos arrancan con la misma siembra: la fama, los cargos y lo cobrado son comparables.
+#}
+<div class="container-fluid py-3 px-md-4">
+  <a href="/corporativo/" class="small text-muted text-decoration-none"><i class="bi bi-arrow-left me-1"></i>Mi carrera</a>
+  <div class="card card-logo-fondo card-logo-fondo--sin-brillo corp-hero my-3" style="--logo-color: #facc15;">
+    <div class="card-body p-3 p-md-4">
+      <span class="corp-sobretitulo">Corporativos Deportivos</span>
+      <h1 class="h2 fw-bold text-white mb-1">Ranking de CEOs</h1>
+      <p class="text-muted small mb-0">Cada usuario hace su carrera en su propio universo, todos con el mismo punto de partida. Orden: fama y, a igualdad, lo cobrado como CEO.</p>
+    </div>
+  </div>
+  {% if filas %}
+  <div class="d-flex flex-column gap-2">
+    {% for f in filas %}
+    <div class="corp-ranking {{ 'corp-ranking--yo' if f.soy_yo }}">
+      <span class="corp-ranking__pos">{{ '🥇' if f.posicion == 1 else ('🥈' if f.posicion == 2 else ('🥉' if f.posicion == 3 else f.posicion)) }}</span>
+      <div class="min-w-0 flex-grow-1">
+        <div class="text-white fw-bold">{{ f.nombre }}{% if f.soy_yo %} <span class="badge bg-accent">Tú</span>{% endif %}</div>
+        <small class="text-muted"><i class="bi {{ f.estado.icono }} me-1"></i>{{ f.estado.titulo }}{% if f.cargo %} · CEO de {{ f.cargo.sigla }}{% endif %}</small>
+        <div class="d-flex gap-1 mt-1 flex-wrap">{% for t in f.trayectoria %}<img src="{{ t.logo }}" class="corp-logo corp-logo--micro" title="{{ t.sigla }}" alt="{{ t.sigla }}">{% endfor %}</div>
+      </div>
+      <div class="corp-cifras corp-ranking__cifras">
+        <div><span>Fama</span><strong>{{ f.fama }}</strong></div>
+        <div><span>Ciclos CEO</span><strong>{{ f.ciclos_ceo }}</strong></div>
+        <div><span>Mejor tier</span><strong>{{ f.mejor_tier or '—' }}</strong></div>
+        <div><span>Cobrado</span><strong>{{ '{:,}'.format(f.cobrado) }}</strong></div>
+        <div><span>Acciones</span><strong>{{ '{:,}'.format(f.acciones) }}</strong></div>
+        <div><span>Despidos</span><strong class="{{ 'text-danger' if f.despidos }}">{{ f.despidos }}</strong></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  {{ m.estado_vacio('bi-trophy', 'Todavía no hay CEOs', 'Sé el primero: buscá empleo en Corporativos Deportivos.') }}
+  {% endif %}
+</div>
+{% endblock %}

@@ -11,7 +11,7 @@
 {% set p = progreso %}
 {% macro recompensa(r) -%}
 {%- if r.tipo == 'PUNTOS' -%}<span class="nivel-premio nivel-premio--puntos"><i class="bi bi-coin"></i>{{ "{:,}".format(r.cantidad) }} pts</span>
-{%- elif r.tipo == 'PLATINO' -%}<span class="nivel-premio nivel-premio--platino"><i class="bi bi-star-fill"></i>Sobre Platino</span>
+{%- elif r.tipo == 'PLATINO' -%}<span class="nivel-premio nivel-premio--platino" title="Un sobre con una estampa Platino (un escudo) garantizada"><i class="bi bi-gem"></i>Sobre Platino</span>
 {%- else -%}<span class="nivel-premio nivel-premio--sobre"><i class="bi bi-gift-fill"></i>{{ r.cantidad }} sobre{{ 's' if r.cantidad != 1 }}</span>{%- endif -%}
 {%- endmacro %}
 
@@ -170,7 +170,7 @@
             paso.querySelector('.nivel-paso__estado').innerHTML = '<i class="bi bi-check-circle-fill"></i>';
             boton.outerHTML = '<span class="nivel-paso__pie text-success"><i class="bi bi-check2 me-1"></i>Reclamada</span>';
             const textos = datos.recompensas.map(r => r.tipo === 'PUNTOS' ? `+${Number(r.cantidad).toLocaleString('en-US')} pts`
-                : r.tipo === 'PLATINO' ? 'un sobre Platino' : `${r.cantidad} sobre${r.cantidad == 1 ? '' : 's'} gratis`);
+                : r.tipo === 'PLATINO' ? 'un sobre Platino (escudo garantizado)' : `${r.cantidad} sobre${r.cantidad == 1 ? '' : 's'} gratis`);
             const conSobres = datos.recompensas.some(r => r.tipo !== 'PUNTOS');
             UI.toast(`¡Recompensa del nivel ${datos.nivel}: ${textos.join(' y ')}!`,
                      { icono: conSobres ? 'bi-gift-fill' : 'bi-coin', tipo: 'nivel', enlace: conSobres ? '/album-estampas/sobres' : null, duracion: 6000 });

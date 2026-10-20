@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Bolsa FIFAV 10 · Corporativos{% endblock %}
+
+{% block content %}
+{#
+  Bolsa de TU universo (services/corporativo_bolsa_service.obtener_bolsa): índice FIFAV 10 (precio / precio inicial,
+  base 100), cotización de los 10 corporativos, tu portafolio, acciones bloqueadas del bono y dividendo del CEO.
+  Los precios solo se mueven en los cierres de ciclo; comprar/vender opera al precio del último cierre.
+#}
+{% set resultado = cartera_valor - cartera_costo %}
+<div class="container-fluid py-3 px-md-4">
+  <a href="/corporativo/" class="small text-muted text-decoration-none"><i class="bi bi-arrow-left me-1"></i>Mi carrera</a>
+  <div id="alertaBolsa"></div>
+
+  <div class="card card-logo-fondo card-logo-fondo--sin-brillo corp-hero my-3" style="--logo-color: #facc15;">
+    <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div class="min-w-0">
+        <span class="corp-sobretitulo">Ciclo {{ ciclo }} · tu universo</span>
+        <h1 class="h2 fw-bold text-white mb-1">Bolsa FIFAV 10</h1>
+        <p class="text-muted small mb-0">Las acciones se mueven en cada cierre de ciclo (máximo ±{{ (reglas.banda * 100) | int }}%) según resultados, fichajes,
+          dividendos y el humor del mercado. Comisión {{ '%.0f' | format(reglas.comision * 100) }}% · tope {{ (reglas.tope * 100) | int }}% de cada corporativo.</p>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <div class="fixture-kpi"><span>Índice</span><strong class="{{ 'text-success' if indice_actual >= 100 else 'text-danger' }}">{{ indice_actual }}</strong></div>
+        <div class="fixture-kpi"><span>Tu saldo</span><strong>{{ '{:,}'.format(saldo) }}</strong></div>
+        <div class="fixture-kpi"><span>Portafolio</span><strong>{{ '{:,}'.format(cartera_valor) }}</strong></div>
+        <div class="fixture-kpi"><span>Resultado</span><strong class="{{ 'text-success' if resultado > 0 else ('text-danger' if resultado < 0 else '') }}">{{ '{:+,}'.format(resultado) }}</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <h2 class="vivo-titulo"><i class="bi bi-graph-up-arrow text-warning"></i>Evolución (base 100)</h2>
+      <div class="corp-panel mb-4">
+        {% if ciclos | length > 1 %}
+        <div class="corp-grafico corp-grafico--bolsa"><canvas id="graficoBolsa"></canvas></div>
+        <small class="text-muted">Tocá un corporativo en la leyenda para mostrarlo u ocultarlo.</small>
+        {% else %}
+        <p class="text-muted small mb-0"><i class="bi bi-hourglass-split me-1"></i>El gráfico aparece después de dos cierres de ciclo.</p>
+        {% endif %}
+      </div>
+
+      <h2 class="vivo-titulo"><i class="bi bi-building-fill text-success"></i>Cotizaciones</h2>
+      <div class="d-flex flex-column gap-2 mb-4">
+        {% for f in filas %}
+        <div class="corp-cotizacion {{ 'corp-cotizacion--mia' if f.cantidad }}" style="--logo-color: {{ f.color }};">
+          <a href="/corporativo/{{ f.sigla }}" class="d-flex align-items-center gap-2 text-decoration-none min-w-0 corp-cotizacion__nombre">
+            <img src="{{ f.logo }}" class="corp-logo" alt="{{ f.sigla }}">
+            <div class="min-w-0"><div class="text-white fw-bold">{{ f.sigla }} <span class="corp-tier corp-tier--{{ f.tier | lower }}">{{ f.tier }}</span>
+              {% if f.es_del_usuario %}<span class="corp-mio">Tuyo</span>{% endif %}</div>
+              <small class="text-muted text-truncate d-block">{{ f.nombre }}</small></div>
+          </a>
+          <div class="corp-cotizacion__dato"><span>Precio</span><strong>{{ '%.2f' | format(f.precio) }}</strong>
+            <small class="{{ 'text-success' if f.variacion_ciclo > 0 else ('text-danger' if f.variacion_ciclo < 0 else 'text-muted') }}">{{ '%+.1f' | format(f.variacion_ciclo) }}% ciclo</small></div>
+          <div class="corp-cotizacion__dato"><span>Desde el inicio</span><strong class="{{ 'text-success' if f.variacion_total > 0 else ('text-danger' if f.variacion_total < 0 else '') }}">{{ '%+.1f' | format(f.variacion_total) }}%</strong>
+            <small class="text-muted">cap. {{ '{:,}'.format(f.capitalizacion) }}</small></div>
+          <div class="corp-cotizacion__dato"><span>Tus acciones</span><strong>{{ '{:,.0f}'.format(f.cantidad) if f.cantidad else '—' }}</strong>
+            {% if f.cantidad %}<small class="{{ 'text-success' if f.resultado > 0 else ('text-danger' if f.resultado < 0 else 'text-muted') }}">{{ '{:,}'.format(f.valor) }} ({{ '{:+,}'.format(f.resultado) }})</small>{% endif %}</div>
+          <div class="d-flex gap-1 corp-cotizacion__botones">
+            <button class="btn btn-sm btn-success rounded-pill" data-operar="comprar" data-sigla="{{ f.sigla }}" data-precio="{{ f.precio }}" data-max="{{ f.disponible }}"
+                    {% if f.bloqueo_compra %}disabled title="Información privilegiada: no podés comprar acciones del corporativo que dirigís"{% endif %}>Comprar</button>
+            <button class="btn btn-sm btn-outline-light rounded-pill" data-operar="vender" data-sigla="{{ f.sigla }}" data-precio="{{ f.precio }}" data-max="{{ f.cantidad }}" {{ 'disabled' if not f.cantidad }}>Vender</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      {% if dividendo %}
+      <h2 class="vivo-titulo"><i class="bi bi-cash-coin text-success"></i>Dividendo de {{ dividendo.sigla }}</h2>
+      <div class="corp-panel mb-4">
+        {% if dividendo.disponible %}
+        <p class="small text-muted mb-2">Utilidad del último ciclo: <strong class="text-white">{{ '{:,}'.format(dividendo.utilidad) }}</strong>. Repartir sube el sentimiento del mercado
+          (la acción) pero sale del capital del corporativo. Si tenés acciones de {{ dividendo.sigla }}, cobrás tu parte.</p>
+        <label class="form-label small fw-bold d-flex justify-content-between">Porcentaje de la utilidad <span id="divTxt" class="text-white"></span></label>
+        <input type="range" class="form-range" id="divFraccion" min="1" max="{{ (reglas.max_dividendo * 100) | int }}" value="15" data-utilidad="{{ dividendo.utilidad }}">
+        <button class="btn btn-success fw-bold rounded-pill w-100 mt-2" id="divRepartir"><i class="bi bi-cash-stack me-1"></i>Repartir dividendo</button>
+        {% else %}
+        <p class="small text-muted mb-0">{{ 'Ya repartiste este ciclo.' if dividendo.utilidad > 0 else 'Sin utilidad el último ciclo: no hay dividendo para repartir.' }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <h2 class="vivo-titulo"><i class="bi bi-lock-fill text-warning"></i>Acciones de tu bono</h2>
+      <div class="corp-panel mb-4">
+        {% for a in bloqueadas %}
+        <div class="corp-propuesta">
+          <img src="{{ a.logo }}" class="corp-logo corp-logo--mini" alt="{{ a.sigla }}">
+          <div class="min-w-0 flex-grow-1 small"><div class="text-white fw-semibold">{{ '{:,.0f}'.format(a.cantidad) }} de {{ a.sigla }}</div>
+            <div class="text-muted">Hoy valen {{ '{:,}'.format(a.valor_hoy) }} · consolidan al cierre del ciclo {{ a.consolida_ciclo }}</div></div>
+        </div>
+        {% else %}
+        <p class="small text-muted mb-0">El 25% de tu bono de CEO se paga en acciones del corporativo: quedan bloqueadas 3 ciclos y se pierden si te vas antes (salvo fin de contrato).</p>
+        {% endfor %}
+      </div>
+
+      <h2 class="vivo-titulo"><i class="bi bi-receipt text-info"></i>Operaciones</h2>
+      <div class="corp-panel">
+        {% for o in operaciones %}
+        <div class="corp-mov"><span class="corp-mov__tipo">C{{ o.ciclo }}</span>
+          <span class="flex-grow-1 text-truncate">{{ {'COMPRA': 'Compra', 'VENTA': 'Venta', 'DIVIDENDO': 'Dividendo', 'CONSOLIDACION': 'Consolidación'}[o.tipo] }} · {{ '{:,.0f}'.format(o.cantidad) }} {{ o.sigla }}{% if o.precio and o.tipo in ('COMPRA', 'VENTA') %} a {{ '%.2f' | format(o.precio) }}{% endif %}</span>
+          <strong class="{{ 'text-success' if o.monto > 0 and o.tipo != 'CONSOLIDACION' else ('text-danger' if o.monto < 0 else 'text-muted') }}">{{ '{:+,}'.format(o.monto) if o.tipo != 'CONSOLIDACION' else '' }}</strong></div>
+        {% else %}
+        <p class="small text-muted mb-0">Todavía no operaste.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de operación -->
+<div class="modal fade" id="modalOperar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content bg-body-tertiary">
+    <div class="modal-header border-0"><h5 class="modal-title fw-bold" id="opTitulo"></h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+    <div class="modal-body pt-0">
+      <label class="form-label small fw-bold">Cantidad de acciones</label>
+      <input type="number" class="form-control mb-1" id="opCantidad" min="1" step="1">
+      <small class="text-muted d-block mb-3" id="opMax"></small>
+      <div class="corp-panel small">
+        <div class="d-flex justify-content-between"><span class="text-muted">Precio</span><strong class="text-white" id="opPrecio"></strong></div>
+        <div class="d-flex justify-content-between"><span class="text-muted">Comisión</span><strong class="text-white" id="opComision"></strong></div>
+        <div class="d-flex justify-content-between mt-1"><span class="text-muted" id="opTotalTxt"></span><strong class="fs-5 text-white" id="opTotal"></strong></div>
+      </div>
+    </div>
+    <div class="modal-footer border-0">
+      <button class="btn btn-success fw-bold rounded-pill px-4 w-100" id="opConfirmar"></button>
+    </div>
+  </div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+    (() => {
+        const $ = id => document.getElementById(id);
+        const fmt = n => Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+        const COMISION = {{ reglas.comision }}, SALDO = {{ saldo }};
+
+        const lienzo = $('graficoBolsa');
+        if (lienzo && window.Chart) {
+            const filas = {{ filas | map(attribute='sigla') | list | tojson }};
+            const series = {{ filas | map(attribute='serie') | list | tojson }};
+            const colores = {{ filas | map(attribute='color') | list | tojson }};
+            new Chart(lienzo, {
+                type: 'line',
+                data: {
+                    labels: {{ ciclos | tojson }}.map(c => `C${c}`),
+                    datasets: [{ label: 'FIFAV 10', data: {{ indice | tojson }}, borderColor: '#facc15', backgroundColor: '#facc15', borderWidth: 3, tension: .3, pointRadius: 0 },
+                               ...filas.map((s, i) => ({ label: s, data: series[i], borderColor: colores[i], backgroundColor: colores[i], borderWidth: 1.5,
+                                                         tension: .3, pointRadius: 0, hidden: i > 2, spanGaps: true }))],
+                },
+                options: {
+                    maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { labels: { color: '#cbd5e1', boxWidth: 10 } } },
+                    scales: { x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                              y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,.06)' } } },
+                },
+            });
+        }
+
+        let op = null;
+        const refrescar = () => {
+            const n = Math.max(0, Number($('opCantidad').value || 0));
+            const bruto = n * op.precio, comision = Math.max(1, Math.round(bruto * COMISION));
+            $('opComision').textContent = fmt(comision);
+            $('opTotal').textContent = fmt(op.tipo === 'comprar' ? bruto + comision : bruto - comision);
+        };
+        document.addEventListener('click', ev => {
+            const b = ev.target.closest('[data-operar]');
+            if (!b) return;
+            const precio = Number(b.dataset.precio);
+            op = { tipo: b.dataset.operar, sigla: b.dataset.sigla, precio };
+            const max = op.tipo === 'comprar' ? Math.min(Number(b.dataset.max), Math.floor(SALDO / (precio * (1 + COMISION)))) : Math.floor(Number(b.dataset.max));
+            $('opTitulo').textContent = `${op.tipo === 'comprar' ? 'Comprar' : 'Vender'} ${op.sigla}`;
+            $('opPrecio').textContent = precio.toFixed(2);
+            $('opCantidad').max = max; $('opCantidad').value = Math.min(max, op.tipo === 'comprar' ? 100 : max);
+            $('opMax').textContent = op.tipo === 'comprar' ? `Podés comprar hasta ${fmt(max)} (saldo y tope)` : `Tenés ${fmt(max)}`;
+            $('opTotalTxt').textContent = op.tipo === 'comprar' ? 'Total a pagar' : 'Recibís';
+            $('opConfirmar').textContent = op.tipo === 'comprar' ? 'Comprar' : 'Vender';
+            $('opConfirmar').className = `btn fw-bold rounded-pill px-4 w-100 ${op.tipo === 'comprar' ? 'btn-success' : 'btn-warning'}`;
+            refrescar();
+            bootstrap.Modal.getOrCreateInstance($('modalOperar')).show();
+        });
+        $('opCantidad').addEventListener('input', refrescar);
+        $('opConfirmar').addEventListener('click', async () => {
+            const boton = $('opConfirmar'); boton.disabled = true;
+            try {
+                const resp = await fetch(`/corporativos/bolsa/${op.tipo}`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
+                    body: JSON.stringify({ sigla: op.sigla, cantidad: Number($('opCantidad').value) }) });
+                const datos = await resp.json().catch(() => ({}));
+                if (!resp.ok) throw new Error(datos.detail || 'No se pudo operar');
+                location.reload();
+            } catch (err) {
+                bootstrap.Modal.getInstance($('modalOperar')).hide();
+                UI.mostrarAlertaEn($('alertaBolsa'), err.message, 'danger');
+            } finally { boton.disabled = false; }
+        });
+
+        const rango = $('divFraccion');
+        if (rango) {
+            const txt = () => { $('divTxt').textContent = `${rango.value}% · ${fmt(Number(rango.dataset.utilidad) * rango.value / 100)}`; };
+            rango.addEventListener('input', txt); txt();
+            $('divRepartir').addEventListener('click', async () => {
+                if (!(await UI.confirmar({ titulo: '¿Repartir el dividendo?', mensaje: `Salen ${$('divTxt').textContent.split('· ')[1]} del capital del corporativo.`, textoConfirmar: 'Repartir' }))) return;
+                try {
+                    const resp = await fetch('/corporativos/dividendo', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
+                        body: JSON.stringify({ fraccion: Number(rango.value) / 100 }) });
+                    const datos = await resp.json().catch(() => ({}));
+                    if (!resp.ok) throw new Error(datos.detail || 'No se pudo repartir');
+                    location.reload();
+                } catch (err) { UI.mostrarAlertaEn($('alertaBolsa'), err.message, 'danger'); }
+            });
+        }
+    })();
+</script>
+{% endblock %}

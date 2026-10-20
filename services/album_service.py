@@ -22,16 +22,26 @@ db = client.get_database('mundial')
 
 COSTO_SOBRE = 100
 CANTIDAD_ESTAMPAS_POR_SOBRE = 5
-BONUS_ESTAMPA_DUPLICADA = 10
 
 TIPOS_ESTAMPA = ["JUGADOR", "CIUDAD", "PAIS", "ARBITRO"]
 
-# Estampas Platino de árbitro: raras. Cada estampa del sobre tiene un 5% de salir árbitro; el resto
-# se reparte parejo entre jugador/ciudad/país. La repetida de árbitro se vende más cara.
-PROB_ESTAMPA_ARBITRO = 0.05
-PESOS_TIPO_ESTAMPA = {"JUGADOR": (1 - PROB_ESTAMPA_ARBITRO) / 3, "CIUDAD": (1 - PROB_ESTAMPA_ARBITRO) / 3,
-                      "PAIS": (1 - PROB_ESTAMPA_ARBITRO) / 3, "ARBITRO": PROB_ESTAMPA_ARBITRO}
-BONUS_DUPLICADA_POR_TIPO = {"ARBITRO": 30}
+# Categorías de rareza (de la más común a la más rara): cada estampa del sobre sale de una categoría con
+# esta probabilidad, y la repetida se "vende" sola por 'bonus_repetida'. Es la ÚNICA fuente de verdad: los
+# pesos, los bonus, la XP por categoría (config/niveles.py) y los marcos del frontend salen de acá.
+# Por sobre de 5: ~3,5 normales y 1 especial; una dorada cada ~3 sobres y una platino cada ~7.
+CATEGORIAS_ESTAMPA = [
+    {"codigo": "NORMAL",   "nombre": "Normal",   "tipo": "JUGADOR", "estampa": "Jugadores", "probabilidad": 0.70, "bonus_repetida": 10, "color": "#e2e8f0"},
+    {"codigo": "ESPECIAL", "nombre": "Especial", "tipo": "CIUDAD",  "estampa": "Estadios",  "probabilidad": 0.20, "bonus_repetida": 15, "color": "#2dd4bf"},
+    {"codigo": "DORADA",   "nombre": "Dorada",   "tipo": "ARBITRO", "estampa": "Árbitros",  "probabilidad": 0.07, "bonus_repetida": 30, "color": "#facc15"},
+    {"codigo": "PLATINO",  "nombre": "Platino",  "tipo": "PAIS",    "estampa": "Escudos",   "probabilidad": 0.03, "bonus_repetida": 50, "color": "#cbd5e1"},
+]
+CATEGORIA_POR_TIPO = {c["tipo"]: c for c in CATEGORIAS_ESTAMPA}
+PESOS_TIPO_ESTAMPA = {c["tipo"]: c["probabilidad"] for c in CATEGORIAS_ESTAMPA}
+BONUS_DUPLICADA_POR_TIPO = {c["tipo"]: c["bonus_repetida"] for c in CATEGORIAS_ESTAMPA}
+BONUS_ESTAMPA_DUPLICADA = BONUS_DUPLICADA_POR_TIPO["JUGADOR"]
+# XP de niveles por estampa NUEVA según su categoría (reglas en config/niveles.py)
+ACCION_XP_POR_TIPO = {"JUGADOR": "ESTAMPA_NUEVA", "CIUDAD": "ESTAMPA_ESPECIAL", "ARBITRO": "ESTAMPA_DORADA", "PAIS": "ESTAMPA_PLATINO"}
+LOGRO_POR_TIPO = {"ARBITRO": "PRIMERA_DORADA", "PAIS": "PRIMERA_PLATINO"}
 
 SIGLA_CONFEDERACION = {1: "UEFA", 2: "CONMEBOL", 3: "CONCACAF", 4: "CAF", 5: "OFC", 6: "AFC", 7: "REPECHAJE", 8: "MUNDIAL"}
 
@@ -74,9 +84,10 @@ ORIGENES_SOBRE = {"COMPRA": None, "GRATIS": "sobres_gratis", "PLATINO": "sobres_
 def buy_and_open_pack(usuario_id: str, origen: str = "COMPRA") -> dict:
     """
     Cobra 100 pts (o descuenta un sobre gratis / Platino de las recompensas de nivel), genera 5
-    estampas aleatorias (JUGADOR/CIUDAD/PAIS, y con 5% de chance cada una un ARBITRO platino) y
-    actualiza el álbum del usuario. Las duplicadas no se agregan: se "venden" automáticamente por
-    10 pts (30 la de árbitro) que se acreditan al saldo. Al final otorga la XP de niveles.
+    estampas según las categorías de rareza (CATEGORIAS_ESTAMPA: Normal jugador 70%, Especial estadio 20%,
+    Dorada árbitro 7%, Platino escudo 3%; el Sobre Platino trae un escudo garantizado) y actualiza el
+    álbum del usuario. Las duplicadas no se agregan: se "venden" automáticamente por el bonus de su
+    categoría (10/15/30/50 pts), que se acredita al saldo. Al final otorga la XP de niveles.
     """
     if origen not in ORIGENES_SOBRE:
         raise ValueError("Tipo de sobre inválido")
@@ -109,7 +120,7 @@ def buy_and_open_pack(usuario_id: str, origen: str = "COMPRA") -> dict:
     bonus_total = 0
 
     for i in range(CANTIDAD_ESTAMPAS_POR_SOBRE):
-        tipo = "ARBITRO" if (origen == "PLATINO" and i == 0) else _elegir_tipo_estampa()
+        tipo = "PAIS" if (origen == "PLATINO" and i == 0) else _elegir_tipo_estampa()   # Sobre Platino: un escudo garantizado
         coleccion = COLECCION_POR_TIPO[tipo]
         campo_album = CAMPO_ALBUM_POR_TIPO[tipo]
 
@@ -195,10 +206,9 @@ def _otorgar_xp_sobre(usuario_oid: ObjectId, compra: dict, album: dict) -> None:
         nuevas = [e for e in compra["stickers_obtained"] if not e["duplicado"]]
         mundial = ref_mundial()   # una sola consulta por sobre: las estampas y páginas se ganan una vez por Mundial
         for e in nuevas:
-            platino = e["tipo"] == "ARBITRO"
-            otorgar_xp(usuario_oid, "ESTAMPA_PLATINO" if platino else "ESTAMPA_NUEVA", f"{mundial}:{e['tipo']}:{e['id']}")
-            if platino:
-                otorgar_logro(usuario_oid, "PRIMERA_PLATINO")
+            otorgar_xp(usuario_oid, ACCION_XP_POR_TIPO[e["tipo"]], f"{mundial}:{e['tipo']}:{e['id']}")
+            if e["tipo"] in LOGRO_POR_TIPO:
+                otorgar_logro(usuario_oid, LOGRO_POR_TIPO[e["tipo"]])
         for pagina in _paginas_completas(album, nuevas):
             otorgar_xp(usuario_oid, "PAGINA_COMPLETA", f"{mundial}:{pagina}")
     except Exception as e:
@@ -239,6 +249,9 @@ def _detallar_estampas(estampas: List[dict]) -> List[dict]:
         pais = paises.get(extra.get("pais_id"), {})
         extra["pais_nombre"] = pais.get("nombre")
         extra["confederacion"] = SIGLA_CONFEDERACION.get(pais.get("confederacion_id"), "")
+        categoria = CATEGORIA_POR_TIPO[e["tipo"]]
+        extra["categoria"] = categoria["codigo"].lower()
+        extra["categoria_nombre"] = categoria["nombre"]
         detalladas.append({**e, **extra})
     return detalladas
 
@@ -553,7 +566,8 @@ def obtener_album_pagina(usuario_id: str, numero: int) -> dict:
     numero = min(max(int(numero), 1), len(indice))
     hoja = indice[numero - 1]
     navegacion = {"anterior": numero - 1 if numero > 1 else None, "siguiente": numero + 1 if numero < len(indice) else None}
-    resultado = {"indice": indice, "total_paginas": len(indice), "totales": _totales_album(indice, owned_jugadores, owned_ciudades, owned_paises, owned_arbitros)}
+    resultado = {"indice": indice, "total_paginas": len(indice), "categorias": CATEGORIAS_ESTAMPA,
+                 "totales": _totales_album(indice, owned_jugadores, owned_ciudades, owned_paises, owned_arbitros)}
 
     if hoja["tipo"] == "arbitros":
         return {**resultado, "pagina": {**hoja, **navegacion, "puestos": _pagina_arbitros(owned_arbitros)}}

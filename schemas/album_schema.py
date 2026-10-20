@@ -25,6 +25,8 @@ class StickerOut(BaseModel):
     puesto_corto: Optional[str] = None
     genero: Optional[str] = None
     avatar_url: Optional[str] = None
+    categoria: Optional[str] = None         # rareza: normal / especial / dorada / platino
+    categoria_nombre: Optional[str] = None
 
 
 class PackPurchaseOut(BaseModel):

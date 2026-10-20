@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from bson.errors import InvalidId
 from schemas.album_schema import PackPurchaseOut, ColeccionOut
-from services.album_service import buy_and_open_pack, obtener_coleccion_usuario, obtener_album_pagina, numero_pagina_de_pais, COSTO_SOBRE
+from services.album_service import buy_and_open_pack, obtener_coleccion_usuario, obtener_album_pagina, numero_pagina_de_pais, COSTO_SOBRE, CATEGORIAS_ESTAMPA
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 from services.imagenes_pais_service import GLOBALES_JINJA
 from services.juegos_service import formatear_numero_compacto
@@ -72,7 +72,7 @@ async def sobres_vista(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="album_sobres.html",
-        context={"costo_sobre": COSTO_SOBRE, "sobres_gratis": int(usuario.get("sobres_gratis") or 0),
+        context={"costo_sobre": COSTO_SOBRE, "categorias": CATEGORIAS_ESTAMPA, "sobres_gratis": int(usuario.get("sobres_gratis") or 0),
                  "sobres_platino": int(usuario.get("sobres_platino") or 0)}
     )
 

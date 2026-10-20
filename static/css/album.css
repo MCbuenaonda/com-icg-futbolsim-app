@@ -85,7 +85,6 @@
 .album-hoja__seccion span { margin-left: auto; font-size: 0.75rem; letter-spacing: 0; color: var(--bs-secondary-color); }
 
 /* casilleros vacíos del escudo y las sedes */
-.estampa--vacia-pais .estampa__hueco { border-style: dashed; border-color: rgba(250, 204, 21, 0.3); }
 .estampa--vacia-pais .estampa__hueco > .bi { font-size: 3rem; }
 .estampa--vacia-ciudad .estampa__hueco > .bi { font-size: 1.9rem; }
 
@@ -118,27 +117,38 @@
 .album-indice__item--vacia { color: var(--bs-secondary-color); }
 .album-indice__item--completa .album-indice__avance span { background: #4ade80; }
 
-/* página especial de árbitros (Platino) */
-.album-hoja--platino { background: radial-gradient(110% 80% at 100% 0%, rgba(226, 232, 240, 0.16), transparent 60%),
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0 10px, transparent 10px 20px), var(--bg-card); border-color: rgba(226, 232, 240, 0.35); }
-.album-hoja__marca { font-size: 15rem; line-height: 1; width: auto; color: #e2e8f0; }
-.album-hoja__sello-platino { width: 3rem; height: 3rem; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; color: #0f172a;
-    background: radial-gradient(circle at 35% 30%, #ffffff, #94a3b8); box-shadow: 0 0 0 3px rgba(226, 232, 240, 0.35), 0 8px 20px rgba(0, 0, 0, 0.45); }
-.album-hoja__edicion { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #e2e8f0; }
-.album-hoja--platino .album-pagina__progreso strong { color: #e2e8f0; }
-.album-hoja--platino .album-pagina__barra span { background: linear-gradient(90deg, #64748b, #f8fafc); }
-.album-puestos .filtro-conf strong { margin-right: 0.15rem; color: #e2e8f0; }
-.album-contador--platino { cursor: pointer; background: linear-gradient(160deg, rgba(226, 232, 240, 0.12), rgba(0, 0, 0, 0.3)); border-color: rgba(226, 232, 240, 0.3); transition: transform 0.2s ease, border-color 0.2s ease; }
-.album-contador--platino:hover { transform: translateY(-2px); border-color: rgba(226, 232, 240, 0.7); }
-.album-contador--platino .bi { color: #e2e8f0; }
-.album-indice__platino { flex: 0 0 auto; width: 1.4rem; text-align: center; color: #e2e8f0; }
+/* página especial de árbitros (estampas Doradas) */
+.album-hoja--dorada { background: radial-gradient(110% 80% at 100% 0%, rgba(250, 204, 21, 0.16), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0 10px, transparent 10px 20px), var(--bg-card); border-color: rgba(250, 204, 21, 0.4); }
+.album-hoja__marca { font-size: 15rem; line-height: 1; width: auto; color: #facc15; }
+.album-hoja__sello-dorado { width: 3rem; height: 3rem; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; color: #422006;
+    background: radial-gradient(circle at 35% 30%, #fef9c3, #ca8a04); box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.35), 0 8px 20px rgba(0, 0, 0, 0.45); }
+.album-hoja__edicion { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #facc15; }
+.album-hoja--dorada .album-pagina__progreso strong { color: #facc15; }
+.album-hoja--dorada .album-pagina__barra span { background: linear-gradient(90deg, #a16207, #fde047); }
+.album-puestos .filtro-conf strong { margin-right: 0.15rem; color: #fde047; }
+/* contadores de la tapa por categoría de rareza (color en --cat-color, desde CATEGORIAS_ESTAMPA) */
+.album-contador { position: relative; }
+.album-contador .bi { color: var(--cat-color, #facc15); }
+.album-contador__rareza { margin-bottom: 0.15rem; padding: 0 0.45rem; border-radius: 999px; font-size: 0.58rem !important; font-weight: 900 !important; letter-spacing: 0.08em;
+    color: #0b1220 !important; background: var(--cat-color, #facc15); }
+.album-contador--especial { border-color: rgba(45, 212, 191, 0.3); }
+.album-contador--platino { border-color: rgba(226, 232, 240, 0.35); background: linear-gradient(160deg, rgba(226, 232, 240, 0.12), rgba(0, 0, 0, 0.3)); }
+.album-contador--platino .album-contador__rareza { background: linear-gradient(135deg, #ffffff, #cbd5e1 50%, #94a3b8); }
+.album-contador--dorada .album-contador__rareza { background: linear-gradient(135deg, #fef08a, #facc15 50%, #ca8a04); }
+.album-contador--dorada { cursor: pointer; background: linear-gradient(160deg, rgba(250, 204, 21, 0.12), rgba(0, 0, 0, 0.3)); border-color: rgba(250, 204, 21, 0.3); transition: transform 0.2s ease, border-color 0.2s ease; }
+.album-contador--dorada:hover { transform: translateY(-2px); border-color: rgba(250, 204, 21, 0.7); }
+.album-contador--dorado { cursor: pointer; background: linear-gradient(160deg, rgba(250, 204, 21, 0.12), rgba(0, 0, 0, 0.3)); border-color: rgba(250, 204, 21, 0.3); transition: transform 0.2s ease, border-color 0.2s ease; }
+.album-contador--dorado:hover { transform: translateY(-2px); border-color: rgba(250, 204, 21, 0.7); }
+.album-contador--dorado .bi { color: #facc15; }
+.album-indice__dorado { flex: 0 0 auto; width: 1.4rem; text-align: center; color: #facc15; }
 
 @media (max-width: 575.98px) {
     .album-hoja { padding: 0.75rem; }
     .album-hoja__portada { gap: 0.75rem; }
     .album-hoja__escudo-casilla { width: 116px; }
     .album-hoja__marca { font-size: 9rem; }
-    .estampa__sello-platino { font-size: 0.46rem; top: 7px; left: 7px; padding: 0 0.25rem; }
+    .estampa__sello { font-size: 0.46rem; top: 7px; left: 7px; padding: 0 0.25rem; }
     .album-hoja__resumen { gap: 0.4rem; }
     .album-hoja__dato { flex: 1 1 100%; padding: 0.35rem 0.6rem; }
     .album-hoja__dato strong { font-size: 1rem; }
@@ -189,39 +199,57 @@
 .estampa__conf { position: absolute; z-index: 2; top: 9px; left: 9px; height: 1.3rem; width: auto; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
 .estampa__conf--claro { filter: brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
 
-/* escudos metalizados (como los escudos brillantes del álbum de papel): marco dorado + reflejo holográfico */
-.estampa--pais .estampa__frente { background: linear-gradient(135deg, #fef3c7, #f59e0b 30%, #fde68a 50%, #b45309 75%, #fde68a); }
-.estampa--pais .estampa__banda { border-top-color: var(--conf-color, #facc15); }
-.estampa__frente--brillo::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: color-dodge; opacity: 0.35;
-    background: linear-gradient(115deg, transparent 20%, rgba(255, 0, 128, 0.35) 35%, rgba(0, 255, 255, 0.35) 50%, rgba(255, 255, 0, 0.35) 65%, transparent 80%);
-    background-size: 250% 250%; animation: estampa-holo 4s linear infinite; }
+/* ===== Categorías de rareza (album_service.CATEGORIAS_ESTAMPA) =====
+   Normal = jugador (marco blanco de arriba, sin sello) · Especial = estadio (turquesa) · Dorada = árbitro (oro con
+   holograma cálido) · Platino = escudo (platino con holograma arcoíris, la más rara). Sello de categoría arriba. */
+.estampa__sello { position: absolute; z-index: 4; top: 9px; left: 9px; display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.05rem 0.4rem; border-radius: 6px;
+    font-size: 0.56rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); }
+.estampa--dorada .estampa__frente::after, .estampa--platino .estampa__frente::after {
+    content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: color-dodge; background-size: 260% 260%; animation: estampa-holo 3.5s linear infinite; }
 @keyframes estampa-holo { from { background-position: 100% 100%; } to { background-position: 0% 0%; } }
 
-/* estampas PLATINO (árbitros): marco plateado + holograma arcoíris más intenso que el de los escudos */
-.estampa__frente--platino { background: linear-gradient(135deg, #f8fafc, #94a3b8 28%, #f1f5f9 48%, #64748b 72%, #e2e8f0); }
-.estampa__frente--platino::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: color-dodge; opacity: 0.5;
-    background: linear-gradient(115deg, transparent 15%, rgba(255, 0, 170, 0.4) 30%, rgba(0, 200, 255, 0.45) 42%, rgba(120, 255, 120, 0.4) 54%, rgba(255, 230, 0, 0.4) 66%, transparent 82%);
-    background-size: 260% 260%; animation: estampa-holo 3s linear infinite; }
-.estampa--arbitro .estampa__banda { border-top-color: #e2e8f0; background: linear-gradient(180deg, #1e293b, #020617); }
-.estampa__sello-platino { position: absolute; z-index: 4; top: 9px; left: 9px; padding: 0.05rem 0.4rem; border-radius: 6px; font-size: 0.56rem; font-weight: 900; letter-spacing: 0.08em;
-    text-transform: uppercase; color: #0f172a; background: linear-gradient(135deg, #ffffff, #cbd5e1 50%, #94a3b8); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); }
+/* Especial: estadios */
+.estampa--especial .estampa__frente { background: linear-gradient(150deg, #ccfbf1, #2dd4bf 35%, #99f6e4 55%, #0d9488 80%, #5eead4); }
+.estampa--especial .estampa__sello { color: #042f2e; background: linear-gradient(135deg, #ccfbf1, #2dd4bf); }
+.estampa--especial .estampa__banda { border-top-color: #2dd4bf; }
+.estampa--especial .estampa__reverso { border-color: #2dd4bf; }
+.estampa--especial .estampa__reverso-titulo span, .estampa--especial .estampa__ovr { color: #5eead4; }
+.estampa--especial .estampa__link { background: linear-gradient(135deg, #99f6e4, #2dd4bf); }
+
+/* Dorada: árbitros */
+.estampa--dorada .estampa__frente { background: linear-gradient(135deg, #fef9c3, #eab308 28%, #fde68a 48%, #a16207 72%, #facc15); }
+.estampa--dorada .estampa__frente::after { opacity: 0.4;
+    background-image: linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.55) 34%, rgba(255, 200, 80, 0.45) 48%, rgba(255, 140, 0, 0.35) 60%, transparent 78%); }
+.estampa--dorada .estampa__sello { color: #422006; background: linear-gradient(135deg, #fef08a, #facc15 50%, #ca8a04); }
+.estampa--dorada .estampa__banda { border-top-color: #facc15; background: linear-gradient(180deg, #292524, #0c0a09); }
+.estampa--dorada .estampa__reverso { border-color: #facc15; }
 .estampa--arbitro .estampa__foto img { width: 106%; height: 106%; }
-.estampa--arbitro .estampa__reverso { border-color: #e2e8f0; background: radial-gradient(120% 80% at 50% 0%, rgba(226, 232, 240, 0.2), transparent 60%),
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 6px, transparent 6px 12px), #0b1220; }
-.estampa--arbitro .estampa__reverso-titulo span, .estampa--arbitro .estampa__ovr { color: #e2e8f0; }
 .estampa--arbitro .estampa__reverso-titulo { flex-shrink: 0; }
 .estampa__dato-ancho { grid-column: 1 / -1; }
 .estampa--arbitro .estampa__datos { gap: 0.1rem 0.35rem; }
-.estampa--arbitro .estampa__link { background: linear-gradient(135deg, #f8fafc, #cbd5e1); }
-.estampa--vacia-arbitro .estampa__hueco { border-color: rgba(226, 232, 240, 0.3); background: linear-gradient(160deg, rgba(226, 232, 240, 0.05), rgba(0, 0, 0, 0.25)); }
-.estampa--vacia-arbitro .estampa__hueco-numero { font-size: 1.2rem; color: rgba(226, 232, 240, 0.45); }
+
+/* Platino: escudos (la más rara) */
+.estampa--platino .estampa__frente { background: linear-gradient(135deg, #f8fafc, #94a3b8 28%, #f1f5f9 48%, #64748b 72%, #e2e8f0); }
+.estampa--platino .estampa__frente::after { opacity: 0.5; animation-duration: 3s;
+    background-image: linear-gradient(115deg, transparent 15%, rgba(255, 0, 170, 0.4) 30%, rgba(0, 200, 255, 0.45) 42%, rgba(120, 255, 120, 0.4) 54%, rgba(255, 230, 0, 0.4) 66%, transparent 82%); }
+.estampa--platino .estampa__sello { color: #0f172a; background: linear-gradient(135deg, #ffffff, #cbd5e1 50%, #94a3b8); }
+.estampa--platino .estampa__conf { left: auto; right: 9px; }
+.estampa--platino .estampa__banda { border-top-color: #e2e8f0; background: linear-gradient(180deg, #1e293b, #020617); }
+.estampa--platino .estampa__reverso { border-color: #e2e8f0; background: radial-gradient(120% 80% at 50% 0%, rgba(226, 232, 240, 0.2), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 6px, transparent 6px 12px), #0b1220; }
+.estampa--platino .estampa__reverso-titulo span, .estampa--platino .estampa__ovr { color: #e2e8f0; }
+.estampa--platino .estampa__link { background: linear-gradient(135deg, #f8fafc, #cbd5e1); }
+
+/* casilleros vacíos con el borde de su categoría */
+.estampa--vacia-ciudad .estampa__hueco { border-color: rgba(45, 212, 191, 0.35); }
+.estampa--vacia-arbitro .estampa__hueco { border-color: rgba(250, 204, 21, 0.35); background: linear-gradient(160deg, rgba(250, 204, 21, 0.05), rgba(0, 0, 0, 0.25)); }
+.estampa--vacia-arbitro .estampa__hueco-numero { font-size: 1.2rem; color: rgba(250, 204, 21, 0.5); }
+.estampa--vacia-pais .estampa__hueco { border-color: rgba(226, 232, 240, 0.45); background: linear-gradient(160deg, rgba(226, 232, 240, 0.06), rgba(0, 0, 0, 0.25)); }
 
 /* reverso: ficha técnica */
 .estampa__reverso { transform: rotateY(180deg); display: flex; flex-direction: column; gap: 0.35rem; padding: 0.55rem;
     background: radial-gradient(120% 80% at 50% 0%, rgba(250, 204, 21, 0.18), transparent 60%), repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 6px, transparent 6px 12px), #0b1220;
     border: 2px solid #facc15; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45); color: #e2e8f0; }
-.estampa--pais .estampa__reverso { border-color: var(--conf-color, #facc15); }
-.estampa--ciudad .estampa__reverso { border-color: #38bdf8; }
 .estampa__reverso-titulo { font-size: 0.74rem; font-weight: 900; line-height: 1.15; text-transform: uppercase; color: #fff; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .estampa__reverso-titulo span { margin-right: 0.3rem; color: #facc15; }
 .estampa__reverso-titulo .img-pais { height: 0.8rem; }
@@ -247,7 +275,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     .estampa__giro { transition: none; }
-    .estampa__frente--brillo::after, .estampa__frente--platino::after { animation: none; }
+    .estampa--dorada .estampa__frente::after, .estampa--platino .estampa__frente::after { animation: none; }
 }
 
 /* ---------- Sobres: el sobre metalizado y la apertura ---------- */
@@ -308,19 +336,31 @@
     opacity: 0; transform: scale(0.6); transition: opacity 0.3s ease 0.5s, transform 0.3s ease 0.5s; }
 .carta-sobre__cinta--repetida { color: #fff; background: #64748b; }
 .carta-sobre--revelada .carta-sobre__cinta { opacity: 1; transform: scale(1); }
-/* carta Platino en el sobre: dorso plateado, suspenso (brilla y tiembla) antes de darse vuelta y destello al revelarse */
+/* cartas raras en el sobre: dorso de su color, suspenso (brilla y tiembla) antes de darse vuelta, destello al
+   revelarse y cinta de su categoría. Dorada = oro, Platino = plata (la más larga), Especial = solo la cinta. */
+.carta-sobre--dorada .carta-sobre__dorso { border-color: #facc15;
+    background: radial-gradient(circle at 50% 40%, rgba(254, 240, 138, 0.55), transparent 60%), repeating-linear-gradient(45deg, #a16207 0 8px, #ca8a04 8px 16px); }
 .carta-sobre--platino .carta-sobre__dorso { border-color: #e2e8f0;
     background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.5), transparent 60%), repeating-linear-gradient(45deg, #475569 0 8px, #64748b 8px 16px); }
-.carta-sobre--platino .carta-sobre__dorso span { color: #fff; }
+.carta-sobre--dorada .carta-sobre__dorso span, .carta-sobre--platino .carta-sobre__dorso span { color: #fff; }
 .carta-sobre--suspenso .carta-sobre__giro { animation: carta-suspenso 0.9s ease-in-out; }
+.carta-sobre--platino.carta-sobre--suspenso .carta-sobre__giro { animation-duration: 1.3s; }
 @keyframes carta-suspenso {
     0%, 100% { transform: none; filter: none; }
-    20%, 60% { transform: rotate(-3deg) scale(1.04); filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.9)); }
-    40%, 80% { transform: rotate(3deg) scale(1.04); filter: drop-shadow(0 0 22px rgba(186, 230, 253, 0.95)); }
+    20%, 60% { transform: rotate(-3deg) scale(1.04); filter: drop-shadow(0 0 14px var(--carta-brillo, rgba(255, 255, 255, 0.9))); }
+    40%, 80% { transform: rotate(3deg) scale(1.04); filter: drop-shadow(0 0 22px var(--carta-brillo, rgba(255, 255, 255, 0.9))); }
 }
-.carta-sobre--platino.carta-sobre--revelada .carta-sobre__frente { animation: carta-platino 1.6s ease-out 0.45s; }
-@keyframes carta-platino { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.95), 0 0 30px 6px rgba(186, 230, 253, 0.8); } 100% { box-shadow: 0 0 0 26px rgba(255, 255, 255, 0), 0 0 0 0 rgba(186, 230, 253, 0); } }
+.carta-sobre--dorada { --carta-brillo: rgba(250, 204, 21, 0.95); }
+.carta-sobre--platino { --carta-brillo: rgba(226, 232, 240, 0.95); }
+.carta-sobre--dorada.carta-sobre--revelada .carta-sobre__frente, .carta-sobre--platino.carta-sobre--revelada .carta-sobre__frente { animation: carta-rara 1.6s ease-out 0.45s; }
+@keyframes carta-rara { 0% { box-shadow: 0 0 0 0 var(--carta-brillo), 0 0 30px 6px var(--carta-brillo); } 100% { box-shadow: 0 0 0 26px rgba(255, 255, 255, 0), 0 0 0 0 rgba(255, 255, 255, 0); } }
+.carta-sobre__cinta--especial { color: #042f2e; background: linear-gradient(135deg, #ccfbf1, #2dd4bf); }
+.carta-sobre__cinta--dorada { color: #422006; background: linear-gradient(135deg, #fef08a, #facc15 50%, #ca8a04); }
 .carta-sobre__cinta--platino { color: #0f172a; background: linear-gradient(135deg, #ffffff, #cbd5e1 50%, #94a3b8); }
+/* leyenda de rarezas en la tapa de /album-estampas/sobres */
+.sobre-rareza { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.72rem; color: #cbd5e1;
+    background: rgba(0, 0, 0, 0.3); border: 1px solid color-mix(in srgb, var(--cat-color) 55%, transparent); }
+.sobre-rareza strong { color: var(--cat-color); font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; }
 /* sobres de regalo (recompensas de nivel): el Platino es plateado, también el sobre al abrirlo */
 .sobre-regalo--platino { color: #0f172a; background: linear-gradient(135deg, #ffffff, #cbd5e1 50%, #94a3b8); border: 0; box-shadow: 0 6px 18px rgba(226, 232, 240, 0.25); }
 .sobre-regalo--platino:hover { color: #0f172a; filter: brightness(1.06); }
@@ -328,7 +368,6 @@
 .sobre--platino .sobre__marca { text-shadow: 0 2px 0 #334155, 0 0 14px rgba(255, 255, 255, 0.8); }
 .sobre--platino .sobre__cantidad { background: #e2e8f0; color: #0f172a; }
 .sobre--platino .sobre__titulo { color: #0f172a; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6); }
-.sobre-texto-platino { background: linear-gradient(90deg, #f8fafc, #94a3b8, #f8fafc); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .sobre-resumen { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
 .sobre-resumen__dato { padding: 0.25rem 0.8rem; border-radius: 999px; color: #cbd5e1; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08); }
 .sobre-resumen__dato strong { color: #facc15; }
@@ -341,6 +380,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
     .sobre, .sobre__brillo, .sobre--temblando, .carta-sobre, .sobre-escenario--rasgado .sobre__tapa, .sobre-escenario--rasgado::after,
-    .carta-sobre--suspenso .carta-sobre__giro, .carta-sobre--platino .carta-sobre__frente { animation: none !important; }
+    .carta-sobre--suspenso .carta-sobre__giro, .carta-sobre--dorada .carta-sobre__frente, .carta-sobre--platino .carta-sobre__frente { animation: none !important; }
     .carta-sobre__giro { transition: none; }
 }

@@ -3,6 +3,8 @@ from fastapi import HTTPException, status
 from google.api_core.exceptions import GoogleAPIError
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
+from config.eliminatorias import DESCRIPCION_FASE_CONFEDERACION, RONDAS_POR_CONFEDERACION
+from services.fecha_service import formatear_fecha_es
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -77,7 +79,8 @@ def get_confederacion(id_confederacion, logger):
         for datos_fase in fases.values():
             datos_fase["grupos"] = dict(sorted(datos_fase["grupos"].items()))
         confederacion['fases'] = dict(sorted(fases.items()))
-        
+
+        _enriquecer_vista_confederacion(confederacion, int(id_confederacion), mundial_id)
         return confederacion
     except GoogleAPIError as e:
         logger.error(f"Error de MongoBD: {str(e)}")
@@ -85,6 +88,111 @@ def get_confederacion(id_confederacion, logger):
     except Exception as e:
         logger.error(f"Error al obtener el pais: {str(e)}")
         raise HTTPException(status_code=409, detail=f"Error al obtener el pais: {str(e)}")
+
+
+# Nombre de las fases de eliminación directa del Mundial (fases 8-13)
+NOMBRE_FASE_KO = {8: "16avos de final", 9: "8vos de final", 10: "4tos de final", 11: "Semifinal", 12: "Tercer puesto", 13: "Gran final"}
+
+
+def _enriquecer_vista_confederacion(confederacion: dict, conf_id: int, mundial_id: str) -> None:
+    """
+    Datos derivados para templates/confederacion.html (sin tocar la estructura 'fases' de arriba):
+      - por fase: nombre para mostrar, descripción del formato (config/eliminatorias.py), avance de
+        partidos jugados/total y la tabla de cada grupo YA ORDENADA (puntos, DG, GF) con la racha de
+        los últimos 5 resultados y el estado de cada selección: 'avanzo' (aparece en una fase
+        posterior), 'eliminado' o 'en_juego'
+      - resumen: ronda actual de N, partidos y goles del torneo, líder de la fase vigente
+      - últimos resultados y próximos partidos de la confederación
+    Una sola consulta de partidos (con proyección) para todo lo anterior.
+    """
+    juegos = list(db["juegos"].find(
+        {"confederacion_id": conf_id, "mundial_id": mundial_id},
+        {"fase_id": 1, "estado": 1, "fecha": 1, "hora": 1, "grupo": 1, "jornada": 1, "transmision.estado": 1, "tiempo_extra": 1,
+         "equipo_local.id": 1, "equipo_local.nombre": 1, "equipo_local.bandera": 1, "equipo_local.siglas": 1, "equipo_local.goles": 1,
+         "equipo_visitante.id": 1, "equipo_visitante.nombre": 1, "equipo_visitante.bandera": 1, "equipo_visitante.siglas": 1, "equipo_visitante.goles": 1,
+         "resultado.goles_local": 1, "resultado.goles_visitante": 1, "resultado.ganador_id": 1, "resultado.empate": 1}
+    ).sort([("fecha", 1), ("hora", 1)]))
+
+    def jugado(j):  # un partido "en vivo" ya está simulado pero no se revela todavía
+        return j.get("estado") == "finalizado" and (j.get("transmision") or {}).get("estado") != "in_progress"
+
+    avance_por_fase = {}
+    forma = {}  # (fase_id, pais_id) -> ["G", "E", "P", ...] en orden cronológico
+    goles_total = 0
+    for j in juegos:
+        fid = j.get("fase_id")
+        av = avance_por_fase.setdefault(fid, {"jugados": 0, "total": 0})
+        av["total"] += 1
+        if not jugado(j):
+            continue
+        av["jugados"] += 1
+        res = j.get("resultado") or {}
+        gl, gv = res.get("goles_local", 0) or 0, res.get("goles_visitante", 0) or 0
+        goles_total += gl + gv
+        ganador = res.get("ganador_id")
+        for lado in ("equipo_local", "equipo_visitante"):
+            pid = (j.get(lado) or {}).get("id")
+            r = "E" if (res.get("empate") or ganador is None) else ("G" if ganador == pid else "P")
+            forma.setdefault((fid, pid), []).append(r)
+
+    ids_por_fase = {fid: {p.get("id") for g in datos["grupos"].values() for p in g} for fid, datos in confederacion["fases"].items()}
+    fases_ordenadas = sorted(confederacion["fases"])
+    fase_vigente = next((fid for fid in fases_ordenadas if not confederacion["fases"][fid]["jugada"]), fases_ordenadas[-1] if fases_ordenadas else None)
+
+    for fid, datos in confederacion["fases"].items():
+        posteriores = set().union(*[ids_por_fase[f] for f in fases_ordenadas if f > fid]) if fid != fases_ordenadas[-1] else set()
+        datos["ronda"] = fases_ordenadas.index(fid) + 1
+        datos["titulo"] = NOMBRE_FASE_KO.get(fid) or f"Ronda {datos['ronda']}"
+        datos["descripcion"] = DESCRIPCION_FASE_CONFEDERACION.get((conf_id, fid))
+        av = avance_por_fase.get(fid, {"jugados": 0, "total": 0})
+        datos["avance"] = {**av, "pct": round(av["jugados"] * 100 / av["total"]) if av["total"] else 0}
+        datos["vigente"] = fid == fase_vigente
+        datos["tablas"] = {}
+        for grupo, paises in datos["grupos"].items():
+            filas = sorted(paises, key=lambda p: ((p.get("estadisticas") or {}).get("puntos", 0),
+                                                   (p.get("estadisticas") or {}).get("diferencia_goles", 0),
+                                                   (p.get("estadisticas") or {}).get("goles_favor", 0)), reverse=True)
+            tabla = []
+            for pos, p in enumerate(filas, start=1):
+                if p.get("id") in posteriores:
+                    estado = "avanzo"
+                elif p.get("eliminado") or datos["jugada"]:
+                    estado = "eliminado"
+                else:
+                    estado = "en_juego"
+                tabla.append({"posicion": pos, "id": p.get("id"), "nombre": p.get("nombre"), "bandera": p.get("bandera"), "siglas": p.get("siglas"),
+                              "estadisticas": p.get("estadisticas") or {}, "estado": estado, "forma": forma.get((fid, p.get("id")), [])[-5:]})
+            datos["tablas"][grupo] = tabla
+
+    def partido(j):
+        local, visita = j.get("equipo_local") or {}, j.get("equipo_visitante") or {}
+        res = j.get("resultado") or {}
+        return {"id": str(j["_id"]), "fecha": formatear_fecha_es(j.get("fecha")) if j.get("fecha") else "", "hora": j.get("hora"),
+                "grupo": j.get("grupo"), "jornada": j.get("jornada"), "tiempo_extra": j.get("tiempo_extra"),
+                "local": {"id": local.get("id"), "nombre": local.get("nombre"), "bandera": local.get("bandera"), "goles": res.get("goles_local")},
+                "visitante": {"id": visita.get("id"), "nombre": visita.get("nombre"), "bandera": visita.get("bandera"), "goles": res.get("goles_visitante")},
+                "en_vivo": (j.get("transmision") or {}).get("estado") == "in_progress"}
+
+    jugados = [j for j in juegos if jugado(j)]
+    pendientes = [j for j in juegos if not jugado(j)]
+    lider = None
+    if fase_vigente is not None:
+        candidatos = [f for t in confederacion["fases"][fase_vigente]["tablas"].values() for f in t[:1]]
+        lider = max(candidatos, key=lambda f: (f["estadisticas"].get("puntos", 0), f["estadisticas"].get("diferencia_goles", 0)), default=None)
+    total_partidos = sum(a["total"] for a in avance_por_fase.values())
+    total_jugados = sum(a["jugados"] for a in avance_por_fase.values())
+    confederacion["resumen"] = {
+        "selecciones": len(set().union(*ids_por_fase.values())) if ids_por_fase else 0,
+        "ronda": fases_ordenadas.index(fase_vigente) + 1 if fase_vigente in fases_ordenadas else 0,
+        "rondas_total": RONDAS_POR_CONFEDERACION.get(conf_id, len(fases_ordenadas)),
+        "fase_vigente": fase_vigente,
+        "partidos_jugados": total_jugados, "partidos_total": total_partidos,
+        "pct": round(total_jugados * 100 / total_partidos) if total_partidos else 0,
+        "goles": goles_total, "promedio_goles": round(goles_total / total_jugados, 2) if total_jugados else 0,
+        "lider": lider,
+    }
+    confederacion["ultimos"] = [partido(j) for j in reversed(jugados[-6:])]
+    confederacion["proximos"] = [partido(j) for j in pendientes[:6]]
 
 
 def get_data_confederaciones_dashboard(mundial):

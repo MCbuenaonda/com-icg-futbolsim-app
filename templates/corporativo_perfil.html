@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as m %}
+
+{% block title %}{{ corp.sigla }} · Corporativos Deportivos{% endblock %}
+
+{% block content %}
+{#
+  Perfil de un corporativo EN TU UNIVERSO (services/corporativo_service.obtener_perfil_corporativo): cifras,
+  perfil de la IA y su cartera de representados (selecciones y jugadores) con valor y vencimiento del contrato.
+#}
+{% macro detalle_contrato(x) -%}
+<div class="corp-contrato">
+  <div class="corp-contrato__datos">
+    <span title="Renta acumulada menos honorarios pagados en este contrato">Neto <strong class="{{ 'text-success' if x.neto > 0 else ('text-danger' if x.neto < 0 else '') }}">{{ '{:+,}'.format(x.neto) }}</strong></span>
+    <span>Honorario <strong>{{ '{:,}'.format(x.honorario) }}</strong>/ciclo</span>
+    <span title="Satisfacción del representado: por debajo de 30 pide salir">
+      <i class="bi bi-emoji-{{ 'smile' if x.satisfaccion >= 60 else ('neutral' if x.satisfaccion >= 30 else 'frown') }}-fill {{ 'text-success' if x.satisfaccion >= 60 else ('text-warning' if x.satisfaccion >= 30 else 'text-danger') }}"></i> {{ x.satisfaccion }}</span>
+  </div>
+  <div class="d-flex gap-1">
+    {% if x.puede_renovar %}<button class="btn btn-sm btn-outline-success rounded-pill" data-contrato-accion="renovar" data-contrato="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}" data-costo="{{ x.costo_renovar }}"><i class="bi bi-arrow-repeat"></i> Renovar</button>{% endif %}
+    <button class="btn btn-sm btn-outline-danger rounded-pill" data-contrato-accion="rescindir" data-contrato="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}" data-costo="{{ x.costo_rescindir }}" title="Rescindir"><i class="bi bi-x-lg"></i></button>
+  </div>
+</div>
+{%- endmacro %}
+
+<div class="container-fluid py-3 px-md-4">
+  <div id="alertaPerfil"></div>
+  <a href="/corporativo/" class="small text-muted text-decoration-none"><i class="bi bi-arrow-left me-1"></i>Corporativos</a>
+
+  <div class="card card-logo-fondo card-logo-fondo--sin-brillo corp-hero my-3" style="--logo-color: {{ corp.color }}; --corp-acento: {{ corp.acento }};">
+    <img src="{{ corp.logo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+    <div class="card-body p-3 p-md-4 d-flex align-items-center gap-3 flex-wrap">
+      <img src="{{ corp.logo }}" alt="{{ corp.sigla }}" class="corp-logo corp-logo--hero">
+      <div class="min-w-0 flex-grow-1">
+        <span class="corp-sobretitulo">{{ corp.region }}</span>
+        <h1 class="h2 fw-bold text-white mb-1">{{ corp.nombre }}</h1>
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+          <span class="corp-tier corp-tier--{{ corp.tier | lower }}">Tier {{ corp.tier }}</span>
+          {% if corp.es_del_usuario %}<span class="corp-mio"><i class="bi bi-person-badge-fill me-1"></i>Tu corporativo</span>
+          {% else %}<span class="resumen-chip"><i class="bi bi-cpu"></i>IA · {{ perfil_ia }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <div class="fixture-kpi"><span>Capital</span><strong>{{ '{:,}'.format(corp.capital) }}</strong></div>
+        <div class="fixture-kpi"><span>Cartera</span><strong>{{ '{:,}'.format(corp.valor_cartera) }}</strong></div>
+        <div class="fixture-kpi"><span>Reputación</span><strong>{{ corp.reputacion }}</strong></div>
+        <div class="fixture-kpi"><span>Acción</span><strong>{{ '%.2f' | format(corp.precio) }}</strong></div>
+      </div>
+    </div>
+  </div>
+
+  {% if corp.es_del_usuario %}
+  <div class="corp-panel mb-3 d-flex flex-wrap gap-3 small">
+    <span><i class="bi bi-cash-stack text-warning me-1"></i>Honorarios por ciclo: <strong class="text-white">{{ '{:,}'.format(honorarios_ciclo) }}</strong></span>
+    <span><i class="bi bi-graph-up text-success me-1"></i>Neto acumulado de la cartera: <strong class="{{ 'text-success' if neto_total > 0 else 'text-danger' }}">{{ '{:+,}'.format(neto_total) }}</strong></span>
+    <span class="text-muted">Renovar cuesta el 5% del valor (solo en los últimos 3 ciclos del contrato); rescindir, la mitad de los honorarios que faltan.</span>
+  </div>
+  {% endif %}
+  <h2 class="vivo-titulo"><i class="bi bi-flag-fill text-success"></i>Selecciones representadas <span class="text-muted small fw-normal">({{ selecciones | length }})</span></h2>
+  {% if selecciones %}
+  <div class="row g-2 row-cols-1 row-cols-md-2 row-cols-xl-3 mb-4">
+    {% for s in selecciones %}
+    <div class="col">
+      <a href="/paises/{{ s.ref_id }}" class="corp-fila">
+        {{ m.bandera(s.bandera, tipo='escudo', pais_id=s.ref_id) }}
+        <div class="min-w-0 flex-grow-1">
+          <div class="text-white fw-semibold text-truncate">{{ s.nombre }}{% if s.de_region %} <i class="bi bi-geo-alt-fill text-success small" title="De su región de afinidad"></i>{% endif %}</div>
+          <small class="text-muted">Ranking #{{ s.rankin or '—' }} · contrato {{ s.ciclos_restantes }} ciclo{{ 's' if s.ciclos_restantes != 1 }} más</small>
+        </div>
+        <strong class="corp-valor">{{ '{:,}'.format(s.valor) }}</strong>
+      </a>
+      {% if corp.es_del_usuario %}{{ detalle_contrato(s) }}{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}{{ m.estado_vacio('bi-flag', 'Sin selecciones', 'Este corporativo no representa selecciones por ahora.') }}{% endif %}
+
+  <h2 class="vivo-titulo"><i class="bi bi-person-fill text-info"></i>Jugadores representados <span class="text-muted small fw-normal">({{ jugadores | length }})</span></h2>
+  {% if jugadores %}
+  <div class="row g-2 row-cols-1 row-cols-md-2 row-cols-xl-3 mb-4">
+    {% for j in jugadores %}
+    <div class="col">
+      <a href="/jugadores/{{ j.ref_id }}" class="corp-fila">
+        {{ m.avatar(j.ref_id, j.pais_id) }}
+        <div class="min-w-0 flex-grow-1">
+          <div class="text-white fw-semibold text-truncate">{{ j.nombre }}{% if j.de_region %} <i class="bi bi-geo-alt-fill text-success small" title="De su región de afinidad"></i>{% endif %}</div>
+          <small class="text-muted text-truncate d-block">{{ m.bandera(j.bandera, pais_id=j.pais_id) }} {{ j.pais }} · {{ j.edad }} años · {{ j.ciclos_restantes }} ciclo{{ 's' if j.ciclos_restantes != 1 }}</small>
+        </div>
+        <strong class="corp-valor">{{ '{:,}'.format(j.valor) }}</strong>
+      </a>
+      {% if corp.es_del_usuario %}{{ detalle_contrato(j) }}{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}{{ m.estado_vacio('bi-person', 'Sin jugadores', 'Este corporativo no representa jugadores por ahora.') }}{% endif %}
+</div>
+<script>
+    document.addEventListener('click', async ev => {
+        const boton = ev.target.closest('[data-contrato-accion]');
+        if (!boton) return;
+        const { contratoAccion: accion, contrato, nombre, costo } = boton.dataset;
+        const monto = Number(costo).toLocaleString('en-US');
+        const ok = await UI.confirmar(accion === 'renovar'
+            ? { titulo: `¿Renovar a ${nombre}?`, mensaje: `La prima de renovación cuesta ${monto} del capital del corporativo.`, textoConfirmar: 'Renovar' }
+            : { titulo: `¿Rescindir a ${nombre}?`, mensaje: `Pagás ${monto} de indemnización y queda libre: cualquier corporativo puede ficharlo.`, textoConfirmar: 'Rescindir', peligro: true });
+        if (!ok) return;
+        boton.disabled = true;
+        try {
+            const resp = await fetch(`/corporativos/contratos/${encodeURIComponent(contrato)}/${accion}`, { method: 'POST', headers: { accept: 'application/json' } });
+            const datos = await resp.json().catch(() => ({}));
+            if (!resp.ok) throw new Error(datos.detail || 'No se pudo completar la acción');
+            location.reload();
+        } catch (err) {
+            UI.mostrarAlertaEn(document.getElementById('alertaPerfil'), err.message, 'danger');
+            boton.disabled = false;
+        }
+    });
+</script>
+{% endblock %}

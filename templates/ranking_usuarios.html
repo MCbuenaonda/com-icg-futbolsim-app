@@ -37,7 +37,7 @@
             <thead>
                 <tr class="small text-muted">
                     <th>#</th><th>Usuario</th>
-                    {% for clave, etiqueta in [('patrimonio','Patrimonio'), ('saldo','Saldo'), ('valor_selecciones','Selecciones'), ('valor_sedes','Sedes'), ('fantasy','Fantasy'), ('quinielas_pct','Quinielas'), ('juego_en_vivo_neto','Juego en Vivo')] %}
+                    {% for clave, etiqueta in [('patrimonio','Patrimonio'), ('saldo','Saldo'), ('valor_selecciones','Selecciones'), ('valor_sedes','Sedes'), ('valor_acciones','Acciones'), ('fantasy','Fantasy'), ('quinielas_pct','Quinielas'), ('juego_en_vivo_neto','Juego en Vivo')] %}
                     <th class="text-end"><button type="button" class="btn btn-link btn-sm p-0 text-muted text-decoration-none fw-semibold" data-ordenar="{{ clave }}">{{ etiqueta }} <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
                     {% endfor %}
                 </tr>
@@ -45,13 +45,14 @@
             <tbody>
                 {% for f in filas %}
                 <tr class="{{ 'table-active fw-bold' if f.usuario_id == usuario_actual._id }}"
-                    {% for clave in ['patrimonio','saldo','valor_selecciones','valor_sedes','fantasy','quinielas_pct','juego_en_vivo_neto'] %} data-{{ clave | replace('_','-') }}="{{ f[clave] if f[clave] is not none else -1 }}"{% endfor %}>
+                    {% for clave in ['patrimonio','saldo','valor_selecciones','valor_sedes','valor_acciones','fantasy','quinielas_pct','juego_en_vivo_neto'] %} data-{{ clave | replace('_','-') }}="{{ f[clave] if f[clave] is not none else -1 }}"{% endfor %}>
                     <td class="text-muted">{{ f.posicion }}</td>
                     <td>{{ f.nombre }} <small class="text-muted">@{{ f.username }}</small>{% if f.usuario_id == usuario_actual._id %} <span class="badge bg-accent">Tú</span>{% endif %}</td>
                     <td class="text-end text-accent">{{ "{:,}".format(f.patrimonio) }}</td>
                     <td class="text-end">{{ "{:,}".format(f.saldo) }}</td>
                     <td class="text-end">{{ "{:,}".format(f.valor_selecciones) }}</td>
                     <td class="text-end">{{ "{:,}".format(f.valor_sedes) }}</td>
+                    <td class="text-end">{{ "{:,}".format(f.valor_acciones) }}</td>
                     <td class="text-end">{{ f.fantasy }}</td>
                     <td class="text-end">{{ (f.quinielas_pct ~ '%') if f.quinielas_pct is not none else '—' }}</td>
                     <td class="text-end {{ 'text-success' if f.juego_en_vivo_neto > 0 else 'text-danger' if f.juego_en_vivo_neto < 0 }}">{{ '+' if f.juego_en_vivo_neto > 0 }}{{ "{:,}".format(f.juego_en_vivo_neto) }}</td>

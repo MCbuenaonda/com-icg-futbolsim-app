@@ -1,191 +1,183 @@
 {% extends "base.html" %}
 {% import "partials/macros.html" as m %}
 
-{% block title %}{{ confederacion.nombre }} - Vista de Confederación{% endblock %}
+{% block title %}{{ confederacion.nombre }} - Eliminatorias{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-12">
+{#
+  Eliminatorias de una confederación: resumen (ronda actual, avance, goles, líder), formato de la ronda
+  en juego, últimos resultados / próximos partidos y la tabla de cada grupo por ronda (ya ordenada, con
+  racha de los últimos 5 y estado: avanzó / en juego / eliminado). Las rondas terminadas se pliegan.
+  Datos: confederacion_service.get_confederacion (+ _enriquecer_vista_confederacion).
+#}
+{% set c = confederacion %}{% set r = c.resumen %}
+{% set lc = logo_confederacion(c.nombre) %}
+{% set color = lc.color if lc else '#22c55e' %}
+{% macro fila_partido(p, jugado) -%}
+<a href="{{ '/juegos/' ~ p.id if jugado else ('/en-vivo/' if p.en_vivo else '/simulador/?id=' ~ p.id ~ '&id_local=' ~ p.local.id ~ '&id_visita=' ~ p.visitante.id ~ '&te=' ~ ('True' if p.tiempo_extra else 'False')) }}" class="conf-partido">
+    <span class="conf-partido__equipo">{{ m.bandera(p.local.bandera, pais_id=p.local.id) }}<span class="text-truncate">{{ p.local.nombre }}</span></span>
+    {% if jugado %}<span class="conf-partido__marcador">{{ p.local.goles }}<i>-</i>{{ p.visitante.goles }}</span>
+    {% elif p.en_vivo %}<span class="conf-partido__marcador conf-partido__marcador--vivo"><span class="cal-dot"></span>VIVO</span>
+    {% else %}<span class="conf-partido__marcador conf-partido__marcador--hora">{{ p.hora or 'vs' }}</span>{% endif %}
+    <span class="conf-partido__equipo conf-partido__equipo--visita"><span class="text-truncate">{{ p.visitante.nombre }}</span>{{ m.bandera(p.visitante.bandera, pais_id=p.visitante.id) }}</span>
+    <small class="conf-partido__meta">{{ p.grupo }}{% if p.jornada %} · {{ p.jornada }}{% endif %} · {{ p.fecha }}</small>
+</a>
+{%- endmacro %}
 
-        <!-- Botón de navegación para regresar -->
-        <div class="mb-3">
-            <a href="/paises/" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left me-1"></i> Volver a Países
-            </a>
-        </div>
+<div class="container-fluid py-3 px-md-4" style="--logo-color: {{ color }};">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <a href="/paises/" class="btn btn-outline-secondary btn-sm rounded-pill px-3"><i class="bi bi-arrow-left me-1"></i>Volver a países</a>
+        <a href="/juegos/?confederacion={{ c.id }}" class="btn btn-outline-light btn-sm rounded-pill px-3"><i class="bi bi-calendar3 me-1"></i>Partidos de {{ c.nombre }}</a>
+    </div>
 
-        <!-- Tarjeta Principal de la Confederación -->
-        <div class="card bg-dark text-white shadow-lg border-0 rounded-4 overflow-hidden mb-4">
-            <div class="card-body p-4 p-md-5">
-                
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="badge bg-primary text-uppercase px-3 py-2 fs-6">
-                        <i class="bi bi-globe-americas me-1"></i> {{ confederacion.region }}
-                    </span>
-                    
-                    {% if confederacion.principal == 1 %}
-                        <span class="badge bg-accent text-dark px-3 py-2 fs-6" title="Confederación Principal">
-                            <i class="bi bi-star-fill me-1"></i> Principal
-                        </span>
+    <!-- Encabezado -->
+    <div class="card card-logo-fondo card-logo-fondo--sin-brillo conf-hero mb-4" style="--logo-color: {{ color }};">
+        {% if lc %}<img src="{{ lc.url }}" alt="" aria-hidden="true" class="card-logo-fondo__logo {{ 'card-logo-fondo__logo--claro' if lc.claro }}" onerror="this.remove()">{% endif %}
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex align-items-center gap-3 flex-wrap mb-3">
+                {% if lc %}<span class="conf-hero__sello"><img src="{{ lc.url }}" alt="{{ c.nombre }}" class="{{ 'estampa__conf--claro' if lc.claro }}"></span>{% endif %}
+                <div class="min-w-0 flex-grow-1">
+                    <div class="d-flex flex-wrap gap-2 mb-1">
+                        <span class="resumen-chip"><i class="bi bi-globe-americas"></i>{{ c.region }}</span>
+                        {% if c.principal == 1 %}<span class="resumen-chip"><i class="bi bi-star-fill text-warning"></i>Confederación principal</span>{% endif %}
+                        {% if r.rondas_total %}<span class="resumen-chip resumen-chip--fase"><i class="bi bi-signpost-split"></i>Ronda {{ r.ronda }} de {{ r.rondas_total }}</span>{% endif %}
+                    </div>
+                    <h1 class="display-6 fw-bold text-white mb-1">Eliminatorias {{ c.nombre }}</h1>
+                    <p class="text-muted mb-0 conf-hero__desc">{{ c.descripcion }}</p>
+                </div>
+            </div>
+            <div class="row g-2">
+                <div class="col-6 col-lg-3">
+                    <div class="conf-kpi"><div class="anillo-kpi" style="--pct: {{ r.pct }};"><span>{{ r.pct }}%</span></div>
+                        <div><small>Partidos jugados</small><strong>{{ r.partidos_jugados }}<span>/{{ r.partidos_total }}</span></strong></div></div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="conf-kpi"><span class="conf-kpi__icono"><i class="bi bi-flag-fill"></i></span>
+                        <div><small>Selecciones</small><strong>{{ r.selecciones }}</strong></div></div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="conf-kpi"><span class="conf-kpi__icono"><i class="bi bi-dribbble"></i></span>
+                        <div><small>Goles</small><strong>{{ r.goles }}<span> · {{ r.promedio_goles }}/PJ</span></strong></div></div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    {% if r.lider %}
+                    <a href="/paises/{{ r.lider.id }}" class="conf-kpi conf-kpi--lider">
+                        <span class="conf-kpi__escudo">{{ m.bandera(r.lider.bandera, tipo='escudo', pais_id=r.lider.id) }}</span>
+                        <div class="min-w-0"><small>Líder de la ronda</small><strong class="text-truncate d-block">{{ r.lider.nombre }}</strong><span class="conf-kpi__sub">{{ r.lider.estadisticas.puntos }} pts</span></div>
+                    </a>
+                    {% else %}
+                    <div class="conf-kpi"><span class="conf-kpi__icono"><i class="bi bi-trophy"></i></span><div><small>Líder</small><strong>—</strong></div></div>
                     {% endif %}
                 </div>
-
-                <!-- Nombre / Título de la Confederación -->
-                <h1 class="display-4 fw-bold text-accent mb-2">{{ confederacion.nombre }}</h1>
-
-                <hr class="border-secondary my-4">
-
-                <!-- Descripción -->
-                <div class="lh-lg text-light fs-5">
-                    <h5 class="text-secondary fw-bold mb-3">
-                        <i class="bi bi-info-circle me-2"></i> Acerca de esta Confederación
-                    </h5>
-                    <p class="mb-0">{{ confederacion.descripcion }}</p>
-                </div>
-
             </div>
-
         </div>
+    </div>
 
-        <!-- Sección de Países Miembros Agrupados por Fase y Grupos -->
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-body-tertiary py-3">
-                <h5 class="card-title mb-0 fw-bold text-secondary">
-                    <i class="bi bi-flag me-2"></i> Países Participantes por Fase
-                </h5>
+    {% if c.fases %}
+    {% set vig = c.fases.get(r.fase_vigente) %}
+    {% if vig %}
+    <!-- Formato de la ronda en juego -->
+    <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: {{ color }};">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <h2 class="vivo-titulo mb-0"><i class="bi bi-signpost-2-fill" style="color: {{ color }};"></i>{{ vig.titulo }} · {{ 'en juego' if not vig.jugada else 'finalizada' }}</h2>
+                <span class="small text-muted"><strong class="text-white">{{ vig.avance.jugados }}</strong> de {{ vig.avance.total }} partidos</span>
             </div>
-            <div class="card-body py-4">
-                {% if confederacion.fases %}
-                    {% for fase_id, datos_fase in confederacion.fases.items() %}
-                        <div class="mb-5">
-                            <!-- Encabezado de la Fase -->
-                            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-accent"
-                                 {% if datos_fase.jugada %}
-                                 data-bs-toggle="collapse"
-                                 data-bs-target="#fase-grupos-{{ fase_id }}"
-                                 aria-expanded="false"
-                                 aria-controls="fase-grupos-{{ fase_id }}"
-                                 style="cursor: pointer;"
-                                 {% endif %}>
-                                <h3 class="fw-bold text-body-emphasis mb-0">
-                                    <i class="bi bi-trophy-fill me-2 text-accent"></i>
-                                    {% if datos_fase.nombre == 'Fase 8' %}
-                                        16AVOS DE FINAL
-                                    {% elif datos_fase.nombre == 'Fase 9' %}
-                                        8AVOS DE FINAL
-                                    {% elif datos_fase.nombre == 'Fase 10' %}
-                                        4TOS DE FINAL
-                                    {% elif datos_fase.nombre == 'Fase 11' %}
-                                        SEMIFINAL
-                                    {% elif datos_fase.nombre == 'Fase 12' %}
-                                        JUEGO 3ER LUGAR
-                                    {% elif datos_fase.nombre == 'Fase 13' %}
-                                        GRAN FINAL
-                                    {% else %}
-                                        {{ datos_fase.nombre }}
-                                    {% endif %}
-                                    {% if datos_fase.jugada %}
-                                        <span class="badge bg-secondary align-middle ms-2" style="font-size: 0.55em;">Finalizada</span>
-                                    {% endif %}
-                                </h3>
-                                {% if datos_fase.jugada %}
-                                    <button class="btn btn-sm btn-outline-secondary rounded-circle" type="button">
-                                        <i class="bi bi-chevron-down"></i>
-                                    </button>
-                                {% endif %}
+            {% if vig.descripcion %}<p class="mb-3 text-light">{{ vig.descripcion }}</p>{% endif %}
+            <div class="conf-avance"><span style="width: {{ vig.avance.pct }}%;"></span></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Últimos resultados / próximos partidos -->
+    {% if c.ultimos or c.proximos %}
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-xl-6">
+            <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: #22c55e;">
+                <div class="card-body p-3 p-md-4">
+                    <h2 class="vivo-titulo"><i class="bi bi-check2-circle text-success"></i>Últimos resultados</h2>
+                    <div class="d-flex flex-column gap-2">
+                        {% for p in c.ultimos %}{{ fila_partido(p, True) }}{% else %}<p class="text-muted small mb-0">Todavía no se jugó ningún partido.</p>{% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-6">
+            <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: #3b82f6;">
+                <div class="card-body p-3 p-md-4">
+                    <h2 class="vivo-titulo"><i class="bi bi-clock text-primary"></i>Próximos partidos</h2>
+                    <div class="d-flex flex-column gap-2">
+                        {% for p in c.proximos %}{{ fila_partido(p, False) }}{% else %}<p class="text-muted small mb-0">No quedan partidos pendientes en esta confederación.</p>{% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tablas por ronda y grupo -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h2 class="vivo-titulo mb-0"><i class="bi bi-list-ol text-success"></i>Tablas de posiciones</h2>
+        <div class="d-flex gap-2 flex-wrap small">
+            <span class="scouter-zona scouter-zona--DIRECTO">Avanzó</span>
+            <span class="scouter-zona conf-zona--en_juego">En juego</span>
+            <span class="scouter-zona conf-zona--eliminado">Eliminado</span>
+        </div>
+    </div>
+
+    {% for fase_id, f in c.fases.items() | reverse %}
+    <section class="conf-ronda {{ 'conf-ronda--vigente' if f.vigente }} mb-4">
+        <button type="button" class="conf-ronda__cabecera" data-bs-toggle="collapse" data-bs-target="#ronda-{{ fase_id }}" aria-expanded="{{ 'false' if f.jugada else 'true' }}" aria-controls="ronda-{{ fase_id }}">
+            <span class="conf-ronda__num">{{ f.ronda }}</span>
+            <span class="min-w-0 text-start">
+                <strong class="d-block text-white">{{ f.titulo }}</strong>
+                <small class="text-muted">{{ f.tablas | length }} grupo{{ 's' if f.tablas | length != 1 }} · {{ f.avance.jugados }}/{{ f.avance.total }} partidos</small>
+            </span>
+            <span class="conf-ronda__estado conf-ronda__estado--{{ 'fin' if f.jugada else 'vivo' }}">{% if f.jugada %}<i class="bi bi-check-circle-fill"></i> Finalizada{% else %}<span class="cal-dot"></span> En juego{% endif %}</span>
+            <span class="conf-ronda__barra"><span style="width: {{ f.avance.pct }}%;"></span></span>
+            <i class="bi bi-chevron-down conf-ronda__chevron"></i>
+        </button>
+        <div class="collapse {{ '' if f.jugada else 'show' }}" id="ronda-{{ fase_id }}">
+            <div class="row g-3 pt-3">
+                {% for grupo, tabla in f.tablas.items() %}
+                <div class="col-12 {{ 'col-xxl-6' if f.tablas | length > 1 }}">
+                    <div class="card card-seccion h-100 conf-grupo">
+                        <div class="card-body p-2 p-md-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                                <h3 class="h6 fw-bold text-white mb-0"><i class="bi bi-grid-3x3-gap-fill me-1" style="color: {{ color }};"></i>{{ 'Tabla única' if grupo == 'Sin Grupo' or (f.tablas | length == 1 and tabla | length > 6) else 'Grupo ' ~ grupo }}</h3>
+                                <small class="text-muted">{{ tabla | length }} selecciones</small>
                             </div>
-
-                            <!-- Grupos dentro de esta Fase (plegado por defecto si la fase ya se jugó, para ahorrar espacio) -->
-                            <div class="row g-4{% if datos_fase.jugada %} collapse{% endif %}" id="fase-grupos-{{ fase_id }}">
-                                {% for letra_grupo, lista_paises in datos_fase.grupos.items() %}
-                                    <div class="col-12 col-xl-6">
-                                        <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-                                            
-                                            <!-- Encabezado del Grupo -->
-                                            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3 px-4">
-                                                <h5 class="mb-0 fw-bold text-accent">
-                                                    <i class="bi bi-grid-3x3-gap-fill me-2"></i>Grupo {{ letra_grupo }}
-                                                </h5>
-                                                <span class="badge bg-secondary opacity-75">
-                                                    {{ lista_paises|length }} Equipos
-                                                </span>
-                                            </div>
-
-                                            <!-- Tabla Posiciones -->
-                                            <div class="table-responsive">
-                                                <table class="table table-hover table-striped table-dark align-middle mb-0">
-                                                    <thead class="table-dark text-secondary small text-uppercase">
-                                                        <tr>
-                                                            <th class="text-center" style="width: 40px;">#</th>
-                                                            <th>Equipo</th>
-                                                            <th class="text-center" title="Juegos Jugados">JJ</th>
-                                                            <th class="text-center" title="Juegos Ganados">JG</th>
-                                                            <th class="text-center" title="Juegos Empatados">JE</th>
-                                                            <th class="text-center" title="Juegos Perdidos">JP</th>
-                                                            <th class="text-center" title="Goles a Favor">GF</th>
-                                                            <th class="text-center" title="Goles en Contra">GC</th>
-                                                            <th class="text-center" title="Diferencia de Goles">DIF</th>
-                                                            <th class="text-center text-accent" title="Puntos Totales">PTS</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {% for pais in lista_paises | sort(attribute='estadisticas.goles_favor', reverse=True) | sort(attribute='estadisticas.diferencia_goles', reverse=True) | sort(attribute='estadisticas.puntos', reverse=True) %}
-                                                            <tr class="{% if pais.eliminado %}table-danger bg-opacity-25{% endif %}">
-                                                                <td class="text-center fw-bold text-muted small">
-                                                                    {{ loop.index }}
-                                                                </td>
-
-                                                                <!-- Nombre y Bandera -->
-                                                                <td>
-                                                                    <div class="d-flex align-items-center">
-                                                                        <span class="fs-5 me-2" title="{{ pais.nombre }}">{{ m.bandera(pais.bandera) }}</span>
-                                                                        <div>
-                                                                            <strong class="text-white d-block lh-1">{{ pais.nombre }}</strong>
-                                                                            <small class="text-muted font-monospace opacity-75">({{ pais.siglas }})</small>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-
-                                                                <!-- Estadísticas -->
-                                                                <td class="text-center">{{ pais.estadisticas.juegos_jugados }}</td>
-                                                                <td class="text-center text-success fw-semibold">{{ pais.estadisticas.juegos_ganados }}</td>
-                                                                <td class="text-center text-muted">{{ pais.estadisticas.juegos_empatados }}</td>
-                                                                <td class="text-center text-danger">{{ pais.estadisticas.juegos_perdidos }}</td>
-                                                                <td class="text-center">{{ pais.estadisticas.goles_favor }}</td>
-                                                                <td class="text-center">{{ pais.estadisticas.goles_contra }}</td>
-                                                                
-                                                                <!-- Diferencia de Goles -->
-                                                                <td class="text-center fw-bold {% if pais.estadisticas.diferencia_goles > 0 %}text-success{% elif pais.estadisticas.diferencia_goles < 0 %}text-danger{% else %}text-muted{% endif %}">
-                                                                    {% if pais.estadisticas.diferencia_goles > 0 %}+{% endif %}{{ pais.estadisticas.diferencia_goles }}
-                                                                </td>
-
-                                                                <!-- Puntos -->
-                                                                <td class="text-center fw-bold text-accent fs-6">
-                                                                    {{ pais.estadisticas.puntos }}
-                                                                </td>
-                                                            </tr>
-                                                        {% endfor %}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-
-                                        </div>
-                                    </div>
+                            <div class="conf-tabla">
+                                <div class="conf-tabla__fila conf-tabla__fila--cabecera">
+                                    <span>#</span><span>Selección</span><span>PJ</span><span class="conf-tabla__opc">G</span><span class="conf-tabla__opc">E</span><span class="conf-tabla__opc">P</span><span class="conf-tabla__opc">GF</span><span class="conf-tabla__opc">GC</span><span>DG</span><span>Pts</span><span class="conf-tabla__forma-col">Racha</span>
+                                </div>
+                                {% for e in tabla %}{% set s = e.estadisticas %}
+                                <a href="/paises/{{ e.id }}" class="conf-tabla__fila conf-tabla__fila--{{ e.estado }}">
+                                    <span class="scouter-tabla__pos">{{ e.posicion }}</span>
+                                    <span class="scouter-tabla__equipo">{{ m.bandera(e.bandera, pais_id=e.id) }}<span class="text-truncate">{{ e.nombre }}</span>{% if e.estado == 'avanzo' %}<i class="bi bi-arrow-up-circle-fill text-success" title="Avanzó de ronda"></i>{% endif %}</span>
+                                    <span>{{ s.juegos_jugados or 0 }}</span>
+                                    <span class="conf-tabla__opc text-success">{{ s.juegos_ganados or 0 }}</span>
+                                    <span class="conf-tabla__opc text-muted">{{ s.juegos_empatados or 0 }}</span>
+                                    <span class="conf-tabla__opc text-danger">{{ s.juegos_perdidos or 0 }}</span>
+                                    <span class="conf-tabla__opc">{{ s.goles_favor or 0 }}</span>
+                                    <span class="conf-tabla__opc">{{ s.goles_contra or 0 }}</span>
+                                    {% set dg = s.diferencia_goles or 0 %}
+                                    <span class="{{ 'text-success' if dg > 0 else ('text-danger' if dg < 0) }}">{{ '+' if dg > 0 }}{{ dg }}</span>
+                                    <strong>{{ s.puntos or 0 }}</strong>
+                                    <span class="conf-tabla__forma">{% for x in e.forma %}<i class="conf-forma conf-forma--{{ x }}" title="{{ {'G': 'Ganó', 'E': 'Empató', 'P': 'Perdió'}[x] }}">{{ x }}</i>{% endfor %}</span>
+                                </a>
                                 {% endfor %}
                             </div>
                         </div>
-                    {% endfor %}
-                {% else %}
-                    <!-- Estado vacío -->
-                    <div class="text-center py-5 text-muted">
-                        <i class="bi bi-diagram-3 fs-1 d-block mb-3 text-secondary opacity-50"></i>
-                        <h5 class="fw-bold text-body-emphasis mb-1">No hay grupos ni fases asignadas</h5>
-                        <p class="mb-0">Aún no se han configurado los países para esta confederación.</p>
                     </div>
-                {% endif %}
+                </div>
+                {% endfor %}
             </div>
         </div>
-
-    </div>
+    </section>
+    {% endfor %}
+    {% else %}
+    <div class="album-vacio"><i class="bi bi-diagram-3"></i><p class="mb-0">Aún no se configuraron las rondas de esta confederación.</p></div>
+    {% endif %}
 </div>
 {% endblock %}

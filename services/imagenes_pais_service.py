@@ -91,6 +91,11 @@ def logo_confederacion(sigla: Optional[str]) -> Optional[dict]:
     return {**datos, "url": f"{IMAGENES_PAISES_URL}/confederaciones/{quote((sigla or '').lower())}.png"}
 
 
+def url_logo_corporativo(sigla: Optional[str]) -> Optional[str]:
+    """Logo SVG de un Corporativo Deportivo (bucket corporativos/, generar_logos_corporativos.py)."""
+    return f"{IMAGENES_PAISES_URL}/corporativos/{quote((sigla or '').upper())}.svg" if sigla else None
+
+
 # {ciudad_id: "estadios/dNN-cMM.svg"} (ciudades.estadio_imagen, asignado una vez por generar_estadios.py)
 _estadio_por_ciudad: Optional[dict] = None
 
@@ -156,9 +161,16 @@ def imagen_perfil(nombre: str) -> str:
     return f"{IMAGENES_PAISES_URL}/perfil/{quote(limpio)}.png"
 
 
+def _corp_representantes(usuario):
+    """Mapa de representados del universo del usuario (services/corporativo_insignias.py; import diferido: ese módulo importa este)."""
+    from services.corporativo_insignias import representantes
+    return representantes(usuario)
+
+
 GLOBALES_JINJA = {
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,
     "imagen_inicio": imagen_inicio, "img_estadio": url_estadio, "img_avatar": url_avatar,
-    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil,
+    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo,
+    "corp_representantes": _corp_representantes,
 }

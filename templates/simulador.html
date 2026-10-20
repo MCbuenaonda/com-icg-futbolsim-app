@@ -182,6 +182,7 @@
                     <span class="marcador-tv__bandera-wrap">{{ m.bandera(bandera, pais_id=pid, clase='marcador-tv__bandera') }}</span>
                     <h2 class="h4 fw-bold text-white mb-0">{{ nombre }}</h2>
                     <span class="marcador-tv__siglas">Ranking #{{ stats.rankin if stats and stats.rankin else '—' }}{% if tactica %} · {{ tactica }}{% endif %}</span>
+                    {% if puede('corporativos') %}{{ m.insignia_corp(corp_representantes(usuario_actual), 'seleccion', pid, enlace=False) }}{% endif %}
                     {% if marcas and (marcas.quiniela or marcas.fantasy or marcas.dueno_pais) %}
                     <span class="d-flex gap-1 justify-content-center mt-1">
                         {% if marcas.quiniela %}<span class="previa-marca text-info" title="Tenés un pronóstico de quiniela por {{ nombre }}"><i class="bi bi-ticket-perforated-fill"></i></span>{% endif %}

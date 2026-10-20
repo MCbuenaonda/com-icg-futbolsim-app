@@ -70,9 +70,9 @@
                     </li>
                     {% endif %}
 
-                    {% if puede('quinielas', 'selecciones', 'sedes', 'once_ideal', 'album', 'misiones', 'juego_en_vivo', 'ranking_usuarios') %}
+                    {% if puede('quinielas', 'selecciones', 'sedes', 'once_ideal', 'album', 'misiones', 'juego_en_vivo', 'ranking_usuarios', 'corporativos') %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/quinielas', '/selecciones', '/sedes', '/once-ideal', '/album-estampas', '/misiones', '/ranking') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Mi Juego</a>
+                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/quinielas', '/selecciones', '/sedes', '/once-ideal', '/album-estampas', '/misiones', '/ranking', '/corporativo') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Mi Juego</a>
                         <ul class="dropdown-menu dropdown-menu-dark">
                             {% if puede('juego_en_vivo', 'quinielas') %}<li><h6 class="dropdown-header">Predicciones</h6></li>{% endif %}
                             {% if puede('juego_en_vivo') %}<li><a class="dropdown-item" href="/juegos/"><i class="bi bi-controller me-2"></i>Juego en Vivo (elegir país)</a></li>{% endif %}
@@ -90,6 +90,7 @@
                             <li><a class="dropdown-item {{ 'active' if nav_activo('/sedes/directorio') }}" href="{{ url_for('venues_directorio_vista') }}"><i class="bi bi-geo-alt-fill me-2"></i>Directorio de Sedes</a></li>
                             <li><a class="dropdown-item {{ 'active' if nav_activo('/sedes/portafolio') }}" href="{{ url_for('venues_portafolio_vista') }}"><i class="bi bi-building me-2"></i>Mis Sedes</a></li>
                             {% endif %}
+                            {% if puede('corporativos') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/corporativo') }}" href="/corporativo/"><i class="bi bi-buildings-fill me-2"></i>Corporativos Deportivos</a></li>{% endif %}
                             {% if puede('album', 'once_ideal') %}<li><h6 class="dropdown-header">Colección y Fantasy</h6></li>{% endif %}
                             {% if puede('album') %}
                             <li><a class="dropdown-item {{ 'active' if nav_activo('/album-estampas/sobres') }}" href="{{ url_for('album_sobres_vista') }}"><i class="bi bi-gift-fill me-2"></i>Abrir Sobres</a></li>

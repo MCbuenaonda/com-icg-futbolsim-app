@@ -1,6 +1,6 @@
 {#
   Una hoja del álbum: un país (escudo, ciudades sede y plantel) o la página especial de árbitros
-  (h.tipo == 'arbitros', estampas Platino en pestañas por puesto). Trae TODOS los casilleros (las
+  (h.tipo == 'arbitros', estampas Doradas en pestañas por puesto). Trae TODOS los casilleros (las
   estampas que faltan, como hueco con el nombre impreso). Se incluye en album_coleccion.html y se
   sirve suelta en /album-estampas/coleccion/pagina/{n} para hojear sin recargar.
   Datos: album_service.obtener_album_pagina.
@@ -9,8 +9,8 @@
 {% import "partials/estampas.html" as e %}
 {% set h = album.pagina %}
 {% if h.tipo == 'arbitros' %}
-{# Página especial: los árbitros del torneo como estampas Platino, una pestaña por puesto #}
-<section class="album-pagina album-hoja album-hoja--platino" style="--logo-color: #cbd5e1;"
+{# Página especial: los árbitros del torneo como estampas Doradas, una pestaña por puesto #}
+<section class="album-pagina album-hoja album-hoja--dorada" style="--logo-color: #facc15;"
          data-pagina="{{ h.numero }}" data-nombre="{{ h.nombre }}" data-total="{{ album.total_paginas }}"
          data-anterior="{{ h.anterior or '' }}" data-siguiente="{{ h.siguiente or '' }}">
     <i class="bi bi-person-badge album-pagina__escudo album-hoja__marca" aria-hidden="true"></i>
@@ -18,9 +18,9 @@
 
     <header class="album-pagina__cabecera">
         <div class="d-flex align-items-center gap-2 min-w-0">
-            <span class="album-hoja__sello-platino"><i class="bi bi-star-fill"></i></span>
+            <span class="album-hoja__sello-dorado"><i class="bi bi-star-fill"></i></span>
             <div class="min-w-0">
-                <span class="album-hoja__edicion">Edición Platino · estampas raras</span>
+                <span class="album-hoja__edicion">Edición Dorada · estampas raras</span>
                 <h2 class="h4 fw-bold text-white mb-0">Árbitros del torneo</h2>
             </div>
         </div>
@@ -30,11 +30,11 @@
             {% if h.obtenidas == h.total %}<span class="album-hoja__completa"><i class="bi bi-patch-check-fill"></i> Completa</span>{% endif %}
         </div>
     </header>
-    <p class="text-muted small mb-3">Salen en los sobres con un 5% de probabilidad por estampa. Una platino repetida se vende sola por 30 pts.</p>
+    <p class="text-muted small mb-3">Las estampas Doradas salen en los sobres con un 7% de probabilidad por estampa. Una dorada repetida se vende sola por 30 pts.</p>
 
     <div class="d-flex gap-2 flex-wrap mb-3 album-puestos" role="tablist">
         {% for g in h.puestos %}
-        <button type="button" class="filtro-conf {{ 'activo' if loop.first }}" data-puesto="{{ g.codigo }}" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" style="--conf-color: #cbd5e1;">
+        <button type="button" class="filtro-conf {{ 'activo' if loop.first }}" data-puesto="{{ g.codigo }}" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" style="--conf-color: #facc15;">
             <strong>{{ g.sigla }}</strong> {{ g.nombre }} <span>{{ g.obtenidas }}/{{ g.total }}</span>
         </button>
         {% endfor %}

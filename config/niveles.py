@@ -26,8 +26,11 @@ REGLAS_XP = {
     "CHECKIN_RACHA":       {"xp": 15,   "tope_diario": 1,    "titulo": "5.º día seguido de racha",          "icono": "bi-fire",           "modulo": "misiones"},
     "TRIVIA":              {"xp": None, "tope_diario": 3,    "titulo": "Completar una trivia (5 + 5 por acierto)", "icono": "bi-patch-question", "modulo": "misiones"},
     "SOBRE":               {"xp": 5,    "tope_diario": 5,    "titulo": "Abrir un sobre comprado",           "icono": "bi-gift",           "modulo": "album"},
-    "ESTAMPA_NUEVA":       {"xp": 2,    "tope_diario": None, "titulo": "Pegar una estampa nueva",           "icono": "bi-person-square",  "modulo": "album"},
-    "ESTAMPA_PLATINO":     {"xp": 15,   "tope_diario": None, "titulo": "Pegar una estampa Platino nueva",   "icono": "bi-star-fill",      "modulo": "album"},
+    # Estampas nuevas según su categoría de rareza (album_service.CATEGORIAS_ESTAMPA)
+    "ESTAMPA_NUEVA":       {"xp": 2,    "tope_diario": None, "titulo": "Pegar una estampa Normal nueva (jugador)",   "icono": "bi-person-square",  "modulo": "album"},
+    "ESTAMPA_ESPECIAL":    {"xp": 3,    "tope_diario": None, "titulo": "Pegar una estampa Especial nueva (estadio)", "icono": "bi-building",       "modulo": "album"},
+    "ESTAMPA_DORADA":      {"xp": 15,   "tope_diario": None, "titulo": "Pegar una estampa Dorada nueva (árbitro)",   "icono": "bi-star-fill",      "modulo": "album"},
+    "ESTAMPA_PLATINO":     {"xp": 20,   "tope_diario": None, "titulo": "Pegar una estampa Platino nueva (escudo)",   "icono": "bi-gem",            "modulo": "album"},
     "PAGINA_COMPLETA":     {"xp": 100,  "tope_diario": None, "titulo": "Completar una página del álbum",    "icono": "bi-book-half",      "modulo": "album"},
     "QUINIELA":            {"xp": 10,   "tope_diario": 3,    "titulo": "Comprar un boleto de quiniela",     "icono": "bi-ticket-detailed", "modulo": "quinielas"},
     "QUINIELA_GANADA":     {"xp": 30,   "tope_diario": None, "titulo": "Ganar un boleto de quiniela",       "icono": "bi-trophy",         "modulo": "quinielas"},
@@ -38,6 +41,11 @@ REGLAS_XP = {
     "SELECCION_DIVIDENDO": {"xp": 5,    "tope_diario": 10,   "titulo": "Cobrar un dividendo o bono de fase", "icono": "bi-cash-coin",     "modulo": "selecciones"},
     "SEDE_COMPRA":         {"xp": 15,   "tope_diario": 2,    "titulo": "Comprar una sede",                  "icono": "bi-building",       "modulo": "sedes"},
     "SEDE_REGALIA":        {"xp": 3,    "tope_diario": 10,   "titulo": "Cobrar una regalía de sede",        "icono": "bi-coin",           "modulo": "sedes"},
+    # Corporativos Deportivos (services/corporativo_*): asumir un cargo, fichar, cerrar un ciclo con utilidad, operar en la bolsa
+    "CORP_CARGO":          {"xp": 40,   "tope_diario": None, "titulo": "Asumir la dirección de un corporativo", "icono": "bi-briefcase-fill", "modulo": "corporativos"},
+    "CORP_FICHAJE":        {"xp": 10,   "tope_diario": 3,    "titulo": "Fichar un representado (corporativos)", "icono": "bi-pen-fill",      "modulo": "corporativos"},
+    "CORP_CICLO_UTILIDAD": {"xp": 10,   "tope_diario": 5,    "titulo": "Cerrar un ciclo con utilidad como CEO", "icono": "bi-graph-up-arrow", "modulo": "corporativos"},
+    "CORP_ACCIONES":       {"xp": 5,    "tope_diario": 3,    "titulo": "Comprar acciones en la bolsa FIFAV 10", "icono": "bi-bar-chart-line-fill", "modulo": "corporativos"},
 }
 XP_TRIVIA_BASE = 5
 XP_TRIVIA_POR_ACIERTO = 5
@@ -52,12 +60,16 @@ LOGROS = {
     "PRIMER_ONCE_IDEAL":  {"titulo": "Director técnico",         "descripcion": "Armaste tu primer Once Ideal",              "icono": "bi-people-fill"},
     "PRIMERA_SELECCION":  {"titulo": "Dueño de una selección",   "descripcion": "Compraste tu primera selección",            "icono": "bi-flag-fill"},
     "PRIMERA_SEDE":       {"titulo": "Patrocinador",             "descripcion": "Compraste tu primera sede",                 "icono": "bi-building"},
-    "PRIMERA_PLATINO":    {"titulo": "Edición Platino",          "descripcion": "Conseguiste tu primera estampa Platino",    "icono": "bi-star-fill"},
+    "PRIMERA_DORADA":     {"titulo": "Edición Dorada",           "descripcion": "Conseguiste tu primera estampa Dorada (un árbitro)", "icono": "bi-star-fill"},
+    "PRIMERA_PLATINO":    {"titulo": "Edición Platino",          "descripcion": "Conseguiste tu primera estampa Platino (un escudo)", "icono": "bi-gem"},
+    "PRIMER_CARGO":       {"titulo": "Señor CEO",                "descripcion": "Asumiste la dirección de tu primer corporativo", "icono": "bi-briefcase-fill"},
+    "PRIMER_FICHAJE":     {"titulo": "Agente de jugadores",      "descripcion": "Cerraste tu primer fichaje como CEO",            "icono": "bi-pen-fill"},
+    "ASCENSO_TIER_A":     {"titulo": "Las grandes ligas",        "descripcion": "Llegaste a dirigir un corporativo tier A",      "icono": "bi-buildings-fill"},
 }
 
 # Recompensas modestas a propósito: el plan es seguir sumando niveles. Total de los 10: 2.400 pts + 9 sobres.
 # tipo PUNTOS -> usuarios.monto; SOBRES -> usuarios.sobres_gratis; 'platino' -> usuarios.sobres_platino
-# (sobre con una estampa de árbitro garantizada).
+# (sobre con una estampa Platino —un escudo— garantizada).
 NIVELES = [
     {"nivel": 1,  "titulo": "Aficionado",            "recompensas": []},
     {"nivel": 2,  "titulo": "Hincha",                "recompensas": [{"tipo": "PUNTOS", "cantidad": 150}]},

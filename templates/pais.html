@@ -44,6 +44,7 @@
                         {% else %}<span class="ficha-pais__estado">{{ pais.estado | replace('_', ' ') | title }}</span>{% endif %}
                     </div>
                     <h1 class="display-5 fw-bold text-white mb-1">{{ pais.nombre }}</h1>
+                    {% if puede('corporativos') %}{{ m.insignia_corp(corp_representantes(usuario_actual), 'seleccion', pais.id) }}{% endif %}
                     <p class="text-muted mb-0"><i class="bi bi-building me-1"></i>{{ pais.federacion }}</p>
                 </div>
                 <div class="col-12 col-xl-auto">

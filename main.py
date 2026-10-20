@@ -23,6 +23,7 @@ from routes.album_route import route as album_route, route_vistas as album_vista
 from routes.venue_route import route as venue_route, route_vistas as venue_vistas_route
 from routes.rewards_route import route_rewards, route_trivia, route_vistas as rewards_vistas_route
 from routes.niveles_route import route as niveles_route
+from routes.corporativo_route import route as corporativo_route, route_vistas as corporativo_vistas_route
 from routes.prematch_route import route as prematch_route, route_vistas as prematch_vistas_route
 from routes.live_match_route import route as live_match_route, route_vistas as live_match_vistas_route
 from routes.fanbase_route import route as fanbase_route, route_vistas as fanbase_vistas_route
@@ -97,6 +98,8 @@ app.include_router(route_rewards, dependencies=_permiso("misiones"))
 app.include_router(route_trivia, dependencies=_permiso("misiones"))
 app.include_router(rewards_vistas_route, dependencies=_permiso("misiones"))
 app.include_router(niveles_route, dependencies=_permiso("niveles"))
+app.include_router(corporativo_route, dependencies=_permiso("corporativos"))
+app.include_router(corporativo_vistas_route, dependencies=_permiso("corporativos"))
 app.include_router(admin_route, dependencies=_permiso("gestion_usuarios"))
 
 

@@ -8,98 +8,139 @@
 {% endblock %}
 
 {% block content %}
-<div class="mb-4">
-    <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-people text-accent me-2"></i>Comparar Jugadores</h1>
-    <p class="text-muted mb-0">Atributos y números de carrera de dos jugadores, lado a lado.</p>
-</div>
+{#
+  Comparador (services/jugador_analisis_service.comparar_jugadores): atributos y números del MUNDIAL EN CURSO
+  (calculados desde los partidos, no desde los contadores de 'jugadores'), con la forma de los últimos 5.
+  Colores como en el resto del sitio: jugador 1 azul, jugador 2 rojo.
+#}
+{% set A = comparacion.a if comparacion else None %}{% set B = comparacion.b if comparacion else None %}
 
-<!-- Buscadores: el input visible busca por nombre y el hidden lleva el id elegido -->
-<form method="get" class="stat-card p-3 mb-4" id="formComparar">
-    <div class="row g-2 align-items-end">
-        {% for lado, etiqueta, ficha in [('a', 'Jugador 1', comparacion.a if comparacion else None), ('b', 'Jugador 2', comparacion.b if comparacion else None)] %}
-        <div class="col-12 col-md-5 position-relative">
-            <label class="form-label small text-muted" for="buscar_{{ lado }}">{{ etiqueta }}</label>
-            <input type="search" class="form-control buscador-jugador" id="buscar_{{ lado }}" data-lado="{{ lado }}" autocomplete="off"
-                   placeholder="Escribí al menos 2 letras..." value="{{ ficha.nombre if ficha else '' }}" role="combobox"
-                   aria-expanded="false" aria-controls="sugerencias_{{ lado }}">
-            <input type="hidden" name="{{ lado }}" id="id_{{ lado }}" value="{{ ficha.id if ficha else '' }}">
-            <div class="list-group position-absolute w-100 shadow" style="z-index: 1050;" id="sugerencias_{{ lado }}" role="listbox"></div>
-        </div>
-        {% endfor %}
-        <div class="col-12 col-md-2 d-grid">
-            <button type="submit" class="btn btn-success fw-bold"><i class="bi bi-arrow-left-right me-1"></i>Comparar</button>
-        </div>
+{% macro lado(ficha, letra, etiqueta) -%}
+<div class="cmp-lado cmp-lado--{{ letra }} {{ 'cmp-lado--lleno' if ficha }}" {% if ficha %}style="--bandera-fondo: url('{{ img_pais(ficha.pais_id, 'escudo') }}')"{% endif %}>
+  {% if ficha %}
+  <a href="/jugadores/{{ ficha.id }}" class="cmp-lado__perfil">
+    {{ m.avatar(ficha.id, ficha.pais_id, 'lg', ficha.nombre) }}
+    <div class="cmp-lado__ovr"><strong>{{ ficha.overall }}</strong><small>OVR</small></div>
+  </a>
+  <div class="cmp-lado__nombre text-truncate" title="{{ ficha.nombre }}">{{ ficha.nombre }}</div>
+  <div class="cmp-lado__meta">{{ m.bandera(ficha.bandera, pais_id=ficha.pais_id) }} {{ ficha.pais }} · {{ ficha.posicion_siglas or ficha.posicion }}</div>
+  <div class="cmp-lado__chips">
+    <span>{{ ficha.edad or '?' }} años</span>
+    {% if ficha.pie_habil %}<span>pie {{ ficha.pie_habil }}</span>{% endif %}
+    {% if ficha.numero %}<span>#{{ ficha.numero }}</span>{% endif %}
+    {% for e in ficha.especialista %}<span class="cmp-lado__chip--esp"><i class="bi bi-bullseye"></i> {{ e }}</span>{% endfor %}
+  </div>
+  {% else %}
+  <div class="cmp-lado__vacio"><i class="bi bi-person-plus"></i></div>
+  {% endif %}
+  <div class="position-relative w-100 mt-2">
+    <input type="search" class="form-control form-control-sm buscador-jugador" id="buscar_{{ letra }}" data-lado="{{ letra }}" autocomplete="off"
+           placeholder="{{ 'Cambiar jugador…' if ficha else etiqueta ~ ': escribí 2 letras…' }}" role="combobox"
+           aria-expanded="false" aria-controls="sugerencias_{{ letra }}" aria-label="{{ etiqueta }}">
+    <input type="hidden" name="{{ letra }}" id="id_{{ letra }}" value="{{ ficha.id if ficha else '' }}">
+    <div class="cmp-sugerencias" id="sugerencias_{{ letra }}" role="listbox"></div>
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro barra(f) -%}
+{% set a = [f.a, 0] | max %}{% set b = [f.b, 0] | max %}{% set total = a + b %}
+<div class="stat-duelo">
+  <span class="stat-duelo__valor {{ 'stat-duelo__valor--mas cmp-mejor-a' if f.mejor == 'a' }}">{{ f.a }}</span>
+  <div class="stat-duelo__centro">
+    <span class="stat-duelo__etiqueta">{{ f.etiqueta }}{% if f.menos_es_mejor %} <i class="bi bi-arrow-down-short" title="Menos es mejor"></i>{% endif %}</span>
+    <div class="stat-duelo__barras">
+      <span class="stat-duelo__barra stat-duelo__barra--local"><span style="width: {{ (a * 100 / total) if total else 0 }}%;"></span></span>
+      <span class="stat-duelo__barra stat-duelo__barra--visitante"><span style="width: {{ (b * 100 / total) if total else 0 }}%;"></span></span>
     </div>
+  </div>
+  <span class="stat-duelo__valor {{ 'stat-duelo__valor--mas cmp-mejor-b' if f.mejor == 'b' }}">{{ f.b }}</span>
+</div>
+{%- endmacro %}
+
+<form method="get" class="card card-logo-fondo card-logo-fondo--sin-brillo cmp-hero mb-4" id="formComparar" style="--logo-color: #38bdf8;">
+  <img src="{{ imagen_perfil('atributos') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+  <div class="card-body p-3 p-md-4">
+    <span class="cmp-sobretitulo">Jugadores · comparador</span>
+    <h1 class="h2 fw-bold text-white mb-1">Comparar Jugadores</h1>
+    <p class="text-muted small mb-3">Atributos y números del Mundial en curso, lado a lado.</p>
+    <div class="cmp-duelo">
+      {{ lado(A, 'a', 'Jugador 1') }}
+      <div class="cmp-vs">
+        <span>VS</span>
+        {% if comparacion %}
+        {% set ga, gb = comparacion.ganados.a, comparacion.ganados.b %}
+        <div class="cmp-veredicto">
+          <strong><b class="cmp-azul">{{ ga }}</b> - <b class="cmp-rojo">{{ gb }}</b></strong>
+          <small>rubros ganados de {{ comparacion.total_rubros }}</small>
+        </div>
+        {% endif %}
+      </div>
+      {{ lado(B, 'b', 'Jugador 2') }}
+    </div>
+    <div class="text-center mt-3"><button type="submit" class="btn btn-success fw-bold rounded-pill px-5"><i class="bi bi-arrow-left-right me-1"></i>Comparar</button></div>
+  </div>
 </form>
 
 {% if comparacion %}
-{% set A = comparacion.a %}{% set B = comparacion.b %}
-<div class="row g-3 mb-3">
-    {% for f, color in [(A, 'text-accent'), (B, 'text-danger')] %}
-    <div class="col-6">
-        <a href="/jugadores/{{ f.id }}" class="text-decoration-none text-reset">
-            <div class="stat-card card-hover p-3 h-100">
-                <div class="d-flex justify-content-between align-items-start gap-2">
-                    <div style="min-width: 0;">
-                        {{ m.avatar(f.id, f.pais_id, 'lg', f.nombre) }}
-                        <div class="fs-5 fw-bold text-white text-truncate mt-2">{{ f.nombre }}</div>
-                        <small class="text-muted d-block text-truncate">{{ m.bandera(f.bandera) }} {{ f.pais }} · {{ f.posicion }}</small>
-                        <small class="text-muted">{{ f.edad or '?' }} años · pie {{ f.pie_habil or '—' }}{% if f.numero %} · #{{ f.numero }}{% endif %}</small>
-                    </div>
-                    <div class="text-end flex-shrink-0">
-                        <div class="fs-2 fw-bold {{ color }} lh-1">{{ f.overall }}</div><small class="text-muted">OVR</small>
-                    </div>
-                </div>
-            </div>
-        </a>
-    </div>
-    {% endfor %}
+<div class="row g-4">
+  <div class="col-12 col-lg-5">
+    <h2 class="vivo-titulo"><i class="bi bi-bullseye text-info"></i>Perfil de atributos</h2>
+    <div class="card card-seccion mb-4"><div class="card-body p-3">
+      <div class="cmp-radar"><canvas id="radarComparacion" aria-label="Radar comparativo de atributos" role="img"></canvas></div>
+    </div></div>
+
+    <h2 class="vivo-titulo"><i class="bi bi-activity text-success"></i>Forma: últimos 5 partidos</h2>
+    <div class="card card-seccion mb-4"><div class="card-body p-3 d-flex flex-column gap-3">
+      {% for f, letra in [(A, 'a'), (B, 'b')] %}
+      <div>
+        <div class="small fw-semibold mb-1 {{ 'cmp-azul' if letra == 'a' else 'cmp-rojo' }}">{{ f.nombre }}</div>
+        <div class="cmp-forma">
+          {% for p in f.forma %}
+          <a href="/juegos/{{ p.id }}" class="cmp-forma__item cmp-forma__item--{{ p.resultado }}" title="{{ {'V': 'Victoria', 'E': 'Empate', 'D': 'Derrota'}[p.resultado] }} {{ p.marcador }} vs {{ p.rival.nombre }}{% if p.goles %} · {{ p.goles }} gol{{ 'es' if p.goles != 1 }}{% endif %}">
+            <b>{{ p.resultado }}</b>{{ m.bandera(p.rival.bandera) }}<small>{{ p.marcador }}</small>{% if p.goles %}<i class="cmp-forma__gol">⚽{{ p.goles if p.goles > 1 }}</i>{% endif %}
+          </a>
+          {% else %}<span class="text-muted small">Sin partidos jugados todavía.</span>{% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div></div>
+  </div>
+
+  <div class="col-12 col-lg-7">
+    <h2 class="vivo-titulo"><i class="bi bi-sliders text-warning"></i>Atributos</h2>
+    <div class="card card-seccion mb-4"><div class="card-body p-3">
+      {% for f in comparacion.atributos %}{{ barra(f) }}{% endfor %}
+    </div></div>
+
+    <h2 class="vivo-titulo"><i class="bi bi-trophy text-success"></i>Números del Mundial en curso</h2>
+    <div class="card card-seccion mb-4"><div class="card-body p-3">
+      {% for f in comparacion.filas %}{{ barra(f) }}{% endfor %}
+      <small class="text-muted d-block mt-2"><i class="bi bi-arrow-down-short"></i> en faltas y tarjetas, menos es mejor.</small>
+    </div></div>
+  </div>
 </div>
 
-<div class="row g-3">
-    <div class="col-12 col-lg-6">
-        <div class="stat-card p-3 h-100">
-            <h2 class="h6 text-uppercase text-secondary fw-bold mb-2">Atributos</h2>
-            <div style="position: relative; height: 340px;"><canvas id="radarComparacion" aria-label="Radar comparativo de atributos" role="img"></canvas></div>
-        </div>
-    </div>
-    <div class="col-12 col-lg-6">
-        <div class="stat-card p-3 h-100">
-            <h2 class="h6 text-uppercase text-secondary fw-bold mb-2">Números de carrera (torneo actual)</h2>
-            <table class="table table-sm align-middle mb-0">
-                <thead><tr class="small text-muted"><th class="text-end">{{ A.nombre.split(' ')[-1] }}</th><th class="text-center"></th><th>{{ B.nombre.split(' ')[-1] }}</th></tr></thead>
-                <tbody>
-                    <tr><td class="text-end fw-bold {{ 'text-accent' if A.rendimiento > B.rendimiento }}">{{ A.rendimiento }}</td><td class="text-center text-muted small">Rendimiento</td><td class="fw-bold {{ 'text-danger' if B.rendimiento > A.rendimiento }}">{{ B.rendimiento }}</td></tr>
-                    {% for fila in comparacion.filas %}
-                    <tr>
-                        <td class="text-end {{ 'fw-bold text-accent' if fila.mejor == 'a' }}">{{ fila.a }}</td>
-                        <td class="text-center text-muted small">{{ fila.etiqueta }}</td>
-                        <td class="{{ 'fw-bold text-danger' if fila.mejor == 'b' }}">{{ fila.b }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            <small class="text-muted d-block mt-2">Resaltado: el mejor de cada fila (en faltas y tarjetas, menos es mejor).</small>
-        </div>
-    </div>
-</div>
 {% elif a or b %}
-<div class="alert alert-warning">Elegí los dos jugadores de las sugerencias para compararlos.</div>
+<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>Elegí los dos jugadores desde las sugerencias para compararlos.</div>
 {% else %}
-<div class="stat-card p-5 text-center text-muted"><div class="display-5 mb-2">⚖️</div>Buscá dos jugadores para compararlos.</div>
+<div class="card card-seccion"><div class="card-body p-4 text-center">
+  <i class="bi bi-people fs-1 text-info d-block mb-2"></i>
+  <p class="text-white fw-semibold mb-1">Buscá dos jugadores para enfrentarlos</p>
+  <p class="text-muted small mb-0">Vas a ver su radar de atributos, cuál gana en cada rubro, sus números en este Mundial y cómo vienen en los últimos partidos.</p>
+</div></div>
 {% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-    // Buscador con sugerencias (GET /jugadores/api/buscar); al elegir, guarda el id en el hidden
+    // Buscador con sugerencias (GET /jugadores/api/buscar); al elegir, guarda el id y, si ya están los dos, compara
     document.querySelectorAll('.buscador-jugador').forEach(input => {
         const lado = input.dataset.lado;
         const lista = document.getElementById(`sugerencias_${lado}`);
         const oculto = document.getElementById(`id_${lado}`);
         let temporizador = null, consulta = 0;
         input.addEventListener('input', () => {
-            oculto.value = '';
             clearTimeout(temporizador);
             temporizador = setTimeout(async () => {
                 const n = ++consulta;
@@ -109,19 +150,23 @@
                     const jugadores = await resp.json();
                     if (n !== consulta) return;
                     lista.innerHTML = jugadores.length ? jugadores.map(j => `
-                        <button type="button" class="list-group-item list-group-item-action bg-dark text-white border-secondary" role="option" data-id="${j.id}" data-nombre="${UI.escapar(j.nombre)}">
-                            ${UI.avatar(j.id, j.pais_id, 'sm')} ${UI.escapar(j.nombre)} <small class="text-muted">(${UI.escapar(j.pais)} · OVR ${j.overall})</small>
-                        </button>`).join('') : '<div class="list-group-item bg-dark text-muted border-secondary small">Sin resultados</div>';
+                        <button type="button" class="cmp-sugerencia" role="option" data-id="${j.id}">
+                            ${UI.avatar(j.id, j.pais_id, 'sm')}
+                            <span class="min-w-0 flex-grow-1 text-start"><strong class="d-block text-truncate">${UI.escapar(j.nombre)}</strong>
+                                <small>${UI.bandera(j.bandera, { id: j.pais_id })} ${UI.escapar(j.pais)}</small></span>
+                            <b>${j.overall}</b>
+                        </button>`).join('') : '<div class="cmp-sugerencia text-muted small">Sin resultados</div>';
                     input.setAttribute('aria-expanded', 'true');
-                } catch (e) { lista.innerHTML = '<div class="list-group-item bg-dark text-danger border-secondary small">No se pudo buscar</div>'; }
+                } catch (e) { lista.innerHTML = '<div class="cmp-sugerencia text-danger small">No se pudo buscar</div>'; }
             }, 250);
         });
         lista.addEventListener('click', ev => {
             const opcion = ev.target.closest('[data-id]');
             if (!opcion) return;
             oculto.value = opcion.dataset.id;
-            input.value = opcion.dataset.nombre;
             lista.innerHTML = ''; input.setAttribute('aria-expanded', 'false');
+            if (document.getElementById('id_a').value && document.getElementById('id_b').value) document.getElementById('formComparar').submit();
+            else { input.value = opcion.querySelector('strong').textContent; }
         });
     });
 </script>
@@ -129,19 +174,22 @@
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const c = {{ comparacion | tojson }};
+        const valores = c.a.atributos.concat(c.b.atributos);
+        const min = Math.max(0, Math.floor((Math.min(...valores) - 3) / 5) * 5), max = Math.min(100, Math.ceil((Math.max(...valores) + 2) / 5) * 5);
         new Chart(document.getElementById('radarComparacion'), {
             type: 'radar',
             data: {
                 labels: c.etiquetas_radar,
                 datasets: [
-                    { label: c.a.nombre, data: c.a.atributos, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.2)', pointBackgroundColor: '#10b981', borderWidth: 2 },
+                    { label: c.a.nombre, data: c.a.atributos, borderColor: '#3987e5', backgroundColor: 'rgba(57,135,229,.22)', pointBackgroundColor: '#3987e5', borderWidth: 2 },
                     { label: c.b.nombre, data: c.b.atributos, borderColor: '#e66767', backgroundColor: 'rgba(230,103,103,.2)', pointBackgroundColor: '#e66767', borderWidth: 2 },
                 ]
             },
             options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: '#e2e8f0' } } },
-                scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 20 },
+                responsive: true, maintainAspectRatio: false, animation: { duration: 350 },
+                plugins: { legend: { labels: { color: '#e2e8f0', boxWidth: 12 } } },
+                // escala dinámica: los atributos de este mundo son parejos (~60), con 0-100 no se distinguirían
+                scales: { r: { min, max, ticks: { display: false, stepSize: 5 },
                                grid: { color: 'rgba(255,255,255,.1)' }, angleLines: { color: 'rgba(255,255,255,.15)' },
                                pointLabels: { color: '#cbd5e1', font: { size: 11 } } } }
             }

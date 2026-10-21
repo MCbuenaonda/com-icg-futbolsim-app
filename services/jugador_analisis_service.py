@@ -26,11 +26,14 @@ ATRIBUTOS_RADAR = [
     ("vision_juego", "Visión"), ("anticipacion", "Anticipación"), ("agresividad", "Agresividad"),
     ("compostura", "Compostura"),
 ]
-# Contadores de carrera para el comparador: (campo, etiqueta, ¿más es mejor?)
-CONTADORES_COMPARADOR = [
-    ("juegos_jugados", "Partidos jugados", True), ("goles", "Goles", True), ("asistencias", "Asistencias", True),
-    ("tiros_puerta", "Tiros al arco", True), ("recuperaciones", "Recuperaciones", True), ("atajadas", "Atajadas", True),
-    ("faltas", "Faltas cometidas", False), ("amarilla", "Amarillas", False), ("roja", "Rojas", False),
+# Números del Mundial en curso para el comparador: (métrica de estadisticas_service._agregar_jugadores_mundial,
+# etiqueta, ¿más es mejor?). Salen de los partidos del Mundial activo: los contadores de 'jugadores' no sirven
+# para "este torneo" (ver estadisticas_service).
+METRICAS_COMPARADOR = [
+    ("partidos", "Partidos jugados", True), ("goles", "Goles", True), ("asistencias", "Asistencias", True),
+    ("disparos", "Disparos", True), ("regates", "Regates", True), ("recuperaciones", "Recuperaciones", True),
+    ("atajadas", "Atajadas", True), ("faltas_recibidas", "Faltas recibidas", True),
+    ("faltas", "Faltas cometidas", False), ("amarillas", "Amarillas", False), ("rojas", "Rojas", False),
 ]
 TIPOS_AMARILLA = {"🟨 TARJETA AMARILLA", "🖥️ VAR - TARJETA REVISADA"}
 TIPOS_ROJA = {"🟥 TARJETA ROJA", "🟨🟥 DOBLE AMARILLA"}
@@ -101,29 +104,47 @@ def buscar_jugadores(texto: str, limite: int = 15) -> List[dict]:
     return resultado
 
 
-def _ficha(jugador_id: int) -> Optional[dict]:
+def _metricas_mundial(ids: List[int]) -> Dict[int, dict]:
+    """{jugador_id: {métrica: total}} del Mundial activo, solo con los partidos donde jugó alguno de 'ids'."""
+    from services.estadisticas_service import PROYECCION_JUEGOS_MUNDIAL, _agregar_jugadores_mundial, _filtro_finalizados
+    juegos = list(db["juegos"].find({**_filtro_finalizados(), "resultado.participantes": {"$in": ids}}, PROYECCION_JUEGOS_MUNDIAL))
+    agregado = _agregar_jugadores_mundial(juegos) if juegos else {}
+    return {i: dict((agregado.get(i) or {}).get("metricas") or {}) for i in ids}
+
+
+def _ficha(jugador_id: int, metricas: dict) -> Optional[dict]:
     j = db["jugadores"].find_one({"id": jugador_id})
     if not j:
         return None
     pais = db["paises"].find_one({"id": j.get("pais_id")}, {"nombre": 1, "bandera": 1}) or {}
-    posicion = db["posiciones"].find_one({"id": j.get("posicion_id")}, {"nombre": 1}) or {}
+    posicion = db["posiciones"].find_one({"id": j.get("posicion_id")}, {"nombre": 1, "siglas": 1}) or {}
+    bitacora = obtener_bitacora_jugador(j, limite=5)
     return {
         "id": j["id"], "nombre": j.get("nombre"), "pais": pais.get("nombre", ""), "pais_id": j.get("pais_id"), "bandera": pais.get("bandera") or "",
-        "posicion": posicion.get("nombre", ""), "edad": j.get("edad"), "numero": j.get("numero"),
+        "posicion": posicion.get("nombre", ""), "posicion_siglas": posicion.get("siglas", ""), "edad": j.get("edad"), "numero": j.get("numero"),
         "overall": round(j.get("overall") or 0, 1), "rendimiento": round(j.get("rendimiento") or 0, 1),
-        "pie_habil": j.get("pie_habil"),
+        "pie_habil": j.get("pie_habil"), "estado_animo": j.get("estado_animo"),
+        "especialista": [t for t, c in (("penales", "especialista_penales"), ("tiros libres", "especialista_tiros_libres")) if j.get(c)],
         "atributos": [round(j.get(campo) or 0, 1) for campo, _ in ATRIBUTOS_RADAR],
-        "contadores": [j.get(campo) or 0 for campo, _, _ in CONTADORES_COMPARADOR],
+        "numeros": [metricas.get(campo, 0) for campo, _, _ in METRICAS_COMPARADOR],
+        "forma": [{"resultado": p["resultado"], "rival": p["rival"], "marcador": p["marcador"], "goles": p["goles"], "id": p["id"]}
+                  for p in bitacora["partidos"]],
     }
 
 
+def _duelo(etiqueta: str, va, vb, mas_es_mejor: bool = True) -> dict:
+    mejor = None if va == vb else (("a" if va > vb else "b") if mas_es_mejor else ("a" if va < vb else "b"))
+    return {"etiqueta": etiqueta, "a": va, "b": vb, "mejor": mejor, "menos_es_mejor": not mas_es_mejor}
+
+
 def comparar_jugadores(a: int, b: int) -> Optional[Dict[str, Any]]:
-    ficha_a, ficha_b = _ficha(a), _ficha(b)
+    metricas = _metricas_mundial([a, b])
+    ficha_a, ficha_b = _ficha(a, metricas.get(a, {})), _ficha(b, metricas.get(b, {}))
     if not ficha_a or not ficha_b:
         return None
-    filas = []
-    for i, (_, etiqueta, mas_es_mejor) in enumerate(CONTADORES_COMPARADOR):
-        va, vb = ficha_a["contadores"][i], ficha_b["contadores"][i]
-        mejor = None if va == vb else (("a" if va > vb else "b") if mas_es_mejor else ("a" if va < vb else "b"))
-        filas.append({"etiqueta": etiqueta, "a": va, "b": vb, "mejor": mejor})
-    return {"a": ficha_a, "b": ficha_b, "filas": filas, "etiquetas_radar": [e for _, e in ATRIBUTOS_RADAR]}
+    atributos = [_duelo(e, ficha_a["atributos"][i], ficha_b["atributos"][i]) for i, (_, e) in enumerate(ATRIBUTOS_RADAR)]
+    atributos.insert(0, _duelo("Rendimiento", ficha_a["rendimiento"], ficha_b["rendimiento"]))
+    numeros = [_duelo(e, ficha_a["numeros"][i], ficha_b["numeros"][i], mas) for i, (_, e, mas) in enumerate(METRICAS_COMPARADOR)]
+    ganados = {"a": sum(1 for f in atributos + numeros if f["mejor"] == "a"), "b": sum(1 for f in atributos + numeros if f["mejor"] == "b")}
+    return {"a": ficha_a, "b": ficha_b, "atributos": atributos, "filas": numeros, "ganados": ganados,
+            "total_rubros": len(atributos) + len(numeros), "etiquetas_radar": [e for _, e in ATRIBUTOS_RADAR]}

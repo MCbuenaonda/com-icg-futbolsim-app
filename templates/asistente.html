@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}El Profe - FutbolSim{% endblock %}
+
+{% block content %}
+{#
+  Asistente virtual "El Profe" (services/asistente_service.py): el usuario elige qué tan a fondo escanear, paga con su
+  saldo y recibe consejos que enlazan a cada módulo. El informe se arma en el cliente (mismo render para el vigente que
+  viene del servidor, una consulta nueva o una del historial).
+#}
+{% set v = vista %}
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo asist-hero mb-3" style="--logo-color: #10b981;">
+  <div class="card-body p-3 p-md-4 d-flex align-items-center gap-3 gap-md-4 flex-wrap">
+    <div class="asist-profe" aria-hidden="true">
+      <img src="/static/img/profe.svg" alt="" onerror="this.replaceWith(Object.assign(document.createElement('i'), {className: 'bi bi-clipboard-data-fill'}))">
+    </div>
+    <div class="min-w-0 flex-grow-1">
+      <span class="asist-sobretitulo">Mi juego · asistente</span>
+      <h1 class="h2 fw-bold text-white mb-2">Preguntale al Profe</h1>
+      <div class="asist-globo" id="globoProfe" aria-live="polite">{{ v.frase }}</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <div class="fixture-kpi"><span>Tu saldo</span><strong id="asistSaldo">{{ '{:,}'.format(v.saldo) }}</strong></div>
+      <div class="fixture-kpi"><span>Consultas pagas hoy</span><strong>{{ v.pagas_hoy }}/{{ v.tope_pagas }}</strong></div>
+    </div>
+  </div>
+</div>
+
+<!-- NIVELES -->
+<div class="asist-niveles mb-4">
+  {% for n in v.niveles %}
+  <div class="asist-nivel {{ 'asist-nivel--top' if loop.last }}" style="--nivel-color: {{ n.color }};">
+    <div class="d-flex align-items-center justify-content-between gap-2">
+      <span class="asist-nivel__icono"><i class="bi {{ n.icono }}"></i></span>
+      {% if n.gratis_hoy %}<span class="asist-etiqueta asist-etiqueta--gratis">Gratis hoy</span>
+      {% elif n.cubierto %}<span class="asist-etiqueta" title="Ya pagaste un informe de este nivel o mayor y no se jugó otro partido">Incluido</span>{% endif %}
+    </div>
+    <h2 class="h5 fw-bold text-white mt-2 mb-1">{{ n.nombre }}</h2>
+    <p class="small text-muted mb-2">{{ n.resumen }}</p>
+    <div class="asist-precio">
+      {% if n.precio_hoy == 0 %}<strong>Gratis</strong>{% if not n.gratis_hoy %}<small class="text-muted"> · hasta el próximo partido</small>{% else %} <s class="text-muted small ms-1">{{ n.precio }} pts</s>{% endif %}
+      {% else %}<strong>{{ '{:,}'.format(n.precio) }}</strong><small> pts</small>{% endif %}
+    </div>
+    <ul class="asist-nivel__datos">
+      <li><i class="bi bi-check2"></i>Hasta {{ n.max_consejos }} consejos + lo gratis</li>
+      <li><i class="bi bi-check2"></i>Mira los próximos {{ n.horizonte }} partidos</li>
+      <li><i class="bi {{ 'bi-check2' if n.detalle != 'basico' else 'bi-x text-muted' }}"></i>{{ 'Probabilidades y ganancia estimada' if n.detalle != 'basico' else 'Sin números: qué hacer y por qué' }}</li>
+      {% if n.detalle == 'completo' %}<li><i class="bi bi-check2"></i>Riesgo y plan de la jornada</li>{% endif %}
+    </ul>
+    <div class="asist-modulos" aria-label="Módulos que analiza a fondo">
+      {% for m in n.modulos %}<span class="asist-modulo {{ 'asist-modulo--on' if m.a_fondo }}" style="--mod-color: {{ m.color }};" title="{{ m.nombre }}{{ '' if m.a_fondo else ' (solo riesgos y pendientes)' }}"><i class="bi {{ m.icono }}"></i></span>{% endfor %}
+    </div>
+    <button type="button" class="btn asist-btn w-100 fw-bold rounded-pill mt-auto" data-nivel="{{ n.codigo }}" data-precio="{{ n.precio_hoy }}"
+            data-nombre="{{ n.nombre }}" {{ 'disabled' if not n.alcanza }}>
+      {% if not n.alcanza %}<i class="bi bi-lock-fill me-1"></i>Saldo insuficiente{% else %}<i class="bi bi-search me-1"></i>Consultar al Profe{% endif %}
+    </button>
+  </div>
+  {% endfor %}
+</div>
+
+<div id="alertaAsistente" class="alert d-none" role="alert"></div>
+
+<!-- ESCANEO (animación mientras responde el servidor) -->
+<div id="asistEscaneo" class="card card-seccion asist-escaneo d-none mb-4" aria-live="polite">
+  <div class="card-body p-3 p-md-4 d-flex gap-4 align-items-center flex-wrap">
+    <div class="asist-radar">
+      <span class="asist-radar__barrido"></span>
+      {% for k, m in v.modulos.items() %}<span class="asist-radar__punto" style="--i: {{ loop.index0 }}; --n: {{ v.modulos | length }}; --mod-color: {{ m.color }};"><i class="bi {{ m.icono }}"></i></span>{% endfor %}
+    </div>
+    <div class="flex-grow-1 min-w-0">
+      <div class="text-white fw-bold mb-2"><span class="spinner-grow spinner-grow-sm text-success me-2"></span>El Profe está revisando…</div>
+      <ul class="asist-terminal" id="asistTerminal"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- INFORME -->
+<section id="asistInforme" class="mb-4 {{ 'd-none' if not v.vigente }}"></section>
+
+<!-- HISTORIAL -->
+{% if v.historial %}
+<h2 class="vivo-titulo"><i class="bi bi-clock-history text-info"></i>Tus consultas</h2>
+<div class="card card-seccion"><div class="card-body p-2">
+  {% for h in v.historial %}
+  <div class="asist-hist">
+    <span class="asist-hist__nivel" style="--nivel-color: {{ v.niveles[['VISTAZO','ANALISIS','PROFUNDO'].index(h.nivel)].color if h.nivel in ['VISTAZO','ANALISIS','PROFUNDO'] else '#94a3b8' }};">{{ h.nombre_nivel }}</span>
+    <div class="min-w-0 flex-grow-1">
+      <div class="small text-white text-truncate">{{ h.resumen.consejos }} consejos · {{ h.resumen.urgentes }} urgentes{% if h.resumen.gratis %} · {{ h.resumen.gratis }} gratis{% endif %}</div>
+      <small class="text-muted">{{ h.fecha }} · tras {{ h.partidos_jugados }} partidos</small>
+    </div>
+    <span class="small fw-bold {{ 'text-info' if h.devuelto else ('text-success' if h.cobrado == 0 else 'text-danger') }}">
+      {% if h.devuelto %}Devuelto{% elif h.cobrado == 0 %}Gratis{% else %}-{{ '{:,}'.format(h.cobrado) }}{% endif %}</span>
+    <button type="button" class="btn btn-sm btn-outline-light rounded-pill" data-abrir="{{ h.id }}"><i class="bi bi-eye"></i><span class="d-none d-sm-inline ms-1">Abrir</span></button>
+  </div>
+  {% endfor %}
+</div></div>
+{% endif %}
+
+<p class="text-muted small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>El Profe usa los mismos datos públicos que ves en el juego (poder de cada selección, calendario, tus carteras): nunca sabe un resultado antes de tiempo. Sus probabilidades son prudentes; un consejo no es una garantía. Si no encuentra nada que hacer, te devuelve lo que pagaste.</p>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const MODULOS = {{ v.modulos | tojson }};
+    const TIPOS = {{ v.tipos | tojson }};
+    const VIGENTE = {{ (v.vigente or none) | tojson }};
+    const E = UI.escapar;
+    const informe = document.getElementById('asistInforme');
+    const escaneo = document.getElementById('asistEscaneo');
+    const terminal = document.getElementById('asistTerminal');
+    const globo = document.getElementById('globoProfe');
+    const alerta = document.getElementById('alertaAsistente');
+    const fmt = n => Number(n || 0).toLocaleString('en-US');
+
+    const ETIQUETA_CONFIANZA = { alta: 'Confianza alta', media: 'Confianza media', baja: 'Confianza baja' };
+    const ETIQUETA_RIESGO = { bajo: 'Riesgo bajo', medio: 'Riesgo medio', alto: 'Riesgo alto' };
+
+    // Seguimiento de cada consejo (asistente_service): HECHO lo detecta el Profe, LISTO/DESCARTADO los marca el usuario
+    const ESTADO_INFO = {
+        HECHO: { texto: 'Hecho', icono: 'bi-check-circle-fill', clase: 'hecho' },
+        LISTO: { texto: 'Listo', icono: 'bi-check-circle-fill', clase: 'hecho' },
+        NO_APLICA: { texto: 'Ya no aplica', icono: 'bi-dash-circle', clase: 'no-aplica' },
+        DESCARTADO: { texto: 'Descartado', icono: 'bi-eye-slash', clase: 'descartado' },
+    };
+    let actual = null;          // el informe en pantalla
+    let estados = {};           // {clave: estado}
+
+    function tarjeta(c) {
+        const est = estados[c.clave];
+        const info = ESTADO_INFO[est];
+        const mod = MODULOS[c.modulo] || { nombre: c.modulo, icono: 'bi-dot', color: '#94a3b8' };
+        const tipo = TIPOS[c.tipo] || {};
+        const visual = c.jugador_id ? UI.avatar(c.jugador_id, c.pais_id, 'sm')
+            : (c.bandera ? UI.bandera(c.bandera, { id: c.pais_id, tipo: 'escudo', clase: 'asist-consejo__escudo' }) : '');
+        const porque = (c.porque || []).map(p => `<li>${E(p)}</li>`).join('');
+        const numeros = (c.numeros || []).map(n => `<span class="asist-chip">${E(n)}</span>`).join('');
+        const valor = (c.valor !== null && c.valor !== undefined && c.tipo !== 'URGENTE')
+            ? `<span class="asist-chip asist-chip--valor"><i class="bi bi-coin"></i>${c.valor >= 0 ? '+' : ''}${fmt(c.valor)} pts</span>` : '';
+        const conf = c.confianza ? `<span class="asist-chip asist-chip--conf-${E(c.confianza)}">${E(ETIQUETA_CONFIANZA[c.confianza] || c.confianza)}</span>` : '';
+        const riesgo = c.riesgo ? `<span class="asist-chip asist-chip--riesgo-${E(c.riesgo)}">${E(ETIQUETA_RIESGO[c.riesgo] || c.riesgo)}</span>` : '';
+        return `
+        <article class="asist-consejo asist-consejo--${E(c.tipo.toLowerCase())} ${info ? 'asist-consejo--' + info.clase : ''}" data-clave="${E(c.clave)}" style="--mod-color: ${E(mod.color)}; --tipo-color: ${E(tipo.color || '#94a3b8')};">
+          <div class="asist-consejo__cabeza">
+            <span class="asist-consejo__modulo"><i class="bi ${E(mod.icono)}"></i>${E(mod.nombre)}</span>
+            <span class="d-flex align-items-center gap-2">
+              ${visual && !info ? `<span class="asist-consejo__visual">${visual}</span>` : ''}
+              ${info ? `<span class="asist-estado asist-estado--${info.clase}"><i class="bi ${info.icono}"></i>${info.texto}</span>
+                        ${['LISTO', 'DESCARTADO'].includes(est) ? `<button type="button" class="asist-accion" data-marcar="deshacer" title="Deshacer"><i class="bi bi-arrow-counterclockwise"></i></button>` : ''}`
+                     : (actual && actual.id ? `<button type="button" class="asist-accion asist-accion--listo" data-marcar="listo" title="Ya lo hice"><i class="bi bi-check-lg"></i></button>
+                        <button type="button" class="asist-accion" data-marcar="descartar" title="No me interesa (no lo muestra más hoy)"><i class="bi bi-x-lg"></i></button>` : '')}
+            </span>
+          </div>
+          <h3 class="asist-consejo__titulo">${E(c.titulo)}</h3>
+          <p class="asist-consejo__texto">${E(c.texto)}</p>
+          ${porque ? `<ul class="asist-consejo__porque">${porque}</ul>` : ''}
+          ${(numeros || valor || conf || riesgo) ? `<div class="asist-consejo__chips">${valor}${numeros}${conf}${riesgo}</div>` : ''}
+          ${info ? '' : `<a href="${E(c.url)}" class="btn btn-sm asist-consejo__cta rounded-pill fw-bold mt-auto">${E(c.cta || 'Ir')} <i class="bi bi-arrow-right"></i></a>`}
+        </article>`;
+    }
+
+    function grupo(tipo, lista) {
+        if (!lista.length) return '';
+        const t = TIPOS[tipo];
+        const pendientes = lista.filter(c => !estados[c.clave]);
+        const ordenados = pendientes.concat(lista.filter(c => estados[c.clave]));
+        return `<h3 class="asist-grupo" style="--tipo-color: ${E(t.color)};"><i class="bi ${E(t.icono)}"></i>${E(t.nombre)} <span>${pendientes.length}${pendientes.length !== lista.length ? ' de ' + lista.length : ''}</span></h3>
+                <div class="asist-consejos">${ordenados.map(tarjeta).join('')}</div>`;
+    }
+
+    function render(d, nuevosEstados) {
+        actual = d;
+        if (nuevosEstados !== undefined) estados = nuevosEstados || {};
+        const r = d.resumen || {};
+        const consejos = d.consejos || [];
+        const atendidos = consejos.filter(c => ['HECHO', 'LISTO'].includes(estados[c.clave])).length;
+        const plan = (d.plan || []).length ? `
+          <div class="asist-plan"><div class="asist-plan__titulo"><i class="bi bi-list-ol"></i>Plan de la jornada</div>
+            <ol>${d.plan.map(p => {
+                const c = consejos.find(x => x.titulo === p);
+                const hecho = c && ['HECHO', 'LISTO'].includes(estados[c.clave]);
+                return `<li class="${hecho ? 'asist-plan__hecho' : ''}">${E(p)}${hecho ? ' <i class="bi bi-check-circle-fill text-success"></i>' : ''}</li>`;
+            }).join('')}</ol></div>` : '';
+        const bloqueados = (d.bloqueados || []).filter(b => b.cantidad > 0).map(b => `
+          <div class="asist-candado"><i class="bi bi-lock-fill"></i>
+            <div><strong>El ${E(b.nombre)} encontró ${b.cantidad} ${b.cantidad === 1 ? 'oportunidad más' : 'oportunidades más'}</strong>
+            <small>${E((b.modulos || []).join(' · '))}</small></div>
+            <button type="button" class="btn btn-sm btn-outline-warning rounded-pill ms-auto" data-subir="${E(b.nivel)}">Ver</button></div>`).join('');
+        const estado = d.devuelto ? '<span class="asist-etiqueta asist-etiqueta--info">Te devolvimos el pago</span>'
+            : (d.reutilizado ? '<span class="asist-etiqueta">Re-escaneo sin cargo</span>'
+            : (d.cobrado ? `<span class="asist-etiqueta">-${fmt(d.cobrado)} pts</span>` : '<span class="asist-etiqueta asist-etiqueta--gratis">Gratis</span>'));
+        informe.innerHTML = `
+          <div class="asist-resumen">
+            <div><span class="asist-sobretitulo">${E(d.nombre_nivel || '')} · ${E(d.fecha || '')}</span>
+              <h2 class="h4 fw-bold text-white mb-0">Tu informe</h2></div>
+            <div class="asist-resumen__kpis">
+              <div class="fixture-kpi"><span>Consejos</span><strong>${r.consejos || 0}</strong></div>
+              <div class="fixture-kpi"><span>Urgentes</span><strong class="${r.urgentes ? 'text-danger' : ''}">${r.urgentes || 0}</strong></div>
+              <div class="fixture-kpi" title="Consejos que hiciste (detectados por el Profe o marcados por vos)"><span>Atendidos</span><strong class="${atendidos ? 'text-success' : ''}">${atendidos}/${consejos.length}</strong></div>
+              ${r.valor_potencial !== null && r.valor_potencial !== undefined ? `<div class="fixture-kpi"><span>Valor potencial</span><strong class="text-success">+${fmt(r.valor_potencial)}</strong></div>` : ''}
+              ${estado}
+            </div>
+          </div>
+          ${plan}
+          ${grupo('URGENTE', consejos.filter(c => c.tipo === 'URGENTE'))}
+          ${grupo('OPORTUNIDAD', consejos.filter(c => c.tipo === 'OPORTUNIDAD'))}
+          ${grupo('GRATIS', d.gratis || [])}
+          ${!consejos.length && !(d.gratis || []).length ? '<div class="asist-vacio"><i class="bi bi-emoji-sunglasses"></i>Todo en orden: no hay nada que convenga tocar ahora.</div>' : ''}
+          ${bloqueados ? `<div class="asist-candados">${bloqueados}</div>` : ''}`;
+        informe.classList.remove('d-none');
+        if (d.frase) globo.textContent = d.frase;
+    }
+
+    const LINEAS = {
+        VISTAZO: ['Revisando tus misiones y recompensas…', 'Mirando tu portafolio de selecciones…', 'Chequeando tu Once Ideal…', 'Abriendo la bandeja del corporativo…'],
+        ANALISIS: ['Calculando probabilidades de los próximos 20 partidos…', 'Armando la mejor quiniela…', 'Buscando selecciones libres con buen calendario…', 'Comparando tu Once con los que están en forma…'],
+        PROFUNDO: ['Rastreando sedes de los próximos 40 partidos…', 'Cruzando tu álbum con tus inversiones…', 'Estudiando las cuotas del Juego en Vivo…', 'Leyendo la bolsa de corporativos…', 'Armando el plan de la jornada…'],
+    };
+
+    async function animarEscaneo(nivel) {
+        const orden = ['VISTAZO', 'ANALISIS', 'PROFUNDO'];
+        const lineas = orden.slice(0, orden.indexOf(nivel) + 1).flatMap(n => LINEAS[n]);
+        terminal.innerHTML = '';
+        escaneo.classList.remove('d-none');
+        escaneo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const paso = Math.max(250, Math.min(450, 2400 / lineas.length));
+        for (const l of lineas) {
+            terminal.insertAdjacentHTML('beforeend', `<li><i class="bi bi-check2"></i>${E(l)}</li>`);
+            await new Promise(r => setTimeout(r, paso));
+        }
+    }
+
+    // Tras una consulta, ese nivel y los menores quedan incluidos hasta que se juegue otro partido (mismo criterio
+    // que asistente_service._vigente); los mayores se cobran a precio completo.
+    const ORDEN = ['VISTAZO', 'ANALISIS', 'PROFUNDO'];
+    function marcarCubiertos(nivel) {
+        document.querySelectorAll('.asist-btn[data-nivel]').forEach(b => {
+            if (ORDEN.indexOf(b.dataset.nivel) <= ORDEN.indexOf(nivel)) {
+                b.dataset.precio = '0';
+                const caja = b.closest('.asist-nivel');
+                caja.querySelector('.asist-precio').innerHTML = '<strong>Gratis</strong><small class="text-muted"> · hasta el próximo partido</small>';
+                b.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Volver a escanear';
+            }
+            b.disabled = false;
+        });
+    }
+
+    async function consultar(btn) {
+        const precio = Number(btn.dataset.precio || 0);
+        if (precio > 0) {
+            const ok = await UI.confirmar({
+                titulo: `${btn.dataset.nombre} del Profe`,
+                mensaje: `Se descuentan ${fmt(precio)} pts de tu saldo. Si no encuentra nada que hacer, te los devuelve.`,
+                textoConfirmar: `Pagar ${fmt(precio)} pts`,
+            });
+            if (!ok) return;
+        }
+        document.querySelectorAll('.asist-btn[data-nivel]').forEach(b => b.disabled = true);
+        alerta.classList.add('d-none');
+        informe.classList.add('d-none');
+        try {
+            const [resp] = await Promise.all([
+                fetch('/asistente/consultar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nivel: btn.dataset.nivel, precio_esperado: precio }) })
+                    .then(async r => ({ ok: r.ok, data: await r.json() })),
+                animarEscaneo(btn.dataset.nivel),
+            ]);
+            if (!resp.ok) throw new Error(resp.data.detail || 'El Profe no pudo terminar el escaneo.');
+            render(resp.data, resp.data.seguimiento || {});
+            UI.refrescarSaldo();
+            document.getElementById('asistSaldo').textContent = fmt(resp.data.saldo);
+            if (resp.data.devuelto) UI.toast('No encontró nada para hacer: te devolvió el pago', { icono: 'bi-arrow-counterclockwise', tipo: 'info' });
+            informe.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            marcarCubiertos(btn.dataset.nivel);
+        } catch (err) {
+            UI.mostrarAlertaEn(alerta, err.message, 'danger');
+            document.querySelectorAll('.asist-btn[data-nivel]').forEach(b => b.disabled = false);
+        } finally {
+            escaneo.classList.add('d-none');
+        }
+    }
+
+    document.querySelectorAll('.asist-btn[data-nivel]').forEach(b => b.addEventListener('click', () => consultar(b)));
+
+    // El Profe revisa qué consejos ya hiciste (puede re-escanear: va aparte para no demorar la página)
+    async function revisar(id) {
+        const chip = document.createElement('span');
+        chip.className = 'asist-etiqueta asist-revisando';
+        chip.innerHTML = '<span class="spinner-border spinner-border-sm"></span>Revisando qué hiciste…';
+        informe.querySelector('.asist-resumen__kpis')?.appendChild(chip);
+        try {
+            const r = await fetch(`/asistente/informe/${id}/seguimiento`);
+            if (!r.ok || !actual || actual.id !== id) return;
+            const d = await r.json();
+            const antes = Object.values(estados).filter(e => e === 'HECHO').length;
+            render(actual, d.estados);
+            const nuevos = Object.values(d.estados).filter(e => e === 'HECHO').length - antes;
+            if (nuevos > 0) UI.toast(`El Profe vio que hiciste ${nuevos} ${nuevos === 1 ? 'consejo' : 'consejos'}`, { icono: 'bi-check-circle-fill', tipo: 'info' });
+        } finally { chip.remove(); }
+    }
+
+    informe.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-marcar]');
+        if (!btn || !actual) return;
+        const clave = btn.closest('[data-clave]').dataset.clave;
+        btn.disabled = true;
+        const r = await fetch(`/asistente/informe/${actual.id}/consejo`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                         body: JSON.stringify({ clave, accion: btn.dataset.marcar }) });
+        const d = await r.json();
+        if (!r.ok) { UI.mostrarAlertaEn(alerta, d.detail || 'No se pudo marcar el consejo.', 'danger'); btn.disabled = false; return; }
+        if (d.estado) estados[clave] = d.estado; else delete estados[clave];
+        render(actual);
+        if (d.estado === 'DESCARTADO') UI.toast('Listo: hoy no te lo vuelvo a mostrar', { icono: 'bi-eye-slash', tipo: 'info' });
+    });
+
+    document.addEventListener('click', async e => {
+        const abrir = e.target.closest('[data-abrir]');
+        if (abrir) {
+            const r = await fetch(`/asistente/informe/${abrir.dataset.abrir}`);
+            if (r.ok) { const d = await r.json(); render(d, d.seguimiento || {}); informe.scrollIntoView({ behavior: 'smooth', block: 'start' }); revisar(d.id); }
+            return;
+        }
+        const subir = e.target.closest('[data-subir]');
+        if (subir) {
+            const btn = document.querySelector(`.asist-btn[data-nivel="${subir.dataset.subir}"]`);
+            if (btn) { btn.closest('.asist-nivel').scrollIntoView({ behavior: 'smooth', block: 'center' }); btn.focus(); }
+        }
+    });
+
+    if (VIGENTE) { render(VIGENTE, VIGENTE.seguimiento || {}); revisar(VIGENTE.id); }
+});
+</script>
+{% endblock %}

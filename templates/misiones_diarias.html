@@ -2,341 +2,361 @@
 
 {% block title %}Misiones Diarias - FutbolSim{% endblock %}
 
-{% block extra_head %}
-<style>
-    .dia-racha {
-        width: 44px; height: 44px;
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-weight: bold;
-        border: 2px solid var(--border-color);
-        color: var(--text-muted, #adb5bd);
-    }
-    .dia-racha.completado {
-        background: var(--green-pitch, #198754);
-        border-color: var(--green-pitch, #198754);
-        color: #fff;
-    }
-    .dia-racha.especial {
-        background: linear-gradient(145deg, #f59e0b, #d97706);
-        border-color: #f59e0b;
-        color: #fff;
-    }
-    .opcion-trivia {
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: .5rem;
-        border-width: 2px !important;
-        transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
-    }
-    .opcion-trivia:hover { background-color: rgba(255,255,255,.08); }
-    .opcion-trivia .check-icon { display: none; font-size: 1.1rem; }
-    .opcion-trivia.seleccionada {
-        border-color: var(--green-neon, #00ff88) !important;
-        background-color: rgba(0,255,136,.15);
-        transform: scale(1.02);
-    }
-    .opcion-trivia.seleccionada .check-icon {
-        display: inline-block;
-        color: var(--green-neon, #00ff88);
-    }
-    .opcion-trivia.correcta { border-color: #198754 !important; background-color: rgba(25,135,84,.2); }
-    .opcion-trivia.correcta .check-icon { display: inline-block; color: #198754; }
-    .opcion-trivia.incorrecta { border-color: #dc3545 !important; background-color: rgba(220,53,69,.2); }
-    .opcion-trivia.incorrecta .check-icon { display: inline-block; color: #dc3545; }
-    #timerTrivia.text-danger { animation: parpadeo 1s infinite; }
-    @keyframes parpadeo { 50% { opacity: .3; } }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-    <div>
-        <h1 class="display-6 fw-bold mb-1">Misiones Diarias</h1>
-        <p class="text-muted mb-0">Reclamá tu recompensa diaria y jugá la Trivia Express del Mundial.</p>
+{#
+  Misiones Diarias (services/rewards_service.obtener_misiones_vista): checklist del día con la XP de cada acción,
+  racha de check-in, Trivia Express (modal, una pregunta a la vez), beca de emergencia con sus requisitos y los
+  últimos premios. Las acciones usan la API de siempre: /rewards/check-in, /rewards/claim-bankruptcy-rescue,
+  /trivia/daily-quiz/{user_id} y /trivia/submit.
+#}
+{% if not v %}
+<div class="alert alert-danger">No se pudo cargar tu estado diario. Refrescá la página.</div>
+{% else %}
+{% set total_mis = v.misiones | length %}
+{% set pct = (v.completas * 100 / total_mis) | round | int if total_mis else 0 %}
+
+<!-- ENCABEZADO -->
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo mis-hero mb-3" style="--logo-color: #facc15;">
+  <div class="card-body p-3 p-md-4 d-flex align-items-center gap-3 gap-md-4 flex-wrap">
+    <div class="mis-aro" style="--pct: {{ pct }};" role="img" aria-label="{{ v.completas }} de {{ total_mis }} misiones completas">
+      <div class="mis-aro__centro"><strong>{{ v.completas }}<small>/{{ total_mis }}</small></strong><span>misiones</span></div>
     </div>
+    <div class="min-w-0 flex-grow-1">
+      <span class="mis-sobretitulo" id="misFecha">Hoy</span>
+      <h1 class="h2 fw-bold text-white mb-1">Misiones Diarias</h1>
+      <p class="text-muted small mb-2">Volvé cada día: check-in, trivia y las acciones del juego suman puntos y XP.</p>
+      <span class="mis-reinicio"><i class="bi bi-hourglass-split"></i>Se renuevan en <strong id="misCuenta" data-segundos="{{ v.segundos_reinicio }}">--:--:--</strong></span>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <div class="fixture-kpi"><span>Ganado hoy</span><strong class="text-warning">+{{ '{:,}'.format(v.puntos_hoy) }}</strong></div>
+      <div class="fixture-kpi"><span>XP de hoy</span><strong class="text-info">+{{ v.xp_hoy }}</strong></div>
+      <div class="fixture-kpi"><span>Racha</span><strong>{{ v.checkin.dias_marcados }}<i class="bi bi-fire text-danger ms-1"></i></strong></div>
+    </div>
+  </div>
 </div>
 
 <div id="alertaMisiones" class="alert d-none" role="alert"></div>
 
-{% if not estado %}
-    <div class="alert alert-danger">No se pudo cargar tu estado diario. Refrescá la página.</div>
-{% else %}
-<div class="row g-3 mb-4">
-    <!-- Recompensa Diaria -->
-    <div class="col-12 col-lg-7">
-        <div class="card bg-dark border-0 shadow-sm h-100">
-            <div class="card-header py-3 border-0">
-                <h5 class="card-title fw-bold text-white mb-0"><i class="bi bi-calendar-check-fill me-2 text-success"></i>Recompensa Diaria</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-flex gap-2 justify-content-center mb-3" id="calendarioRacha">
-                    {% for dia in range(1, 6) %}
-                        <div class="dia-racha {% if dia <= estado.racha_actual %}completado{% endif %} {% if dia == 5 %}especial{% endif %}" title="{% if dia == 5 %}Bono especial +150{% endif %}">
-                            {{ dia }}
-                        </div>
-                    {% endfor %}
-                </div>
-                <p class="text-center text-muted small mb-3">
-                    Racha actual: <strong class="text-white">{{ estado.racha_actual }}</strong> días ·
-                    Faltan <strong class="text-accent">{{ estado.dias_para_bono_especial }}</strong> para el bono especial de +150 pts
-                </p>
-                <button type="button" id="btnCheckin" class="btn btn-success w-100 fw-bold" {% if estado.ya_reclamo_checkin_hoy %}disabled{% endif %}>
-                    <i class="bi bi-gift-fill me-1"></i>
-                    {% if estado.ya_reclamo_checkin_hoy %}Ya reclamaste hoy{% else %}Reclamar +50 pts{% endif %}
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Beca de Emergencia -->
-    <div class="col-12 col-lg-5">
-        <div class="card bg-dark border-0 shadow-sm h-100">
-            <div class="card-header py-3 border-0">
-                <h5 class="card-title fw-bold text-white mb-0"><i class="bi bi-life-preserver me-2 text-accent"></i>Beca de Emergencia</h5>
-            </div>
-            <div class="card-body d-flex flex-column">
-                <p class="text-muted small">Si tu saldo llegó a 0 y no tenés inversiones ni quinielas activas, podés pedir un rescate de +100 pts (una vez por fase).</p>
-                <button type="button" id="btnBeca" class="btn btn-outline-warning w-100 fw-bold mt-auto" {% if not estado.puede_reclamar_beca_emergencia %}disabled{% endif %}>
-                    <i class="bi bi-cash-coin me-1"></i>
-                    {% if estado.puede_reclamar_beca_emergencia %}Reclamar Beca (+100 pts){% else %}No disponible{% endif %}
-                </button>
-            </div>
-        </div>
-    </div>
+<!-- MISIONES DEL DÍA -->
+<h2 class="vivo-titulo"><i class="bi bi-list-check text-warning"></i>Misiones de hoy</h2>
+<div class="mis-lista mb-4">
+  {% for m in v.misiones %}
+  <a href="{{ m.url }}" class="mis-mision {{ 'mis-mision--hecha' if m.completa }}">
+    <span class="mis-mision__icono"><i class="bi {{ 'bi-check-lg' if m.completa else m.icono }}"></i></span>
+    <span class="min-w-0 flex-grow-1">
+      <span class="mis-mision__titulo">{{ m.titulo }}</span>
+      <span class="mis-mision__pasos">
+        {% for i in range(m.meta) %}<i class="{{ 'on' if i < m.hechas }}"></i>{% endfor %}
+        <small>{{ m.hechas }}/{{ m.meta }}</small>
+      </span>
+    </span>
+    <span class="mis-mision__xp">{{ m.xp_texto }}</span>
+  </a>
+  {% endfor %}
 </div>
 
-<!-- Trivia Express -->
-<div class="card bg-dark border-0 shadow-sm">
-    <div class="card-header py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h5 class="card-title fw-bold text-white mb-0"><i class="bi bi-patch-question-fill me-2 text-info"></i>Trivia Express del Mundial</h5>
-        <span class="text-muted small" id="sesionesRestantesTexto">
-            {{ estado.trivia_sesiones_restantes }} de 3 sesiones disponibles hoy
-        </span>
+<div class="row g-3 mb-4">
+  <!-- CHECK-IN -->
+  <div class="col-12 col-xl-7" id="checkin">
+    <div class="card mis-card h-100" style="--mis-color: #22c55e;">
+      <div class="card-body p-3 p-md-4 d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+          <div>
+            <h2 class="h5 fw-bold text-white mb-1"><i class="bi bi-calendar-check-fill text-success me-2"></i>Recompensa diaria</h2>
+            <p class="text-muted small mb-0">+{{ v.checkin.bono_diario }} pts por día. Al {{ v.checkin.dias_bono }}.º día seguido, bono de +{{ v.checkin.bono_especial }}.</p>
+          </div>
+          <span class="mis-pill" title="Check-ins totales"><i class="bi bi-calendar2-week"></i>{{ v.checkin.total }}</span>
+        </div>
+        <div class="mis-racha" role="list">
+          {% for d in v.checkin.dias %}
+          <div class="mis-dia {{ 'mis-dia--hecho' if d.hecho }} {{ 'mis-dia--hoy' if d.hoy }} {{ 'mis-dia--premio' if loop.last }}" role="listitem">
+            <span class="mis-dia__nodo">{% if loop.last %}<i class="bi bi-trophy-fill"></i>{% elif d.hecho %}<i class="bi bi-check-lg"></i>{% else %}{{ d.n }}{% endif %}</span>
+            <span class="mis-dia__premio">+{{ d.premio }}</span>
+            <span class="mis-dia__nombre">{{ 'Hoy' if d.hoy and not estado.ya_reclamo_checkin_hoy else 'Día ' ~ d.n }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="text-center small text-muted my-3">
+          {% if v.checkin.cerro_hoy %}<i class="bi bi-stars text-warning me-1"></i>¡Cerraste la racha hoy! Mañana empieza una nueva.
+          {% elif estado.ya_reclamo_checkin_hoy %}Racha de <strong class="text-white">{{ v.checkin.racha }}</strong> {{ 'día' if v.checkin.racha == 1 else 'días' }}: volvé mañana para no cortarla.
+          {% elif v.checkin.racha == 0 %}Empezá tu racha hoy: si faltás un día, vuelve a cero.
+          {% else %}Llevás <strong class="text-white">{{ v.checkin.racha }}</strong> {{ 'día' if v.checkin.racha == 1 else 'días' }} seguidos.{% endif %}
+        </p>
+        <button type="button" id="btnCheckin" class="btn mis-btn mis-btn--verde w-100 fw-bold rounded-pill mt-auto" {{ 'disabled' if estado.ya_reclamo_checkin_hoy }}>
+          {% if estado.ya_reclamo_checkin_hoy %}<i class="bi bi-check2-circle me-1"></i>Ya reclamaste hoy
+          {% else %}<i class="bi bi-gift-fill me-1"></i>Reclamar +{{ v.checkin.bono_hoy }} pts{% endif %}
+        </button>
+      </div>
     </div>
-    <div class="card-body">
-        <div id="triviaInicio" class="text-center py-3">
-            <p class="text-muted">3 preguntas, opción múltiple, 60 segundos. +10 pts por acierto (máx. 30 pts).</p>
-            <button type="button" id="btnIniciarTrivia" class="btn btn-info fw-bold" {% if not estado.puede_jugar_trivia %}disabled{% endif %}>
-                <i class="bi bi-play-fill me-1"></i>
-                {% if estado.puede_jugar_trivia %}Iniciar Trivia{% else %}Ya usaste tus sesiones de hoy{% endif %}
-            </button>
-        </div>
+  </div>
 
-        <div id="triviaJuego" class="d-none">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <span class="text-muted small">Pregunta <span id="numPreguntaActual">1</span> de 3</span>
-                <span class="fw-bold fs-5" id="timerTrivia"><i class="bi bi-stopwatch-fill me-1"></i>60s</span>
-            </div>
-            <div id="preguntasContainer"></div>
-            <button type="button" id="btnSubmitTrivia" class="btn btn-success w-100 fw-bold mt-2">
-                <i class="bi bi-check-circle-fill me-1"></i>Enviar Respuestas
-            </button>
+  <!-- TRIVIA -->
+  <div class="col-12 col-xl-5" id="trivia">
+    {% set t = v.trivia %}
+    <div class="card mis-card h-100" style="--mis-color: #38bdf8;">
+      <div class="card-body p-3 p-md-4 d-flex flex-column">
+        <h2 class="h5 fw-bold text-white mb-1"><i class="bi bi-patch-question-fill text-info me-2"></i>Trivia Express</h2>
+        <p class="text-muted small mb-3">{{ t.preguntas_por_sesion }} preguntas sobre el Mundial en 60 segundos. +{{ t.puntos_por_acierto }} pts por acierto.</p>
+        <div class="mis-slots mb-3">
+          {% for s in t.slots %}
+          <div class="mis-slot {{ 'mis-slot--usada' if s }} {{ 'mis-slot--perfecta' if s and s.aciertos == t.preguntas_por_sesion }}">
+            {% if s and s.completada %}<strong>{{ s.aciertos }}/{{ t.preguntas_por_sesion }}</strong><small>+{{ s.puntos }} pts</small>
+            {% elif s %}<i class="bi bi-x-circle"></i><small>Abandonada</small>
+            {% else %}<i class="bi bi-play-circle"></i><small>Disponible</small>{% endif %}
+          </div>
+          {% endfor %}
         </div>
+        <div class="mis-stats mb-3">
+          <div><span>Precisión</span><strong>{{ (t.precision ~ '%') if t.precision is not none else '—' }}</strong></div>
+          <div><span>Perfectas</span><strong>{{ t.perfectas }}</strong></div>
+          <div><span>Ganado</span><strong>{{ '{:,}'.format(t.puntos) }}</strong></div>
+        </div>
+        <button type="button" id="btnIniciarTrivia" class="btn mis-btn mis-btn--celeste w-100 fw-bold rounded-pill mt-auto" {{ 'disabled' if not estado.puede_jugar_trivia }}>
+          {% if estado.puede_jugar_trivia %}<i class="bi bi-play-fill me-1"></i>Jugar trivia ({{ t.restantes }} de {{ t.maximo }})
+          {% else %}<i class="bi bi-moon-stars me-1"></i>Volvé mañana por más{% endif %}
+        </button>
+      </div>
+    </div>
+  </div>
 
+  <!-- BECA -->
+  <div class="col-12 col-lg-5">
+    <div class="card mis-card {{ 'mis-card--disponible' if v.beca.disponible }}" style="--mis-color: #f59e0b;">
+      <div class="card-body p-3 p-md-4 d-flex flex-column">
+        <h2 class="h5 fw-bold text-white mb-1"><i class="bi bi-life-preserver text-warning me-2"></i>Beca de emergencia</h2>
+        <p class="text-muted small mb-3">Un rescate de +{{ v.beca.monto }} pts para volver a jugar si te quedaste sin nada.</p>
+        <ul class="mis-requisitos mb-3">
+          {% for r in v.beca.requisitos %}
+          <li class="{{ 'ok' if r.ok }}"><i class="bi {{ 'bi-check-circle-fill' if r.ok else 'bi-x-circle' }}"></i>{{ r.texto }}</li>
+          {% endfor %}
+        </ul>
+        <button type="button" id="btnBeca" class="btn mis-btn mis-btn--ambar w-100 fw-bold rounded-pill" {{ 'disabled' if not v.beca.disponible }}>
+          {% if v.beca.disponible %}<i class="bi bi-cash-coin me-1"></i>Pedir beca (+{{ v.beca.monto }} pts){% else %}<i class="bi bi-shield-check me-1"></i>No la necesitás por ahora{% endif %}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÚLTIMOS PREMIOS -->
+  <div class="col-12 col-lg-7">
+    <div class="card mis-card h-100" style="--mis-color: #a78bfa;">
+      <div class="card-body p-3 p-md-4">
+        <h2 class="h5 fw-bold text-white mb-3"><i class="bi bi-receipt text-info me-2"></i>Últimos premios</h2>
+        {% for p in v.premios[:6] %}
+        <div class="mis-premio">
+          <span class="mis-premio__icono mis-premio__icono--{{ p.tipo }}"><i class="bi {{ {'checkin': 'bi-calendar-check-fill', 'checkin_especial': 'bi-fire', 'beca_emergencia': 'bi-life-preserver', 'trivia': 'bi-patch-question-fill'}.get(p.tipo, 'bi-gift') }}"></i></span>
+          <div class="min-w-0 flex-grow-1">
+            <div class="small text-white fw-semibold text-truncate">{{ p.texto }}</div>
+            <small class="text-muted">{{ p.fecha.strftime('%d/%m %H:%M') }}</small>
+          </div>
+          <strong class="{{ 'text-success' if p.monto > 0 else 'text-muted' }}">+{{ p.monto }}</strong>
+        </div>
+        {% else %}
+        <p class="text-muted small text-center my-4">Todavía no cobraste premios: empezá por el check-in de hoy.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DE TRIVIA -->
+<div class="modal fade" id="modalTrivia" tabindex="-1" aria-labelledby="tituloTrivia" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down">
+    <div class="modal-content mis-trivia">
+      <div class="modal-body p-3 p-md-4">
+        <div id="triviaJuego">
+          <div class="d-flex justify-content-between align-items-center gap-3 mb-2">
+            <h2 class="h6 fw-bold text-info mb-0" id="tituloTrivia"><i class="bi bi-patch-question-fill me-1"></i>Trivia Express</h2>
+            <span class="mis-timer" id="timerTrivia"><i class="bi bi-stopwatch-fill"></i><span>60</span>s</span>
+          </div>
+          <div class="mis-tiempo mb-3"><i id="barraTiempo"></i></div>
+          <div class="mis-pasos mb-3" id="pasosTrivia"></div>
+          <div id="preguntaTrivia" aria-live="polite"></div>
+          <div class="d-flex justify-content-between gap-2 mt-3">
+            <button type="button" class="btn btn-outline-light rounded-pill" id="btnAnterior"><i class="bi bi-chevron-left"></i> Anterior</button>
+            <button type="button" class="btn mis-btn mis-btn--celeste rounded-pill fw-bold px-4" id="btnSiguiente">Siguiente <i class="bi bi-chevron-right"></i></button>
+          </div>
+        </div>
         <div id="triviaResultado" class="d-none"></div>
+      </div>
     </div>
+  </div>
 </div>
 {% endif %}
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    {% if estado %}
-    const usuarioId = "{{ usuario_actual._id }}";
+    {% if v %}
     const urlCheckin = "{{ url_for('rewards_check_in') }}";
     const urlBeca = "{{ url_for('rewards_claim_bankruptcy_rescue') }}";
     const urlDailyQuiz = "{{ url_for('trivia_daily_quiz', user_id=usuario_actual._id) }}";
     const urlSubmitTrivia = "{{ url_for('trivia_submit') }}";
+    const E = UI.escapar;
+    const alerta = document.getElementById('alertaMisiones');
+    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alerta, mensaje, tipo);
 
-    const alertaMisiones = document.getElementById('alertaMisiones');
-    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaMisiones, mensaje, tipo);
+    // ---------- Fecha y cuenta regresiva hasta la medianoche (cuando se renuevan) ----------
+    const fecha = new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+    document.getElementById('misFecha').textContent = fecha.charAt(0).toUpperCase() + fecha.slice(1);
+    const cuenta = document.getElementById('misCuenta');
+    let restantes = Number(cuenta.dataset.segundos || 0);
+    const pintarCuenta = () => {
+        const h = Math.floor(restantes / 3600), m = Math.floor(restantes % 3600 / 60), s = restantes % 60;
+        cuenta.textContent = [h, m, s].map(x => String(x).padStart(2, '0')).join(':');
+    };
+    pintarCuenta();
+    setInterval(() => { if (restantes > 0) { restantes--; pintarCuenta(); } else { window.location.reload(); } }, 1000);
 
-    // ---------- Check-in ----------
-    const btnCheckin = document.getElementById('btnCheckin');
-    btnCheckin.addEventListener('click', function () {
-        btnCheckin.disabled = true;
-        fetch(urlCheckin, { method: 'POST' })
-            .then(async resp => {
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.detail || 'No se pudo reclamar la recompensa.');
-                const msg = data.bono_especial_otorgado
-                    ? `¡Racha completada! Ganaste ${data.bono_otorgado} pts (incluye el bono especial de +150).`
-                    : `¡Reclamaste +${data.bono_otorgado} pts! Racha actual: ${data.racha_actual} días.`;
-                mostrarAlerta(msg, 'success');
-                setTimeout(() => window.location.reload(), 1500);
-            })
-            .catch(err => {
-                mostrarAlerta(err.message, 'danger');
-                btnCheckin.disabled = false;
-            });
-    });
+    // ---------- Acciones simples (check-in y beca) ----------
+    function accion(btn, url, exito) {
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            const html = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            fetch(url, { method: 'POST' })
+                .then(async resp => {
+                    const data = await resp.json();
+                    if (!resp.ok) throw new Error(data.detail || 'No se pudo completar la acción.');
+                    btn.innerHTML = `<i class="bi bi-check2-circle me-1"></i>${E(exito(data))}`;
+                    btn.classList.add('mis-btn--hecho');
+                    UI.refrescarSaldo();
+                    setTimeout(() => window.location.reload(), 1400);
+                })
+                .catch(err => { mostrarAlerta(err.message, 'danger'); btn.disabled = false; btn.innerHTML = html; });
+        });
+    }
+    accion(document.getElementById('btnCheckin'), urlCheckin, d => d.bono_especial_otorgado
+        ? `¡Racha completa! +${d.bono_otorgado} pts` : `+${d.bono_otorgado} pts · racha de ${d.racha_actual}`);
+    accion(document.getElementById('btnBeca'), urlBeca, d => `+${d.monto_otorgado} pts de beca`);
 
-    // ---------- Beca de Emergencia ----------
-    const btnBeca = document.getElementById('btnBeca');
-    btnBeca.addEventListener('click', function () {
-        btnBeca.disabled = true;
-        fetch(urlBeca, { method: 'POST' })
-            .then(async resp => {
-                const data = await resp.json();
-                if (!resp.ok) throw new Error(data.detail || 'No se pudo reclamar la beca.');
-                mostrarAlerta(`¡Recibiste +${data.monto_otorgado} pts de la Beca de Emergencia!`, 'success');
-                setTimeout(() => window.location.reload(), 1500);
-            })
-            .catch(err => {
-                mostrarAlerta(err.message, 'danger');
-                btnBeca.disabled = false;
-            });
-    });
+    // ---------- Trivia: modal, una pregunta a la vez ----------
+    const modalEl = document.getElementById('modalTrivia');
+    const modal = new bootstrap.Modal(modalEl);
+    const juego = document.getElementById('triviaJuego');
+    const resultado = document.getElementById('triviaResultado');
+    const caja = document.getElementById('preguntaTrivia');
+    const pasos = document.getElementById('pasosTrivia');
+    const timer = document.getElementById('timerTrivia');
+    const barra = document.getElementById('barraTiempo');
+    const btnAnt = document.getElementById('btnAnterior');
+    const btnSig = document.getElementById('btnSiguiente');
+    const btnIniciar = document.getElementById('btnIniciarTrivia');
+    const LETRAS = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const DURACION = 60;
+    let sesion = null, preguntas = [], respuestas = [], actual = 0, segundos = DURACION, intervalo = null, enviando = false;
 
-    // ---------- Trivia ----------
-    const triviaInicio = document.getElementById('triviaInicio');
-    const triviaJuego = document.getElementById('triviaJuego');
-    const triviaResultado = document.getElementById('triviaResultado');
-    const preguntasContainer = document.getElementById('preguntasContainer');
-    const timerTrivia = document.getElementById('timerTrivia');
-    const btnIniciarTrivia = document.getElementById('btnIniciarTrivia');
-    const btnSubmitTrivia = document.getElementById('btnSubmitTrivia');
-
-    let sessionIdActual = null;
-    let preguntasActuales = [];
-    let respuestasSeleccionadas = [];
-    let intervaloTimer = null;
-    let segundosRestantes = 60;
-
-    btnIniciarTrivia.addEventListener('click', function () {
-        btnIniciarTrivia.disabled = true;
+    btnIniciar.addEventListener('click', function () {
+        btnIniciar.disabled = true;
         fetch(urlDailyQuiz)
             .then(async resp => {
                 const data = await resp.json();
                 if (!resp.ok) throw new Error(data.detail || 'No se pudo iniciar la trivia.');
-                iniciarJuego(data);
+                iniciar(data);
             })
-            .catch(err => {
-                mostrarAlerta(err.message, 'danger');
-                btnIniciarTrivia.disabled = false;
-            });
+            .catch(err => { mostrarAlerta(err.message, 'danger'); btnIniciar.disabled = false; });
     });
 
-    function iniciarJuego(data) {
-        sessionIdActual = data.session_id;
-        preguntasActuales = data.preguntas;
-        respuestasSeleccionadas = new Array(preguntasActuales.length).fill(null);
+    function iniciar(data) {
+        sesion = data.session_id; preguntas = data.preguntas; respuestas = new Array(preguntas.length).fill(null); actual = 0;
+        juego.classList.remove('d-none'); resultado.classList.add('d-none');
+        mostrarPregunta();
+        modal.show();
+        segundos = DURACION; pintarTimer();
+        intervalo = setInterval(() => { segundos--; pintarTimer(); if (segundos <= 0) { clearInterval(intervalo); enviar(); } }, 1000);
+    }
 
-        preguntasContainer.innerHTML = preguntasActuales.map((p, i) => `
-            <div class="mb-4">
-                <p class="fw-bold text-white" id="enunciado-${i}">${i + 1}. ${UI.escapar(p.enunciado)}</p>
-                <div class="row g-2" data-pregunta="${i}" role="radiogroup" aria-labelledby="enunciado-${i}">
-                    ${p.opciones.map((op, j) => `
-                        <div class="col-12 col-md-6">
-                            <div class="card bg-secondary bg-opacity-10 border opcion-trivia p-2 px-3" data-opcion="${j}"
-                                 role="radio" aria-checked="false" tabindex="${j === 0 ? 0 : -1}">
-                                <span>${UI.escapar(op)}</span>
-                                <i class="bi bi-check-circle-fill check-icon"></i>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `).join('');
+    function pintarTimer() {
+        timer.querySelector('span').textContent = Math.max(segundos, 0);
+        timer.classList.toggle('mis-timer--apurado', segundos <= 10);
+        barra.style.width = `${Math.max(segundos, 0) * 100 / DURACION}%`;
+        barra.classList.toggle('apurado', segundos <= 10);
+    }
 
-        // Opciones como radios accesibles: click, Enter/Espacio para elegir y flechas para moverse
-        function elegirOpcion(el) {
-            const grupo = el.closest('[data-pregunta]');
-            const numPregunta = parseInt(grupo.dataset.pregunta, 10);
-            grupo.querySelectorAll('.opcion-trivia').forEach(o => {
-                o.classList.remove('seleccionada'); o.setAttribute('aria-checked', 'false'); o.tabIndex = -1;
-            });
-            el.classList.add('seleccionada'); el.setAttribute('aria-checked', 'true'); el.tabIndex = 0;
-            respuestasSeleccionadas[numPregunta] = parseInt(el.dataset.opcion, 10);
+    function mostrarPregunta() {
+        const p = preguntas[actual];
+        pasos.innerHTML = preguntas.map((_, i) => `<button type="button" class="mis-paso ${i === actual ? 'actual' : ''} ${respuestas[i] !== null ? 'respondida' : ''}" data-ir="${i}" aria-label="Pregunta ${i + 1}">${i + 1}</button>`).join('');
+        caja.innerHTML = `
+          <p class="mis-pregunta__num">Pregunta ${actual + 1} de ${preguntas.length}</p>
+          <h3 class="mis-pregunta" id="enunciadoActual">${E(p.enunciado)}</h3>
+          <div class="mis-opciones" role="radiogroup" aria-labelledby="enunciadoActual">
+            ${p.opciones.map((op, j) => `
+              <button type="button" class="mis-opcion ${respuestas[actual] === j ? 'elegida' : ''}" data-opcion="${j}" role="radio" aria-checked="${respuestas[actual] === j}">
+                <span class="mis-opcion__letra">${LETRAS[j]}</span><span class="mis-opcion__texto">${E(op)}</span>
+              </button>`).join('')}
+          </div>`;
+        btnAnt.disabled = actual === 0;
+        const ultima = actual === preguntas.length - 1;
+        btnSig.innerHTML = ultima ? '<i class="bi bi-send-fill me-1"></i>Enviar' : 'Siguiente <i class="bi bi-chevron-right"></i>';
+    }
+
+    caja.addEventListener('click', e => {
+        const op = e.target.closest('[data-opcion]');
+        if (!op) return;
+        respuestas[actual] = Number(op.dataset.opcion);
+        mostrarPregunta();
+        // Avanza solo a la siguiente sin responder (deja ver la elección un instante)
+        const siguiente = respuestas.findIndex((r, i) => r === null && i > actual);
+        if (siguiente !== -1) setTimeout(() => { actual = siguiente; mostrarPregunta(); }, 350);
+    });
+    caja.addEventListener('keydown', e => {
+        const n = LETRAS.indexOf(e.key.toUpperCase());
+        if (n >= 0 && n < preguntas[actual].opciones.length) caja.querySelector(`[data-opcion="${n}"]`).click();
+    });
+    pasos.addEventListener('click', e => { const b = e.target.closest('[data-ir]'); if (b) { actual = Number(b.dataset.ir); mostrarPregunta(); } });
+    btnAnt.addEventListener('click', () => { if (actual > 0) { actual--; mostrarPregunta(); } });
+    btnSig.addEventListener('click', async () => {
+        if (actual < preguntas.length - 1) { actual++; mostrarPregunta(); return; }
+        const faltan = respuestas.filter(r => r === null).length;
+        if (faltan) {
+            const ok = await UI.confirmar({ titulo: 'Te faltan respuestas', mensaje: `Dejaste ${faltan} sin responder: cuentan como erradas.`, textoConfirmar: 'Enviar igual' });
+            if (!ok) return;
         }
-        preguntasContainer.querySelectorAll('.opcion-trivia').forEach(el => {
-            el.addEventListener('click', () => elegirOpcion(el));
-            el.addEventListener('keydown', ev => {
-                const opciones = [...el.closest('[data-pregunta]').querySelectorAll('.opcion-trivia')];
-                const idx = opciones.indexOf(el);
-                if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); elegirOpcion(el); }
-                else if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') { ev.preventDefault(); const sig = opciones[(idx + 1) % opciones.length]; elegirOpcion(sig); sig.focus(); }
-                else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') { ev.preventDefault(); const ant = opciones[(idx - 1 + opciones.length) % opciones.length]; elegirOpcion(ant); ant.focus(); }
-            });
-        });
-
-        triviaInicio.classList.add('d-none');
-        triviaResultado.classList.add('d-none');
-        triviaJuego.classList.remove('d-none');
-
-        segundosRestantes = 60;
-        actualizarTimer();
-        intervaloTimer = setInterval(function () {
-            segundosRestantes--;
-            actualizarTimer();
-            if (segundosRestantes <= 0) {
-                clearInterval(intervaloTimer);
-                enviarRespuestas();
-            }
-        }, 1000);
-    }
-
-    function actualizarTimer() {
-        timerTrivia.innerHTML = `<i class="bi bi-stopwatch-fill me-1"></i>${segundosRestantes}s`;
-        timerTrivia.classList.toggle('text-danger', segundosRestantes <= 10);
-    }
-
-    btnSubmitTrivia.addEventListener('click', function () {
-        clearInterval(intervaloTimer);
-        enviarRespuestas();
+        clearInterval(intervalo); enviar();
     });
 
-    function enviarRespuestas() {
-        btnSubmitTrivia.disabled = true;
-        fetch(urlSubmitTrivia, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session_id: sessionIdActual, respuestas: respuestasSeleccionadas })
-        })
+    function enviar() {
+        if (enviando) return;
+        enviando = true;
+        btnSig.disabled = true; btnAnt.disabled = true;
+        fetch(urlSubmitTrivia, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ session_id: sesion, respuestas }) })
             .then(async resp => {
                 const data = await resp.json();
                 if (!resp.ok) throw new Error(data.detail || 'No se pudieron validar las respuestas.');
                 mostrarResultado(data);
             })
             .catch(err => {
-                mostrarAlerta(err.message, 'danger');
-                btnSubmitTrivia.disabled = false;
+                modal.hide(); mostrarAlerta(err.message, 'danger');
+                setTimeout(() => window.location.reload(), 2500);
             });
     }
 
-    function mostrarResultado(data) {
-        triviaJuego.classList.add('d-none');
-
-        const detalleHtml = data.detalle.map((d, i) => `
-            <div class="mb-3">
-                <p class="fw-bold text-white mb-2">${i + 1}. ${UI.escapar(d.enunciado)}</p>
-                <div class="row g-2">
-                    ${d.opciones.map((op, j) => {
-                        let clase = '';
-                        let icono = 'bi-circle';
-                        if (j === d.respuesta_correcta_idx) { clase = 'correcta'; icono = 'bi-check-circle-fill'; }
-                        else if (j === d.respuesta_usuario_idx) { clase = 'incorrecta'; icono = 'bi-x-circle-fill'; }
-                        return `<div class="col-12 col-md-6"><div class="card bg-secondary bg-opacity-10 border opcion-trivia ${clase} p-2 px-3"><span>${UI.escapar(op)}</span><i class="bi ${icono} check-icon"></i></div></div>`;
-                    }).join('')}
-                </div>
+    function mostrarResultado(d) {
+        juego.classList.add('d-none');
+        const perfecta = d.correct_answers === d.total_questions;
+        const pct = d.total_questions ? Math.round(d.correct_answers * 100 / d.total_questions) : 0;
+        const titulo = perfecta ? '¡Perfecta!' : (d.correct_answers === 0 ? 'Esta vez no salió' : '¡Bien jugado!');
+        resultado.innerHTML = `
+          <div class="text-center mb-3">
+            <div class="mis-aro mis-aro--resultado mx-auto ${perfecta ? 'mis-aro--perfecto' : ''}" style="--pct: ${pct};">
+              <div class="mis-aro__centro"><strong>${d.correct_answers}<small>/${d.total_questions}</small></strong><span>aciertos</span></div>
             </div>
-        `).join('');
-
-        triviaResultado.innerHTML = `
-            <div class="text-center mb-3">
-                <div class="display-5 fw-bold ${data.points_rewarded > 0 ? 'text-success' : 'text-muted'}">+${data.points_rewarded} pts</div>
-                <p class="text-muted">${data.correct_answers} de ${data.total_questions} respuestas correctas</p>
-            </div>
-            ${detalleHtml}
-            <div class="text-center mt-3">
-                <button type="button" class="btn btn-success fw-bold" id="btnCerrarTrivia"><i class="bi bi-check2 me-1"></i>Listo</button>
-            </div>
-        `;
-        triviaResultado.classList.remove('d-none');
+            <h3 class="h4 fw-bold text-white mt-3 mb-1">${titulo}</h3>
+            <div class="mis-ganado ${d.points_rewarded > 0 ? '' : 'mis-ganado--cero'}">+${d.points_rewarded} pts</div>
+          </div>
+          ${d.detalle.map((q, i) => {
+              const bien = q.respuesta_usuario_idx === q.respuesta_correcta_idx;
+              return `<div class="mis-revision ${bien ? 'bien' : 'mal'}">
+                <div class="mis-revision__cabeza"><i class="bi ${bien ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}"></i><span>${i + 1}. ${E(q.enunciado)}</span></div>
+                <div class="mis-revision__resp">
+                  ${!bien && q.respuesta_usuario_idx !== null && q.respuesta_usuario_idx !== undefined ? `<span class="tuya"><i class="bi bi-x"></i>${E(q.opciones[q.respuesta_usuario_idx])}</span>` : ''}
+                  ${!bien && (q.respuesta_usuario_idx === null || q.respuesta_usuario_idx === undefined) ? '<span class="tuya"><i class="bi bi-dash"></i>Sin responder</span>' : ''}
+                  <span class="correcta"><i class="bi bi-check"></i>${E(q.opciones[q.respuesta_correcta_idx])}</span>
+                </div></div>`;
+          }).join('')}
+          <button type="button" class="btn mis-btn mis-btn--celeste w-100 rounded-pill fw-bold mt-3" id="btnCerrarTrivia"><i class="bi bi-check2 me-1"></i>Listo</button>`;
+        resultado.classList.remove('d-none');
         UI.refrescarSaldo();
-        // Antes la página se recargaba sola a los 4s y borraba la corrección antes de poder leerla
         document.getElementById('btnCerrarTrivia').addEventListener('click', () => window.location.reload());
     }
     {% endif %}

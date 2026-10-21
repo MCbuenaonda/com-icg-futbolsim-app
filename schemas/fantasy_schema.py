@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 class LineupIn(BaseModel):
     usuario_id: Optional[str] = None  # ignorado: se usa el usuario de la sesión (routes/fantasy_route.py)
-    fase_id: int
+    fase_id: Optional[int] = None  # ignorado: el Once Ideal es uno por Mundial (services/fantasy_service.py)
     lineup: List[int]  # ids de jugadores (colección 'jugadores')
     formacion: str = "4-3-3"  # solo agrupamiento visual (4-3-3/4-4-2/3-5-2), no afecta la validación
 
@@ -14,7 +14,8 @@ class LineupIn(BaseModel):
 class FantasyTeamOut(BaseModel):
     id: str
     usuario_id: str
-    fase_id: int
+    mundial_id: Optional[str] = None
+    fase_id: Optional[int] = None  # legado
     lineup: List[int]
     formacion: str
     is_locked: bool
@@ -33,6 +34,8 @@ class JugadorBusquedaOut(BaseModel):
     pais_nombre: str
     overall: float
     numero: Optional[int] = None
+    eliminado: bool = False
+    motivo_eliminado: Optional[str] = None
 
 
 class DesgloseConceptoOut(BaseModel):

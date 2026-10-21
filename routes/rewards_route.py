@@ -5,7 +5,7 @@ from bson.errors import InvalidId
 from schemas.rewards_schema import (
     CheckInOut, BancarrotaRescueOut, DailyStatusOut, TriviaQuizOut, TriviaSubmitIn, TriviaResultadoOut
 )
-from services.rewards_service import check_in, claim_bankruptcy_rescue, obtener_daily_status
+from services.rewards_service import check_in, claim_bankruptcy_rescue, obtener_daily_status, obtener_misiones_vista
 from services.trivia_service import generate_dynamic_trivia, validate_trivia_answers
 from services.auth_service import obtener_usuario_actual, context_usuario_actual
 from services.imagenes_pais_service import GLOBALES_JINJA
@@ -123,18 +123,19 @@ async def submit_endpoint(request: Request, body: TriviaSubmitIn):
 # Vistas HTML (requieren sesión iniciada — ver services/auth_service.py)
 # ==========================================================================
 @route_vistas.get("/", response_class=HTMLResponse, name="misiones_vista")
-async def misiones_vista(request: Request):
+def misiones_vista(request: Request):
+    """'def' (no async): varias consultas pymongo bloqueantes; con async congelaría el servidor mientras tanto."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
 
     try:
-        estado = obtener_daily_status(usuario["_id"])
+        vista = obtener_misiones_vista(str(usuario["_id"]), set(usuario.get("permisos") or []))
     except ValueError:
-        estado = None
+        vista = None
 
     return templates.TemplateResponse(
         request=request,
         name="misiones_diarias.html",
-        context={"estado": estado}
+        context={"v": vista, "estado": vista["estado"] if vista else None}
     )

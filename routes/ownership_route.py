@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from bson.errors import InvalidId
 from schemas.ownership_schema import SeleccionMercadoOut, InversionOut
-from services.ownership_service import obtener_mercado, buy_team, sell_team, obtener_portafolio
+from services.ownership_service import obtener_mercado, buy_team, sell_team, obtener_portafolio, obtener_mercado_vista, obtener_portafolio_vista
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
@@ -95,33 +95,24 @@ async def my_portfolio(user_id: str, request: Request):
 # Vistas HTML (requieren sesión iniciada — ver services/auth_service.py)
 # ==========================================================================
 @route_vistas.get("/mercado", response_class=HTMLResponse, name="ownership_mercado_vista")
-async def mercado_vista(request: Request):
+def mercado_vista(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
-
-    selecciones = obtener_mercado()
-
     return templates.TemplateResponse(
         request=request,
         name="mercado_selecciones.html",
-        context={
-            "selecciones": selecciones,
-            "confederaciones": CONFEDERACIONES
-        }
+        context={**obtener_mercado_vista(usuario["_id"]), "confederaciones": CONFEDERACIONES}
     )
 
 
 @route_vistas.get("/portafolio", response_class=HTMLResponse, name="ownership_portafolio_vista")
-async def portafolio_vista(request: Request):
+def portafolio_vista(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
-
-    inversiones = obtener_portafolio(usuario["_id"])
-
     return templates.TemplateResponse(
         request=request,
         name="mi_portafolio.html",
-        context={"inversiones": inversiones}
+        context=obtener_portafolio_vista(usuario["_id"])
     )

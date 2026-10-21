@@ -3,6 +3,7 @@ from fastapi import Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from services.estadisticas_service import obtener_estadisticas_generales, obtener_detalle_estadistica
+from services.graficos_service import obtener_graficos
 from services.auth_service import context_usuario_actual
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
@@ -28,6 +29,12 @@ async def inicio(request: Request):
             "stats": estadisticas,
         }
     )
+
+@route.get("/graficos", response_class=HTMLResponse, name="estadisticas_graficos")
+def graficos(request: Request):
+    """"El Mundial en gráficos" (services/graficos_service.py). 'def': el primer armado recorre todos los partidos."""
+    return templates.TemplateResponse(request=request, name="estadisticas_graficos.html", context={"g": obtener_graficos()})
+
 
 @route.get("/api/detalle", name="estadisticas_detalle")
 async def detalle(tipo: str, id: int, metrica: str):

@@ -38,6 +38,7 @@ SECCIONES = [
     ("ranking_usuarios", "Ranking de usuarios", "Mi Juego", "Comparación de patrimonio y logros entre usuarios"),
     ("niveles", "Niveles y recompensas", "Mi Juego", "Experiencia por actividad, niveles de socio y sus recompensas"),
     ("corporativos", "Corporativos Deportivos", "Mi Juego", "Carrera como CEO de un corporativo que representa selecciones y jugadores"),
+    ("asistente", "Asistente El Profe", "Mi Juego", "Escaneo pagado de tus carteras con consejos de qué hacer"),
     # --- Administración (acciones sensibles) ---
     ("simular_partidos", "Simular partidos", "Administración", "Simular partidos y avanzar el torneo (incluye la reproducción automática)"),
     ("reiniciar_torneo", "Reiniciar torneo", "Administración", "Borrar el torneo actual y empezar de cero"),
@@ -59,7 +60,7 @@ def secciones_por_grupo():
 # Roles que siembra configurar_roles.py ('admin' es de sistema: no se borra ni se recorta)
 ROL_ADMIN = "admin"
 _CONSULTA = ["inicio", "partidos", "cuadro", "en_vivo", "paises", "estadisticas", "cara_a_cara", "palmares", "scouter", "aficionados", "arbitros"]
-_META_JUEGO = ["juego_en_vivo", "quinielas", "selecciones", "sedes", "once_ideal", "album", "misiones", "ranking_usuarios", "niveles", "corporativos"]
+_META_JUEGO = ["juego_en_vivo", "quinielas", "selecciones", "sedes", "once_ideal", "album", "misiones", "ranking_usuarios", "niveles", "corporativos", "asistente"]
 ROLES_INICIALES = [
     {"codigo": ROL_ADMIN, "nombre": "Administrador", "descripcion": "Acceso total, incluida la gestión de usuarios", "permisos": [PERMISO_TODO], "es_sistema": True},
     {"codigo": "jugador", "nombre": "Jugador", "descripcion": "Consulta del torneo y todo el meta-juego, sin acciones de administración", "permisos": _CONSULTA + _META_JUEGO, "es_sistema": False},
@@ -75,7 +76,7 @@ URL_SECCION = {
     "palmares": "/palmares/", "aficionados": "/aficionados/", "arbitros": "/arbitros/", "juego_en_vivo": "/en-vivo/",
     "ranking_usuarios": "/ranking/",
     "quinielas": "/quinielas/", "selecciones": "/selecciones/mercado", "sedes": "/sedes/directorio",
-    "once_ideal": "/once-ideal/", "album": "/album-estampas/sobres", "misiones": "/misiones/", "niveles": "/niveles/", "corporativos": "/corporativo/",
+    "once_ideal": "/once-ideal/", "album": "/album-estampas/sobres", "misiones": "/misiones/", "niveles": "/niveles/", "corporativos": "/corporativo/", "asistente": "/asistente/",
     "gestion_usuarios": "/admin/usuarios",
 }
 

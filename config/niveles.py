@@ -36,7 +36,7 @@ REGLAS_XP = {
     "QUINIELA_GANADA":     {"xp": 30,   "tope_diario": None, "titulo": "Ganar un boleto de quiniela",       "icono": "bi-trophy",         "modulo": "quinielas"},
     "JUEGO_VIVO":          {"xp": 20,   "tope_diario": 3,    "titulo": "Jugar un partido del Juego en Vivo", "icono": "bi-broadcast",     "modulo": "juego_en_vivo"},
     "JUEGO_VIVO_GANANCIA": {"xp": 15,   "tope_diario": None, "titulo": "Terminar el Juego en Vivo con ganancia", "icono": "bi-graph-up-arrow", "modulo": "juego_en_vivo"},
-    "ONCE_IDEAL":          {"xp": 30,   "tope_diario": None, "titulo": "Armar el Once Ideal de una fase",   "icono": "bi-people-fill",    "modulo": "once_ideal"},
+    "ONCE_IDEAL":          {"xp": 30,   "tope_diario": 2,    "titulo": "Armar o ajustar tu Once Ideal en una jornada", "icono": "bi-people-fill", "modulo": "once_ideal"},
     "SELECCION_COMPRA":    {"xp": 20,   "tope_diario": 2,    "titulo": "Comprar una selección",             "icono": "bi-flag-fill",      "modulo": "selecciones"},
     "SELECCION_DIVIDENDO": {"xp": 5,    "tope_diario": 10,   "titulo": "Cobrar un dividendo o bono de fase", "icono": "bi-cash-coin",     "modulo": "selecciones"},
     "SEDE_COMPRA":         {"xp": 15,   "tope_diario": 2,    "titulo": "Comprar una sede",                  "icono": "bi-building",       "modulo": "sedes"},
@@ -45,6 +45,7 @@ REGLAS_XP = {
     "CORP_CARGO":          {"xp": 40,   "tope_diario": None, "titulo": "Asumir la dirección de un corporativo", "icono": "bi-briefcase-fill", "modulo": "corporativos"},
     "CORP_FICHAJE":        {"xp": 10,   "tope_diario": 3,    "titulo": "Fichar un representado (corporativos)", "icono": "bi-pen-fill",      "modulo": "corporativos"},
     "CORP_CICLO_UTILIDAD": {"xp": 10,   "tope_diario": 5,    "titulo": "Cerrar un ciclo con utilidad como CEO", "icono": "bi-graph-up-arrow", "modulo": "corporativos"},
+    "ASISTENTE":           {"xp": 10,   "tope_diario": 1,    "titulo": "Consultar al Profe (asistente)",    "icono": "bi-clipboard-data-fill", "modulo": "asistente"},
     "CORP_ACCIONES":       {"xp": 5,    "tope_diario": 3,    "titulo": "Comprar acciones en la bolsa FIFAV 10", "icono": "bi-bar-chart-line-fill", "modulo": "corporativos"},
 }
 XP_TRIVIA_BASE = 5
@@ -64,6 +65,8 @@ LOGROS = {
     "PRIMERA_PLATINO":    {"titulo": "Edición Platino",          "descripcion": "Conseguiste tu primera estampa Platino (un escudo)", "icono": "bi-gem"},
     "PRIMER_CARGO":       {"titulo": "Señor CEO",                "descripcion": "Asumiste la dirección de tu primer corporativo", "icono": "bi-briefcase-fill"},
     "PRIMER_FICHAJE":     {"titulo": "Agente de jugadores",      "descripcion": "Cerraste tu primer fichaje como CEO",            "icono": "bi-pen-fill"},
+    "ALUMNO_APLICADO":    {"titulo": "Alumno aplicado",          "descripcion": "Seguiste 10 consejos del Profe",                 "icono": "bi-mortarboard-fill"},
+    "PRIMER_INFORME":     {"titulo": "Cuerpo técnico",           "descripcion": "Le pediste tu primer informe al Profe",          "icono": "bi-clipboard-data-fill"},
     "ASCENSO_TIER_A":     {"titulo": "Las grandes ligas",        "descripcion": "Llegaste a dirigir un corporativo tier A",      "icono": "bi-buildings-fill"},
 }
 

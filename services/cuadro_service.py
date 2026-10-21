@@ -73,10 +73,10 @@ def obtener_cuadro() -> Dict[str, Any]:
             if not llave:
                 # Todavía sin definir: quiénes la juegan, según la ronda anterior
                 if idx == 0:
-                    pendiente = ("Clasificado de grupos", "Clasificado de grupos")
+                    pendiente = ("Clasificado", "Clasificado")   # sale de la fase de grupos del Mundial
                 else:
                     anterior = RONDAS[idx - 1][2]
-                    pendiente = (f"Ganador {anterior} {_letra(2 * i)}", f"Ganador {anterior} {_letra(2 * i + 1)}")
+                    pendiente = (f"Gan. {anterior} {_letra(2 * i)}", f"Gan. {anterior} {_letra(2 * i + 1)}")
                 llave = {"id": None, "jugado": False, "pendiente": pendiente}
             llave["letra"] = _letra(i)
             llaves.append(llave)
@@ -87,9 +87,13 @@ def obtener_cuadro() -> Dict[str, Any]:
     if final and final["jugado"] and final["ganador_id"] is not None:
         campeon = final["local"] if final["local"]["id"] == final["ganador_id"] else final["visitante"]
 
+    # Progreso: partidos jugados de los 32 de la eliminación directa (31 llaves + 3er puesto) y la ronda en curso
+    jugados = sum(1 for ll in por_llave.values() if ll["jugado"])
+    ronda_actual = next((r["nombre"] for r in rondas if any(not ll["jugado"] for ll in r["llaves"])), "Terminado")
     return {
         "hay_datos": bool(juegos),
         "anio": mundial.get("anio"),
+        "jugados": jugados, "total_partidos": sum(r[3] for r in RONDAS) + 1, "ronda_actual": ronda_actual,
         "rondas": rondas,
         "tercer_lugar": por_llave.get((FASE_TERCER_LUGAR, "A")),
         "campeon": campeon,

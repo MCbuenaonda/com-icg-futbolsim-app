@@ -3,90 +3,139 @@
 
 {% block title %}Cuadro de Eliminación - FutbolSim{% endblock %}
 
-{% block extra_head %}
-<style>
-    /* Cuadro: una columna por ronda; las llaves se reparten verticalmente (space-around) para
-       que cada una quede a la altura de las dos que la alimentan. Scroll horizontal en celular. */
-    .cuadro-scroll { overflow-x: auto; padding-bottom: .5rem; }
-    .cuadro { display: flex; gap: 1rem; min-width: 1080px; }
-    .cuadro-ronda { flex: 1 1 0; display: flex; flex-direction: column; min-width: 190px; }
-    .cuadro-ronda-titulo { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 700; text-align: center; margin-bottom: .5rem; }
-    .cuadro-llaves { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: .5rem; }
-    .llave { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: .5rem; padding: .35rem .5rem; font-size: .8rem; }
-    .llave a { color: inherit; text-decoration: none; }
-    .llave--pendiente { border-style: dashed; color: var(--text-muted); }
-    .llave-equipo { display: flex; justify-content: space-between; gap: .4rem; padding: .1rem 0; }
-    .llave-equipo span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .llave-equipo--ganador { font-weight: 700; color: var(--green-neon); }
-    .llave-meta { font-size: .65rem; color: var(--text-muted); }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-    <div>
-        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-diagram-3 text-accent me-2"></i>Cuadro de Eliminación{% if cuadro.anio %} · Mundial {{ cuadro.anio }}{% endif %}</h1>
-        <p class="text-muted mb-0">De 16vos a la Gran Final. Las llaves sin jugar muestran de dónde sale cada rival.</p>
-    </div>
-    {% if cuadro.campeon %}
-    <div class="stat-card px-3 py-2 d-flex align-items-center gap-2 border-accent">
-        <span class="fs-2">🏆</span>
-        <div><small class="text-muted d-block">Campeón</small><span class="fw-bold text-accent">{{ m.bandera(cuadro.campeon.bandera) }} {{ cuadro.campeon.nombre }}</span></div>
-    </div>
+{#
+  Cuadro de eliminación directa del Mundial activo (services/cuadro_service.py). En escritorio, árbol simétrico:
+  la mitad izquierda (llaves A..) y la derecha convergen en la Gran Final del centro, con conectores CSS entre cada
+  par de llaves y la siguiente. En celular, las rondas como lista (el árbol no entra).
+#}
+{% macro equipo(eq, ganador_id, pendiente=None) -%}
+{%- set gano = ganador_id is not none and eq and eq.id == ganador_id -%}
+{%- set perdio = ganador_id is not none and eq and eq.id != ganador_id -%}
+<div class="cdr-eq {{ 'cdr-eq--gana' if gano }} {{ 'cdr-eq--pierde' if perdio }} {{ 'cdr-eq--pendiente' if not (eq and eq.nombre) }}">
+  {% if eq and eq.nombre %}
+  {{ m.bandera(eq.bandera, pais_id=eq.id) }}<span class="cdr-eq__nombre" title="{{ eq.nombre }}">{{ eq.nombre }}</span>
+  <strong class="cdr-eq__goles">{{ eq.goles if eq.goles is not none else '' }}</strong>
+  {% else %}
+  <i class="bi bi-question-circle"></i><span class="cdr-eq__nombre">{{ pendiente or 'Por definir' }}</span>
+  {% endif %}
+</div>
+{%- endmacro %}
+
+{% macro llave_html(llave, clase='') -%}
+{% if llave.id %}
+<a href="/juegos/{{ llave.id }}" class="cdr-llave {{ clase }} {{ 'cdr-llave--jugada' if llave.jugado else 'cdr-llave--programada' }}" title="{{ 'Ver partido' if llave.jugado else 'Partido programado' }}">
+  {{ equipo(llave.local, llave.ganador_id) }}
+  {{ equipo(llave.visitante, llave.ganador_id) }}
+  <span class="cdr-llave__meta">{{ llave.letra }}{% if llave.penales %} · pen. {{ llave.penales }}{% elif not llave.jugado %} · por jugar{% endif %}</span>
+</a>
+{% else %}
+<div class="cdr-llave cdr-llave--pendiente {{ clase }}">
+  {{ equipo(None, None, llave.pendiente[0]) }}
+  {{ equipo(None, None, llave.pendiente[1]) }}
+  <span class="cdr-llave__meta">{{ llave.letra }}</span>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro columna(ronda, desde, hasta, lado) -%}
+{%- set llaves = ronda.llaves[desde:hasta] -%}
+<div class="cdr-col">
+  <div class="cdr-col__titulo">{{ ronda.nombre }}</div>
+  <div class="cdr-col__llaves">
+    {% if llaves | length >= 2 %}
+      {% for par in llaves | batch(2) %}
+      <div class="cdr-par">{% for ll in par %}{{ llave_html(ll) }}{% endfor %}</div>
+      {% endfor %}
+    {% else %}
+      {% for ll in llaves %}<div class="cdr-solo">{{ llave_html(ll) }}</div>{% endfor %}
     {% endif %}
+  </div>
+</div>
+{%- endmacro %}
+
+{% set c = cuadro %}{% set R = c.rondas %}
+{% set final = R[-1].llaves[0] if R else None %}
+{% set tercero = dict(c.tercer_lugar, letra='3.º') if c.tercer_lugar else {'id': None, 'letra': '3.º', 'pendiente': ('Perd. Semis A', 'Perd. Semis B')} %}
+
+<!-- ENCABEZADO -->
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo cdr-hero mb-4" style="--logo-color: #facc15;">
+  <img src="{{ imagen_inicio('copa') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+  <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div class="min-w-0">
+      <span class="cdr-sobretitulo">Mundial {{ c.anio or '' }} · eliminación directa</span>
+      <h1 class="h2 fw-bold text-white mb-1">Cuadro de Eliminación</h1>
+      <p class="text-muted small mb-0">De 16vos a la Gran Final. Las llaves sin jugar muestran de dónde sale cada rival.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+      {% if R %}
+      <div class="fixture-kpi"><span>Jugados</span><strong>{{ c.jugados }}/{{ c.total_partidos }}</strong></div>
+      <div class="fixture-kpi"><span>Ronda</span><strong class="cdr-kpi-texto">{{ c.ronda_actual }}</strong></div>
+      {% endif %}
+      <div class="cdr-campeon {{ 'cdr-campeon--definido' if c.campeon }}">
+        <img src="{{ imagen_inicio('copa') }}" alt="" aria-hidden="true">
+        <div><small>Campeón</small>
+          {% if c.campeon %}<strong>{{ m.bandera(c.campeon.bandera, pais_id=c.campeon.id) }} {{ c.campeon.nombre }}</strong>
+          {% else %}<strong class="text-muted">Por definir</strong>{% endif %}</div>
+      </div>
+    </div>
+  </div>
 </div>
 
-{% if not cuadro.hay_datos %}
+{% if not c.hay_datos %}
 <div class="alert alert-info d-flex align-items-center gap-2">
-    <i class="bi bi-hourglass-split"></i>
-    <span>La eliminación directa todavía no empezó: el cuadro se completa a medida que se juegan los 16vos de final.</span>
+  <i class="bi bi-hourglass-split"></i>
+  <span>La eliminación directa todavía no empezó: el cuadro se completa a medida que avanza el Mundial.</span>
 </div>
 {% endif %}
 
-{% macro equipo_llave(equipo, ganador_id, pendiente_texto=None) %}
-<div class="llave-equipo {{ 'llave-equipo--ganador' if ganador_id is not none and equipo and equipo.id == ganador_id }}">
-    {% if equipo and equipo.nombre %}
-    <span title="{{ equipo.nombre }}">{{ m.bandera(equipo.bandera) }} {{ equipo.nombre }}</span>
-    <span>{{ equipo.goles if equipo.goles is not none else '' }}</span>
-    {% else %}
-    <span>{{ pendiente_texto or 'Por definir' }}</span><span></span>
-    {% endif %}
-</div>
-{% endmacro %}
-
-{% macro llave_html(llave) %}
-<div class="llave {{ 'llave--pendiente' if not llave.id }}">
-    {% if llave.id %}
-    <a href="/juegos/{{ llave.id }}" title="Ver partido">
-        {{ equipo_llave(llave.local, llave.ganador_id) }}
-        {{ equipo_llave(llave.visitante, llave.ganador_id) }}
-        <div class="llave-meta">Llave {{ llave.letra }}{% if llave.penales %} · pen. {{ llave.penales }}{% elif not llave.jugado %} · {{ llave.fecha or 'pendiente' }}{% endif %}</div>
-    </a>
-    {% else %}
-    {{ equipo_llave(None, None, llave.pendiente[0]) }}
-    {{ equipo_llave(None, None, llave.pendiente[1]) }}
-    <div class="llave-meta">Llave {{ llave.letra }}</div>
-    {% endif %}
-</div>
-{% endmacro %}
-
-<div class="cuadro-scroll" tabindex="0" aria-label="Cuadro de eliminación (desplazable)">
-    <div class="cuadro">
-        {% for ronda in cuadro.rondas %}
-        <div class="cuadro-ronda">
-            <div class="cuadro-ronda-titulo">{{ ronda.nombre }}</div>
-            <div class="cuadro-llaves">
-                {% for llave in ronda.llaves %}{{ llave_html(llave) }}{% endfor %}
-                {% if ronda.fase_id == 13 %}
-                <div class="mt-3">
-                    <div class="cuadro-ronda-titulo">Tercer puesto</div>
-                    {% if cuadro.tercer_lugar %}{{ llave_html(dict(cuadro.tercer_lugar, letra='A')) }}
-                    {% else %}{{ llave_html({'id': None, 'letra': 'A', 'pendiente': ('Perdedor Semis A', 'Perdedor Semis B')}) }}{% endif %}
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        {% endfor %}
+{% if R %}
+<!-- ESCRITORIO: árbol simétrico -->
+<div class="cdr-scroll d-none d-lg-block" tabindex="0" aria-label="Cuadro de eliminación">
+  <div class="cdr-arbol">
+    <div class="cdr-mitad cdr-mitad--izq">
+      {{ columna(R[0], 0, 8, 'izq') }}{{ columna(R[1], 0, 4, 'izq') }}{{ columna(R[2], 0, 2, 'izq') }}{{ columna(R[3], 0, 1, 'izq') }}
     </div>
+    <div class="cdr-centro">
+      <div class="cdr-col__titulo">&nbsp;</div>
+      <div class="cdr-centro__cuerpo">
+        <div class="cdr-centro__arriba">
+          <img src="{{ imagen_inicio('copa') }}" alt="Copa del Mundo" class="cdr-copa">
+          <div class="cdr-col__titulo cdr-col__titulo--final">Gran Final</div>
+        </div>
+        {{ llave_html(final, 'cdr-llave--final') }}
+        <div class="cdr-centro__abajo">
+          {% if c.campeon %}<div class="cdr-centro__campeon">{{ m.bandera(c.campeon.bandera, tipo='escudo', pais_id=c.campeon.id) }}<span>¡{{ c.campeon.nombre }} campeón!</span></div>{% endif %}
+          <div class="cdr-col__titulo mt-3">Tercer puesto</div>
+          {{ llave_html(tercero, 'cdr-llave--tercero') }}
+        </div>
+      </div>
+    </div>
+    <div class="cdr-mitad cdr-mitad--der">
+      {{ columna(R[3], 1, 2, 'der') }}{{ columna(R[2], 2, 4, 'der') }}{{ columna(R[1], 4, 8, 'der') }}{{ columna(R[0], 8, 16, 'der') }}
+    </div>
+  </div>
 </div>
+
+<!-- CELULAR: rondas en lista -->
+<div class="d-lg-none">
+  <div class="cdr-tabs mb-3" role="tablist">
+    {% for ronda in R %}<button type="button" class="filtro-conf {{ 'activo' if ronda.nombre == c.ronda_actual or (c.ronda_actual == 'Terminado' and loop.last) or (not c.hay_datos and loop.first) }}" data-ronda="{{ loop.index0 }}" style="--conf-color: #facc15;">{{ ronda.nombre }}</button>{% endfor %}
+    <button type="button" class="filtro-conf" data-ronda="tercero" style="--conf-color: #facc15;">Tercer puesto</button>
+  </div>
+  {% for ronda in R %}
+  <div class="cdr-lista {{ 'd-none' if not (ronda.nombre == c.ronda_actual or (c.ronda_actual == 'Terminado' and loop.last) or (not c.hay_datos and loop.first)) }}" data-panel="{{ loop.index0 }}">
+    {% for ll in ronda.llaves %}{{ llave_html(ll) }}{% endfor %}
+  </div>
+  {% endfor %}
+  <div class="cdr-lista d-none" data-panel="tercero">{{ llave_html(tercero) }}</div>
+</div>
+{% endif %}
+
+<script>
+    document.querySelectorAll('[data-ronda]').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('[data-ronda]').forEach(x => x.classList.toggle('activo', x === b));
+        document.querySelectorAll('[data-panel]').forEach(p => p.classList.toggle('d-none', p.dataset.panel !== b.dataset.ronda));
+    }));
+</script>
 {% endblock %}

@@ -302,6 +302,15 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
             "monto": op.get("monto", 0),
         })
 
+    # Asistente "El Profe": lo cobrado (las devoluciones de la garantía quedan en 0 y no se listan)
+    for c in db['asistente_consultas'].find({"user_id": usuario_oid, "cobrado": {"$gt": 0}}, {"fecha": 1, "nivel": 1, "cobrado": 1}):
+        feed.append({
+            "fecha": c["fecha"],
+            "categoria": "Asistente",
+            "descripcion": f"Consulta al Profe ({ {'VISTAZO': 'Vistazo', 'ANALISIS': 'Análisis', 'PROFUNDO': 'Informe profundo'}.get(c['nivel'], c['nivel']) })",
+            "monto": -c["cobrado"],
+        })
+
     feed.sort(key=lambda x: x["fecha"], reverse=True)
 
     # ---------------------------------------------------------------

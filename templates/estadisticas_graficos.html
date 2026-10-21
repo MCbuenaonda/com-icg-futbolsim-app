@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as m %}
+
+{% block title %}El Mundial en gráficos - FutbolSim{% endblock %}
+
+{% block content %}
+{#
+  "El Mundial en gráficos" (services/graficos_service.obtener_graficos). Sistema visual (skill de dataviz):
+  paleta categórica de 8 colores en orden fijo (paso oscuro, validada contra el fondo de tarjeta #111c2e), una serie =
+  color 1, marcas finas (líneas 2px, barras ≤24px con punta redondeada), grilla de 1px apenas visible, leyenda solo con
+  2+ series, el texto nunca lleva el color de la serie, y cada gráfico tiene su tabla ("Ver datos").
+#}
+{% set r = g.resumen %}
+<div class="mg">
+
+<!-- ENCABEZADO -->
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo mb-3" style="--logo-color: #3987e5;">
+  <img src="{{ imagen_inicio('goles') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+  <div class="card-body p-3 p-md-4">
+    <a href="{{ url_for('estadisticas') }}" class="mg-volver"><i class="bi bi-arrow-left"></i> Estadísticas</a>
+    <h1 class="h2 fw-bold text-white mb-1 mt-1">El Mundial en gráficos</h1>
+    <p class="text-muted small mb-3">Mundial {{ (g.mundial or {}).anio or '' }} en curso. Se actualiza cada vez que termina un partido.</p>
+    <div class="mg-tiles">
+      <div class="mg-tile mg-tile--hero">
+        <span>Avance del torneo</span>
+        <strong>{{ r.pct_avance }}%</strong>
+        <div class="mg-meter" role="img" aria-label="{{ r.jugados }} de {{ r.programados }} partidos jugados"><i style="width: {{ r.pct_avance }}%"></i></div>
+        <small>{{ '{:,}'.format(r.jugados) }} de {{ '{:,}'.format(r.programados) }} partidos programados</small>
+      </div>
+      <div class="mg-tile"><span>Goles</span><strong>{{ '{:,}'.format(r.goles) }}</strong><small>{{ r.promedio }} por partido</small></div>
+      <div class="mg-tile"><span>Ambos marcan</span><strong>{{ r.ambos_marcan }}%</strong><small>de los partidos</small></div>
+      <div class="mg-tile"><span>Proyección final</span><strong>{{ '{:,}'.format((g.ritmo.goles_finales or {}).y or r.goles) }}</strong><small>goles al terminar las eliminatorias</small></div>
+    </div>
+  </div>
+</div>
+
+<!-- NAVEGACIÓN DE SECCIONES -->
+<nav class="mg-nav mb-3" aria-label="Secciones">
+  <a href="#ritmo">Ritmo</a><a href="#confederaciones">Confederaciones</a><a href="#selecciones">Selecciones</a>
+  <a href="#jugadores">Jugadores</a>{% if g.estadios.ocupacion | sum(attribute='partidos') >= 30 %}<a href="#estadios">Estadios</a>{% endif %}<a href="#pronosticos">Pronósticos</a>
+</nav>
+
+{% macro tarjeta(id, titulo, lectura, alto=280, clase='col-12 col-xl-6', tabla=true) -%}
+<div class="{{ clase }}">
+  <figure class="mg-card" id="card-{{ id }}">
+    <figcaption><h3>{{ titulo }}</h3><p>{{ lectura }}</p></figcaption>
+    <div class="mg-lienzo" style="height: {{ alto }}px;"><canvas id="{{ id }}" role="img" aria-label="{{ titulo }}"></canvas></div>
+    {% if tabla %}<button type="button" class="mg-ver-tabla" data-tabla="{{ id }}"><i class="bi bi-table"></i> Ver datos</button>
+    <div class="mg-tabla d-none" id="tabla-{{ id }}"></div>{% endif %}
+  </figure>
+</div>
+{%- endmacro %}
+
+<!-- RITMO DEL TORNEO -->
+<h2 class="vivo-titulo" id="ritmo"><i class="bi bi-activity text-info"></i>El ritmo del torneo</h2>
+<div class="row g-3 mb-4">
+  {{ tarjeta('gAcumulados', 'Goles acumulados y proyección',
+             'Al ritmo actual (' ~ g.ritmo.media ~ ' por partido), las eliminatorias cerrarían con unos ' ~ '{:,}'.format((g.ritmo.goles_finales or {}).y or 0) ~ ' goles.', 300) }}
+  {{ tarjeta('gMovil', 'Goles por partido (media móvil de ' ~ g.ritmo.ventana ~ ' partidos)',
+             '¿El torneo se está abriendo o cerrando? La línea gris es la media de todo el Mundial.', 300) }}
+  {{ tarjeta('gFranjas', '¿Cuándo caen los goles?', 'Goles en jugada por tramo de 15 minutos.', 260) }}
+  <div class="col-12 col-xl-6">
+    <figure class="mg-card">
+      <figcaption><h3>¿Quién gana?</h3><p>Reparto de resultados de los {{ r.jugados }} partidos jugados.</p></figcaption>
+      {% set res = r.resultados %}
+      <div class="mg-reparto" role="img" aria-label="Local {{ res.pct_local }}%, empate {{ res.pct_empate }}%, visitante {{ res.pct_visitante }}%">
+        <i style="flex: {{ res.pct_local }}; background: var(--s1);"><span>{{ res.pct_local }}%</span></i>
+        <i style="flex: {{ res.pct_empate }}; background: var(--neutro);"><span>{{ res.pct_empate }}%</span></i>
+        <i style="flex: {{ res.pct_visitante }}; background: var(--s8);"><span>{{ res.pct_visitante }}%</span></i>
+      </div>
+      <div class="mg-leyenda"><span><b style="background: var(--s1)"></b>Gana el local</span><span><b style="background: var(--neutro)"></b>Empate</span><span><b style="background: var(--s8)"></b>Gana el visitante</span></div>
+      <p class="mg-nota">{{ 'Jugar de local casi no pesa en este Mundial.' if (res.pct_local - res.pct_visitante) | abs < 5 else ('La localía pesa.' if res.pct_local > res.pct_visitante else 'Al visitante le va mejor que al local.') }}</p>
+      {% set mk = g.marcadores %}
+      <h4 class="mg-subtitulo mt-3">Marcadores más repetidos <small>local (filas) × visitante (columnas)</small></h4>
+      <div class="mg-calor" role="table" aria-label="Frecuencia de cada marcador">
+        <div class="mg-calor__fila" role="row"><span class="mg-calor__eje"></span>{% for e in mk.etiquetas %}<span class="mg-calor__eje" role="columnheader">{{ e }}</span>{% endfor %}</div>
+        {% for fila in mk.filas %}
+        <div class="mg-calor__fila" role="row"><span class="mg-calor__eje" role="rowheader">{{ mk.etiquetas[loop.index0] }}</span>
+          {% set gl = loop.index0 %}
+          {% for n in fila %}<span class="mg-calor__celda" role="cell" data-n="{{ n }}" data-max="{{ mk.maximo }}" title="{{ mk.etiquetas[gl] }}-{{ mk.etiquetas[loop.index0] }}: {{ n }} {{ 'partido' if n == 1 else 'partidos' }}">{{ n if n else '' }}</span>{% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if mk.frecuente %}<p class="mg-nota">El {{ mk.frecuente.marcador }} es el resultado más común: {{ mk.frecuente.veces }} veces.</p>{% endif %}
+    </figure>
+  </div>
+</div>
+
+<!-- CONFEDERACIONES -->
+<h2 class="vivo-titulo" id="confederaciones"><i class="bi bi-globe-americas text-info"></i>Confederaciones</h2>
+<div class="row g-3 mb-4">
+  {{ tarjeta('gConfAvance', 'Avance de las eliminatorias', 'Partidos jugados y por jugar de cada confederación, con la ronda en curso.', 300, 'col-12') }}
+  {{ tarjeta('gConfGoles', 'Goles por partido', 'La línea vertical marca la media del Mundial.', 260) }}
+  {{ tarjeta('gConfTarjetas', 'Tarjetas por partido', '¿Dónde se juega más fuerte?', 260) }}
+</div>
+
+<!-- SELECCIONES -->
+<h2 class="vivo-titulo" id="selecciones"><i class="bi bi-flag-fill text-info"></i>Selecciones</h2>
+<div class="row g-3 mb-4">
+  {{ tarjeta('gAtaqueDefensa', 'Ataque contra defensa',
+             'Cada punto es una selección (mínimo ' ~ g.selecciones.minimo_pj ~ ' partidos). Arriba a la derecha: mete mucho y recibe poco. Con nombre, las 5 mejores.', 380, 'col-12 col-xl-7') }}
+  <div class="col-12 col-xl-5">
+    <figure class="mg-card">
+      <figcaption><h3>Diferencia de gol</h3><p>Las 10 selecciones con mejor saldo en el torneo.</p></figcaption>
+      {% set maxdg = (g.selecciones.top_dg | map(attribute='dg') | max) or 1 %}
+      <ol class="mg-barras">
+        {% for p in g.selecciones.top_dg %}
+        <li><a href="/paises/{{ p.id }}">{{ m.bandera(p.bandera, pais_id=p.id) }}<span class="mg-barras__nombre">{{ p.nombre }}</span></a>
+          <span class="mg-barras__pista"><i style="width: {{ [p.dg * 100 / maxdg, 2] | max }}%"></i></span>
+          <strong>{{ '{:+}'.format(p.dg) }}</strong></li>
+        {% endfor %}
+      </ol>
+    </figure>
+  </div>
+  {{ tarjeta('gPosesion', '¿Tener la pelota sirve?',
+             ('Correlación entre posesión y puntos por partido: r = ' ~ ('%.2f' | format(g.selecciones.posesion_r)) ~ '. ' ~ ('Prácticamente nula: dominar la pelota no asegura ganar.' if (g.selecciones.posesion_r | abs) < 0.2 else ('Hay relación: quien tiene la pelota suma más.' if g.selecciones.posesion_r > 0 else 'Relación inversa: los que ceden la pelota suman más.'))) if g.selecciones.posesion_r is not none else 'Todavía no hay datos suficientes.', 300) }}
+  {{ tarjeta('gAficionados', 'La fiebre de los hinchas', 'Aficionados de las 5 selecciones más populares, partido a partido.', 300) }}
+</div>
+
+<!-- JUGADORES -->
+<h2 class="vivo-titulo" id="jugadores"><i class="bi bi-person-fill text-info"></i>Jugadores</h2>
+<div class="row g-3 mb-4">
+  {{ tarjeta('gCarrera', 'La carrera por la Bota de Oro', 'Goles acumulados de los 5 máximos goleadores a lo largo del torneo.', 320, 'col-12') }}
+  {{ tarjeta('gTipos', 'Cómo llegan los goles', g.jugadores.suplentes ~ ' goles (' ~ ((g.jugadores.suplentes * 100 / (g.jugadores.total_goles or 1)) | round | int) ~ '%) los metieron jugadores que entraron desde el banco.', 260, 'col-12 col-md-6 col-xl-4') }}
+  {{ tarjeta('gSectores', 'Goles por zona del campo', '¿Quién la mete? Por la posición del goleador.', 260, 'col-12 col-md-6 col-xl-4') }}
+  {{ tarjeta('gEdades', 'Goles por edad', 'Goles según la edad del goleador.', 260, 'col-12 col-xl-4') }}
+</div>
+
+{% if g.estadios.ocupacion | sum(attribute='partidos') >= 30 %}
+<!-- ESTADIOS -->
+<h2 class="vivo-titulo" id="estadios"><i class="bi bi-building text-info"></i>Estadios y clima</h2>
+<div class="row g-3 mb-4">
+  {{ tarjeta('gOcupacion', 'Ocupación de los estadios', 'Cuántos partidos se jugaron con cada nivel de público.', 260) }}
+  {{ tarjeta('gClima', 'Goles según el clima', 'Promedio de goles por condición climática (mínimo 5 partidos).', 260) }}
+</div>
+{% endif %}
+
+<!-- PRONÓSTICOS -->
+<h2 class="vivo-titulo" id="pronosticos"><i class="bi bi-magic text-info"></i>Pronósticos</h2>
+<p class="mg-aviso"><i class="bi bi-info-circle"></i>Modelo prudente: usa el poder de cada selección, pero medido sobre los partidos ya jugados el favorito gana menos de lo que dice el papel, así que las probabilidades son conservadoras. Es una estimación, no una certeza.</p>
+<div class="row g-3 mb-4">
+  <div class="col-12 col-xl-6">
+    <figure class="mg-card">
+      <figcaption><h3>Los próximos partidos</h3><p>Probabilidad de cada resultado según el modelo.</p></figcaption>
+      <div class="mg-leyenda mb-2"><span><b style="background: var(--s1)"></b>Gana el local</span><span><b style="background: var(--neutro)"></b>Empate</span><span><b style="background: var(--s8)"></b>Gana el visitante</span></div>
+      {% for p in g.proximos %}
+      <a href="{% if puede('scouter') %}/scouter/{{ p.id }}{% else %}#{% endif %}" class="mg-partido">
+        <span class="mg-partido__equipos"><span class="text-truncate">{{ m.bandera(p.local_bandera, pais_id=p.local_id) }} {{ p.local }}</span>
+          <small>vs</small><span class="text-truncate text-end">{{ p.visita }} {{ m.bandera(p.visita_bandera, pais_id=p.visita_id) }}</span></span>
+        <span class="mg-reparto mg-reparto--fino" role="img" aria-label="Local {{ p.p_local }}%, empate {{ p.p_empate }}%, visitante {{ p.p_visita }}%">
+          <i style="flex: {{ p.p_local }}; background: var(--s1);"><span>{{ p.p_local }}%</span></i>
+          <i style="flex: {{ p.p_empate }}; background: var(--neutro);"><span>{{ p.p_empate }}%</span></i>
+          <i style="flex: {{ p.p_visita }}; background: var(--s8);"><span>{{ p.p_visita }}%</span></i>
+        </span>
+      </a>
+      {% else %}<p class="text-muted small">No hay partidos programados.</p>{% endfor %}
+    </figure>
+  </div>
+  <div class="col-12 col-xl-6">
+    <figure class="mg-card">
+      {% set t = g.titulo %}
+      <figcaption><h3>Candidatos al título</h3><p>Si el Mundial empezara hoy con las {{ t.cupo }} selecciones de mayor poder: {{ '{:,}'.format(t.simulaciones) }} torneos simulados.</p></figcaption>
+      {% set maxpct = (t.equipos | map(attribute='pct') | max) or 1 %}
+      <ol class="mg-barras mg-barras--titulo" style="--uniforme: {{ t.uniforme * 100 / maxpct }}%;">
+        {% for p in t.equipos %}
+        <li><a href="/paises/{{ p.id }}">{{ m.bandera(p.bandera, pais_id=p.id) }}<span class="mg-barras__nombre">{{ p.nombre }}</span></a>
+          <span class="mg-barras__pista"><i style="width: {{ p.pct * 100 / maxpct }}%"></i><b class="mg-barras__ref" title="Si todas fueran iguales: {{ t.uniforme }}%"></b></span>
+          <strong>{{ '%.1f' | format(p.pct) }}%</strong></li>
+        {% endfor %}
+      </ol>
+      <p class="mg-nota"><span class="mg-ref-muestra"></span>La raya marca el {{ t.uniforme }}% que tendría cada una si todas fueran iguales. Que nadie se despegue mucho es la señal de un Mundial abierto.</p>
+    </figure>
+  </div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const G = {{ g | tojson }};
+    const css = getComputedStyle(document.querySelector('.mg'));
+    const v = n => css.getPropertyValue(n).trim();
+    const SERIE = [1, 2, 3, 4, 5, 6, 7, 8].map(i => v(`--s${i}`));
+    const TINTA = v('--tinta-2'), TENUE = v('--tinta-3'), GRILLA = v('--grilla'), FONDO = v('--superficie'), NEUTRO = v('--neutro');
+    const fmt = n => Number(n).toLocaleString('es');
+    const alfa = (hex, a) => hex + Math.round(a * 255).toString(16).padStart(2, '0');
+
+    // ---- Sistema: tipografía, ejes recesivos y tooltip comunes ----
+    Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+    Chart.defaults.color = TINTA;
+    Chart.defaults.borderColor = GRILLA;
+    Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.animation.duration = 500;
+    Object.assign(Chart.defaults.plugins.tooltip, {
+        backgroundColor: '#0b1220', borderColor: 'rgba(255,255,255,.14)', borderWidth: 1, titleColor: '#f0efec',
+        bodyColor: '#c3c2b7', padding: 10, cornerRadius: 10, boxPadding: 4, usePointStyle: true,
+    });
+    Object.assign(Chart.defaults.plugins.legend.labels, { usePointStyle: true, pointStyle: 'rectRounded', boxWidth: 10, boxHeight: 10, padding: 14 });
+    const ejes = (extra = {}) => ({
+        x: { grid: { display: false }, border: { color: GRILLA }, ticks: { color: TENUE }, ...(extra.x || {}) },
+        y: { grid: { color: GRILLA }, border: { display: false }, ticks: { color: TENUE }, beginAtZero: true, ...(extra.y || {}) },
+    });
+    const barra = (color, extra = {}) => ({ backgroundColor: color, hoverBackgroundColor: color, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 24, ...extra });
+    const linea = (color, extra = {}) => ({ borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+                                            pointHoverBorderWidth: 2, pointHoverBorderColor: FONDO, tension: 0.25, borderJoinStyle: 'round', ...extra });
+    const graficos = {};
+    const crear = (id, config) => { const el = document.getElementById(id); if (el) graficos[id] = new Chart(el, config); };
+
+    // Nombres sobre los puntos destacados de una dispersión
+    const nombresPuntos = {
+        id: 'nombresPuntos',
+        afterDatasetsDraw(chart, _, opts) {
+            if (!opts || !opts.activo) return;
+            const { ctx } = chart;
+            ctx.save(); ctx.font = '600 11px system-ui'; ctx.fillStyle = '#f0efec'; ctx.textBaseline = 'bottom';
+            chart.data.datasets.forEach((ds, i) => {
+                if (!ds.conNombres) return;
+                chart.getDatasetMeta(i).data.forEach((p, j) => ctx.fillText(ds.data[j].nombre, p.x + 7, p.y - 5));
+            });
+            ctx.restore();
+        },
+    };
+    // Línea de referencia (media, mediana) en un eje
+    const referencia = {
+        id: 'referencia',
+        afterDraw(chart, _, opts) {
+            if (!opts || !opts.lineas) return;
+            const { ctx, chartArea: a } = chart;
+            ctx.save(); ctx.strokeStyle = TENUE; ctx.lineWidth = 1; ctx.font = '11px system-ui'; ctx.fillStyle = TENUE;
+            opts.lineas.forEach(l => {
+                const escala = chart.scales[l.eje];
+                const pos = escala.getPixelForValue(l.valor);
+                ctx.beginPath();
+                if (l.eje === 'x') { ctx.moveTo(pos, a.top); ctx.lineTo(pos, a.bottom); } else { ctx.moveTo(a.left, pos); ctx.lineTo(a.right, pos); }
+                ctx.stroke();
+                if (l.texto) l.eje === 'x' ? ctx.fillText(l.texto, pos + 4, a.bottom - 4) : ctx.fillText(l.texto, a.left + 4, pos - 5);
+            });
+            ctx.restore();
+        },
+    };
+    Chart.register(nombresPuntos, referencia);
+
+    // ================= RITMO =================
+    const R = G.ritmo;
+    const nPartidos = R.acumulados.map((_, i) => i + 1);
+    crear('gAcumulados', {
+        type: 'line',
+        data: { datasets: [
+            { ...linea(SERIE[0]), label: 'Goles reales', data: R.acumulados.map((y, i) => ({ x: i + 1, y })) },
+            { ...linea(SERIE[0], { borderDash: [6, 4], pointRadius: 0 }), label: 'Proyección', data: R.proyeccion.map(p => ({ x: p.x, y: p.y })) },
+            { label: 'Rango probable (90%)', data: R.proyeccion.map(p => ({ x: p.x, y: p.max })), borderWidth: 0, pointRadius: 0, backgroundColor: alfa(SERIE[0], 0.14), fill: '+1' },
+            { label: 'mínimo', data: R.proyeccion.map(p => ({ x: p.x, y: p.min })), borderWidth: 0, pointRadius: 0, fill: false },
+        ] },
+        options: {
+            interaction: { mode: 'nearest', axis: 'x', intersect: false },
+            scales: ejes({ x: { type: 'linear', max: R.programados, title: { display: true, text: 'Partido n.º', color: TENUE } } }),
+            plugins: {
+                legend: { labels: { filter: it => it.text !== 'mínimo' } },
+                tooltip: { filter: it => it.dataset.label !== 'mínimo', callbacks: { title: it => `Partido ${it[0].parsed.x}`, label: it => ` ${it.dataset.label}: ${fmt(it.parsed.y)} goles` } },
+            },
+        },
+    });
+    crear('gMovil', {
+        type: 'line',
+        data: { labels: nPartidos, datasets: [{ ...linea(SERIE[0], { fill: true, backgroundColor: alfa(SERIE[0], 0.1) }), label: 'Goles por partido', data: R.media_movil.map((y, i) => i + 1 < R.ventana ? null : y) }] },
+        options: {
+            interaction: { mode: 'index', intersect: false },
+            scales: ejes({ x: { ticks: { color: TENUE, maxTicksLimit: 8 } }, y: { beginAtZero: false } }),
+            plugins: { legend: { display: false }, referencia: { lineas: [{ eje: 'y', valor: R.media, texto: `Media ${R.media}` }] },
+                       tooltip: { callbacks: { title: it => `Partido ${it[0].label}`, label: it => ` ${it.parsed.y} goles por partido` } } },
+        },
+    });
+    crear('gFranjas', {
+        type: 'bar',
+        data: { labels: G.franjas.map(f => f.franja), datasets: [{ ...barra(SERIE[0]), label: 'Goles', data: G.franjas.map(f => f.goles) }] },
+        options: { scales: ejes(), plugins: { legend: { display: false }, tooltip: { callbacks: { label: it => ` ${fmt(it.parsed.y)} goles (${G.franjas[it.dataIndex].pct}%)` } } } },
+    });
+
+    // Mapa de calor: un tono (azul), de casi-fondo a brillante, el texto se elige por luminancia
+    document.querySelectorAll('.mg-calor__celda').forEach(c => {
+        const n = Number(c.dataset.n), max = Number(c.dataset.max) || 1, t = Math.sqrt(n / max);
+        const de = [19, 35, 61], a = [109, 167, 236];   // #13233d → #6da7ec
+        const rgb = de.map((x, i) => Math.round(x + (a[i] - x) * t));
+        c.style.background = n ? `rgb(${rgb})` : 'transparent';
+        c.style.color = t > 0.55 ? '#0b1220' : '#e2e8f0';
+    });
+
+    // ================= CONFEDERACIONES =================
+    const C = G.confederaciones;
+    crear('gConfAvance', {
+        type: 'bar',
+        data: { labels: C.map(c => `${c.nombre} · ronda ${c.ronda || '—'} de ${c.rondas || '—'}`), datasets: [
+            { ...barra(SERIE[0], { borderSkipped: false, borderRadius: 0 }), label: 'Jugados', data: C.map(c => c.jugados), borderColor: FONDO, borderWidth: { right: 2 } },
+            { ...barra(NEUTRO, { borderSkipped: false, borderRadius: { topRight: 4, bottomRight: 4 } }), label: 'Por jugar', data: C.map(c => c.pendientes) },
+        ] },
+        options: {
+            indexAxis: 'y', scales: { x: { stacked: true, grid: { color: GRILLA }, border: { display: false }, ticks: { color: TENUE } },
+                                      y: { stacked: true, grid: { display: false }, ticks: { color: TINTA } } },
+            plugins: { tooltip: { callbacks: { label: it => ` ${it.dataset.label}: ${fmt(it.parsed.x)} partidos` } } },
+        },
+    });
+    const mediaTorneo = G.resumen.promedio;
+    const porGoles = [...C].sort((a, b) => b.goles_por_partido - a.goles_por_partido);
+    crear('gConfGoles', {
+        type: 'bar',
+        data: { labels: porGoles.map(c => c.nombre), datasets: [{ ...barra(SERIE[0]), label: 'Goles por partido', data: porGoles.map(c => c.goles_por_partido) }] },
+        options: { indexAxis: 'y', scales: { x: { grid: { color: GRILLA }, border: { display: false }, ticks: { color: TENUE }, beginAtZero: true }, y: { grid: { display: false } } },
+                   plugins: { legend: { display: false }, referencia: { lineas: [{ eje: 'x', valor: mediaTorneo, texto: `Media ${mediaTorneo}` }] } } },
+    });
+    const porTarjetas = [...C].sort((a, b) => b.tarjetas_por_partido - a.tarjetas_por_partido);
+    crear('gConfTarjetas', {
+        type: 'bar',
+        data: { labels: porTarjetas.map(c => c.nombre), datasets: [{ ...barra(SERIE[0]), label: 'Tarjetas por partido', data: porTarjetas.map(c => c.tarjetas_por_partido) }] },
+        options: { indexAxis: 'y', scales: { x: { grid: { color: GRILLA }, border: { display: false }, ticks: { color: TENUE }, beginAtZero: true }, y: { grid: { display: false } } },
+                   plugins: { legend: { display: false } } },
+    });
+
+    // ================= SELECCIONES =================
+    const S = G.selecciones;
+    const punto = p => ({ x: p.ataque, y: p.defensa, nombre: p.nombre, pj: p.pj, dg: p.dg });
+    crear('gAtaqueDefensa', {
+        type: 'scatter',
+        data: { datasets: [
+            { label: 'Selecciones', data: S.dispersion.filter(p => !p.destacado).map(punto), backgroundColor: alfa(SERIE[0], 0.55), pointRadius: 4, pointHoverRadius: 7, pointHitRadius: 10, borderColor: FONDO, borderWidth: 1 },
+            { label: 'Las 5 mejores', data: S.dispersion.filter(p => p.destacado).map(punto), backgroundColor: SERIE[1], pointRadius: 6, pointHoverRadius: 8, pointHitRadius: 12, borderColor: FONDO, borderWidth: 2, conNombres: true },
+        ] },
+        options: {
+            layout: { padding: { right: 70 } },
+            scales: {
+                x: { title: { display: true, text: 'Goles a favor por partido →', color: TENUE }, grid: { color: GRILLA }, border: { display: false }, ticks: { color: TENUE }, beginAtZero: true },
+                y: { reverse: true, title: { display: true, text: '← Goles en contra por partido (menos, arriba)', color: TENUE }, grid: { color: GRILLA }, border: { display: false }, ticks: { color: TENUE }, beginAtZero: true },
+            },
+            plugins: {
+                nombresPuntos: { activo: true },
+                referencia: { lineas: [{ eje: 'x', valor: S.mediana_ataque }, { eje: 'y', valor: S.mediana_defensa }] },
+                tooltip: { callbacks: { title: it => it[0].raw.nombre, label: it => [` Mete ${it.raw.x} y recibe ${it.raw.y} por partido`, ` ${it.raw.pj} partidos · DG ${it.raw.dg > 0 ? '+' : ''}${it.raw.dg}`] } },
+            },
+        },
+    });
+    crear('gPosesion', {
+        type: 'scatter',
+        data: { datasets: [{ label: 'Selecciones', data: S.dispersion.map(p => ({ x: p.posesion, y: p.ppp, nombre: p.nombre })), backgroundColor: alfa(SERIE[0], 0.6),
+                             pointRadius: 4, pointHoverRadius: 7, pointHitRadius: 10, borderColor: FONDO, borderWidth: 1 }] },
+        options: {
+            scales: { x: { title: { display: true, text: 'Posesión media (%)', color: TENUE }, grid: { color: GRILLA }, border: { display: false }, ticks: { color: TENUE } },
+                      y: { title: { display: true, text: 'Puntos por partido', color: TENUE }, grid: { color: GRILLA }, border: { display: false }, ticks: { color: TENUE }, beginAtZero: true, max: 3 } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { title: it => it[0].raw.nombre, label: it => ` ${it.raw.x}% de posesión · ${it.raw.y} pts por partido` } } },
+        },
+    });
+    const A = G.aficionados.series;
+    const largoAfic = Math.max(0, ...A.map(s => s.valores.length));
+    crear('gAficionados', {
+        type: 'line',
+        data: { labels: Array.from({ length: largoAfic }, (_, i) => i === 0 ? 'Inicio' : `P${i}`),
+                datasets: A.map((s, i) => ({ ...linea(SERIE[i]), label: s.nombre, data: s.valores, pointRadius: 0 })) },
+        options: {
+            interaction: { mode: 'index', intersect: false },
+            scales: ejes({ y: { beginAtZero: false, ticks: { color: TENUE, callback: x => x >= 1e6 ? (x / 1e6).toFixed(1) + 'M' : Math.round(x / 1000) + 'K' } } }),
+            plugins: { legend: { position: 'bottom' },
+                       tooltip: { callbacks: { label: it => ` ${it.dataset.label}: ${fmt(it.parsed.y)}` } } },
+        },
+    });
+
+    // ================= JUGADORES =================
+    const J = G.jugadores;
+    crear('gCarrera', {
+        type: 'line',
+        data: { labels: Array.from({ length: J.partidos }, (_, i) => i + 1),
+                datasets: J.carrera.map((c, i) => ({ ...linea(SERIE[i], { stepped: true, tension: 0 }), label: `${c.nombre} (${c.pais}) · ${c.goles}`, data: c.valores, goles: c.goles })) },
+        options: {
+            interaction: { mode: 'index', intersect: false },
+            scales: ejes({ x: { ticks: { color: TENUE, maxTicksLimit: 10 }, title: { display: true, text: 'Partido n.º del torneo', color: TENUE } },
+                           y: { ticks: { color: TENUE, precision: 0 } } }),
+            plugins: { legend: { position: 'bottom' },
+                       tooltip: { itemSort: (a, b) => b.parsed.y - a.parsed.y, callbacks: { title: it => `Partido ${it[0].label}`, label: it => ` ${it.dataset.label.split(' · ')[0]}: ${it.parsed.y}` } } },
+        },
+    });
+    const tipos = J.tipos.filter(t => t.goles > 0);
+    crear('gTipos', {
+        type: 'doughnut',
+        data: { labels: tipos.map(t => `${t.tipo} · ${Math.round(t.goles * 100 / J.total_goles)}%`), datasets: [{ data: tipos.map(t => t.goles), backgroundColor: tipos.map((_, i) => SERIE[i]), borderColor: FONDO, borderWidth: 2, hoverOffset: 4 }] },
+        options: { cutout: '68%', plugins: { legend: { position: window.innerWidth < 576 ? 'bottom' : 'right' },
+                   tooltip: { callbacks: { label: it => ` ${it.label.split(' · ')[0]}: ${fmt(it.parsed)} goles` } } } },
+    });
+    crear('gSectores', {
+        type: 'bar',
+        data: { labels: J.sectores.map(s => s.sector), datasets: [{ ...barra(SERIE[0]), label: 'Goles', data: J.sectores.map(s => s.goles) }] },
+        options: { indexAxis: 'y', scales: { x: { grid: { color: GRILLA }, border: { display: false }, ticks: { color: TENUE }, beginAtZero: true }, y: { grid: { display: false } } },
+                   plugins: { legend: { display: false } } },
+    });
+    crear('gEdades', {
+        type: 'bar',
+        data: { labels: J.edades.map(e => e.banda), datasets: [{ ...barra(SERIE[0]), label: 'Goles', data: J.edades.map(e => e.goles) }] },
+        options: { scales: ejes({ x: { title: { display: true, text: 'Años', color: TENUE } } }), plugins: { legend: { display: false } } },
+    });
+
+    // ================= ESTADIOS (si hay datos) =================
+    const E = G.estadios;
+    crear('gOcupacion', {
+        type: 'bar',
+        data: { labels: E.ocupacion.map(o => o.banda), datasets: [{ ...barra(SERIE[0]), label: 'Partidos', data: E.ocupacion.map(o => o.partidos) }] },
+        options: { scales: ejes(), plugins: { legend: { display: false } } },
+    });
+    crear('gClima', {
+        type: 'bar',
+        data: { labels: E.clima.map(c => c.condicion), datasets: [{ ...barra(SERIE[0]), label: 'Goles por partido', data: E.clima.map(c => c.promedio) }] },
+        options: { scales: ejes(), plugins: { legend: { display: false }, tooltip: { callbacks: { label: it => ` ${it.parsed.y} goles (${E.clima[it.dataIndex].partidos} partidos)` } } } },
+    });
+
+    // ================= Vista de tabla de cada gráfico =================
+    function tablaDe(chart) {
+        const ds = chart.data.datasets.filter(d => !['mínimo'].includes(d.label));
+        if (chart.config.type === 'scatter') {
+            const filas = ds.flatMap(d => d.data).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+            const ex = chart.options.scales.x.title.text, ey = chart.options.scales.y.title.text;
+            return `<table><thead><tr><th>Selección</th><th>${ex}</th><th>${ey}</th></tr></thead><tbody>${filas.map(p => `<tr><td>${UI.escapar(p.nombre)}</td><td>${p.x}</td><td>${p.y}</td></tr>`).join('')}</tbody></table>`;
+        }
+        const etiquetas = chart.data.labels || ds[0].data.map(p => p.x);
+        const valor = (d, i) => { const x = d.data[i]; return x === undefined || x === null ? '—' : (typeof x === 'object' ? x.y : x); };
+        const filas = etiquetas.map((l, i) => `<tr><td>${UI.escapar(String(l))}</td>${ds.map(d => `<td>${fmt(valor(d, i))}</td>`).join('')}</tr>`);
+        return `<table><thead><tr><th></th>${ds.map(d => `<th>${UI.escapar(d.label || 'Valor')}</th>`).join('')}</tr></thead><tbody>${filas.join('')}</tbody></table>`;
+    }
+    document.querySelectorAll('[data-tabla]').forEach(b => b.addEventListener('click', () => {
+        const caja = document.getElementById(`tabla-${b.dataset.tabla}`);
+        const chart = graficos[b.dataset.tabla];
+        if (!chart) return;
+        if (caja.classList.contains('d-none')) { caja.innerHTML = tablaDe(chart); }
+        caja.classList.toggle('d-none');
+        b.innerHTML = caja.classList.contains('d-none') ? '<i class="bi bi-table"></i> Ver datos' : '<i class="bi bi-bar-chart"></i> Ocultar datos';
+    }));
+});
+</script>
+{% endblock %}

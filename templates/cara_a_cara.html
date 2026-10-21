@@ -4,90 +4,197 @@
 {% block title %}Cara a Cara - FutbolSim{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-    <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-arrow-left-right text-accent me-2"></i>Cara a Cara</h1>
-    <p class="text-muted mb-0">Historial completo de enfrentamientos entre dos selecciones, en todos los mundiales y eliminatorias.</p>
-</div>
+{#
+  Cara a Cara (services/cara_a_cara_service.py): historial de dos selecciones en todos los mundiales y eliminatorias.
+  Sin selección muestra los clásicos más jugados. Colores como en el resto del sitio: A azul, B rojo.
+#}
+{% macro escudo_lado(pais, lado) -%}
+<span class="cac-escudo cac-escudo--{{ lado }}" id="escudo_{{ lado }}">
+  {% if pais %}{{ m.bandera(pais.bandera, tipo='escudo', pais_id=pais.id) }}{% else %}<i class="bi bi-shield"></i>{% endif %}
+</span>
+{%- endmacro %}
 
-<!-- Selección de países -->
-<form method="get" class="stat-card p-3 mb-4">
-    <div class="row g-2 align-items-end">
-        <div class="col-12 col-md-5">
-            <label class="form-label small text-muted" for="paisA">Selección 1</label>
-            <select class="form-select" id="paisA" name="a" required>
-                <option value="">Elegí un país…</option>
-                {% for p in paises %}<option value="{{ p.id }}" {{ 'selected' if a == p.id }}>{{ p.bandera }} {{ p.nombre }}</option>{% endfor %}
-            </select>
-        </div>
-        <div class="col-12 col-md-5">
-            <label class="form-label small text-muted" for="paisB">Selección 2</label>
-            <select class="form-select" id="paisB" name="b" required>
-                <option value="">Elegí un país…</option>
-                {% for p in paises %}<option value="{{ p.id }}" {{ 'selected' if b == p.id }}>{{ p.bandera }} {{ p.nombre }}</option>{% endfor %}
-            </select>
-        </div>
-        <div class="col-12 col-md-2 d-grid">
-            <button class="btn btn-success fw-bold" type="submit"><i class="bi bi-search me-1"></i>Comparar</button>
-        </div>
+{% set pa = h2h.a if h2h else None %}{% set pb = h2h.b if h2h else None %}
+<!-- ENCABEZADO: el duelo -->
+<form method="get" class="card card-logo-fondo card-logo-fondo--sin-brillo cac-hero mb-4" style="--logo-color: #38bdf8;">
+  <img src="{{ imagen_perfil('historial') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+  <div class="card-body p-3 p-md-4">
+    <span class="cac-sobretitulo">Torneo · historial</span>
+    <h1 class="h2 fw-bold text-white mb-1">Cara a Cara</h1>
+    <p class="text-muted small mb-3">Todos los enfrentamientos entre dos selecciones, en todos los mundiales y eliminatorias.</p>
+    <div class="cac-duelo">
+      <label class="cac-lado cac-lado--a">
+        {{ escudo_lado(pa, 'a') }}
+        <select class="form-select" id="paisA" name="a" required aria-label="Selección 1">
+          <option value="">Elegí un país…</option>
+          {% for p in paises %}<option value="{{ p.id }}" data-bandera="{{ p.bandera }}" {{ 'selected' if a == p.id }}>{{ p.nombre }}</option>{% endfor %}
+        </select>
+      </label>
+      <div class="cac-vs">
+        <span>VS</span>
+        <button type="button" class="cac-intercambiar" id="btnIntercambiar" title="Intercambiar lados" aria-label="Intercambiar lados"><i class="bi bi-arrow-left-right"></i></button>
+      </div>
+      <label class="cac-lado cac-lado--b">
+        {{ escudo_lado(pb, 'b') }}
+        <select class="form-select" id="paisB" name="b" required aria-label="Selección 2">
+          <option value="">Elegí un país…</option>
+          {% for p in paises %}<option value="{{ p.id }}" data-bandera="{{ p.bandera }}" {{ 'selected' if b == p.id }}>{{ p.nombre }}</option>{% endfor %}
+        </select>
+      </label>
     </div>
+    <div class="text-center mt-3"><button class="btn btn-success fw-bold rounded-pill px-5" type="submit"><i class="bi bi-search me-1"></i>Ver historial</button></div>
+  </div>
 </form>
 
 {% if a is not none and b is not none and not h2h %}
-<div class="alert alert-warning">Elegí dos selecciones distintas.</div>
-{% elif h2h %}
-    {% if h2h.total == 0 %}
-    <div class="stat-card p-5 text-center">
-        <div class="display-5 mb-2">🤝</div>
-        <h2 class="h5 text-white fw-bold">{{ m.bandera(h2h.a.bandera) }} {{ h2h.a.nombre }} y {{ m.bandera(h2h.b.bandera) }} {{ h2h.b.nombre }} todavía no se enfrentaron</h2>
-        <p class="text-muted mb-0">Cuando jueguen, su historial va a aparecer acá.</p>
-    </div>
-    {% else %}
-    {% include "partials/cara_a_cara_resumen.html" %}
+<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>Elegí dos selecciones distintas.</div>
 
-    <div class="row g-3 mt-1">
-        <div class="col-12 col-lg-8">
-            <div class="stat-card p-3 h-100">
-                <h2 class="h6 text-uppercase text-secondary fw-bold mb-3">Todos los partidos ({{ h2h.total }})</h2>
-                {% for p in h2h.partidos %}
-                <a href="/juegos/{{ p.id }}" class="d-block text-decoration-none text-reset surface-soft p-2 px-3 mb-2">
-                    <div class="d-flex justify-content-between align-items-center gap-2">
-                        <span class="text-truncate {{ 'fw-bold text-accent' if p.ganador_id == p.local.id }}">{{ m.bandera(p.local.bandera) }} {{ p.local.nombre }}</span>
-                        <span class="fw-bold text-nowrap">{{ p.local.goles }} - {{ p.visitante.goles }}{% if p.penales %} <small class="text-muted">({{ p.penales }} pen.)</small>{% endif %}</span>
-                        <span class="text-truncate text-end {{ 'fw-bold text-accent' if p.ganador_id == p.visitante.id }}">{{ p.visitante.nombre }} {{ m.bandera(p.visitante.bandera) }}</span>
-                    </div>
-                    <small class="text-muted">{{ p.fase }}{% if p.anio_mundial %} · Mundial {{ p.anio_mundial }}{% endif %}{% if p.fecha %} · {{ p.fecha }}{% endif %}</small>
-                </a>
-                {% endfor %}
-            </div>
-        </div>
-        <div class="col-12 col-lg-4 d-flex flex-column gap-3">
-            {% if h2h.mayor_goleada %}{% set mg = h2h.mayor_goleada %}
-            <a href="/juegos/{{ mg.id }}" class="text-decoration-none text-reset">
-                <div class="stat-card card-hover p-3">
-                    <small class="text-secondary text-uppercase fw-semibold">💥 Mayor goleada</small>
-                    <div class="fw-bold text-white mt-1">{{ m.bandera(mg.local.bandera) }} {{ mg.local.nombre }} {{ mg.local.goles }} - {{ mg.visitante.goles }} {{ mg.visitante.nombre }} {{ m.bandera(mg.visitante.bandera) }}</div>
-                    <small class="text-muted">{{ mg.fase }} · diferencia de {{ mg.diferencia }}</small>
-                </div>
-            </a>
-            {% endif %}
-            <div class="stat-card p-3">
-                <small class="text-secondary text-uppercase fw-semibold d-block mb-2">⚽ Goleadores del clásico</small>
-                {% for g in h2h.goleadores %}
-                <div class="d-flex justify-content-between small py-1 border-bottom border-secondary border-opacity-25">
-                    <span>{{ g.nombre }} <span class="text-muted">({{ g.equipo }})</span></span>
-                    <span class="fw-bold">{{ g.goles }}</span>
-                </div>
-                {% else %}
-                <span class="text-muted small">Sin goles registrados.</span>
-                {% endfor %}
-            </div>
-        </div>
+{% elif h2h and h2h.total == 0 %}
+<div class="card card-seccion mb-4"><div class="card-body p-4">
+  <div class="h2h-primero">
+    {{ m.bandera(h2h.a.bandera, tipo='escudo', pais_id=h2h.a.id) }}
+    <div class="text-center">
+      <strong class="d-block text-white fs-5">Todavía no se enfrentaron</strong>
+      <small class="text-muted">{{ h2h.a.nombre }} y {{ h2h.b.nombre }} nunca se cruzaron: cuando jueguen, su historia va a aparecer acá.</small>
     </div>
+    {{ m.bandera(h2h.b.bandera, tipo='escudo', pais_id=h2h.b.id) }}
+  </div>
+</div></div>
+
+{% elif h2h %}
+<!-- BALANCE -->
+<div class="card card-seccion mb-4"><div class="card-body p-3 p-md-4">
+  <div class="h2h-balance cac-balance">
+    <a href="/paises/{{ h2h.a.id }}" class="h2h-balance__lado h2h-balance__lado--local text-decoration-none">
+      <span class="h2h-balance__escudo">{{ m.bandera(h2h.a.bandera, tipo='escudo', pais_id=h2h.a.id) }}</span>
+      <div><strong>{{ h2h.a.ganados }}</strong><small>victoria{{ 's' if h2h.a.ganados != 1 }}<br>{{ h2h.a.nombre }}</small></div>
+    </a>
+    <div class="h2h-balance__centro"><strong>{{ h2h.empates }}</strong><small>empate{{ 's' if h2h.empates != 1 }}<br>{{ h2h.total }} partido{{ 's' if h2h.total != 1 }}</small></div>
+    <a href="/paises/{{ h2h.b.id }}" class="h2h-balance__lado h2h-balance__lado--visita text-decoration-none">
+      <div><strong>{{ h2h.b.ganados }}</strong><small>victoria{{ 's' if h2h.b.ganados != 1 }}<br>{{ h2h.b.nombre }}</small></div>
+      <span class="h2h-balance__escudo">{{ m.bandera(h2h.b.bandera, tipo='escudo', pais_id=h2h.b.id) }}</span>
+    </a>
+  </div>
+  <div class="h2h-barra" role="img" aria-label="{{ h2h.a.nombre }} {{ h2h.pct_a }}%, empate {{ h2h.pct_empate }}%, {{ h2h.b.nombre }} {{ h2h.pct_b }}%">
+    {% if h2h.pct_a %}<span class="h2h-barra__local" style="flex: {{ h2h.pct_a }};">{{ h2h.pct_a }}%</span>{% endif %}
+    {% if h2h.pct_empate %}<span class="h2h-barra__empate" style="flex: {{ h2h.pct_empate }};">{{ h2h.pct_empate }}%</span>{% endif %}
+    {% if h2h.pct_b %}<span class="h2h-barra__visita" style="flex: {{ h2h.pct_b }};">{{ h2h.pct_b }}%</span>{% endif %}
+  </div>
+  {% set top = (h2h.goleadores or [])[0] %}{% set g = h2h.mayor_goleada %}
+  <div class="historial-fichas historial-fichas--4 cac-fichas mt-3">
+    <div class="historial-ficha"><span>Goles</span><strong><b class="resumen-color-local">{{ h2h.a.goles }}</b> - <b class="resumen-color-visitante">{{ h2h.b.goles }}</b></strong></div>
+    <div class="historial-ficha"><span>Goles por partido</span><strong>{{ h2h.promedio_goles }}</strong></div>
+    <div class="historial-ficha"><span>Mayor goleada</span><strong>{% if g %}{{ g.local.goles }}-{{ g.visitante.goles }}{% else %}—{% endif %}</strong>{% if g %}<small class="text-muted text-truncate d-block">{{ g.local.nombre if g.local.goles > g.visitante.goles else g.visitante.nombre }}</small>{% endif %}</div>
+    <div class="historial-ficha"><span>Racha vigente</span>
+      {% set rc = h2h.racha %}
+      <strong>{% if rc %}{{ rc.n }} {{ {'G': 'triunfo', 'P': 'triunfo', 'E': 'empate'}[rc.tipo] }}{{ 's' if rc.n != 1 }}{% else %}—{% endif %}</strong>
+      {% if rc %}<small class="text-muted text-truncate d-block">{{ h2h.a.nombre if rc.tipo == 'G' else (h2h.b.nombre if rc.tipo == 'P' else 'seguidos') }}</small>{% endif %}</div>
+  </div>
+</div></div>
+
+<div class="row g-4">
+  <!-- PARTIDOS -->
+  <div class="col-12 col-xl-8">
+    <h2 class="vivo-titulo"><i class="bi bi-list-ul text-info"></i>Todos los partidos <span class="vivo-contador">{{ h2h.total }}</span></h2>
+    <div class="d-flex flex-column gap-2 mb-4">
+      {% for p in h2h.partidos %}
+      {% set r = 'G' if p.ganador_id == h2h.a.id else ('P' if p.ganador_id == h2h.b.id else 'E') %}
+      <a href="/juegos/{{ p.id }}" class="h2h-partido">
+        <span class="h2h-partido__res h2h-partido__res--{{ r }}" title="{{ {'G': 'Ganó ' ~ h2h.a.nombre, 'P': 'Ganó ' ~ h2h.b.nombre, 'E': 'Empate'}[r] }}">{{ {'G': 'A', 'P': 'B', 'E': 'E'}[r] }}</span>
+        <span class="h2h-partido__equipo">{{ m.bandera(p.local.bandera, pais_id=p.local.id) }}<span class="text-truncate">{{ p.local.nombre }}</span></span>
+        <span class="h2h-partido__marcador">{{ p.local.goles }}<i>-</i>{{ p.visitante.goles }}{% if p.penales %}<small>pen. {{ p.penales }}</small>{% endif %}</span>
+        <span class="h2h-partido__equipo h2h-partido__equipo--visita"><span class="text-truncate">{{ p.visitante.nombre }}</span>{{ m.bandera(p.visitante.bandera, pais_id=p.visitante.id) }}</span>
+        <span class="h2h-partido__meta">{{ p.fase }}{% if p.anio_mundial %} · Mundial {{ p.anio_mundial }}{% endif %}<small>{{ p.fecha }}</small></span>
+      </a>
+      {% endfor %}
+    </div>
+    {% if h2h.total > h2h.partidos | length %}<p class="text-muted small text-center">Mostrando los {{ h2h.partidos | length }} más recientes de {{ h2h.total }}.</p>{% endif %}
+  </div>
+
+  <div class="col-12 col-xl-4">
+    {% if h2h.ultimos %}
+    <h2 class="vivo-titulo"><i class="bi bi-activity text-success"></i>Últimos {{ h2h.ultimos | length }}</h2>
+    <div class="card card-seccion mb-4"><div class="card-body p-3">
+      <div class="cac-forma">
+        {% for p in h2h.ultimos %}
+        {% set r = 'G' if p.ganador_id == h2h.a.id else ('P' if p.ganador_id == h2h.b.id else 'E') %}
+        <a href="/juegos/{{ p.id }}" class="cac-forma__item cac-forma__item--{{ r }}" title="{{ p.local.nombre }} {{ p.local.goles }}-{{ p.visitante.goles }} {{ p.visitante.nombre }} · {{ p.fase }}">
+          {% if r == 'E' %}<i class="bi bi-dash-lg"></i>{% else %}{{ m.bandera((h2h.a if r == 'G' else h2h.b).bandera, pais_id=(h2h.a if r == 'G' else h2h.b).id) }}{% endif %}
+          <small>{{ p.local.goles }}-{{ p.visitante.goles }}</small>
+        </a>
+        {% endfor %}
+      </div>
+      <small class="text-muted d-block mt-2">Del más reciente al más viejo · el escudo es el ganador.</small>
+    </div></div>
     {% endif %}
-{% else %}
-<div class="stat-card p-5 text-center text-muted">
-    <div class="display-5 mb-2">⚔️</div>
-    Elegí dos selecciones para ver su historial.
+
+    {% if g %}
+    <h2 class="vivo-titulo"><i class="bi bi-lightning-charge-fill text-warning"></i>Mayor goleada</h2>
+    <a href="/juegos/{{ g.id }}" class="card card-logo-fondo card-seccion cac-goleada mb-4 text-decoration-none" style="--logo-color: #f59e0b;">
+      <div class="card-body p-3">
+        <div class="cac-goleada__marcador">
+          <span>{{ m.bandera(g.local.bandera, tipo='escudo', pais_id=g.local.id) }}<small>{{ g.local.nombre }}</small></span>
+          <strong>{{ g.local.goles }}<i>-</i>{{ g.visitante.goles }}</strong>
+          <span>{{ m.bandera(g.visitante.bandera, tipo='escudo', pais_id=g.visitante.id) }}<small>{{ g.visitante.nombre }}</small></span>
+        </div>
+        <small class="text-muted d-block text-center mt-1">{{ g.fase }}{% if g.anio_mundial %} · Mundial {{ g.anio_mundial }}{% endif %} · diferencia de {{ g.diferencia }}</small>
+      </div>
+    </a>
+    {% endif %}
+
+    <h2 class="vivo-titulo"><i class="bi bi-dribbble text-success"></i>Goleadores del clásico</h2>
+    <div class="card card-seccion"><div class="card-body p-2">
+      {% for gol in h2h.goleadores %}
+      <a href="{{ '/jugadores/' ~ gol.jugador_id if gol.jugador_id else '#' }}" class="cac-goleador">
+        <span class="cac-goleador__pos">{{ loop.index }}</span>
+        {% if gol.jugador_id %}{{ m.avatar(gol.jugador_id, gol.pais_id) }}{% endif %}
+        <div class="min-w-0 flex-grow-1"><div class="text-white fw-semibold text-truncate">{{ gol.nombre }}</div>
+          <small class="text-muted">{{ gol.equipo }}</small></div>
+        <strong class="cac-goleador__goles">{{ gol.goles }}<small>gol{{ 'es' if gol.goles != 1 }}</small></strong>
+      </a>
+      {% else %}
+      <p class="text-muted small text-center my-3">Sin goles registrados.</p>
+      {% endfor %}
+    </div></div>
+  </div>
 </div>
+
+{% else %}
+<!-- SIN SELECCIÓN: clásicos más jugados -->
+<h2 class="vivo-titulo"><i class="bi bi-fire text-warning"></i>Los clásicos más jugados</h2>
+{% if clasicos %}
+<div class="row g-3 row-cols-1 row-cols-md-2 row-cols-xl-4">
+  {% for c in clasicos %}
+  <div class="col">
+    <a href="/cara-a-cara/?a={{ c.a.id }}&b={{ c.b.id }}" class="cac-clasico">
+      <div class="cac-clasico__escudos">
+        {{ m.bandera(c.a.bandera, tipo='escudo', pais_id=c.a.id) }}<span>VS</span>{{ m.bandera(c.b.bandera, tipo='escudo', pais_id=c.b.id) }}
+      </div>
+      <div class="text-white fw-bold text-truncate">{{ c.a.nombre }} · {{ c.b.nombre }}</div>
+      <small class="text-muted">{{ c.partidos }} partido{{ 's' if c.partidos != 1 }} · {{ c.goles }} gol{{ 'es' if c.goles != 1 }}</small>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+{{ m.estado_vacio('bi-arrow-left-right', 'Todavía no hay partidos jugados', 'Cuando se jueguen, acá vas a ver los cruces más repetidos.') }}
 {% endif %}
+{% endif %}
+
+<script>
+    (() => {
+        const selA = document.getElementById('paisA'), selB = document.getElementById('paisB');
+        const pintar = (sel, lado) => {
+            const op = sel.selectedOptions[0], caja = document.getElementById(`escudo_${lado}`);
+            caja.innerHTML = sel.value ? UI.bandera(op.dataset.bandera || '', { id: Number(sel.value), tipo: 'escudo' }) : '<i class="bi bi-shield"></i>';
+        };
+        selA.addEventListener('change', () => pintar(selA, 'a'));
+        selB.addEventListener('change', () => pintar(selB, 'b'));
+        document.getElementById('btnIntercambiar').addEventListener('click', () => {
+            [selA.value, selB.value] = [selB.value, selA.value];
+            pintar(selA, 'a'); pintar(selB, 'b');
+            if (selA.value && selB.value) selA.form.submit();
+        });
+    })();
+</script>
 {% endblock %}

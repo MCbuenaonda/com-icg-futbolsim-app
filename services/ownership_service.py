@@ -406,3 +406,101 @@ def _abonar_puntos_dueno(user_id: Any, pais_id: int, monto: int, tipo: str) -> N
             "album_synergy_applied": False,
             "created_at": datetime.now()
         })
+
+
+# ==========================================
+# Datos para las vistas /selecciones/mercado y /selecciones/portafolio
+# ==========================================
+def _contexto_paises(ids: List[int]) -> Dict[int, dict]:
+    """
+    Lo que hace falta para decidir una compra/venta, por país: ranking, aficionados, estado en el Mundial activo
+    (en competencia y en qué fase / clasificado / eliminado / no participa), récord del torneo y próximo partido.
+    """
+    ids = list(ids)
+    paises = {p["id"]: p for p in db['paises'].find({"id": {"$in": ids}}, {"id": 1, "aficionados": 1, "estadisticas.rankin": 1, "siglas": 1})}
+    inter = {d["id"]: d for d in db['internacional'].find({"id": {"$in": ids}}, {"id": 1, "fase_eliminatoria": 1, "estado": 1, "estadisticas": 1})}
+    fases = {f["id"]: f.get("nombre", "") for f in db['fases'].find({}, {"id": 1, "nombre": 1})}
+    mundial = db['mundiales'].find_one({"activo": True}, {"_id": 1})
+    proximos: Dict[int, dict] = {}
+    if mundial and inter:
+        for j in db['juegos'].find({"mundial_id": str(mundial["_id"]), "estado": "creado",
+                                    "$or": [{"equipo_local.id": {"$in": ids}}, {"equipo_visitante.id": {"$in": ids}}]},
+                                   {"equipo_local": 1, "equipo_visitante": 1, "fecha": 1, "hora": 1}).sort([("fecha", 1), ("hora", 1)]):
+            for lado, otro in (("equipo_local", "equipo_visitante"), ("equipo_visitante", "equipo_local")):
+                pid = (j.get(lado) or {}).get("id")
+                if pid in ids and pid not in proximos:
+                    rival = j.get(otro) or {}
+                    proximos[pid] = {"id": str(j["_id"]), "rival": rival.get("nombre"), "rival_bandera": rival.get("bandera"),
+                                     "rival_id": rival.get("id"), "local": lado == "equipo_local"}
+    salida = {}
+    for pid in ids:
+        p, i = paises.get(pid, {}), inter.get(pid)
+        if not i:
+            estado = {"codigo": "fuera", "texto": "No juega el Mundial"}
+        elif str(i.get("estado") or "").startswith("ELIMINADO"):
+            estado = {"codigo": "eliminado", "texto": "Eliminada"}
+        elif "CALIFICADO_MUNDIAL" in str(i.get("estado") or ""):
+            estado = {"codigo": "clasificado", "texto": "Clasificada al Mundial"}
+        else:
+            estado = {"codigo": "activo", "texto": fases.get(i.get("fase_eliminatoria"), "En competencia")}
+        e = (i or {}).get("estadisticas") or {}
+        salida[pid] = {
+            "rankin": (p.get("estadisticas") or {}).get("rankin"), "aficionados": p.get("aficionados", 0), "estado": estado,
+            "record": {"g": e.get("juegos_ganados", 0), "e": e.get("juegos_empatados", 0), "p": e.get("juegos_perdidos", 0),
+                       "pj": e.get("juegos_jugados", 0), "gf": e.get("goles_favor", 0), "gc": e.get("goles_contra", 0)},
+            "proximo": proximos.get(pid),
+        }
+    return salida
+
+
+def _estampas_pais(user_id: Any) -> set:
+    album = db['user_albums'].find_one({"user_id": ObjectId(str(user_id))}, {"owned_paises": 1}) or {}
+    return set(album.get("owned_paises") or [])
+
+
+def obtener_mercado_vista(user_id: str) -> dict:
+    """Mercado enriquecido: cada selección libre con su contexto deportivo, la variación de su valor y la sinergia de álbum."""
+    selecciones = obtener_mercado()
+    contexto = _contexto_paises([s["pais_id"] for s in selecciones])
+    estampas = _estampas_pais(user_id)
+    for s in selecciones:
+        s.update(contexto.get(s["pais_id"], {}))
+        s["variacion"] = round((s["valor"] / VALOR_INICIAL_PAIS - 1) * 100)
+        s["sinergia"] = s["pais_id"] in estampas
+    saldo = (db['usuarios'].find_one({"_id": ObjectId(str(user_id))}, {"monto": 1}) or {}).get("monto", 0)
+    mias = db['team_ownerships'].count_documents({"user_id": ObjectId(str(user_id)), "status": ESTADO_INVERSION_ACTIVO})
+    return {"selecciones": selecciones, "saldo": saldo, "mias": mias,
+            "reglas": {"dividendo": DIVIDENDO_VICTORIA, "bono_fase": BONO_AVANCE_FASE, "sinergia": MULTIPLICADOR_SINERGIA_ALBUM,
+                       "valor_inicial": VALOR_INICIAL_PAIS}}
+
+
+def obtener_portafolio_vista(user_id: str) -> dict:
+    """Portafolio enriquecido: resumen, cada inversión con su contexto y rentabilidad, y los últimos movimientos."""
+    inversiones = obtener_portafolio(user_id)
+    contexto = _contexto_paises([i["pais_id"] for i in inversiones])
+    estampas = _estampas_pais(user_id)
+    for inv in inversiones:
+        inv.update(contexto.get(inv["pais_id"], {}))
+        dividendos = inv.get("total_dividends_earned", 0) or 0
+        inv["ganancia_total"] = inv["plusvalia"] + dividendos
+        inv["rentabilidad"] = round(inv["ganancia_total"] * 100 / inv["purchase_price"], 1) if inv["purchase_price"] else 0
+        inv["sinergia"] = inv["pais_id"] in estampas
+    inversiones.sort(key=lambda i: -i["current_value"])
+    invertido = sum(i["purchase_price"] for i in inversiones)
+    valor = sum(i["current_value"] for i in inversiones)
+    dividendos = sum(i.get("total_dividends_earned", 0) or 0 for i in inversiones)
+    nombres = {p["id"]: p for p in db['paises'].find({}, {"id": 1, "nombre": 1, "bandera": 1})}
+    etiquetas = {"COMPRA": "Compra", "VENTA": "Venta", "DIVIDENDO": "Dividendo por victoria", "BONO_CLASIFICACION": "Bono por avance de fase",
+                 "SINERGIA_ALBUM": "Sinergia de álbum"}
+    movimientos = []
+    for t in db['ownership_transactions'].find({"user_id": ObjectId(str(user_id))}).sort("created_at", -1).limit(12):
+        p = nombres.get(t.get("pais_id"), {})
+        movimientos.append({"tipo": t.get("type"), "texto": etiquetas.get(t.get("type"), t.get("type")), "pais": p.get("nombre"),
+                            "bandera": p.get("bandera"), "pais_id": t.get("pais_id"), "monto": t.get("amount_points", 0), "fecha": t.get("created_at")})
+    return {
+        "inversiones": inversiones, "movimientos": movimientos,
+        "resumen": {"cantidad": len(inversiones), "invertido": invertido, "valor": valor, "plusvalia": valor - invertido,
+                    "dividendos": dividendos, "ganancia": valor - invertido + dividendos,
+                    "rentabilidad": round((valor - invertido + dividendos) * 100 / invertido, 1) if invertido else 0},
+        "reglas": {"dividendo": DIVIDENDO_VICTORIA, "bono_fase": BONO_AVANCE_FASE, "sinergia": MULTIPLICADOR_SINERGIA_ALBUM},
+    }

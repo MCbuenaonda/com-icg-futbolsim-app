@@ -3,42 +3,208 @@
 {% block title %}Iniciar Sesión - FutbolSim{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-12 col-sm-8 col-md-6 col-lg-4">
-        <div class="card bg-dark text-white shadow-lg border-0 rounded-4 overflow-hidden mt-4">
-            <div class="card-body p-4 p-md-5">
-                <div class="text-center mb-4">
-                    <div class="display-4 mb-2">⚽</div>
-                    <h1 class="h3 fw-bold mb-1">Iniciar Sesión</h1>
-                    <p class="text-muted small mb-0">Entrá a tu cuenta de FutbolSim</p>
-                </div>
+{#
+  Login. El formulario se envía con fetch (cabecera X-Login-Ajax, ver routes/auth_route.login_submit) para animar
+  el resultado: mientras espera, el delantero se prepara; si entra, patea y es GOL (y recién ahí navega); si no,
+  el arquero la ataja y se muestra el error. Sin JavaScript, el formulario funciona como siempre (POST + redirect).
+  Con "reducir movimiento" no hay animación.
+#}
+<div class="login">
+  <!-- Presentación -->
+  <section class="login__hero" aria-hidden="true">
+    <div class="login__luces"></div>
+    <img src="{{ imagen_inicio('copa') }}" alt="" class="login__copa" onerror="this.remove()">
+    <h2 class="login__marca">Futbol<span>Sim</span></h2>
+    <p class="login__lema">Simulá un Mundial completo y jugalo a tu manera.</p>
+    <ul class="login__features">
+      <li><i class="bi bi-trophy-fill"></i>Eliminatorias, grupos y llaves partido a partido</li>
+      <li><i class="bi bi-graph-up-arrow"></i>Invertí en selecciones, sedes y corporativos</li>
+      <li><i class="bi bi-stars"></i>Once Ideal, álbum, quinielas y niveles de socio</li>
+    </ul>
+  </section>
 
-                {% if error %}
-                    <div class="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span>{{ error }}</span>
-                    </div>
-                {% endif %}
+  <!-- Formulario -->
+  <section class="login__panel">
+    <div class="login__card" id="loginCard">
+      <div class="login__balon" aria-hidden="true"><i class="bi bi-dribbble"></i></div>
+      <h1 class="h3 fw-bold text-white text-center mb-1">¡Bienvenido a la cancha!</h1>
+      <p class="text-muted small text-center mb-4">Entrá a tu cuenta de FutbolSim</p>
 
-                <form method="post" action="{{ url_for('login_submit') }}">
-                    <div class="mb-3">
-                        <label for="username" class="form-label small text-uppercase text-muted">Usuario</label>
-                        <input type="text" class="form-control" id="username" name="username" value="{{ username if username else '' }}" autocomplete="username" required autofocus>
-                    </div>
-                    <div class="mb-4">
-                        <label for="password" class="form-label small text-uppercase text-muted">Contraseña</label>
-                        <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" required>
-                    </div>
-                    <button type="submit" class="btn btn-success w-100 fw-bold py-2">
-                        <i class="bi bi-box-arrow-in-right me-1"></i>Ingresar
-                    </button>
-                </form>
+      <div id="loginError" class="login__error {{ '' if error else 'd-none' }}" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i><span>{{ error or '' }}</span>
+      </div>
 
-                <p class="text-center text-muted small mt-4 mb-0">
-                    ¿No tenés cuenta? Pedísela a un administrador.
-                </p>
-            </div>
+      <form method="post" action="{{ url_for('login_submit') }}" id="loginForm" novalidate>
+        <label for="username" class="login__label">Usuario</label>
+        <div class="login__campo">
+          <i class="bi bi-person-fill"></i>
+          <input type="text" id="username" name="username" value="{{ username if username else '' }}" autocomplete="username" required autofocus placeholder="Tu usuario">
         </div>
+        <label for="password" class="login__label">Contraseña</label>
+        <div class="login__campo">
+          <i class="bi bi-lock-fill"></i>
+          <input type="password" id="password" name="password" autocomplete="current-password" required placeholder="Tu contraseña">
+          <button type="button" class="login__ojo" id="verPassword" aria-label="Mostrar contraseña" title="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+        </div>
+        <div class="login__mayus d-none" id="avisoMayus"><i class="bi bi-capslock-fill"></i>Bloq Mayús está activado</div>
+        <button type="submit" class="login__btn" id="btnIngresar">
+          <span>Ingresar a la cancha</span><i class="bi bi-arrow-right-circle-fill"></i>
+        </button>
+      </form>
+      <p class="text-center text-muted small mt-4 mb-0">¿No tenés cuenta? Pedísela a un administrador.</p>
     </div>
+  </section>
 </div>
+
+<!-- ESCENA: penal animado (gol = acceso correcto, atajada = datos incorrectos) -->
+<div class="escena" id="escena" aria-live="assertive" hidden>
+  <div class="escena__marco">
+    <svg viewBox="0 0 600 400" class="escena__svg" role="img" aria-label="Penal">
+      <defs>
+        <linearGradient id="escCesped" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f5132"/><stop offset="1" stop-color="#0b3d26"/></linearGradient>
+        <linearGradient id="escCielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1220"/><stop offset="1" stop-color="#14233d"/></linearGradient>
+        <pattern id="escRed" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M0 0L14 14M14 0L0 14" stroke="rgba(255,255,255,.28)" stroke-width="1.2"/></pattern>
+        <radialGradient id="escFoco" cx=".5" cy="0" r=".9"><stop offset="0" stop-color="rgba(255,255,255,.18)"/><stop offset="1" stop-color="rgba(255,255,255,0)"/></radialGradient>
+      </defs>
+      <rect width="600" height="400" fill="url(#escCielo)"/>
+      <!-- tribuna -->
+      <g opacity=".5">{% for i in range(0, 600, 12) %}<circle cx="{{ i + 6 }}" cy="{{ 70 + (i % 5) }}" r="4" fill="{{ ['#3987e5', '#e66767', '#facc15', '#f0efec', '#22c55e'][(i // 12) % 5] }}"/>{% endfor %}</g>
+      <rect y="78" width="600" height="20" fill="#0b1220" opacity=".7"/>
+      <rect width="600" height="400" fill="url(#escFoco)"/>
+      <!-- césped con franjas y línea del área -->
+      <rect y="250" width="600" height="150" fill="url(#escCesped)"/>
+      {% for i in range(6) %}<rect y="{{ 250 + i * 25 }}" width="600" height="12" fill="rgba(255,255,255,.035)"/>{% endfor %}
+      <path d="M40 300 L560 300" stroke="rgba(255,255,255,.55)" stroke-width="2"/>
+      <path d="M0 392 L600 392" stroke="rgba(255,255,255,.35)" stroke-width="2"/>
+      <!-- arco -->
+      <g class="esc-red" id="escRedGrupo"><rect x="150" y="112" width="300" height="186" fill="url(#escRed)"/></g>
+      <path d="M150 300 L150 110 L450 110 L450 300" fill="none" stroke="#f8fafc" stroke-width="8" stroke-linejoin="round"/>
+      <!-- arquero (de frente) -->
+      <g class="esc-arquero" id="escArquero">
+        <path d="M288 248 L282 296 M312 248 L318 296" stroke="#111827" stroke-width="10" stroke-linecap="round"/>
+        <path d="M282 296 L276 298 M318 296 L324 298" stroke="#f59e0b" stroke-width="8" stroke-linecap="round"/>
+        <rect x="280" y="228" width="40" height="24" rx="6" fill="#111827"/>
+        <rect x="278" y="186" width="44" height="48" rx="12" fill="#f59e0b"/>
+        <text x="300" y="216" text-anchor="middle" font-size="16" font-weight="800" fill="#0b1220" font-family="system-ui">1</text>
+        <path class="esc-brazos" d="M282 196 L256 168 M318 196 L344 168" stroke="#f59e0b" stroke-width="10" stroke-linecap="round"/>
+        <circle cx="254" cy="165" r="9" fill="#a3e635"/><circle cx="346" cy="165" r="9" fill="#a3e635"/>
+        <circle cx="300" cy="172" r="14" fill="#d6a679"/>
+        <path d="M286 168 Q300 150 314 168" fill="#1f2937"/>
+      </g>
+      <!-- pelota (va primero: el delantero queda delante) -->
+      <g class="esc-pelota" id="escPelota">
+        <circle cx="300" cy="360" r="13" fill="#f8fafc" stroke="#1f2937" stroke-width="2"/>
+        <path d="M300 352 L307 357 L304 365 L296 365 L293 357 Z" fill="#1f2937"/>
+      </g>
+      <!-- delantero (de espaldas, con el 10) -->
+      <g class="esc-delantero" id="escDelantero">
+        <g class="esc-pierna-apoyo"><path d="M228 352 L222 392" stroke="#0b1220" stroke-width="12" stroke-linecap="round"/><path d="M222 392 L214 394" stroke="#10b981" stroke-width="9" stroke-linecap="round"/></g>
+        <g class="esc-pierna-pateo"><path d="M250 352 L258 390" stroke="#0b1220" stroke-width="12" stroke-linecap="round"/><path d="M258 390 L268 392" stroke="#10b981" stroke-width="9" stroke-linecap="round"/></g>
+        <rect x="220" y="336" width="40" height="24" rx="7" fill="#f8fafc"/>
+        <rect x="214" y="284" width="52" height="58" rx="14" fill="#10b981"/>
+        <text x="240" y="322" text-anchor="middle" font-size="24" font-weight="900" fill="#f8fafc" font-family="system-ui">10</text>
+        <path d="M216 296 L198 330 M264 296 L282 330" stroke="#10b981" stroke-width="11" stroke-linecap="round"/>
+        <circle cx="240" cy="268" r="17" fill="#8d5a3b"/>
+        <path d="M223 266 Q240 244 257 266 L257 260 Q240 246 223 260 Z" fill="#111827"/>
+      </g>
+    </svg>
+    <div class="escena__texto" id="escenaTexto">
+      <strong></strong><span></span>
+    </div>
+    <div class="escena__confeti" id="escenaConfeti" aria-hidden="true"></div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('loginForm');
+    const card = document.getElementById('loginCard');
+    const btn = document.getElementById('btnIngresar');
+    const errorBox = document.getElementById('loginError');
+    const escena = document.getElementById('escena');
+    const texto = document.getElementById('escenaTexto');
+    const pwd = document.getElementById('password');
+    const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const esperar = ms => new Promise(r => setTimeout(r, ms));
+
+    // Mostrar/ocultar contraseña y aviso de Bloq Mayús
+    document.getElementById('verPassword').addEventListener('click', function () {
+        const ver = pwd.type === 'password';
+        pwd.type = ver ? 'text' : 'password';
+        this.innerHTML = `<i class="bi ${ver ? 'bi-eye-slash' : 'bi-eye'}"></i>`;
+        this.setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña');
+        pwd.focus();
+    });
+    const mayus = document.getElementById('avisoMayus');
+    ['keydown', 'keyup'].forEach(t => pwd.addEventListener(t, e => mayus.classList.toggle('d-none', !(e.getModifierState && e.getModifierState('CapsLock')))));
+
+    function mostrarError(msg) {
+        errorBox.querySelector('span').textContent = msg;
+        errorBox.classList.remove('d-none');
+        card.classList.remove('login__card--tiembla'); void card.offsetWidth; card.classList.add('login__card--tiembla');
+        pwd.value = ''; pwd.focus();
+    }
+
+    function confeti() {
+        const caja = document.getElementById('escenaConfeti');
+        const colores = ['#3987e5', '#facc15', '#22c55e', '#e66767', '#f0efec', '#9085e9'];
+        caja.innerHTML = Array.from({ length: 60 }, (_, i) =>
+            `<i style="left:${Math.random() * 100}%; background:${colores[i % colores.length]}; animation-delay:${Math.random() * 0.4}s; animation-duration:${1.4 + Math.random()}s; --giro:${Math.random() * 720 - 360}deg"></i>`).join('');
+    }
+
+    function cartel(titulo, sub) {
+        texto.querySelector('strong').textContent = titulo;
+        texto.querySelector('span').textContent = sub;
+    }
+
+    form.addEventListener('submit', async function (e) {
+        if (!form.username.value.trim() || !pwd.value) { e.preventDefault(); mostrarError('Completá usuario y contraseña.'); return; }
+        e.preventDefault();
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span><span>Entrando…</span>';
+        errorBox.classList.add('d-none');
+        if (!sinMovimiento) {
+            escena.hidden = false; cartel('', '');
+            escena.className = 'escena escena--espera';
+        }
+        const inicio = performance.now();
+        let datos = null, ok = false;
+        try {
+            const resp = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Login-Ajax': '1' }, credentials: 'same-origin' });
+            datos = await resp.json().catch(() => ({}));
+            ok = resp.ok && datos.ok;
+            if (!ok && resp.status !== 401) datos = { error: datos.detail || 'No se pudo iniciar sesión. Probá de nuevo.' };
+        } catch (err) {
+            datos = { error: 'Sin conexión con el servidor. Probá de nuevo.' };
+        }
+        if (sinMovimiento) {
+            if (ok) { window.location.href = datos.destino; return; }
+            btn.disabled = false; btn.innerHTML = '<span>Ingresar a la cancha</span><i class="bi bi-arrow-right-circle-fill"></i>';
+            mostrarError(datos.error || 'Usuario o contraseña incorrectos.');
+            return;
+        }
+        await esperar(Math.max(0, 700 - (performance.now() - inicio)));   // que la carrera del delantero se vea
+        if (ok) {
+            escena.className = 'escena escena--gol';
+            await esperar(1050);
+            cartel('¡GOOOL!', `Bienvenido, ${datos.nombre || ''}`.trim());
+            confeti();
+            await esperar(1500);
+            escena.classList.add('escena--salida');
+            await esperar(250);
+            window.location.href = datos.destino;
+        } else {
+            escena.className = 'escena escena--atajada';
+            await esperar(1000);
+            cartel('¡ATAJADA!', datos.error || 'Usuario o contraseña incorrectos.');
+            await esperar(1700);
+            escena.classList.add('escena--salida');
+            await esperar(300);
+            escena.hidden = true; escena.className = 'escena';
+            btn.disabled = false; btn.innerHTML = '<span>Ingresar a la cancha</span><i class="bi bi-arrow-right-circle-fill"></i>';
+            mostrarError(datos.error || 'Usuario o contraseña incorrectos.');
+        }
+    });
+});
+</script>
 {% endblock %}

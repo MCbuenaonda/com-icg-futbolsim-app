@@ -97,8 +97,11 @@ def crear_indices():
     print("✅ Índices creados en 'ownership_transactions'")
 
     fantasy_teams = db['fantasy_teams']
-    fantasy_teams.create_index([("user_id", 1), ("fase_id", 1)], unique=True, name="user_fase")
-    fantasy_teams.create_index([("fase_id", 1), ("lineup", 1)], name="fase_lineup")
+    # Once Ideal: uno por usuario y Mundial (ya no por fase; services/fantasy_service.py). Si en la base quedó el
+    # índice único viejo user_fase, no molesta: el equipo nuevo no tiene fase_id (se indexa como null) y hay uno solo
+    # por usuario; restart_mundial borra fantasy_teams.
+    fantasy_teams.create_index([("user_id", 1), ("mundial_id", 1)], name="user_mundial")
+    fantasy_teams.create_index([("mundial_id", 1), ("lineup", 1)], name="mundial_lineup")
     print("✅ Índices creados en 'fantasy_teams'")
 
     fantasy_points_history = db['fantasy_points_history']
@@ -176,6 +179,13 @@ def crear_indices():
     reward_transactions = db['reward_transactions']
     reward_transactions.create_index("user_id", name="user_id")
     print("✅ Índices creados en 'reward_transactions'")
+
+    asistente_consultas = db['asistente_consultas']
+    asistente_consultas.create_index([("user_id", 1), ("fecha", -1)], name="user_fecha")
+    asistente_consultas.create_index([("user_id", 1), ("dia", 1)], name="user_dia")
+    print("✅ Índices creados en 'asistente_consultas'")
+    db['asistente_descartes'].create_index([("user_id", 1), ("dia", 1), ("clave", 1)], name="user_dia_clave")
+    print("✅ Índices creados en 'asistente_descartes'")
 
 
 if __name__ == "__main__":

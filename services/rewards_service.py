@@ -208,3 +208,121 @@ def obtener_daily_status(user_id: str) -> dict:
         "trivia_sesiones_restantes": max(0, MAX_SESIONES_TRIVIA_DIA - sesiones_trivia_hoy),
         "puede_jugar_trivia": sesiones_trivia_hoy < MAX_SESIONES_TRIVIA_DIA
     }
+
+
+# ==========================================
+# Vista /misiones (encabezado, checklist del día, racha, trivia, beca e historial)
+# ==========================================
+# Misiones del día: acciones con XP que se pueden hacer a diario (reglas en config/niveles.py). 'meta' = cuántas
+# veces cuenta por día para tildarla; 'url' a dónde se hace. Se muestran solo las del rol (permiso = REGLAS_XP.modulo).
+MISIONES_DEL_DIA = [
+    {"accion": "CHECKIN",    "titulo": "Hacer el check-in",          "meta": 1, "url": "#checkin"},
+    {"accion": "TRIVIA",     "titulo": "Jugar las 3 trivias",        "meta": 3, "url": "#trivia"},
+    {"accion": "QUINIELA",   "titulo": "Comprar un boleto de quiniela", "meta": 1, "url": "/quinielas/"},
+    {"accion": "ONCE_IDEAL", "titulo": "Ajustar tu Once Ideal",      "meta": 1, "url": "/once-ideal/"},
+    {"accion": "SOBRE",      "titulo": "Abrir un sobre",             "meta": 1, "url": "/album-estampas/sobres"},
+    {"accion": "JUEGO_VIVO", "titulo": "Jugar un partido en vivo",   "meta": 1, "url": "/juegos/"},
+    {"accion": "ASISTENTE",  "titulo": "Consultar al Profe",         "meta": 1, "url": "/asistente/"},
+]
+
+
+def obtener_misiones_vista(user_id: str, permisos: Optional[set] = None) -> Dict[str, Any]:
+    from config.niveles import REGLAS_XP, XP_TRIVIA_BASE, XP_TRIVIA_POR_ACIERTO
+    from services.trivia_service import MAX_SESIONES_TRIVIA_DIA, PREGUNTAS_POR_SESION, PUNTOS_POR_RESPUESTA_CORRECTA
+
+    usuario_oid = ObjectId(user_id)
+    estado = obtener_daily_status(user_id)
+    usuario = db['usuarios'].find_one({"_id": usuario_oid}, {"monto": 1}) or {}
+    hoy = date.today()
+    hoy_str, ayer_str = hoy.isoformat(), (hoy - timedelta(days=1)).isoformat()
+    registro = db['user_daily_rewards'].find_one({"user_id": usuario_oid}) or {}
+
+    # Racha vigente: la guardada se "corta" si el último check-in no fue hoy ni ayer. Si hoy cerró la racha de 5,
+    # el contador ya volvió a 0, pero hoy se muestra completa.
+    ultimo = registro.get("last_checkin_date")
+    racha = registro.get("consecutive_days", 0) if ultimo in (hoy_str, ayer_str) else 0
+    cerro_hoy = ultimo == hoy_str and racha == 0 and registro.get("total_checkins", 0) > 0
+    dias_marcados = DIAS_RACHA_BONO_ESPECIAL if cerro_hoy else racha
+    proximo_dia = None if estado["ya_reclamo_checkin_hoy"] else racha + 1
+    bono_hoy = BONO_CHECKIN_DIARIO + (BONO_RACHA_ESPECIAL if proximo_dia == DIAS_RACHA_BONO_ESPECIAL else 0)
+    checkin = {
+        "racha": racha, "dias_marcados": dias_marcados, "proximo_dia": proximo_dia, "cerro_hoy": cerro_hoy,
+        "bono_hoy": bono_hoy, "total": registro.get("total_checkins", 0), "dias_bono": DIAS_RACHA_BONO_ESPECIAL,
+        "bono_diario": BONO_CHECKIN_DIARIO, "bono_especial": BONO_RACHA_ESPECIAL,
+        "dias": [{"n": d, "hecho": d <= dias_marcados, "hoy": d == proximo_dia or (estado["ya_reclamo_checkin_hoy"] and d == dias_marcados),
+                  "premio": BONO_CHECKIN_DIARIO + (BONO_RACHA_ESPECIAL if d == DIAS_RACHA_BONO_ESPECIAL else 0)}
+                 for d in range(1, DIAS_RACHA_BONO_ESPECIAL + 1)],
+    }
+
+    # Trivia: las sesiones de hoy (las abandonadas también gastan cupo) y el historial completo
+    sesiones_hoy = [{"aciertos": s.get("correct_answers"), "puntos": s.get("points_rewarded", 0),
+                     "completada": s.get("estado") == "COMPLETADA"}
+                    for s in db['trivia_history'].find({"user_id": usuario_oid, "session_date": hoy_str},
+                                                       {"correct_answers": 1, "points_rewarded": 1, "estado": 1}).sort("created_at", 1)]
+    agg = list(db['trivia_history'].aggregate([
+        {"$match": {"user_id": usuario_oid, "estado": "COMPLETADA"}},
+        {"$group": {"_id": None, "sesiones": {"$sum": 1}, "aciertos": {"$sum": "$correct_answers"},
+                    "preguntas": {"$sum": "$questions_asked"}, "puntos": {"$sum": "$points_rewarded"},
+                    "perfectas": {"$sum": {"$cond": [{"$eq": ["$correct_answers", "$questions_asked"]}, 1, 0]}}}}]))
+    t = agg[0] if agg else {"sesiones": 0, "aciertos": 0, "preguntas": 0, "puntos": 0, "perfectas": 0}
+    trivia = {
+        "slots": [sesiones_hoy[i] if i < len(sesiones_hoy) else None for i in range(MAX_SESIONES_TRIVIA_DIA)],
+        "restantes": estado["trivia_sesiones_restantes"], "maximo": MAX_SESIONES_TRIVIA_DIA,
+        "preguntas_por_sesion": PREGUNTAS_POR_SESION, "puntos_por_acierto": PUNTOS_POR_RESPUESTA_CORRECTA,
+        "xp_base": XP_TRIVIA_BASE, "xp_por_acierto": XP_TRIVIA_POR_ACIERTO,
+        "sesiones": t["sesiones"], "puntos": t["puntos"], "perfectas": t["perfectas"],
+        "precision": round(t["aciertos"] * 100 / t["preguntas"]) if t["preguntas"] else None,
+        "puntos_hoy": sum(s["puntos"] or 0 for s in sesiones_hoy),
+    }
+
+    # Beca: cada requisito por separado, para mostrar cuál falta
+    fase_actual = _fase_actual()
+    requisitos = [
+        {"texto": "Saldo en 0", "ok": usuario.get("monto", 0) == 0},
+        {"texto": "Sin selecciones ni sedes activas",
+         "ok": not (db['team_ownerships'].count_documents({"user_id": usuario_oid, "status": "ACTIVO"}, limit=1)
+                    or db['city_ownerships'].count_documents({"user_id": usuario_oid, "status": "ACTIVO"}, limit=1))},
+        {"texto": "Sin quinielas pendientes",
+         "ok": not db['quiniela_usuario'].count_documents({"usuario_id": usuario_oid, "estado": "PENDIENTE"}, limit=1)},
+        {"texto": "No la pediste en esta fase", "ok": registro.get("last_bankruptcy_fase", _SIN_RECLAMO_PREVIO) != fase_actual},
+    ]
+    beca = {"monto": MONTO_BECA_EMERGENCIA, "requisitos": requisitos, "disponible": estado["puede_reclamar_beca_emergencia"]}
+
+    # Misiones del día (XP de hoy por acción) — mismo conteo que niveles_service.obtener_progreso
+    usos: Dict[str, int] = {}
+    xp_hoy = 0
+    for ev in db['xp_eventos'].find({"user_id": usuario_oid, "fecha": hoy_str}, {"accion": 1, "xp": 1}):
+        usos[ev["accion"]] = usos.get(ev["accion"], 0) + 1
+        xp_hoy += ev.get("xp", 0)
+    misiones = []
+    for m in MISIONES_DEL_DIA:
+        regla = REGLAS_XP.get(m["accion"], {})
+        if permisos is not None and regla.get("modulo") not in permisos:
+            continue
+        hechas = min(usos.get(m["accion"], 0), m["meta"])
+        if m["accion"] == "TRIVIA":   # una sesión abandonada no da XP pero gasta el cupo: cuenta como jugada
+            hechas = min(len(sesiones_hoy), m["meta"])
+        xp = regla.get("xp")
+        misiones.append({**m, "hechas": hechas, "completa": hechas >= m["meta"], "icono": regla.get("icono", "bi-star"),
+                         "xp_texto": f"+{xp} XP" if xp else f"+{XP_TRIVIA_BASE}-{XP_TRIVIA_BASE + XP_TRIVIA_POR_ACIERTO * PREGUNTAS_POR_SESION} XP c/u"})
+
+    # Últimos premios: check-ins, beca y trivias completadas
+    premios = [{"fecha": r["created_at"], "monto": r.get("amount_points", 0),
+                "texto": {"CHECKIN": "Check-in diario", "CHECKIN_ESPECIAL": "Check-in + bono de racha",
+                          "BECA_EMERGENCIA": "Beca de emergencia"}.get(r.get("type"), r.get("type")),
+                "tipo": (r.get("type") or "").lower()}
+               for r in db['reward_transactions'].find({"user_id": usuario_oid}).sort("created_at", -1).limit(10)]
+    premios += [{"fecha": s.get("completed_at") or s["created_at"], "monto": s.get("points_rewarded", 0), "tipo": "trivia",
+                 "texto": f"Trivia: {s.get('correct_answers', 0)}/{s.get('questions_asked', PREGUNTAS_POR_SESION)} aciertos"}
+                for s in db['trivia_history'].find({"user_id": usuario_oid, "estado": "COMPLETADA"}).sort("created_at", -1).limit(10)]
+    premios.sort(key=lambda p: p["fecha"], reverse=True)
+
+    puntos_hoy = sum(r.get("amount_points", 0) for r in db['reward_transactions'].find(
+        {"user_id": usuario_oid, "created_at": {"$gte": datetime.combine(hoy, datetime.min.time())}}, {"amount_points": 1}))
+    manana = datetime.combine(hoy + timedelta(days=1), datetime.min.time())
+    return {
+        "estado": estado, "checkin": checkin, "trivia": trivia, "beca": beca, "misiones": misiones,
+        "completas": sum(1 for m in misiones if m["completa"]), "premios": premios[:10],
+        "puntos_hoy": puntos_hoy + trivia["puntos_hoy"], "xp_hoy": xp_hoy,
+        "segundos_reinicio": int((manana - datetime.now()).total_seconds()), "fecha": hoy,
+    }

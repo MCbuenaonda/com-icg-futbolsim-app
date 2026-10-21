@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from services.auth_service import context_usuario_actual
 from services.imagenes_pais_service import GLOBALES_JINJA
-from services.cara_a_cara_service import listar_paises, obtener_cara_a_cara
+from services.cara_a_cara_service import clasicos_destacados, listar_paises, obtener_cara_a_cara
 from services.cuadro_service import obtener_cuadro
 from services.palmares_service import obtener_palmares
 from services.arbitros_service import listar_arbitros, perfil_arbitro, comparar_con_colegas
@@ -32,16 +32,17 @@ logger = logging.getLogger(__name__)
 
 
 @route_cara_a_cara.get("/", response_class=HTMLResponse, name="cara_a_cara")
-async def cara_a_cara(request: Request, a: Optional[int] = None, b: Optional[int] = None):
-    historial = obtener_cara_a_cara(a, b) if a is not None and b is not None else None
+def cara_a_cara(request: Request, a: Optional[int] = None, b: Optional[int] = None):
+    historial = obtener_cara_a_cara(a, b, limite_partidos=40) if a is not None and b is not None else None
     return templates.TemplateResponse(
         request=request, name="cara_a_cara.html",
-        context={"paises": listar_paises(), "a": a, "b": b, "h2h": historial}
+        context={"paises": listar_paises(), "a": a, "b": b, "h2h": historial,
+                 "clasicos": clasicos_destacados() if not historial else []}
     )
 
 
 @route_cuadro.get("/", response_class=HTMLResponse, name="cuadro")
-async def cuadro(request: Request):
+def cuadro(request: Request):
     return templates.TemplateResponse(request=request, name="cuadro.html", context={"cuadro": obtener_cuadro()})
 
 

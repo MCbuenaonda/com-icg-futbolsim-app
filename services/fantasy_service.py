@@ -9,10 +9,9 @@ Decisiones de diseño sobre puntos ambiguos del pedido original:
   'stats_jugadores': se atribuye al último jugador que le dio un pase de campo
   (no despeje) al goleador, siempre que la posesión no se haya perdido en el
   medio (ver 'posible_asistente' en simular_partido_realista).
-- '¿Qué fase está "actual"/"iniciada"?': esta app no tiene una fase global
-  única (cada confederación avanza de fase de forma independiente, ver
-  fecha_service.py). Se define "fase iniciada" como: ya se jugó al menos un
-  partido de esa fase_id (sin importar la confederación) — ver fase_ya_iniciada.
+- No hay una fase global única (cada confederación avanza de fase de forma
+  independiente, ver fecha_service.py): por eso el Once Ideal es por Mundial y
+  el reloj de los cambios son las jornadas fantasy (ver la nota de más abajo).
 - Los puntos fantasy (Once Ideal) se acumulan en 'fantasy_teams.total_points_fase',
   SEPARADO del saldo de puntos gastable (usuarios.monto) — es un puntaje de
   liga fantasy, no moneda. La 'Recompensa Pasiva' del Álbum (20%, caso b) SÍ
@@ -39,21 +38,18 @@ Decisiones de diseño sobre puntos ambiguos del pedido original:
   puramente una preferencia visual de cómo agrupar esas 11 posiciones en 3
   líneas al armar el equipo — cambiar de formación NO invalida jugadores ya
   elegidos, solo reordena en qué línea se muestran.
-- Cambios gratis por fase (a pedido explícito del usuario): 'fase_ya_iniciada'
-  se dispara con el PRIMER partido de ese fase_id en CUALQUIER confederación,
-  pero como cada confederación avanza de fase de forma independiente, eso
-  bloqueaba/penalizaba cambios cuando en la práctica a la mayoría de las
-  confederaciones todavía les quedaban muchos partidos de esa fase por jugar.
-  Para suavizar eso: cada vez que una confederación completa por completo esa
-  fase_id (ver 'refrescar_cambios_gratis_fase', llamada desde
-  routes/simular_route.py en el mismo punto donde ya se dispara
-  'crear_siguiente_fase'), se le RESETEA (no acumula) a 5 la cantidad de
-  cambios gratis disponibles para todos los equipos de esa fase_id. Al guardar
-  una alineación con la fase iniciada, la cantidad de jugadores distintos
-  respecto a la alineación anterior se descuenta de ese crédito mientras
-  alcance; si el usuario cambia más jugadores de los que tiene de crédito
-  gratis en un solo guardado, se cobra la penalización de 20 pts de siempre
-  por ese guardado (y se consume el crédito que quedaba disponible).
+- UN EQUIPO POR MUNDIAL + JORNADAS (rediseño a pedido del usuario): antes el Once Ideal se
+  guardaba por fase_id, pero cada confederación avanza de fase a su ritmo y los partidos de
+  fase 1 y fase 2 se intercalan en el calendario: la vista mostraba un equipo u otro según el
+  próximo partido y cada equipo solo puntuaba en los partidos de su fase. Ahora hay UN equipo
+  por usuario y Mundial ('fantasy_teams.{user_id, mundial_id}'; restart_mundial lo borra) que
+  suma en TODOS los partidos del Mundial. Los cambios se liberan por JORNADA FANTASY (cada
+  PARTIDOS_POR_JORNADA partidos jugados del Mundial, igual para todos): +CAMBIOS_GRATIS_POR_JORNADA
+  cambios gratis por jornada, acumulables hasta TOPE_CAMBIOS_GRATIS (se acreditan al leer, con
+  'jornada_credito'). Cada cambio que exceda los gratis cuesta COSTO_CAMBIO_EXTRA de saldo.
+  Reemplazar a un jugador cuya selección está ELIMINADA (o no juega el Mundial) es siempre
+  gratis y no consume cambios; no se puede sumar un jugador eliminado. Los equipos viejos por
+  fase se migran solos al primer acceso (_equipo_del_mundial).
 - Recompensa en 'monto' sobre los puntos fantasy (a pedido explícito del
   usuario): además de sumar a 'total_points_fase' (puntaje de liga, no
   moneda), los casos a) y c) ahora también acreditan un porcentaje
@@ -69,6 +65,7 @@ Decisiones de diseño sobre puntos ambiguos del pedido original:
   para que el usuario pueda decidir si conviene mantenerlo o cambiarlo.
 """
 import certifi
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from bson import ObjectId
@@ -84,11 +81,13 @@ ORDEN_SECTORES = {"Portero": 0, "Defensa": 1, "Medio": 2, "Delantero": 3}
 
 CANTIDAD_JUGADORES_LINEUP = 11
 MAX_JUGADORES_POR_PAIS = 2
-COSTO_CAMBIO_FASE_INICIADA = 20
 
-# Cantidad de cambios gratis que se otorgan (se resetea a este valor, no se acumula) cada
-# vez que una confederación completa la fase — ver refrescar_cambios_gratis_fase.
-CAMBIOS_GRATIS_POR_VENTANA = 5
+# Jornadas fantasy: el reloj de los cambios es la cantidad de partidos jugados del Mundial (no las
+# fases, que avanzan distinto en cada confederación). Cambios gratis acumulables, como en FPL.
+PARTIDOS_POR_JORNADA = 20
+CAMBIOS_GRATIS_POR_JORNADA = 2
+TOPE_CAMBIOS_GRATIS = 5
+COSTO_CAMBIO_EXTRA = 20   # pts de saldo por CADA cambio que exceda los gratis
 
 # Puntuación base por evento (ver reglas de negocio)
 PUNTOS_GOL = 50
@@ -178,22 +177,98 @@ def obtener_catalogo_posiciones() -> List[dict]:
     ]
 
 
-def fase_ya_iniciada(fase_id: int) -> bool:
-    """Una fase se considera 'iniciada' apenas se jugó el primer partido de esa fase (cualquier confederación)."""
-    return db['juegos'].count_documents({"fase_id": fase_id, "estado": "finalizado"}) > 0
+_cache_jornada = {"hasta": 0.0, "datos": None}
+_cache_eliminados = {"hasta": 0.0, "datos": None}
 
 
-def _serializar_equipo(equipo: dict, fase_iniciada: Optional[bool] = None) -> dict:
+def _mundial_activo_id() -> Optional[str]:
+    mundial = db['mundiales'].find_one({"activo": True}, {"_id": 1})
+    return str(mundial["_id"]) if mundial else None
+
+
+def jornada_actual() -> dict:
+    """
+    Jornada fantasy en curso: cada PARTIDOS_POR_JORNADA partidos jugados del Mundial activo (sin contar el
+    que está en transmisión). {"numero", "jugados", "jugados_en_jornada", "faltan", "mundial_id"}. Caché 30 s.
+    """
+    ahora = time.monotonic()
+    if _cache_jornada["datos"] and ahora < _cache_jornada["hasta"]:
+        return _cache_jornada["datos"]
+    mundial_id = _mundial_activo_id()
+    jugados = db['juegos'].count_documents({"mundial_id": mundial_id, "estado": "finalizado",
+                                            "transmision.estado": {"$ne": "in_progress"}}) if mundial_id else 0
+    en_jornada = jugados % PARTIDOS_POR_JORNADA
+    datos = {"numero": jugados // PARTIDOS_POR_JORNADA + 1, "jugados": jugados, "jugados_en_jornada": en_jornada,
+             "faltan": PARTIDOS_POR_JORNADA - en_jornada, "partidos_por_jornada": PARTIDOS_POR_JORNADA,
+             "pct": round(en_jornada * 100 / PARTIDOS_POR_JORNADA), "mundial_id": mundial_id}
+    _cache_jornada.update(hasta=ahora + 30, datos=datos)
+    return datos
+
+
+def paises_eliminados() -> Dict[int, str]:
+    """
+    {pais_id: motivo} de las selecciones cuyos jugadores ya no pueden sumar puntos en este Mundial:
+    "Eliminado" (internacional.estado ELIMINADO_*) o "No participa" (no figura en 'internacional'). Caché 30 s.
+    """
+    ahora = time.monotonic()
+    if _cache_eliminados["datos"] is not None and ahora < _cache_eliminados["hasta"]:
+        return _cache_eliminados["datos"]
+    en_mundial = {d["id"]: str(d.get("estado") or "") for d in db['internacional'].find({}, {"id": 1, "estado": 1})}
+    datos = {}
+    if en_mundial:   # sin Mundial armado no se marca a nadie
+        for p in db['paises'].find({}, {"id": 1}):
+            if p["id"] not in en_mundial:
+                datos[p["id"]] = "No participa"
+            elif en_mundial[p["id"]].startswith("ELIMINADO"):
+                datos[p["id"]] = "Eliminado"
+    _cache_eliminados.update(hasta=ahora + 30, datos=datos)
+    return datos
+
+
+def _serializar_equipo(equipo: dict) -> dict:
     return {
         "id": str(equipo["_id"]),
         "usuario_id": str(equipo["user_id"]),
-        "fase_id": equipo["fase_id"],
+        "mundial_id": equipo.get("mundial_id"),
+        "fase_id": equipo.get("fase_id"),   # legado: los equipos ya no son por fase
         "lineup": equipo["lineup"],
         "formacion": equipo.get("formacion", FORMACION_DEFAULT),
-        "is_locked": fase_iniciada if fase_iniciada is not None else equipo.get("is_locked", False),
+        "is_locked": False,
         "total_points_fase": equipo.get("total_points_fase", 0),
         "cambios_gratis_disponibles": equipo.get("cambios_gratis_disponibles", 0)
     }
+
+
+def _equipo_del_mundial(usuario_oid: ObjectId) -> Optional[dict]:
+    """
+    El Once Ideal del usuario para el Mundial activo, con los cambios gratis de las jornadas ya acreditados.
+    Migración perezosa (idempotente): si todavía tiene equipos del esquema viejo por fase (sin mundial_id; son del
+    Mundial actual porque restart_mundial los borra), se fusionan en uno: el de la fase más alta como base, con la
+    suma de los puntos de todos.
+    """
+    jornada = jornada_actual()
+    mundial_id = jornada["mundial_id"]
+    equipo = db['fantasy_teams'].find_one({"user_id": usuario_oid, "mundial_id": mundial_id})
+    if not equipo:
+        viejos = list(db['fantasy_teams'].find({"user_id": usuario_oid, "mundial_id": {"$exists": False}}).sort("fase_id", -1))
+        if not viejos:
+            return None
+        equipo = viejos[0]
+        total = sum(v.get("total_points_fase", 0) for v in viejos)
+        db['fantasy_teams'].update_one({"_id": equipo["_id"]}, {"$set": {
+            "mundial_id": mundial_id, "total_points_fase": total, "jornada_credito": jornada["numero"],
+            "cambios_gratis_disponibles": min(TOPE_CAMBIOS_GRATIS, max(CAMBIOS_GRATIS_POR_JORNADA, equipo.get("cambios_gratis_disponibles", 0)))}})
+        if len(viejos) > 1:
+            db['fantasy_teams'].delete_many({"_id": {"$in": [v["_id"] for v in viejos[1:]]}})
+        equipo = db['fantasy_teams'].find_one({"_id": equipo["_id"]})
+    # Cambios gratis de las jornadas que pasaron desde el último crédito (+N por jornada, con tope)
+    pendientes = jornada["numero"] - equipo.get("jornada_credito", jornada["numero"])
+    if pendientes > 0:
+        nuevos = min(TOPE_CAMBIOS_GRATIS, equipo.get("cambios_gratis_disponibles", 0) + pendientes * CAMBIOS_GRATIS_POR_JORNADA)
+        db['fantasy_teams'].update_one({"_id": equipo["_id"], "jornada_credito": equipo.get("jornada_credito")},
+                                       {"$set": {"cambios_gratis_disponibles": nuevos, "jornada_credito": jornada["numero"]}})
+        equipo["cambios_gratis_disponibles"], equipo["jornada_credito"] = nuevos, jornada["numero"]
+    return equipo
 
 
 # ==========================================
@@ -236,24 +311,32 @@ def _validar_alineacion(lineup: List[int]) -> None:
         raise ValueError(f"Faltan jugadores para estas posiciones: {siglas_faltantes}")
 
 
-def set_fantasy_lineup(usuario_id: str, fase_id: int, lineup: List[int], formacion: str = FORMACION_DEFAULT) -> dict:
+def calcular_cambios(lineup_anterior: List[int], lineup_nuevo: List[int], cambios_gratis: int) -> dict:
     """
-    Valida y guarda el Once Ideal del usuario para una fase.
+    Desglose de un guardado (lógica pura salvo la consulta de países): los que salen de un país eliminado se
+    reemplazan gratis; el resto consume cambios gratis; lo que sobra es 'extra' y cuesta COSTO_CAMBIO_EXTRA c/u.
+    """
+    salientes = set(lineup_anterior) - set(lineup_nuevo)
+    eliminados = paises_eliminados()
+    pais_de = {j["id"]: j.get("pais_id") for j in db['jugadores'].find({"id": {"$in": list(salientes)}}, {"id": 1, "pais_id": 1})} if salientes else {}
+    gratis_eliminados = sum(1 for j in salientes if pais_de.get(j) in eliminados)
+    normales = len(salientes) - gratis_eliminados
+    usados = min(normales, cambios_gratis)
+    extra = normales - usados
+    return {"total": len(salientes), "gratis_eliminados": gratis_eliminados, "usados": usados, "extra": extra,
+            "costo": extra * COSTO_CAMBIO_EXTRA, "cambios_gratis_restantes": cambios_gratis - usados}
 
-    Si ya existía una alineación para esa fase Y la fase ya se empezó a jugar (en
-    cualquier confederación), la cantidad de jugadores que cambiaron respecto a la
-    alineación anterior se descuenta del crédito de cambios gratis del equipo
-    ('cambios_gratis_disponibles' — se resetea a CAMBIOS_GRATIS_POR_VENTANA cada vez que
-    una confederación completa esa fase, ver refrescar_cambios_gratis_fase). Si la cantidad
-    de cambios excede el crédito disponible, se cobra la penalización plana de siempre
-    (COSTO_CAMBIO_FASE_INICIADA) por todo el guardado, y se consume el crédito que quedaba.
 
-    'formacion' es solo la preferencia visual de agrupamiento (ver nota de
-    diseño arriba) — no afecta la validación, que es la misma para las 3.
+def set_fantasy_lineup(usuario_id: str, lineup: List[int], formacion: str = FORMACION_DEFAULT) -> dict:
+    """
+    Valida y guarda el Once Ideal del usuario para el Mundial activo (un solo equipo, suma en todas las fases).
+    Armarlo por primera vez es gratis. Después, cada guardado se desglosa con calcular_cambios: los reemplazos
+    de jugadores eliminados son gratis, el resto consume los cambios gratis de las jornadas y cada cambio extra
+    cobra COSTO_CAMBIO_EXTRA de saldo (atómico). No se puede SUMAR un jugador de una selección eliminada.
+    'formacion' es solo la preferencia visual de agrupamiento (ver nota de diseño arriba).
     Lanza ValueError con un mensaje descriptivo si alguna validación falla.
     """
     _validar_alineacion(lineup)
-
     if formacion not in FORMACIONES_GRANULARES:
         formacion = FORMACION_DEFAULT
 
@@ -262,114 +345,58 @@ def set_fantasy_lineup(usuario_id: str, fase_id: int, lineup: List[int], formaci
     if not usuario or not usuario.get("activo", True):
         raise ValueError("Usuario no encontrado o inactivo")
 
-    equipo_existente = db['fantasy_teams'].find_one({"user_id": usuario_oid, "fase_id": fase_id})
-    iniciada = fase_ya_iniciada(fase_id)
+    jornada = jornada_actual()
+    if not jornada["mundial_id"]:
+        raise ValueError("No hay un Mundial activo")
+    equipo = _equipo_del_mundial(usuario_oid)
+    anteriores = set(equipo["lineup"]) if equipo else set()
 
-    cambios_gratis_restantes = equipo_existente.get("cambios_gratis_disponibles", 0) if equipo_existente else 0
+    # No se puede sumar un jugador que ya no juega (los que ya estaban se pueden mantener hasta cambiarlos)
+    eliminados = paises_eliminados()
+    entrantes = [j for j in lineup if j not in anteriores]
+    if entrantes:
+        bloqueados = [j for j in db['jugadores'].find({"id": {"$in": entrantes}}, {"nombre": 1, "pais_id": 1}) if j.get("pais_id") in eliminados]
+        if bloqueados:
+            raise ValueError("No podés sumar jugadores de selecciones que ya no juegan el Mundial: "
+                             + ", ".join(f"{j.get('nombre')} ({eliminados[j['pais_id']].lower()})" for j in bloqueados))
 
-    if equipo_existente and iniciada:
-        cantidad_cambios = len(set(equipo_existente["lineup"]) - set(lineup))
+    if not equipo:
+        nuevo = {"user_id": usuario_oid, "mundial_id": jornada["mundial_id"], "lineup": lineup, "formacion": formacion,
+                 "total_points_fase": 0, "cambios_gratis_disponibles": CAMBIOS_GRATIS_POR_JORNADA, "jornada_credito": jornada["numero"],
+                 "created_at": datetime.now()}
+        nuevo["_id"] = db['fantasy_teams'].insert_one(nuevo).inserted_id
+        desglose = {"total": 0, "gratis_eliminados": 0, "usados": 0, "extra": 0, "costo": 0, "cambios_gratis_restantes": CAMBIOS_GRATIS_POR_JORNADA}
+        equipo = nuevo
+    else:
+        desglose = calcular_cambios(equipo["lineup"], lineup, equipo.get("cambios_gratis_disponibles", 0))
+        if desglose["costo"]:
+            cobro = db['usuarios'].update_one({"_id": usuario_oid, "monto": {"$gte": desglose["costo"]}},
+                                              {"$inc": {"monto": -desglose["costo"]}})
+            if cobro.modified_count == 0:
+                raise ValueError(f"Saldo insuficiente: {desglose['extra']} cambio(s) extra cuestan {desglose['costo']} pts "
+                                 f"({COSTO_CAMBIO_EXTRA} c/u)")
+        db['fantasy_teams'].update_one({"_id": equipo["_id"]}, {"$set": {
+            "lineup": lineup, "formacion": formacion, "cambios_gratis_disponibles": desglose["cambios_gratis_restantes"]}})
+        equipo.update(lineup=lineup, formacion=formacion, cambios_gratis_disponibles=desglose["cambios_gratis_restantes"])
 
-        if cantidad_cambios <= cambios_gratis_restantes:
-            # Cubierto por el crédito de cambios gratis de la fase: no se cobra penalización.
-            cambios_gratis_restantes -= cantidad_cambios
-        else:
-            if usuario.get("monto", 0) < COSTO_CAMBIO_FASE_INICIADA:
-                raise ValueError(
-                    f"Saldo insuficiente para pagar la penalización de {COSTO_CAMBIO_FASE_INICIADA} pts "
-                    f"por cambiar la alineación con la fase ya iniciada"
-                )
-            descuento = db['usuarios'].update_one(
-                {"_id": usuario_oid, "monto": {"$gte": COSTO_CAMBIO_FASE_INICIADA}},
-                {"$inc": {"monto": -COSTO_CAMBIO_FASE_INICIADA}}
-            )
-            if descuento.modified_count == 0:
-                raise ValueError(
-                    f"Saldo insuficiente para pagar la penalización de {COSTO_CAMBIO_FASE_INICIADA} pts "
-                    f"por cambiar la alineación con la fase ya iniciada"
-                )
-            cambios_gratis_restantes = 0
-
-    if equipo_existente:
-        db['fantasy_teams'].update_one(
-            {"_id": equipo_existente["_id"]},
-            {"$set": {
-                "lineup": lineup, "formacion": formacion, "is_locked": iniciada,
-                "cambios_gratis_disponibles": cambios_gratis_restantes
-            }}
-        )
-        equipo_existente["lineup"] = lineup
-        equipo_existente["formacion"] = formacion
-        equipo_existente["cambios_gratis_disponibles"] = cambios_gratis_restantes
-        return _serializar_equipo(equipo_existente, fase_iniciada=iniciada)
-
-    nuevo_equipo = {
-        "user_id": usuario_oid,
-        "fase_id": fase_id,
-        "lineup": lineup,
-        "formacion": formacion,
-        "is_locked": iniciada,
-        "total_points_fase": 0,
-        "cambios_gratis_disponibles": 0,
-        "created_at": datetime.now()
-    }
-    resultado = db['fantasy_teams'].insert_one(nuevo_equipo)
-    nuevo_equipo["_id"] = resultado.inserted_id
-
-    # XP de niveles (nunca lanza): una vez por fase y por Mundial
-    niveles_service.otorgar_xp(usuario_oid, "ONCE_IDEAL", niveles_service.ref_mundial("fase", fase_id))
+    # XP de niveles (nunca lanza): armar el equipo o ajustarlo, una vez por jornada
+    if not anteriores or desglose["total"]:
+        niveles_service.otorgar_xp(usuario_oid, "ONCE_IDEAL", niveles_service.ref_mundial("jornada", jornada["numero"]))
     niveles_service.otorgar_logro(usuario_oid, "PRIMER_ONCE_IDEAL")
-    return _serializar_equipo(nuevo_equipo, fase_iniciada=iniciada)
+    return {**_serializar_equipo(equipo), "cambios": desglose}
 
 
-def refrescar_cambios_gratis_fase(fase_id: int) -> None:
-    """
-    Se llama cuando una confederación completa por completo una fase (ver
-    routes/simular_route.py, mismo punto donde se dispara crear_siguiente_fase).
-    Resetea (NO acumula) a CAMBIOS_GRATIS_POR_VENTANA el crédito de cambios gratis de
-    TODOS los equipos fantasy de esa fase_id, sin importar cuánto crédito les quedaba.
-    """
-    db['fantasy_teams'].update_many(
-        {"fase_id": fase_id},
-        {"$set": {"cambios_gratis_disponibles": CAMBIOS_GRATIS_POR_VENTANA}}
-    )
-
-
-def obtener_alineacion(usuario_id: str, fase_id: int) -> Optional[dict]:
-    equipo = db['fantasy_teams'].find_one({"user_id": ObjectId(usuario_id), "fase_id": fase_id})
-    if not equipo:
-        return None
-    return _serializar_equipo(equipo, fase_iniciada=fase_ya_iniciada(fase_id))
-
-
-def obtener_equipo_mas_reciente_anterior(usuario_id: str, fase_id_actual: int) -> Optional[dict]:
-    """
-    Busca el equipo fantasy MÁS RECIENTE (mayor fase_id) que el usuario haya guardado en una
-    fase ANTERIOR a 'fase_id_actual'. Sirve para el "carry-over" del Once Ideal entre fases.
-
-    Por qué hace falta: la fase "actual" del módulo Fantasy (ver routes/fantasy_route.py
-    ::fantasy_home) se recalcula en CADA visita a partir del próximo partido pendiente de TODO
-    el torneo, combinando las 6 confederaciones -- y como cada una avanza de fase a su propio
-    ritmo, ese número avanza apenas CUALQUIERA de ellas completa una fase, no solo la del
-    usuario. Un usuario puede volver a la página después de haber armado su equipo y encontrar
-    que la fase "actual" ya avanzó más allá de la fase en la que armó su Once Ideal -- sin este
-    carry-over, 'obtener_alineacion' para la fase nueva no encuentra nada y el usuario ve una
-    alineación completamente vacía, aunque su equipo anterior sigue intacto en 'fantasy_teams'
-    (nada en el flujo normal de avance de fase borra esos documentos, solo restart_mundial()).
-    """
-    equipo = db['fantasy_teams'].find_one(
-        {"user_id": ObjectId(usuario_id), "fase_id": {"$lt": fase_id_actual}},
-        sort=[("fase_id", -1)]
-    )
-    if not equipo:
-        return None
-    return _serializar_equipo(equipo)
+def obtener_alineacion(usuario_id: str, fase_id: Optional[int] = None) -> Optional[dict]:
+    """Once Ideal del usuario para el Mundial activo ('fase_id' se ignora: se mantiene por compatibilidad de la API)."""
+    equipo = _equipo_del_mundial(ObjectId(usuario_id))
+    return _serializar_equipo(equipo) if equipo else None
 
 
 def _enriquecer_jugadores(jugadores: List[dict]) -> List[dict]:
     ids_paises = list({j["pais_id"] for j in jugadores})
     nombres_paises = {p["id"]: p["nombre"] for p in db['paises'].find({"id": {"$in": ids_paises}}, {"id": 1, "nombre": 1})}
     mapa_posiciones = _mapa_posiciones()
+    eliminados = paises_eliminados()
 
     resultado = []
     for j in jugadores:
@@ -388,6 +415,9 @@ def _enriquecer_jugadores(jugadores: List[dict]) -> List[dict]:
             "pais_nombre": nombres_paises.get(j.get("pais_id"), "?"),
             "overall": j.get("overall", 0),
             "numero": j.get("numero"),  # dorsal, para dibujar el jersey con el número
+            # Su selección ya no juega el Mundial: no suma puntos y reemplazarlo es gratis
+            "eliminado": j.get("pais_id") in eliminados,
+            "motivo_eliminado": eliminados.get(j.get("pais_id")),
         })
     return resultado
 
@@ -465,12 +495,12 @@ def _calcular_puntos_base(stats: dict, goles_local: int, goles_visitante: int) -
 
 def procesar_eventos_jugadores_partido(
     fase_id: int, stats_jugadores: Dict[int, dict], goles_local: int, goles_visitante: int,
-    match_id: Optional[str] = None
+    match_id: Optional[str] = None, mundial_id: Optional[str] = None
 ) -> None:
     """
     Se llama al terminar de simular un partido (ver routes/simular_route.py).
     Por cada jugador que participó, calcula sus puntos base y los distribuye
-    entre los usuarios que lo tengan en su Once Ideal de esta fase y/o en su Álbum:
+    entre los usuarios que lo tengan en su Once Ideal del Mundial (sea cual sea la fase del partido) y/o en su Álbum:
       a) Solo en el Once Ideal          -> 100% de los puntos base -> total_points_fase.
       b) Solo en el Álbum (sin lineup)  -> 20% de los puntos base (pasiva)  -> usuarios.monto.
       c) En AMBOS                       -> 150% (sinergia x1.5)   -> total_points_fase.
@@ -488,6 +518,8 @@ def procesar_eventos_jugadores_partido(
     """
     if not stats_jugadores:
         return
+    mundial_id = mundial_id or _mundial_activo_id()
+    jornada = jornada_actual()["numero"]
 
     for jugador_id, stats in stats_jugadores.items():
         desglose = _desglosar_puntos_base(stats, goles_local, goles_visitante)
@@ -496,7 +528,7 @@ def procesar_eventos_jugadores_partido(
             continue
 
         equipos_con_lineup = list(db['fantasy_teams'].find(
-            {"fase_id": fase_id, "lineup": jugador_id},
+            {"mundial_id": mundial_id, "lineup": jugador_id},
             {"user_id": 1}
         ))
         ids_en_lineup = {eq["user_id"] for eq in equipos_con_lineup}
@@ -507,7 +539,7 @@ def procesar_eventos_jugadores_partido(
         ))
         ids_en_album = {a["user_id"] for a in albumes_con_jugador}
 
-        # Casos a) y c): tiene al jugador en su Once Ideal de esta fase
+        # Casos a) y c): tiene al jugador en su Once Ideal del Mundial
         for equipo in equipos_con_lineup:
             en_album = equipo["user_id"] in ids_en_album
             multiplicador = MULTIPLICADOR_SINERGIA if en_album else 1.0
@@ -523,7 +555,9 @@ def procesar_eventos_jugadores_partido(
             db['fantasy_points_history'].insert_one({
                 "user_id": equipo["user_id"],
                 "fantasy_team_id": equipo["_id"],
-                "fase_id": fase_id,
+                "fase_id": fase_id,   # fase del partido (informativo: el equipo suma en todas)
+                "mundial_id": mundial_id,
+                "jornada": jornada,
                 "match_id": match_id,
                 "jugador_id": jugador_id,
                 "jugador_nombre": stats.get("nombre", "?"),
@@ -536,7 +570,7 @@ def procesar_eventos_jugadores_partido(
                 "created_at": datetime.now()
             })
 
-        # Caso b): tiene la estampa pero NO tiene lineup con este jugador en esta fase.
+        # Caso b): tiene la estampa pero NO tiene a este jugador en su Once Ideal.
         # No se registra en 'fantasy_points_history' (no es puntaje fantasy, ver
         # docstring arriba), sino en 'album_passive_rewards' -- únicamente para poder
         # marcar en el Álbum (templates/album_coleccion.html) qué estampas de jugador
@@ -558,10 +592,13 @@ def procesar_eventos_jugadores_partido(
                 })
 
 
-def obtener_historial_puntos_fantasy(usuario_id: str, fase_id: int, limite: int = 50) -> List[dict]:
-    """Historial de eventos que sumaron/restaron 'total_points_fase' para el usuario en esta fase, más recientes primero."""
+def obtener_historial_puntos_fantasy(usuario_id: str, fase_id: Optional[int] = None, limite: int = 50) -> List[dict]:
+    """
+    Historial de lo que sumó el Once Ideal del usuario en el Mundial, más reciente primero. 'fase_id' se ignora
+    (compatibilidad): restart_mundial borra 'fantasy_points_history', así que todo lo guardado es del Mundial actual.
+    """
     registros = db['fantasy_points_history'].find(
-        {"user_id": ObjectId(usuario_id), "fase_id": fase_id}
+        {"user_id": ObjectId(usuario_id)}
     ).sort("created_at", -1).limit(limite)
 
     return [
@@ -584,12 +621,12 @@ def obtener_historial_puntos_fantasy(usuario_id: str, fase_id: int, limite: int 
 # ==========================================
 # Indicador de desempeño del Once Ideal
 # ==========================================
-def obtener_desempeno_lineup(usuario_id: str, fase_id: int, lineup: List[int]) -> Dict[int, dict]:
+def obtener_desempeno_lineup(usuario_id: str, lineup: List[int]) -> Dict[int, dict]:
     """
     Indicador de desempeño por jugador del Once Ideal del usuario, para ayudar a decidir
     si conviene mantenerlo o cambiarlo. Combina dos señales:
       - 'puntos_totales_fase'/'partidos_puntuados': lo que ese jugador ya le sumó al
-        usuario en ESTA fase (de 'fantasy_points_history') — mide el rendimiento fantasy
+        usuario en ESTE Mundial (de 'fantasy_points_history') — mide el rendimiento fantasy
         real, pero solo cuenta partidos donde tuvo algún evento puntuable (gol, asistencia,
         tarjeta, arquería en cero); un jugador titular sin esos eventos no genera entradas.
       - 'rendimiento': el promedio acumulado real de rating de partido del jugador (ver
@@ -602,7 +639,7 @@ def obtener_desempeno_lineup(usuario_id: str, fase_id: int, lineup: List[int]) -
         return {}
 
     pipeline = [
-        {"$match": {"user_id": ObjectId(usuario_id), "fase_id": fase_id, "jugador_id": {"$in": lineup}}},
+        {"$match": {"user_id": ObjectId(usuario_id), "jugador_id": {"$in": lineup}}},
         {"$group": {
             "_id": "$jugador_id",
             "puntos_totales_fase": {"$sum": "$puntos_finales"},

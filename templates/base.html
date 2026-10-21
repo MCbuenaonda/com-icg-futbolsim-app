@@ -70,10 +70,12 @@
                     </li>
                     {% endif %}
 
-                    {% if puede('quinielas', 'selecciones', 'sedes', 'once_ideal', 'album', 'misiones', 'juego_en_vivo', 'ranking_usuarios', 'corporativos') %}
+                    {% if puede('quinielas', 'selecciones', 'sedes', 'once_ideal', 'album', 'misiones', 'juego_en_vivo', 'ranking_usuarios', 'corporativos', 'asistente') %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/quinielas', '/selecciones', '/sedes', '/once-ideal', '/album-estampas', '/misiones', '/ranking', '/corporativo') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Mi Juego</a>
+                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/quinielas', '/selecciones', '/sedes', '/once-ideal', '/album-estampas', '/misiones', '/ranking', '/corporativo', '/asistente') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Mi Juego</a>
                         <ul class="dropdown-menu dropdown-menu-dark">
+                            {% if puede('asistente') %}<li><a class="dropdown-item fw-semibold {{ 'active' if nav_activo('/asistente') }}" href="/asistente/"><i class="bi bi-clipboard-data-fill me-2 text-warning"></i>Preguntale al Profe</a></li>
+                            <li><hr class="dropdown-divider"></li>{% endif %}
                             {% if puede('juego_en_vivo', 'quinielas') %}<li><h6 class="dropdown-header">Predicciones</h6></li>{% endif %}
                             {% if puede('juego_en_vivo') %}<li><a class="dropdown-item" href="/juegos/"><i class="bi bi-controller me-2"></i>Juego en Vivo (elegir país)</a></li>{% endif %}
                             {% if puede('quinielas') %}

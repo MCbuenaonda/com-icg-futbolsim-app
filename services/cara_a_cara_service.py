@@ -64,7 +64,7 @@ def obtener_cara_a_cara(pais_a: int, pais_b: int, limite_partidos: int = 20, exc
     ganados = {pais_a: 0, pais_b: 0}
     empates = 0
     goles = {pais_a: 0, pais_b: 0}
-    goleadores = defaultdict(lambda: {"nombre": None, "equipo": None, "goles": 0})
+    goleadores = defaultdict(lambda: {"nombre": None, "equipo": None, "jugador_id": None, "pais_id": None, "goles": 0})
     mayor_goleada = None
     partidos = []
     for j in juegos:
@@ -80,9 +80,11 @@ def obtener_cara_a_cara(pais_a: int, pais_b: int, limite_partidos: int = 20, exc
             empates += 1
         if gl != gv and (mayor_goleada is None or abs(gl - gv) > mayor_goleada[0]):
             mayor_goleada = (abs(gl - gv), j)
+        id_por_equipo = {local.get("nombre"): local.get("id"), visitante.get("nombre"): visitante.get("id")}
         for g in res.get("goleadores") or []:
             clave = g.get("jugador_id") or g.get("jugador_nombre")
-            goleadores[clave].update({"nombre": g.get("jugador_nombre"), "equipo": g.get("equipo")})
+            goleadores[clave].update({"nombre": g.get("jugador_nombre"), "equipo": g.get("equipo"), "jugador_id": g.get("jugador_id"),
+                                      "pais_id": id_por_equipo.get(g.get("equipo"))})
             goleadores[clave]["goles"] += g.get("goles", 0) or 0
         pl, pv = res.get("penaltis_local") or 0, res.get("penaltis_visitante") or 0
         partidos.append({
@@ -99,6 +101,16 @@ def obtener_cara_a_cara(pais_a: int, pais_b: int, limite_partidos: int = 20, exc
         return {"id": pid, "nombre": p.get("nombre"), "bandera": p.get("bandera") or "", "ganados": ganados[pid], "goles": goles.get(pid, 0)}
 
     total = len(juegos)
+    # Racha vigente desde la óptica de A (partidos ordenados del más reciente al más viejo)
+    racha = None
+    for p in partidos:
+        r = "G" if p["ganador_id"] == pais_a else ("P" if p["ganador_id"] == pais_b else "E")
+        if racha is None:
+            racha = {"tipo": r, "n": 1}
+        elif r == racha["tipo"]:
+            racha["n"] += 1
+        else:
+            break
     goleada = None
     if mayor_goleada:
         diferencia, j = mayor_goleada
@@ -109,8 +121,35 @@ def obtener_cara_a_cara(pais_a: int, pais_b: int, limite_partidos: int = 20, exc
         "pct_a": round(100 * ganados[pais_a] / total) if total else 0,
         "pct_empate": round(100 * empates / total) if total else 0,
         "pct_b": round(100 * ganados[pais_b] / total) if total else 0,
-        "mayor_goleada": goleada,
+        "mayor_goleada": goleada, "racha": racha,
+        "promedio_goles": round((goles.get(pais_a, 0) + goles.get(pais_b, 0)) / total, 2) if total else 0,
+        "ultimo": partidos[0] if partidos else None,
         "goleadores": sorted(goleadores.values(), key=lambda g: g["goles"], reverse=True)[:5],
         "ultimos": partidos[:5],
         "partidos": partidos[:limite_partidos],
     }
+
+
+def clasicos_destacados(limite: int = 8) -> List[dict]:
+    """Los cruces más repetidos de todos los mundiales guardados (para la portada de /cara-a-cara/ sin selección)."""
+    pares = defaultdict(lambda: {"partidos": 0, "goles": 0, "fecha": None})
+    nombres = {}
+    for j in db["juegos"].find({"estado": "finalizado", "transmision.estado": {"$ne": "in_progress"}},
+                               {"equipo_local": 1, "equipo_visitante": 1, "fecha": 1, "resultado.goles_local": 1, "resultado.goles_visitante": 1}):
+        l, v = j.get("equipo_local") or {}, j.get("equipo_visitante") or {}
+        if l.get("id") is None or v.get("id") is None:
+            continue
+        clave = tuple(sorted((l["id"], v["id"])))
+        nombres[l["id"]], nombres[v["id"]] = l, v
+        res = j.get("resultado") or {}
+        par = pares[clave]
+        par["partidos"] += 1
+        par["goles"] += (res.get("goles_local") or 0) + (res.get("goles_visitante") or 0)
+        par["fecha"] = max(par["fecha"] or j.get("fecha"), j.get("fecha")) if j.get("fecha") else par["fecha"]
+    mejores = sorted(pares.items(), key=lambda kv: (-kv[1]["partidos"], -kv[1]["goles"]))[:limite]
+    salida = []
+    for (a, b), datos in mejores:
+        salida.append({"a": {"id": a, "nombre": nombres[a].get("nombre"), "bandera": nombres[a].get("bandera") or ""},
+                       "b": {"id": b, "nombre": nombres[b].get("nombre"), "bandera": nombres[b].get("bandera") or ""},
+                       "partidos": datos["partidos"], "goles": datos["goles"]})
+    return salida

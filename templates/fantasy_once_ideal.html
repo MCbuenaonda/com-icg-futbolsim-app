@@ -8,50 +8,41 @@
     <img src="{{ imagen_perfil('atributos') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
     <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div class="min-w-0">
-            <span class="plantilla-hero__sub" style="--logo-color: #22c55e;">Fantasy · Fase {{ fase_id }}</span>
+            <span class="plantilla-hero__sub" style="--logo-color: #22c55e;">Fantasy · Jornada {{ jornada.numero }}</span>
             <h1 class="h2 fw-bold text-white mb-1">Once Ideal</h1>
-            <p class="text-muted mb-0 small">1 jugador por posición (un solo lateral izquierdo, etc.) y máximo 2 por selección.</p>
+            <p class="text-muted mb-0 small">Un equipo para todo el Mundial: suma en todos los partidos, de cualquier fase y confederación.
+                1 jugador por posición y máximo 2 por selección.</p>
         </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <div class="fixture-kpi"><span>Puntos fantasy</span><strong class="text-success">{{ alineacion.total_points_fase if alineacion else 0 }}</strong></div>
-            {% if fase_iniciada and alineacion %}
-            <div class="fixture-kpi"><span>Cambios gratis</span><strong class="{{ 'text-info' if alineacion.cambios_gratis_disponibles > 0 else 'text-secondary' }}">{{ alineacion.cambios_gratis_disponibles }}</strong></div>
+            {% if alineacion %}
+            <div class="fixture-kpi" title="+{{ reglas.cambios_por_jornada }} por jornada, acumulables hasta {{ reglas.tope }}"><span>Cambios gratis</span><strong class="{{ 'text-info' if alineacion.cambios_gratis_disponibles > 0 else 'text-secondary' }}">{{ alineacion.cambios_gratis_disponibles }}</strong></div>
             {% endif %}
-            {% if fase_iniciada %}
-            <span class="once-estado once-estado--cerrada"><i class="bi bi-lock-fill"></i>Fase iniciada</span>
-            {% else %}
-            <span class="once-estado"><i class="bi bi-unlock-fill"></i>Fase abierta</span>
-            {% endif %}
+            <div class="once-jornada" title="Cada {{ jornada.partidos_por_jornada }} partidos jugados del Mundial empieza una jornada nueva">
+                <span>Jornada {{ jornada.numero }}</span>
+                <div class="once-jornada__barra"><i style="width: {{ jornada.pct }}%"></i></div>
+                <small>faltan {{ jornada.faltan }} partido{{ 's' if jornada.faltan != 1 }} para +{{ reglas.cambios_por_jornada }} cambios</small>
+            </div>
         </div>
     </div>
 </div>
 
-{% if fase_iniciada and alineacion %}
-    {% if alineacion.cambios_gratis_disponibles > 0 %}
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle-fill me-1"></i>
-            Esta fase ya empezó a jugarse en al menos una confederación, pero todavía tenés
-            <strong>{{ alineacion.cambios_gratis_disponibles }} cambios gratis</strong> disponibles (se renuevan
-            cada vez que una confederación termina de jugar esta fase). Si en un mismo guardado cambiás más
-            jugadores de los que tenés de crédito gratis, se cobra la penalización de <strong>20 pts</strong> por ese guardado.
-        </div>
-    {% else %}
-        <div class="alert alert-warning">
-            <i class="bi bi-exclamation-triangle-fill me-1"></i>
-            Esta fase ya empezó a jugarse y no te quedan cambios gratis disponibles. Si modificás tu alineación ahora, se te van a cobrar <strong>20 pts</strong> de penalización.
-        </div>
-    {% endif %}
-{% endif %}
+<div class="once-reglas mb-3">
+    <span><i class="bi bi-arrow-repeat text-info"></i><strong>+{{ reglas.cambios_por_jornada }} cambios gratis</strong> por jornada (máx. {{ reglas.tope }})</span>
+    <span><i class="bi bi-cash-coin text-warning"></i>Cada cambio extra cuesta <strong>{{ reglas.costo_extra }} pts</strong> de saldo</span>
+    <span><i class="bi bi-person-x-fill text-danger"></i>Reemplazar a un jugador <strong>eliminado</strong> es gratis y no gasta cambios</span>
+</div>
 
-{% if equipo_heredado %}
-    <div class="alert alert-primary d-flex align-items-start gap-2">
-        <i class="bi bi-arrow-repeat fs-4"></i>
-        <div>
-            Todavía no armaste un equipo para esta fase — precargamos tu alineación de la
-            <strong>Fase {{ equipo_heredado.fase_id }}</strong> como punto de partida. Revisala y apretá
-            <strong>"Guardar Alineación"</strong> para confirmarla acá (no se guarda nada hasta que lo hagas).
-        </div>
+{% if eliminados_en_once %}
+<div class="alert alert-danger d-flex align-items-start gap-2 once-alerta-eliminados">
+    <i class="bi bi-person-x-fill fs-4"></i>
+    <div>
+        <strong>{{ eliminados_en_once | length }} jugador{{ 'es' if eliminados_en_once | length != 1 }} de tu once ya no suma{{ 'n' if eliminados_en_once | length != 1 }} puntos</strong>
+        porque su selección quedó afuera del Mundial:
+        {% for j in eliminados_en_once %}<span class="once-eliminado-chip">{{ j.nombre }} · {{ j.pais_nombre }} ({{ j.motivo_eliminado | lower }})</span>{% endfor %}
+        <div class="small mt-1">Cambialos sin costo: el reemplazo de un eliminado no gasta tus cambios gratis.</div>
     </div>
+</div>
 {% endif %}
 
 <div id="alertaFantasy" class="alert d-none" role="alert"></div>
@@ -162,7 +153,7 @@
                 {% endfor %}
             </div>
         {% else %}
-            <p class="text-muted text-center mb-0">Todavía no se calcularon puntos fantasy para tu alineación en esta fase — se registran automáticamente cuando se simule un partido de algún jugador tuyo.</p>
+            <p class="text-muted text-center mb-0">Todavía no se calcularon puntos fantasy para tu alineación en este Mundial — se registran automáticamente cuando se simule un partido de algún jugador tuyo.</p>
         {% endif %}
     </div>
 </div>
@@ -191,10 +182,9 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
 
-    const usuarioId = "{{ usuario_actual._id }}";
-    const faseId = {{ fase_id }};
-    const faseIniciada = {{ "true" if fase_iniciada else "false" }};
+    const tieneEquipo = {{ "true" if alineacion else "false" }};
     const cambiosGratisDisponibles = {{ alineacion.cambios_gratis_disponibles if alineacion else 0 }};
+    const COSTO_CAMBIO_EXTRA = {{ reglas.costo_extra }};
     const urlGuardar = "{{ url_for('fantasy_set_lineup') }}";
     const urlBuscar = "{{ url_for('fantasy_buscar_jugadores') }}";
 
@@ -252,14 +242,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const jugador = seleccionados[slot.id];
                 if (jugador) {
                     const desempeno = DESEMPENO_LINEUP[jugador.id];
-                    const titulo = desempeno ? `${ETIQUETA_ESTADO[desempeno.estado] || ''} · Rend. ${desempeno.rendimiento.toFixed(1)} · ${desempeno.puntos_totales_fase} pts fantasy esta fase` : '';
+                    const titulo = jugador.eliminado
+                        ? `${jugador.pais_nombre}: ${(jugador.motivo_eliminado || '').toLowerCase()} — ya no suma puntos. Reemplazarlo es gratis.`
+                        : (desempeno ? `${ETIQUETA_ESTADO[desempeno.estado] || ''} · Rend. ${desempeno.rendimiento.toFixed(1)} · ${desempeno.puntos_totales_fase} pts fantasy en el Mundial` : '');
                     html += `
-                        <div class="once-ficha" title="${UI.escapar(titulo)}">
+                        <div class="once-ficha ${jugador.eliminado ? 'once-ficha--eliminada' : ''}" title="${UI.escapar(titulo)}">
+                            ${jugador.eliminado ? `<span class="once-ficha__eliminado"><i class="bi bi-person-x-fill"></i> ${UI.escapar(jugador.motivo_eliminado || 'Eliminado')}</span>` : ''}
                             <span class="once-ficha__foto">${UI.avatar(jugador.id, jugador.pais_id)}<span class="avatar-dorsal">${UI.escapar(jugador.numero ?? '')}</span>
                                 ${desempeno ? `<span class="once-ficha__estado once-ficha__estado--${desempeno.estado}"></span>` : ''}</span>
                             <button type="button" class="once-ficha__quitar btn-quitar" data-posicion-id="${slot.id}" aria-label="Quitar a ${UI.escapar(jugador.nombre)}" title="Quitar"><i class="bi bi-x"></i></button>
                             <span class="once-ficha__nombre">${UI.escapar(jugador.nombre)}</span>
-                            <span class="once-ficha__meta">${slot.siglas} · ${jugador.overall}${desempeno ? ` · <b>${desempeno.puntos_totales_fase}p</b>` : ''}</span>
+                            <span class="once-ficha__meta">${jugador.eliminado ? '<b class="text-danger">cambio gratis</b>' : `${slot.siglas} · ${jugador.overall}${desempeno ? ` · <b>${desempeno.puntos_totales_fase}p</b>` : ''}`}</span>
                         </div>`;
                 } else {
                     html += `
@@ -308,6 +301,10 @@ document.addEventListener('DOMContentLoaded', function () {
             mostrarAlerta('Ese jugador ya está en tu alineación.', 'warning');
             return;
         }
+        if (jugador.eliminado && !LINEUP_ORIGINAL.includes(jugador.id)) {
+            mostrarAlerta(`${jugador.nombre} no puede sumar puntos: ${jugador.pais_nombre} ${jugador.motivo_eliminado === 'No participa' ? 'no juega el Mundial' : 'quedó eliminada'}.`, 'warning');
+            return;
+        }
         const conteo = conteoPorPais();
         if ((conteo[jugador.pais_id] || 0) >= MAX_POR_PAIS) {
             mostrarAlerta(`Ya tenés ${MAX_POR_PAIS} jugadores de ${jugador.pais_nombre} (máximo por selección).`, 'warning');
@@ -342,15 +339,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Los jugadores de una posición granular ya cubierta se muestran al final y
         // atenuados (no se ocultan: seguís pudiendo elegirlos para reemplazar al titular).
-        const disponibles = jugadores.filter(j => !seleccionados[j.posicion_id]);
-        const repetidos = jugadores.filter(j => seleccionados[j.posicion_id]);
-        const ordenados = disponibles.concat(repetidos);
+        const disponibles = jugadores.filter(j => !seleccionados[j.posicion_id] && !j.eliminado);
+        const repetidos = jugadores.filter(j => seleccionados[j.posicion_id] && !j.eliminado);
+        const eliminados = jugadores.filter(j => j.eliminado);   // al final y deshabilitados: ya no suman
+        const ordenados = disponibles.concat(repetidos, eliminados);
 
         resultadosBusqueda.innerHTML = ordenados.map((j, indice) => {
             const posicionCubierta = !!seleccionados[j.posicion_id];
-            const aviso = posicionCubierta ? '<span class="once-resultado__aviso"><i class="bi bi-arrow-repeat"></i> Reemplaza</span>' : '';
+            const aviso = j.eliminado
+                ? `<span class="once-resultado__aviso once-resultado__aviso--fuera"><i class="bi bi-person-x-fill"></i> ${UI.escapar(j.motivo_eliminado || 'Eliminado')}</span>`
+                : (posicionCubierta ? '<span class="once-resultado__aviso"><i class="bi bi-arrow-repeat"></i> Reemplaza</span>' : '');
             return `
-                <button type="button" class="once-resultado ${posicionCubierta ? 'once-resultado--cubierta' : ''} btn-agregar-jugador" data-indice="${indice}">
+                <button type="button" class="once-resultado ${posicionCubierta ? 'once-resultado--cubierta' : ''} ${j.eliminado ? 'once-resultado--eliminado' : ''} btn-agregar-jugador" data-indice="${indice}"
+                        ${j.eliminado ? `disabled title="${UI.escapar(j.pais_nombre)}: ya no juega el Mundial"` : ''}>
                     <span class="once-resultado__foto">${UI.avatar(j.id, j.pais_id, 'sm')}<span class="avatar-dorsal">${UI.escapar(j.numero ?? '')}</span></span>
                     <span class="once-resultado__info">
                         <strong>${UI.escapar(j.nombre)}</strong>
@@ -404,22 +405,22 @@ document.addEventListener('DOMContentLoaded', function () {
     btnGuardar.addEventListener('click', async function () {
         const lineup = Object.values(seleccionados).flat().map(j => j.id);
 
-        if (faseIniciada && {{ "true" if alineacion else "false" }}) {
-            // Cantidad de jugadores distintos respecto a la alineación con la que se entró a
-            // esta pantalla (misma cuenta que hace el backend en set_fantasy_lineup: jugadores
-            // que estaban antes y ya no están = jugadores nuevos, porque el tamaño es fijo en 11).
-            const cantidadCambios = LINEUP_ORIGINAL.filter(id => !lineup.includes(id)).length;
-
-            if (cantidadCambios > cambiosGratisDisponibles) {
-                if (!await UI.confirmar({ titulo: 'Guardar con penalización',
-                        mensaje: `Vas a cambiar ${cantidadCambios} jugador(es), pero solo tenés ${cambiosGratisDisponibles} cambios gratis disponibles. Se te van a cobrar 20 pts de penalización por este guardado.`,
-                        textoConfirmar: 'Guardar y pagar 20 pts', peligro: true })) {
-                    return;
-                }
-            } else if (cantidadCambios > 0) {
-                if (!await UI.confirmar({ titulo: 'Guardar cambios',
-                        mensaje: `Vas a cambiar ${cantidadCambios} jugador(es), cubierto por tus cambios gratis disponibles (${cambiosGratisDisponibles}).`,
-                        textoConfirmar: 'Guardar' })) {
+        if (tieneEquipo) {
+            // Mismo desglose que services/fantasy_service.calcular_cambios: los que salen de una selección
+            // eliminada se reemplazan gratis; el resto usa cambios gratis; lo que sobra se cobra.
+            const salientes = jugadoresActuales.filter(j => !lineup.includes(j.id));
+            const gratisEliminados = salientes.filter(j => j.eliminado).length;
+            const normales = salientes.length - gratisEliminados;
+            const usados = Math.min(normales, cambiosGratisDisponibles);
+            const extra = normales - usados;
+            if (salientes.length > 0) {
+                const partes = [];
+                if (gratisEliminados) partes.push(`${gratisEliminados} reemplazo(s) de eliminados (gratis)`);
+                if (usados) partes.push(`${usados} con cambios gratis (te quedan ${cambiosGratisDisponibles - usados})`);
+                if (extra) partes.push(`${extra} extra = ${extra * COSTO_CAMBIO_EXTRA} pts de saldo`);
+                if (!await UI.confirmar({ titulo: extra ? 'Guardar con cambios extra' : 'Guardar cambios',
+                        mensaje: `Cambiás ${salientes.length} jugador(es): ${partes.join(' + ')}.`,
+                        textoConfirmar: extra ? `Guardar y pagar ${extra * COSTO_CAMBIO_EXTRA} pts` : 'Guardar', peligro: !!extra })) {
                     return;
                 }
             }
@@ -431,15 +432,16 @@ document.addEventListener('DOMContentLoaded', function () {
         fetch(urlGuardar, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usuario_id: usuarioId, fase_id: faseId, lineup: lineup, formacion: selectFormacion.value })
+            body: JSON.stringify({ lineup: lineup, formacion: selectFormacion.value })
         })
         .then(async resp => {
             const data = await resp.json();
             if (!resp.ok) {
                 throw new Error(data.detail || 'No se pudo guardar la alineación.');
             }
-            mostrarAlerta('¡Alineación guardada!', 'success');
-            UI.refrescarSaldo();   // saldo (si se cobró penalización) y XP de niveles
+            const c = data.cambios || {};
+            mostrarAlerta(c.costo ? `¡Alineación guardada! Se cobraron ${c.costo} pts por ${c.extra} cambio(s) extra.` : '¡Alineación guardada!', 'success');
+            UI.refrescarSaldo();   // saldo (si se cobraron cambios extra) y XP de niveles
             setTimeout(() => window.location.reload(), 1000);
         })
         .catch(err => {
@@ -449,9 +451,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Prellenar con la alineación existente de esta fase, o con la heredada de una fase
-    // anterior si todavía no armaste equipo acá (ver 'equipo_heredado' / carry-over en
-    // routes/fantasy_route.py). La formación guardada es solo la preferencia visual de
+    // Prellenar con la alineación del Mundial (una sola, ver services/fantasy_service.py). La formación guardada es solo la preferencia visual de
     // agrupamiento — cambiarla después no invalida ningún jugador, porque las 3 formaciones
     // usan las mismas 10 posiciones de campo (ver services/fantasy_service.py).
     const jugadoresActuales = {{ jugadores_actuales_json | safe }};

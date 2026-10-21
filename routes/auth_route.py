@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
-def _set_cookie_sesion(respuesta: RedirectResponse, usuario: dict) -> RedirectResponse:
+def _set_cookie_sesion(respuesta, usuario: dict):
     token = crear_token_sesion(usuario)
     respuesta.set_cookie(
         key=SESION_COOKIE,
@@ -66,6 +66,14 @@ async def login_form(request: Request):
 @route.post("/login", name="login_submit")
 async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
     usuario = autenticar_usuario(username.strip(), password)
+    # La vista de login envía con fetch (cabecera X-Login-Ajax) para animar el resultado (gol / atajada) antes de
+    # navegar; sin JavaScript el formulario sigue funcionando con el redirect de siempre.
+    if request.headers.get("x-login-ajax") == "1":
+        if not usuario:
+            return JSONResponse({"ok": False, "error": "Usuario o contraseña incorrectos."}, status_code=401)
+        respuesta = JSONResponse({"ok": True, "destino": _destino_post_login(usuario),
+                                  "nombre": usuario.get("nombre") or usuario.get("username")})
+        return _set_cookie_sesion(respuesta, usuario)
 
     if not usuario:
         return templates.TemplateResponse(

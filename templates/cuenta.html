@@ -144,7 +144,7 @@
         </div>
         {% if r.feed %}
         {% set iconos = {'Selección': 'bi-flag-fill', 'Sede': 'bi-building', 'Quiniela': 'bi-ticket-perforated-fill', 'Álbum': 'bi-collection-fill', 'Recompensas': 'bi-gift-fill', 'Juego en Vivo': 'bi-controller', 'Once Ideal': 'bi-stars', 'Trivia': 'bi-patch-question-fill', 'Ajuste': 'bi-shield-check', 'Nivel': 'bi-trophy-fill'} %}
-        {% set colores = {'Selección': '#22c55e', 'Sede': '#f59e0b', 'Quiniela': '#a855f7', 'Álbum': '#eab308', 'Recompensas': '#f43f5e', 'Juego en Vivo': '#38bdf8', 'Once Ideal': '#38bdf8', 'Trivia': '#fb923c', 'Ajuste': '#4ade80', 'Nivel': '#facc15'} %}
+        {% set colores = {'Selección': '#22c55e', 'Sede': '#f59e0b', 'Quiniela': '#a855f7', 'Álbum': '#eab308', 'Recompensas': '#f43f5e', 'Juego en Vivo': '#38bdf8', 'Once Ideal': '#38bdf8', 'Trivia': '#fb923c', 'Ajuste': '#4ade80', 'Nivel': '#facc15', 'Corporativo': '#60a5fa', 'Bolsa': '#818cf8', 'Asistente': '#10b981'} %}
         <div class="d-flex flex-column gap-2" id="listaMovimientos">
             {% for item in r.feed %}
             <div class="movimiento" data-categoria="{{ item.categoria }}" style="--mov-color: {{ colores.get(item.categoria, '#94a3b8') }};">
@@ -184,7 +184,8 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', function () {
     const paletaCategorias = {
         'Selección': '#22c55e', 'Sede': '#f59e0b', 'Quiniela': '#a855f7',
-        'Álbum': '#eab308', 'Recompensas': '#f43f5e', 'Juego en Vivo': '#38bdf8', 'Trivia': '#fb923c', 'Ajuste': '#4ade80', 'Nivel': '#facc15'
+        'Álbum': '#eab308', 'Recompensas': '#f43f5e', 'Juego en Vivo': '#38bdf8', 'Trivia': '#fb923c', 'Ajuste': '#4ade80', 'Nivel': '#facc15',
+        'Corporativo': '#60a5fa', 'Bolsa': '#818cf8', 'Asistente': '#10b981'
     };
     function coloresPara(labels) {
         return labels.map(l => paletaCategorias[l] || '#6c757d');

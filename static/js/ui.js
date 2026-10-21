@@ -16,6 +16,8 @@
  *   UI.avatar(jugadorId, paisId, tam) -> avatar ilustrado del jugador sobre su bandera (.avatar-jugador),
  *                                        mismo criterio que el macro 'avatar' de partials/macros.html
  *
+ *   UI.cargando(promesa)            -> muestra la barra de carga mientras la promesa no termina
+ *
  * Además, al cargar: toda tarjeta clicable con role="button" se vuelve accesible por teclado
  * (tabindex + Enter/Espacio), y los botones de solo ícono heredan su 'title' como aria-label.
  */
@@ -233,5 +235,92 @@
         if (pill && pill.dataset.monto === undefined) pill.dataset.monto = pill.textContent.replace(/[^\d]/g, '');
     });
 
-    window.UI = { escapar, bandera, urlImagenPais, jersey, avatar, confirmar, refrescarSaldo, toast, alerta, mostrarAlertaEn, mejorarAccesibilidad, paginador };
+    // ---------------------------------------------------------------------------------------------
+    // Indicadores de carga (para que una espera no parezca un cuelgue):
+    //  - Barra de progreso arriba al navegar (clic en un link interno o envío de un formulario) y en
+    //    cada fetch que tarda más de RETARDO_FETCH ms.
+    //  - Si la navegación tarda más de RETARDO_AVISO ms, un aviso con una pelota girando y el nombre de
+    //    lo que se está abriendo.
+    //  Los polls periódicos (en vivo, saldo) no la encienden: ver SIN_CARGADOR. UI.cargando(promesa)
+    //  la muestra mientras dure cualquier otra espera.
+    // ---------------------------------------------------------------------------------------------
+    const RETARDO_FETCH = 400, RETARDO_AVISO = 700;
+    const SIN_CARGADOR = [/\/matches\/live/, /\/live-game\//, /\/cuenta\/saldo/, /\/niveles\/visto/, /\/seguimiento$/];
+    let barra = null, aviso = null, activos = 0, timerAviso = null;
+
+    function asegurarNodos() {
+        if (barra) return;
+        barra = document.createElement('div');
+        barra.className = 'ui-barra-carga';
+        barra.setAttribute('aria-hidden', 'true');
+        aviso = document.createElement('div');
+        aviso.className = 'ui-aviso-carga';
+        aviso.setAttribute('role', 'status');
+        aviso.innerHTML = '<span class="ui-aviso-carga__pelota"><i class="bi bi-dribbble"></i></span><span class="ui-aviso-carga__texto">Cargando…</span>';
+        document.body.append(barra, aviso);
+    }
+    function iniciarBarra() {
+        asegurarNodos();
+        barra.classList.remove('ui-barra-carga--fin');
+        void barra.offsetWidth;
+        barra.classList.add('ui-barra-carga--activa');
+    }
+    function terminarBarra() {
+        if (!barra || activos > 0) return;
+        barra.classList.add('ui-barra-carga--fin');
+        setTimeout(() => { if (activos === 0) barra.classList.remove('ui-barra-carga--activa', 'ui-barra-carga--fin'); }, 350);
+    }
+    let timerSeguridad = null;
+    function navegando(texto) {
+        iniciarBarra();
+        clearTimeout(timerAviso);
+        clearTimeout(timerSeguridad);
+        // Si la navegación se cancela (descarga, 204, error de red) la página sigue acá: no dejar la barra colgada
+        timerSeguridad = setTimeout(limpiarNavegacion, 20000);
+        timerAviso = setTimeout(() => {
+            aviso.querySelector('.ui-aviso-carga__texto').textContent = texto ? `Abriendo ${texto}…` : 'Cargando…';
+            aviso.classList.add('ui-aviso-carga--visible');
+        }, RETARDO_AVISO);
+    }
+    function limpiarNavegacion() {
+        clearTimeout(timerAviso);
+        clearTimeout(timerSeguridad);
+        if (aviso) aviso.classList.remove('ui-aviso-carga--visible');
+        activos = 0;
+        terminarBarra();
+    }
+    async function cargando(promesa) {
+        activos++; iniciarBarra();
+        try { return await promesa; } finally { activos = Math.max(0, activos - 1); terminarBarra(); }
+    }
+
+    document.addEventListener('click', e => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const a = e.target.closest('a[href]');
+        if (!a || a.target === '_blank' || a.hasAttribute('download') || a.dataset.bsToggle || a.dataset.sinCargador !== undefined) return;
+        const url = new URL(a.href, location.href);
+        if (url.origin !== location.origin || url.protocol.startsWith('javascript')) return;
+        if (url.pathname === location.pathname && url.search === location.search && url.hash) return;   // ancla en la misma página
+        const texto = (a.getAttribute('aria-label') || a.textContent || '').replace(/\s+/g, ' ').trim();
+        navegando(texto.length > 0 && texto.length <= 40 ? texto : '');
+    });
+    document.addEventListener('submit', e => {
+        if (e.defaultPrevented || e.target.dataset.sinCargador !== undefined) return;
+        navegando('');
+    });
+    window.addEventListener('pageshow', limpiarNavegacion);   // volver con "atrás" (bfcache) no deja la barra colgada
+
+    const fetchOriginal = window.fetch.bind(window);
+    window.fetch = function (recurso, opciones) {
+        const url = typeof recurso === 'string' ? recurso : (recurso && recurso.url) || '';
+        if (SIN_CARGADOR.some(rx => rx.test(url)) || (opciones && opciones.keepalive)) return fetchOriginal(recurso, opciones);
+        let contado = false;
+        const t = setTimeout(() => { contado = true; activos++; iniciarBarra(); }, RETARDO_FETCH);
+        return fetchOriginal(recurso, opciones).finally(() => {
+            clearTimeout(t);
+            if (contado) { activos = Math.max(0, activos - 1); terminarBarra(); }
+        });
+    };
+
+    window.UI = { escapar, bandera, urlImagenPais, jersey, avatar, confirmar, refrescarSaldo, toast, alerta, mostrarAlertaEn, mejorarAccesibilidad, paginador, cargando };
 })();

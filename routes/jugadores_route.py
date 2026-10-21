@@ -57,7 +57,7 @@ async def jugadores(request: Request, id: str):
         
 # Estas dos rutas van ANTES de "/{id}" (si no, "/comparar" se interpretaría como un id)
 @route.get("/comparar", response_class=HTMLResponse, name="comparar_jugadores")
-async def comparar(request: Request, a: Optional[int] = None, b: Optional[int] = None):
+def comparar(request: Request, a: Optional[int] = None, b: Optional[int] = None):
     comparacion = comparar_jugadores(a, b) if a and b else None
     return templates.TemplateResponse(request=request, name="comparar_jugadores.html",
                                       context={"comparacion": comparacion, "a": a, "b": b})

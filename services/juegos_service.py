@@ -15,7 +15,7 @@ from services.jugadores_service import calcular_estado_animo_jugador, ESTADO_ANI
 from services.fecha_service import formatear_fecha_es
 from services.quinielas_service import procesar_resultado_partido
 from services.ownership_service import procesar_valor_y_dividendos_partido
-from services.fantasy_service import procesar_eventos_jugadores_partido, refrescar_cambios_gratis_fase
+from services.fantasy_service import procesar_eventos_jugadores_partido
 from services.venue_service import process_match_city_revenue
 import random
 import logging
@@ -717,7 +717,8 @@ def aplicar_efectos_secundarios(
             stats_jugadores,
             goles_local,
             goles_visitante,
-            match_id=juego_id
+            match_id=juego_id,
+            mundial_id=juego_doc.get("mundial_id") if juego_doc else None
         )
     except Exception as e:
         logger.error(f"Error al procesar puntos fantasy para el partido {juego_id}: {str(e)}")
@@ -755,13 +756,6 @@ def aplicar_efectos_secundarios(
         fase_actual = data_juego["fase_id"]
         siguiente_fase = fase_actual + 1
         confederacion_id = data_juego["confederacion_id"]
-
-        # Esta confederación acaba de completar 'fase_actual' por completo: se le refresca
-        # (resetea a 5, no acumula) el crédito de cambios gratis del Once Ideal.
-        try:
-            refrescar_cambios_gratis_fase(fase_actual)
-        except Exception as e:
-            logger.error(f"Error al refrescar cambios gratis fantasy de la fase {fase_actual}: {str(e)}")
 
         crear_siguiente_fase(siguiente_fase, confederacion_id, mundial_id)
 

@@ -171,6 +171,29 @@
         </div>
     </div>
 
+    {% if leyendas %}
+    <!-- LEYENDAS: el once histórico (agregar_leyendas.py). Juegan hasta 3 por partido, una por línea -->
+    <div class="card card-seccion card-leyendas mb-4">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h2 class="vivo-titulo mb-0"><i class="bi bi-award-fill" style="color:#d9a066"></i>Leyendas de {{ pais.nombre }}</h2>
+                <small class="text-muted">El once histórico · de 0 a 3 en cancha por partido, una por línea</small>
+            </div>
+            <div class="row row-cols-2 row-cols-sm-4 row-cols-lg-6 row-cols-xl-11 g-2">
+                {% for j in leyendas %}
+                <div class="col">
+                    <a href="/jugadores/{{ j.id }}" class="figura-mini figura-mini--leyenda">
+                        <span class="figura-mini__foto">{{ m.avatar(j.id, pais.id, '', j.nombre) }}<span class="figura-mini__dorsal">{{ j.numero }}</span></span>
+                        <strong class="text-truncate">{{ j.nombre }}</strong>
+                        <small>{{ j.posicion }} · <span style="color:#f3c58f">{{ j.overall | round(1) }}</span></small>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="row g-4 mb-4">
         <!-- TRAYECTORIA POR MUNDIAL -->
         <div class="col-lg-{{ '7' if historial_aficionados else '12' }}">

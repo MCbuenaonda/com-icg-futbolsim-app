@@ -11,7 +11,7 @@
 #}
 {% set f = filtros %}
 {% macro url() -%}
-{%- set p = dict(tipo=f.tipo, vista=f.vista, q=f.q, conf=f.conf or '', region='true' if f.region else '', edad_max=f.edad_max or '', orden=f.orden, pagina=1) -%}
+{%- set p = dict(tipo=f.tipo, vista=f.vista, q=f.q, conf=f.conf or '', region='true' if f.region else '', edad_max=f.edad_max or '', orden=f.orden, leyendas='true' if f.leyendas else '', pagina=1) -%}
 {%- set _ = p.update(kwargs) -%}
 /corporativo/mercado?{% for k, v in p.items() if v not in (none, '') %}{{ k }}={{ v | urlencode }}{{ '&' if not loop.last }}{% endfor %}
 {%- endmacro %}
@@ -66,6 +66,8 @@
     {% if f.tipo == 'jugador' %}
     <div><label class="form-label small text-muted mb-1">Edad máx.</label>
       <input name="edad_max" type="number" min="17" max="40" value="{{ f.edad_max or '' }}" class="form-control form-control-sm" style="width: 6rem"></div>
+    <div class="form-check mb-1"><input class="form-check-input" type="checkbox" name="leyendas" value="true" id="fLeyendas" {{ 'checked' if f.leyendas }}>
+      <label class="form-check-label small" for="fLeyendas"><i class="bi bi-award-fill" style="color:#d9a066"></i> Solo leyendas</label></div>
     {% endif %}
     <div><label class="form-label small text-muted mb-1">Orden</label>
       <select name="orden" class="form-select form-select-sm">
@@ -87,6 +89,7 @@
         <div class="min-w-0 flex-grow-1">
           <div class="text-white fw-semibold text-truncate">
             <a href="{{ '/jugadores/' if x.tipo == 'jugador' else '/paises/' }}{{ x.ref_id }}" class="text-reset text-decoration-none">{{ x.nombre }}</a>
+            {% if x.leyenda %}{{ m.insignia_leyenda(compacta=True) }}{% endif %}
             {% if x.de_region %}<i class="bi bi-geo-alt-fill text-success small" title="De tu región de afinidad"></i>{% endif %}
             {% if x.scouting %}<span class="corp-scout" title="Recomendado por tu informe de scouting"><i class="bi bi-binoculars-fill"></i></span>{% endif %}
           </div>

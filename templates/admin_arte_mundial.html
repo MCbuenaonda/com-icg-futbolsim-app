@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as m %}
+
+{% block title %}Arte del Mundial (admin) - FutbolSim{% endblock %}
+
+{% block content %}
+{#
+  Panel del admin: el póster y la mascota actuales del Mundial en curso y 3 propuestas alternativas (otra combinación
+  de la biblioteca, sin repetir las ya usadas). "Otra tanda" pide 3 nuevas. Solo se puede cambiar antes de que se
+  juegue el primer partido. Datos: arte_mundial_service.propuestas / elegir.
+#}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div>
+        <h1 class="h3 fw-bold text-white mb-0"><i class="bi bi-palette me-2 text-warning"></i>Póster y mascota del Mundial</h1>
+        {% if arte %}<p class="text-muted small mb-0">{{ arte.pais }} {{ arte.anio }} · versión {{ arte.version }} ({{ 'elegida por un admin' if arte.origen == 'admin' else 'generada automáticamente' }})</p>{% endif %}
+    </div>
+    <a href="/mundial/arte" class="btn btn-sm btn-outline-light rounded-pill"><i class="bi bi-eye me-1"></i>Ver la página pública</a>
+</div>
+{% if ok %}<div class="alert alert-success small"><i class="bi bi-check-circle me-1"></i>Listo: el Mundial ya tiene su nuevo póster y su nueva mascota.</div>{% endif %}
+{% if error %}<div class="alert alert-danger small"><i class="bi bi-exclamation-triangle me-1"></i>{{ error }}</div>{% endif %}
+
+{% if not arte %}
+{{ m.estado_vacio('bi-image', 'No hay un Mundial activo con arte', 'Se genera al crear el Mundial.') }}
+{% else %}
+<div class="card card-seccion mb-4"><div class="card-body d-flex gap-3 align-items-end flex-wrap">
+    <img src="{{ arte.poster_url }}" alt="Póster actual" class="arte-admin__poster">
+    <img src="{{ arte.mascota_url }}" alt="Mascota actual" class="arte-admin__mascota">
+    <div><span class="badge text-bg-success mb-1">Actual</span><h2 class="h5 text-white mb-0">{{ arte.mascota_nombre }}</h2>
+        <small class="text-muted">{{ arte.poster.fondo }} · {{ arte.poster.icono | replace('_', ' ') }} · {{ arte.poster.futbol | replace('_', ' ') }} · {{ arte.poster.grilla | replace('_', ' ') }}</small></div>
+</div></div>
+
+{% if not puede_cambiar %}
+<div class="alert alert-warning small"><i class="bi bi-lock me-1"></i>El Mundial ya empezó: su póster y su mascota ya son oficiales y no se pueden cambiar.</div>
+{% else %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="vivo-titulo mb-0"><i class="bi bi-shuffle text-info"></i>Propuestas (tanda {{ tanda }})</h2>
+    <a href="?tanda={{ tanda + 1 }}" class="btn btn-sm btn-outline-info rounded-pill"><i class="bi bi-arrow-repeat me-1"></i>Otra tanda</a>
+</div>
+<div class="row g-3">
+    {% for p in propuestas %}
+    <div class="col-12 col-md-4">
+        <div class="card card-seccion h-100"><div class="card-body d-flex flex-column gap-2">
+            <div class="d-flex gap-2 align-items-end">
+                <img src="/admin/arte-mundial/propuesta/{{ arte.anio }}/{{ tanda }}/{{ loop.index0 }}/poster.svg" alt="" class="arte-admin__poster" loading="lazy">
+                <img src="/admin/arte-mundial/propuesta/{{ arte.anio }}/{{ tanda }}/{{ loop.index0 }}/mascota.svg" alt="" class="arte-admin__mascota" loading="lazy">
+            </div>
+            <strong class="text-white">{{ p.mascota.nombre }}</strong>
+            <small class="text-muted">{{ p.poster.fondo }} · {{ p.poster.icono | replace('_', ' ') }} · {{ p.poster.futbol | replace('_', ' ') }} · {{ p.poster.grilla | replace('_', ' ') }}</small>
+            <form method="post" action="/admin/arte-mundial/elegir" class="mt-auto">
+                <input type="hidden" name="anio" value="{{ arte.anio }}"><input type="hidden" name="tanda" value="{{ tanda }}"><input type="hidden" name="indice" value="{{ loop.index0 }}">
+                <button class="btn btn-success btn-sm rounded-pill w-100"><i class="bi bi-check2 me-1"></i>Elegir esta</button>
+            </form>
+        </div></div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

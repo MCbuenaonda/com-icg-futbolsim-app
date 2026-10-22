@@ -65,14 +65,15 @@ def get_lineup(user_id: str, fase_id: int, request: Request):
 def buscar(
     q: str = Query("", description="Nombre (o parte) del jugador a buscar"),
     pais_id: Optional[int] = Query(None, description="Filtrar por país"),
-    posicion_id: Optional[int] = Query(None, description="Filtrar por posición (id de la colección 'posiciones')")
+    posicion_id: Optional[int] = Query(None, description="Filtrar por posición (id de la colección 'posiciones')"),
+    leyendas: Optional[bool] = Query(None, description="true: solo leyendas; false: sin leyendas")
 ):
     """
     Endpoint auxiliar (no pedido explícitamente, pero necesario para que la vista
     de armado del Once Ideal sea usable): busca jugadores por nombre/país/posición
     entre los >4000 disponibles, en vez de mandarlos todos de una al HTML.
     """
-    return buscar_jugadores(q.strip(), pais_id=pais_id, posicion_id=posicion_id)
+    return buscar_jugadores(q.strip(), pais_id=pais_id, posicion_id=posicion_id, leyendas=leyendas)
 
 
 @route.get("/points-history/{user_id}/{fase_id}", response_model=List[HistorialPuntosOut], name="fantasy_points_history")

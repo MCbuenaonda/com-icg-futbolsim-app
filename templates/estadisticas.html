@@ -174,24 +174,27 @@
     </div>
   </section>
 
-  <!-- ONCE IDEAL -->
-  <h2 class="vivo-titulo"><i class="bi bi-stars text-success"></i>Once ideal del torneo</h2>
+  <!-- ONCE IDEAL (jugadores actuales) y ONCE DE LEYENDAS (aparte: con ~80 se quedarían con todo) -->
+  {% for titulo, icono, color, lista, es_leyenda in [('Once ideal del torneo', 'bi-stars', '#22c55e', stats.once_ideal, False),
+                                                     ('Once de leyendas', 'bi-award-fill', '#d9a066', stats.once_leyendas, True)] if lista %}
+  <h2 class="vivo-titulo"><i class="bi {{ icono }}" style="color: {{ color }}"></i>{{ titulo }}</h2>
   <div class="row g-2 mb-4">
-    {% for jugador in stats.once_ideal %}
+    {% for jugador in lista %}
     <div class="col-6 col-sm-4 col-md-3 col-xl-2">
-      <a href="{{ '/jugadores/' ~ jugador.jugador_id if jugador.jugador_id else '#' }}" class="card card-logo-fondo card-jugador card-jugador--once d-block h-100 p-2 pt-3" style="--logo-color: #22c55e;" title="Ver perfil de {{ jugador.jugador }}">
+      <a href="{{ '/jugadores/' ~ jugador.jugador_id if jugador.jugador_id else '#' }}" class="card card-logo-fondo card-jugador card-jugador--once d-block h-100 p-2 pt-3" style="--logo-color: {{ color }};" title="Ver perfil de {{ jugador.jugador }}">
         {{ m.fondo_bandera(jugador.pais_id) }}
         <div>
           {{ m.avatar(jugador.jugador_id, None, 'md', jugador.jugador) }}
-          <span class="badge bg-dark text-accent border border-accent d-block mx-auto mt-2" style="width: fit-content;">{{ jugador.siglas }}</span>
+          <span class="badge bg-dark {{ 'text-accent border-accent' if not es_leyenda }} border d-block mx-auto mt-2" style="width: fit-content;{{ ' color:#f3c58f; border-color:#d9a066 !important;' if es_leyenda }}">{{ jugador.siglas }}</span>
           <h3 class="h6 mb-0 mt-1 fw-bold text-white text-truncate">{{ jugador.jugador }}</h3>
           <small class="text-muted d-block text-truncate">{{ m.bandera(None, pais_id=jugador.pais_id) if jugador.pais_id }} {{ jugador.pais }}</small>
-          <span class="badge bg-success mt-1">OVR {{ jugador.overall }}</span>
+          {% if es_leyenda %}<span class="insignia-leyenda mt-1">OVR {{ jugador.overall | round(1) }}</span>{% else %}<span class="badge bg-success mt-1">OVR {{ jugador.overall }}</span>{% endif %}
         </div>
       </a>
     </div>
     {% endfor %}
   </div>
+  {% endfor %}
 
   <!-- SELECCIONES DESTACADAS -->
   <h2 class="vivo-titulo"><i class="bi bi-flag text-primary"></i>Selecciones destacadas</h2>

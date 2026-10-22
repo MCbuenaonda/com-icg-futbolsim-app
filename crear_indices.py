@@ -51,6 +51,7 @@ def crear_indices():
     # para el leaderboard de porteros (más atajadas / valla invicta individual).
     jugadores.create_index("posicion_id", name="posicion_id")
     jugadores.create_index("atajadas", name="atajadas")
+    jugadores.create_index("leyenda", name="leyenda", sparse=True)   # leyendas (agregar_leyendas.py)
     print("✅ Índices creados en 'jugadores'")
 
     arbitros = db['arbitros']

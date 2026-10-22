@@ -9,7 +9,7 @@
   emoji o se pasa en 'pais_id'), si no el emoji, un ícono de Bootstrap ('bi-...') o un ícono
   genérico. Si la imagen no carga, se reemplaza por el emoji.
   La imagen mide en 'em', así que toma el tamaño de letra del contenedor (fs-1, display-3...)
-  igual que el emoji. 'tipo' = bandera | escudo | icono | jersey.
+  igual que el emoji. 'tipo' = bandera | plana | escudo | icono | jersey.
 #}
 {% macro bandera(valor, tipo='bandera', pais_id=None, titulo='', clase='') -%}
 {%- set url = img_pais(pais_id or pais_id_por_bandera(valor), tipo) -%}
@@ -26,7 +26,7 @@
 #}
 {% macro avatar(jugador_id, pais_id=None, tam='', titulo='') -%}
 {%- set url = img_avatar(jugador_id) -%}
-{%- set bandera = img_pais(pais_id, 'bandera') if pais_id else None -%}
+{%- set bandera = img_pais(pais_id, 'plana') if pais_id else None -%}
 <span class="avatar-jugador {{ 'avatar-jugador--' ~ tam if tam }}" {% if bandera %}style="--bandera-url: url('{{ bandera }}')"{% endif %} {% if titulo %}title="{{ titulo }}"{% endif %}>
   {%- if url %}<img src="{{ url }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">{% else %}<i class="bi bi-person-fill"></i>{% endif -%}
 </span>
@@ -35,7 +35,7 @@
 {# Avatar de un árbitro por NOMBRE (los partidos solo guardan el nombre): mismo contenedor que el de jugador #}
 {% macro avatar_arbitro(nombre, tam='', titulo='') -%}
 {%- set a = datos_arbitro(nombre) -%}
-{%- set bandera = img_pais(a.pais_id, 'bandera') if a.pais_id else None -%}
+{%- set bandera = img_pais(a.pais_id, 'plana') if a.pais_id else None -%}
 <span class="avatar-jugador {{ 'avatar-jugador--' ~ tam if tam }}" {% if bandera %}style="--bandera-url: url('{{ bandera }}')"{% endif %} {% if titulo %}title="{{ titulo }}"{% endif %}>
   {%- if a.url %}<img src="{{ a.url }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">{% else %}<i class="bi bi-person-badge"></i>{% endif -%}
 </span>
@@ -77,6 +77,11 @@
 
 {# Insignia de Corporativos Deportivos: quién representa a una selección/jugador en el universo del usuario.
    reps = corp_representantes(usuario_actual) (una vez por página); enlace=False dentro de otro <a>. #}
+{# Insignia de LEYENDA (jugadores.leyenda): el once histórico de cada selección. compacta=True: solo el ícono #}
+{% macro insignia_leyenda(compacta=False) -%}
+<span class="insignia-leyenda {{ 'insignia-leyenda--compacta' if compacta }}" title="Leyenda: parte del once histórico de su selección"><i class="bi bi-award-fill" aria-hidden="true"></i>{% if not compacta %}Leyenda{% else %}<span class="visually-hidden">Leyenda</span>{% endif %}</span>
+{%- endmacro %}
+
 {% macro insignia_corp(reps, tipo, ref_id, enlace=True) -%}
 {%- set r = (reps.get(tipo) or {}).get(ref_id) if reps else None -%}
 {%- if r -%}

@@ -298,7 +298,8 @@ POR_PAGINA_MERCADO = 30
 
 
 def obtener_mercado(user_id, tipo: str = "jugador", vista: str = "libres", q: str = "", conf: Optional[int] = None,
-                    region: bool = False, edad_max: Optional[int] = None, orden: str = "valor", pagina: int = 1) -> Optional[dict]:
+                    region: bool = False, edad_max: Optional[int] = None, orden: str = "valor", pagina: int = 1,
+                    leyendas: bool = False) -> Optional[dict]:
     universo = U.obtener_universo(user_id)
     if not universo:
         return None
@@ -331,6 +332,8 @@ def obtener_mercado(user_id, tipo: str = "jugador", vista: str = "libres", q: st
             pais_id = info.get("pais_id")
             if edad_max and (info.get("edad") or 99) > edad_max:
                 continue
+            if leyendas and not info.get("leyenda"):
+                continue
         else:
             info = v["info_paises"].get(ref_id, {})
             pais_id = ref_id
@@ -354,7 +357,7 @@ def obtener_mercado(user_id, tipo: str = "jugador", vista: str = "libres", q: st
                 "pais": f["pinfo"].get("nombre"), "bandera": f["pinfo"].get("bandera"), "rankin": f["pinfo"].get("rankin"),
                 "edad": f["info"].get("edad"), "posicion": posiciones.get(f["info"].get("posicion_id")),
                 "prima_ref": ref_prima, "de_region": f["pais_id"] in region_ids, "scouting": f["ref_id"] in scout and tipo == "jugador",
-                "pendiente": (tipo, f["ref_id"]) in pendientes}
+                "pendiente": (tipo, f["ref_id"]) in pendientes, "leyenda": bool(f["info"].get("leyenda"))}
         if corp:
             fila["base"] = round(F.base_atractivo(corp, universo["fama"], tipo, f["ref_id"], cartera), 2)
             fila["prob"] = round(F.probabilidad(corp, universo["fama"], tipo, f["ref_id"], ref_prima, cartera) * 100)
@@ -371,7 +374,7 @@ def obtener_mercado(user_id, tipo: str = "jugador", vista: str = "libres", q: st
     return {
         "universo": universo, "sigla": sigla, "corp": corp, "filas": salida, "total": total, "pagina": pagina,
         "paginas": max(1, -(-total // POR_PAGINA_MERCADO)), "ventana": U.ventana_traspasos(ciclo), "ciclo": ciclo,
-        "filtros": {"tipo": tipo, "vista": vista, "q": q, "conf": conf, "region": region, "edad_max": edad_max, "orden": orden},
+        "filtros": {"tipo": tipo, "vista": vista, "q": q, "conf": conf, "region": region, "edad_max": edad_max, "orden": orden, "leyendas": leyendas},
         "confederaciones": confederaciones, "reglas": {
             "peso_oferta": C.PESOS_ATRACTIVO["oferta"], "ideal": C.OFERTA_IDEAL_MULTIPLO, "rango": C.PRIMA_RANGO_OFERTA,
             "min": C.PROBABILIDAD_ACEPTA[0], "max": C.PROBABILIDAD_ACEPTA[1], "duracion": C.DURACION_CONTRATO,

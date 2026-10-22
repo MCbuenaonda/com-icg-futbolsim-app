@@ -43,7 +43,8 @@ def calcular_plantilla() -> list:
                                                           "estadisticas.poder": 1})}
     rankin = {pid: (p.get("estadisticas") or {}).get("rankin") or 211 for pid, p in paises.items()}
     poder = {pid: (p.get("estadisticas") or {}).get("poder") or 0 for pid, p in paises.items()}
-    jugadores = list(db["jugadores"].find({}, {"_id": 0, "id": 1, "pais_id": 1, "overall": 1, "rendimiento": 1, "edad": 1}))
+    # Las leyendas NO se siembran: arrancan libres en todos los universos y hay que ficharlas
+    jugadores = list(db["jugadores"].find({"leyenda": {"$ne": True}}, {"_id": 0, "id": 1, "pais_id": 1, "overall": 1, "rendimiento": 1, "edad": 1}))
     valores = R.valores_jugadores(jugadores, poder)
     pct = R.percentiles(valores)
     edad = {j["id"]: j.get("edad") for j in jugadores}

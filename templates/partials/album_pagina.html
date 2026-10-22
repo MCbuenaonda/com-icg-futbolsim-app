@@ -8,7 +8,33 @@
 {% import "partials/macros.html" as m %}
 {% import "partials/estampas.html" as e %}
 {% set h = album.pagina %}
-{% if h.tipo == 'arbitros' %}
+{% if h.tipo == 'mundiales' %}
+{# Página especial: el póster oficial y la mascota de cada Mundial (estampas "Edición Mundial") #}
+<section class="album-pagina album-hoja album-hoja--mundial" style="--logo-color: #f472b6;"
+         data-pagina="{{ h.numero }}" data-nombre="{{ h.nombre }}" data-total="{{ album.total_paginas }}"
+         data-anterior="{{ h.anterior or '' }}" data-siguiente="{{ h.siguiente or '' }}">
+    <i class="bi bi-palette album-pagina__escudo album-hoja__marca" aria-hidden="true"></i>
+    <span class="album-hoja__folio">{{ h.numero }}</span>
+    <header class="album-pagina__cabecera">
+        <div class="min-w-0">
+            <span class="album-hoja__edicion">Edición Mundial · estampas raras</span>
+            <h2 class="h4 fw-bold text-white mb-0">Pósters y mascotas</h2>
+        </div>
+        <div class="album-pagina__progreso">
+            <span><strong>{{ h.obtenidas }}</strong>/{{ h.total }}</span>
+            <div class="album-pagina__barra"><span style="width: {{ h.porcentaje }}%;"></span></div>
+            {% if h.obtenidas == h.total %}<span class="album-hoja__completa"><i class="bi bi-patch-check-fill"></i> Completa</span>{% endif %}
+        </div>
+    </header>
+    <p class="text-muted small mb-3">El póster oficial y la mascota de cada Mundial. Salen en los sobres con un 2% de probabilidad; una repetida se vende sola por 40 pts.</p>
+    {% for ed in h.ediciones %}
+    <h3 class="album-hoja__seccion"><i class="bi bi-trophy"></i>{{ m.bandera(None, pais_id=ed.pais_id) if ed.pais_id }} {{ ed.pais }} {{ ed.anio }}</h3>
+    <div class="album-grilla mb-3">
+        {% for x in [ed.poster, ed.mascota] if x %}{% if x.obtenida %}{{ e.mundial(x, ed) }}{% else %}{{ e.vacia_mundial(x, ed) }}{% endif %}{% endfor %}
+    </div>
+    {% endfor %}
+</section>
+{% elif h.tipo == 'arbitros' %}
 {# Página especial: los árbitros del torneo como estampas Doradas, una pestaña por puesto #}
 <section class="album-pagina album-hoja album-hoja--dorada" style="--logo-color: #facc15;"
          data-pagina="{{ h.numero }}" data-nombre="{{ h.nombre }}" data-total="{{ album.total_paginas }}"
@@ -76,7 +102,7 @@
             {% for icono, etiqueta, tengo, total in [
                 ('bi-shield-fill', 'Escudo', 1 if h.escudo else 0, 1),
                 ('bi-building', 'Sedes', h.ciudades, h.total_ciudades),
-                ('bi-person-fill', 'Plantel', h.jugadores, h.total_jugadores)] %}
+                ('bi-person-fill', 'Plantel', h.jugadores, h.total_jugadores)] + ([('bi-people-fill', 'Fotos', h.fotos, h.total_fotos)] if h.total_fotos else []) + ([('bi-award-fill', 'Leyendas', h.leyendas, h.total_leyendas)] if h.total_leyendas else []) %}
             <div class="album-hoja__dato {{ 'album-hoja__dato--lleno' if tengo == total }}">
                 <i class="bi {{ icono }}"></i>
                 <span><small>{{ etiqueta }}</small><strong>{{ tengo }}</strong>/{{ total }}</span>
@@ -91,9 +117,32 @@
         {% for c in h.ciudades_estampa %}{% if c.obtenida %}{{ e.ciudad(c) }}{% else %}{{ e.vacia_ciudad(c) }}{% endif %}{% endfor %}
     </div>
 
+    {% if h.fotos_estampa %}
+    <h3 class="album-hoja__seccion album-hoja__seccion--fotos"><i class="bi bi-people-fill"></i>Fotos de equipo <span>{{ h.fotos }}/{{ h.total_fotos }}</span></h3>
+    <div class="album-grilla album-grilla--fotos">
+        {% for f in h.fotos_estampa %}
+        {% set desde = 1 if f.grupo == 1 else 12 %}
+        {% if f.obtenida %}{{ e.equipo(f, h.plantel | selectattr('numero', 'ge', desde) | selectattr('numero', 'lt', desde + 11) | list) }}{% else %}{{ e.vacia_equipo(f) }}{% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <h3 class="album-hoja__seccion"><i class="bi bi-person-fill"></i>Plantel <span>{{ h.jugadores }}/{{ h.total_jugadores }}</span></h3>
     <div class="album-grilla">
         {% for j in h.plantel %}{% if j.obtenida %}{{ e.jugador(j, h.pais_id, h.bandera) }}{% else %}{{ e.vacia(j) }}{% endif %}{% endfor %}
     </div>
+
+    {% if h.leyendas_estampa %}
+    <h3 class="album-hoja__seccion album-hoja__seccion--leyendas"><i class="bi bi-award-fill"></i>Leyendas <span>{{ h.leyendas }}/{{ h.total_leyendas }}</span></h3>
+    <p class="album-hoja__nota">El once histórico de {{ h.nombre }}. Es una colección aparte: no hace falta para completar la página.</p>
+    {% if h.foto_leyendas %}
+    <div class="album-grilla album-grilla--fotos mb-3">
+        {% if h.foto_leyendas.obtenida %}{{ e.equipo(h.foto_leyendas, h.leyendas_estampa) }}{% else %}{{ e.vacia_equipo(h.foto_leyendas) }}{% endif %}
+    </div>
+    {% endif %}
+    <div class="album-grilla">
+        {% for j in h.leyendas_estampa %}{% if j.obtenida %}{{ e.jugador(j, h.pais_id, h.bandera, leyenda=True) }}{% else %}{{ e.vacia(j, leyenda=True) }}{% endif %}{% endfor %}
+    </div>
+    {% endif %}
 </section>
 {% endif %}

@@ -4,6 +4,7 @@ from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
 from collections import defaultdict
 import random
+from services import reglas_leyendas, desgaste
 
 TACTICAS = ["4-3-3", "4-4-2", "3-5-2"]
 
@@ -218,21 +219,38 @@ FRASES_PREPARACION_CORNER = [
 
 # funcion para seleccionar plantilla titular
 def seleccionar_plantilla_titular(plantilla_db: list, esquema="4-3-3") -> list:
+    """
+    Un titular por posición (posicion_id 1..11, cada uno en la línea que marca la formación).
+    Leyendas (ver services/reglas_leyendas.py): el DT sortea cuántas arrancan (0 a 3) y en qué
+    líneas, y en cada una pone UNA leyenda de esa línea; el resto de las leyendas arrancan en el
+    banco. Todos los demás puestos salen como siempre, al azar
+    entre los jugadores normales de esa posición.
+    """
     formacion_objetivo = FORMACIONES.get(esquema, FORMACIONES["4-3-3"])
     titulares = []
-    jugadores_disponibles = list(plantilla_db)
+    leyendas = [j for j in plantilla_db if reglas_leyendas.es_leyenda(j)]
+    jugadores_disponibles = [j for j in plantilla_db if not reglas_leyendas.es_leyenda(j)]
+
+    leyenda_por_posicion = {}
+    for sector in reglas_leyendas.sectores_para_leyendas():
+        del_sector = [j for j in leyendas if reglas_leyendas.sector(j) == sector]
+        if del_sector:
+            elegida = random.choice(del_sector)
+            leyenda_por_posicion[elegida.get("posicion_id")] = elegida
 
     i = 1
     for linea in formacion_objetivo:
-        candidatos = [j for j in jugadores_disponibles if j.get("posicion_id") == i]
-        if not candidatos:
-            candidatos = jugadores_disponibles
-
-        elegido = random.choice(candidatos)
+        if i in leyenda_por_posicion:
+            elegido = leyenda_por_posicion[i]
+        else:
+            candidatos = [j for j in jugadores_disponibles if j.get("posicion_id") == i]
+            if not candidatos:
+                candidatos = jugadores_disponibles
+            elegido = random.choice(candidatos)
+            jugadores_disponibles.remove(elegido)
         jugador_partido = elegido.copy()
         jugador_partido["linea_partido"] = linea
         titulares.append(jugador_partido)
-        jugadores_disponibles.remove(elegido)
         i += 1
 
     return titulares
@@ -574,7 +592,17 @@ def obtener_cuarteta_arbitral():
     return cuerpo_arbitral
 
 # funcion para realizar sustituciones de jugadores
-def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: int, max_cambios: int, segundos_acumulados: float, stats_jugadores: dict, eventos_visibles: dict, arbitros: dict, zona_balon: str):
+# Si el equipo va perdiendo y tiene lugar para una leyenda (ver reglas_leyendas.puede_entrar), el DT
+# la manda a la cancha con esta probabilidad en vez de hacer un cambio cualquiera.
+PROB_LEYENDA_SI_PIERDE = 0.7
+# Probabilidad de hacer un cambio en cada parada del 2º tiempo: una base baja + lo que suma el cansancio del
+# jugador más fundido (sin nadie por debajo de UMBRAL_CAMBIO_ENERGIA, casi no hay cambios: piernas frescas cuando hacen falta).
+UMBRAL_CAMBIO_ENERGIA = 45
+PROB_CAMBIO_BASE = 0.025
+PROB_CAMBIO_POR_CANSANCIO = 0.35
+
+
+def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: int, max_cambios: int, segundos_acumulados: float, stats_jugadores: dict, eventos_visibles: dict, arbitros: dict, zona_balon: str, va_perdiendo: bool = False):
     """Procesa el cambio de un jugador titular por uno de la banca. Se invoca solo en paradas
     de juego del 2º tiempo -- ver el llamador en simular_partido_realista."""
     if sustituciones_realizadas >= max_cambios:
@@ -596,18 +624,40 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
     if not candidatos_salir:
         return sustituciones_realizadas
 
-    sale_jugador = random.choice(candidatos_salir) # Evitamos cambiar al portero normalmente y un expulsado
+    # Sale preferentemente el más cansado (services/desgaste.peso_para_salir)
+    sale_jugador = random.choices(candidatos_salir, weights=[desgaste.peso_para_salir(j) for j in candidatos_salir])[0]
+    expulsados = equipo.get("expulsados", [])
+
+    # Va perdiendo: el DT busca meter una leyenda del banco por un jugador normal de su MISMA posición,
+    # si la regla lo permite (máx. 3 en cancha, una por línea). Si no hay ninguna opción, cambio normal.
+    leyenda_forzada = None
+    if va_perdiendo and random.random() < PROB_LEYENDA_SI_PIERDE:
+        opciones = [
+            (ley, s) for ley in banca if reglas_leyendas.es_leyenda(ley)
+            for s in candidatos_salir
+            if not reglas_leyendas.es_leyenda(s) and s.get("posicion_id") == ley.get("posicion_id")
+            and reglas_leyendas.puede_entrar(ley, s, titulares, expulsados)
+        ]
+        if opciones:
+            leyenda_forzada, sale_jugador = max(opciones, key=lambda o: desgaste.peso_para_salir(o[1]) + random.random())
 
     # Buscar suplente de la misma posición si es posible
     linea_saliente = sale_jugador.get("linea_partido", 3)
 
+    # Buscar suplente -- solo entre los que no rompen la regla de leyendas (máx. 3 en cancha,
+    # una por línea; las expulsadas siguen contando, ver services/reglas_leyendas.py)
+    habilitados = [
+        j for j in banca
+        if reglas_leyendas.puede_entrar(j, sale_jugador, titulares, expulsados)
+    ]
+    if not habilitados:
+        return sustituciones_realizadas
+
     # 1. MARCAR AL JUGADOR QUE SALE EN LAS ESTADÍSTICAS
     stats_jugadores[sale_jugador["id"]]["salio_de_cambio"] = True
+    candidatos_suplentes = [j for j in habilitados if j.get("posicion_id") == sale_jugador.get("posicion_id")]
 
-    # Buscar suplente
-    candidatos_suplentes = [j for j in banca if j.get("posicion_id") == sale_jugador.get("posicion_id")]
-
-    entra_jugador = random.choice(candidatos_suplentes) if candidatos_suplentes else random.choice(banca)
+    entra_jugador = leyenda_forzada or (random.choice(candidatos_suplentes) if candidatos_suplentes else random.choice(habilitados))
 
     # Actualizar listas de plantilla y banca
     titulares.remove(sale_jugador)
@@ -615,6 +665,8 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
 
     entra_jugador_copia = entra_jugador.copy()
     entra_jugador_copia["linea_partido"] = linea_saliente
+    desgaste.iniciar(entra_jugador_copia)   # piernas frescas
+    stats_jugadores[sale_jugador["id"]]["energia_final"] = round(sale_jugador.get("energia", 100), 1)
     titulares.append(entra_jugador_copia)
 
     # Registrar stats iniciales para el jugador que entra
@@ -890,6 +942,8 @@ def procesar_expulsion(jugador: dict, equipo: dict, stats_jugadores: dict, event
     # ❌ Retirar del terreno de juego inmediatamente
     if jugador in equipo["plantilla"]:
         equipo["plantilla"].remove(jugador)
+    # Una leyenda expulsada sigue ocupando su cupo (ver reglas_leyendas.puede_entrar)
+    equipo.setdefault("expulsados", []).append(jugador)
 
     tipo_evt = "🟨🟥 DOBLE AMARILLA" if es_doble_amarilla else "🟥 TARJETA ROJA"
     desc_evt = (f"¡Segunda amarilla! {jugador['nombre']} se va expulsado."
@@ -908,7 +962,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     goles_visitante = 0
 
     # Modificadores del clima del encuentro (ver generar_clima_partido en juegos_service.py).
-    # modificador_desgaste no se aplica: el simulador no lleva un mecanismo de fatiga por minutos.
+    # modificador_desgaste: acelera el cansancio de los jugadores (ver services/desgaste.py).
     modificadores_clima = (clima or {}).get("modificadores", {})
     mod_precision = modificadores_clima.get("precision", 0.0)
     mod_faltas = modificadores_clima.get("faltas", 0.0)
@@ -963,6 +1017,11 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
     equipo_local = {"nombre": pais_local["nombre"], "plantilla": plantilla_local}
     equipo_visitante = {"nombre": pais_visitante["nombre"], "plantilla": plantilla_visitante}
+
+    # Desgaste físico (services/desgaste.py): todos arrancan con energía completa; el clima acelera el gasto
+    mod_desgaste = modificadores_clima.get("desgaste", 1.0) or 1.0
+    for j in plantilla_local + plantilla_visitante:
+        desgaste.iniciar(j)
 
     # Tácticas por equipo (referenciable por nombre) -- usadas por los bonos de formación, ver
     # BONUS_FORMACION_* más arriba.
@@ -1047,7 +1106,24 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     duracion_objetivo = DURACION_TIEMPO_REGLAMENTARIO
     primer_tiempo_cerrado = False
 
+    ultimo_tick_desgaste = 0.0
+
+    def _avisar_cansancio(jugadores_fundidos):
+        for jf in jugadores_fundidos:
+            eq = stats_jugadores.get(jf["id"], {}).get("equipo", "")
+            eventos_visibles.append(construir_evento(
+                segundos_acumulados, eq, "🥵 DESGASTE",
+                f"Se nota el cansancio de {jf['nombre']}: le cuesta llegar y pierde precisión.",
+                [jf["nombre"]], zona_balon
+            ))
+
     while segundos_acumulados < duracion_objetivo:
+        # --- DESGASTE POR TIEMPO JUGADO (cada ~30s de reloj) ---
+        if segundos_acumulados - ultimo_tick_desgaste >= 30:
+            _avisar_cansancio(desgaste.paso_del_tiempo(
+                equipo_local["plantilla"] + equipo_visitante["plantilla"], segundos_acumulados - ultimo_tick_desgaste, mod_desgaste))
+            ultimo_tick_desgaste = segundos_acumulados
+
         portero_rival = portero_visitante if equipo_con_balon == equipo_local else portero_local
         defensor_marcador = obtener_oponente_segun_zona(equipo_defensor, zona_balon)
         posicion_jugador = jugador_con_balon.get("linea_partido", 3)
@@ -1070,12 +1146,23 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
             nonlocal segundos_acumulados
             if segundos_acumulados < DURACION_MEDIO_TIEMPO:
                 return
-            if random.random() < 0.08:
-                equipo_cambio = random.choice([equipo_local, equipo_visitante])
+            # Piernas frescas: la probabilidad de cambio sube si un equipo tiene jugadores fundidos, y cambia
+            # primero el equipo más cansado
+            def _min_energia(eq):
+                return min((j.get("energia", 100) for j in eq["plantilla"]
+                            if j.get("linea_partido") != 1 and not stats_jugadores[j["id"]].get("entro_de_cambio")), default=100)
+            cansancio = {id(eq): max(0.0, UMBRAL_CAMBIO_ENERGIA - _min_energia(eq)) / UMBRAL_CAMBIO_ENERGIA
+                         for eq in (equipo_local, equipo_visitante)}
+            if random.random() < PROB_CAMBIO_BASE + PROB_CAMBIO_POR_CANSANCIO * max(cansancio.values()):
+                equipo_cambio = random.choices([equipo_local, equipo_visitante],
+                                               weights=[1 + 4 * cansancio[id(equipo_local)], 1 + 4 * cansancio[id(equipo_visitante)]])[0]
                 nombre_eq = equipo_cambio["nombre"]
+                # marcador global (ida + vuelta) desde el lado de quien hace el cambio
+                diferencia = (goles_local + goles_ida_local) - (goles_visitante + goles_ida_visita)
+                va_perdiendo = diferencia < 0 if equipo_cambio is equipo_local else diferencia > 0
                 cambios_realizados[nombre_eq] = realizar_sustitucion(
                     equipo_cambio, bancas, cambios_realizados[nombre_eq], max_cambios, segundos_acumulados,
-                    stats_jugadores, eventos_visibles, arbitros, zona_balon
+                    stats_jugadores, eventos_visibles, arbitros, zona_balon, va_perdiendo=va_perdiendo
                 )
                 segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_SUSTITUCION)
 
@@ -1120,6 +1207,12 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                 opciones, pesos = ["pase", "regate"], [75, 25]
 
         accion = random.choices(opciones, weights=pesos)[0]
+
+        # --- DESGASTE POR LA ACCIÓN (el que la hace y el que lo marca) ---
+        fundidos = [jugador_con_balon] if desgaste.accion(jugador_con_balon, accion, mod_desgaste) else []
+        if desgaste.accion(defensor_marcador, "duelo" if accion in ("regate", "tiro") else "presion", mod_desgaste):
+            fundidos.append(defensor_marcador)
+        _avisar_cansancio(fundidos)
 
         # --- ACCIÓN: PASE / PASE PROFUNDO / DESPEJE ---
         if accion in ["pase", "pase_profundo", "despeje"]:
@@ -1717,4 +1810,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     # partido), las estadísticas de los jugadores ya habían quedado incrementadas para un
     # partido que seguía figurando como "creado" -- un reintento volvía a simularlo y
     # duplicaba goles/asistencias/tarjetas/juegos_jugados de todos los que participaron.
+    for j in equipo_local["plantilla"] + equipo_visitante["plantilla"]:
+        if j.get("id") in stats_jugadores:
+            stats_jugadores[j["id"]]["energia_final"] = round(j.get("energia", 100), 1)
     return resultado, stats_jugadores

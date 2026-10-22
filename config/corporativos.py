@@ -85,6 +85,13 @@ VALOR_JUGADOR_MAX = 12000
 CURVA_VALOR_JUGADOR = 2.5
 PESOS_CALIDAD_JUGADOR = {"overall": 0.45, "rendimiento": 0.35, "seleccion": 0.20}
 FACTOR_EDAD = [(23, 1.3), (29, 1.0), (32, 0.7), (99, 0.4)]   # (edad máxima inclusive, factor)
+# Leyendas (jugadores.leyenda, agregar_leyendas.py): escala propia, NO entran al percentil de los
+# jugadores actuales (si entraran, 2.321 jugadores de 80 abaratarían a todos los demás). Su valor depende de
+# su talla histórica ('fama', 0..1) y de la fuerza de su selección; la edad de plenitud no las castiga.
+# valor = VALOR_LEYENDA_BASE * (fama_min + (fama_max - fama_min) * fama) * (1 - PESO/2 + PESO * percentil_poder)
+VALOR_LEYENDA_BASE = 15000
+RANGO_FAMA_LEYENDA = (0.8, 1.4)
+PESO_SELECCION_LEYENDA = 0.2
 # Selección: valor comercial = paises.valor * FACTOR + (aficionados - BASE) * FACTOR_AFICIONADOS
 FACTOR_VALOR_SELECCION = 5
 AFICIONADOS_BASE = 80000
@@ -148,6 +155,8 @@ PERFILES_IA = {
 }
 PESO_AFINIDAD_IA = 3.0
 IA_PRESUPUESTO_FICHAJE = 0.15     # fracción del capital
+MAX_LEYENDAS_IA_POR_CORP = 3      # leyendas con contrato activo que puede juntar un corporativo de la IA
+PESO_LEYENDA_IA = 0.25            # peso de una leyenda en el sorteo de fichajes de la IA (para que no se lleven todas de una)
 IA_MULTIPLO_VENTA = {"default": 1.2, "chequera": 1.5}
 IA_CICLOS_SIN_JUGAR_RESCINDE = 3
 IA_ROI_DIVIDENDO = 0.05

@@ -31,6 +31,7 @@ from routes.fanbase_route import route as fanbase_route, route_vistas as fanbase
 from routes.juego_en_vivo_route import route as juego_en_vivo_route
 from routes.admin_route import route as admin_route
 from routes.torneo_route import route_arbitros, route_cara_a_cara, route_cuadro, route_palmares, route_ranking
+from routes.arte_mundial_route import route_admin as arte_admin_route, route_imagenes as arte_imagenes_route, route_vistas as arte_vistas_route
 
 
 app = FastAPI(title="Simulador de Fútbol")
@@ -76,6 +77,9 @@ app.include_router(estadisticas_route, dependencies=_permiso("estadisticas"))
 app.include_router(route_cara_a_cara, dependencies=_permiso("cara_a_cara"))
 app.include_router(route_cuadro, dependencies=_permiso("cuadro"))
 app.include_router(route_palmares, dependencies=_permiso("palmares"))
+app.include_router(arte_vistas_route, dependencies=_permiso("palmares"))
+app.include_router(arte_imagenes_route)   # imágenes del póster y la mascota: se usan como <img> en varias secciones
+app.include_router(arte_admin_route, dependencies=_permiso("gestion_usuarios"))
 app.include_router(route_arbitros, dependencies=_permiso("arbitros"))
 app.include_router(route_ranking, dependencies=_permiso("ranking_usuarios"))
 app.include_router(prematch_route, dependencies=_permiso("scouter"))

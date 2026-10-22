@@ -24,7 +24,7 @@ def cargar():
     por_partido = R.separar_por_partido(agregado)
     paises = {p["id"]: p for p in S.db["paises"].find({}, {"_id": 0, "id": 1, "valor": 1, "aficionados": 1, "confederacion_id": 1,
                                                             "estadisticas.poder": 1})}
-    jugadores = list(S.db["jugadores"].find({}, {"_id": 0, "id": 1, "pais_id": 1, "overall": 1, "rendimiento": 1, "edad": 1, "posicion_id": 1}))
+    jugadores = list(S.db["jugadores"].find({"leyenda": {"$ne": True}}, {"_id": 0, "id": 1, "pais_id": 1, "overall": 1, "rendimiento": 1, "edad": 1, "posicion_id": 1}))
     valores_j = R.valores_jugadores(jugadores, {k: (v.get("estadisticas") or {}).get("poder") or 0 for k, v in paises.items()})
     valores_s = {pid: R.valor_seleccion(p) for pid, p in paises.items()}
     posicion = {j["id"]: j.get("posicion_id") for j in jugadores}

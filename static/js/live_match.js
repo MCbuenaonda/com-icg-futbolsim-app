@@ -204,6 +204,22 @@ document.addEventListener('DOMContentLoaded', function () {
         listaEventos.classList.toggle('cronologia--clave', boton.dataset.filtroCronologia === 'clave');
     }));
 
+    function festejarMascota() {
+        let nodo = document.getElementById('mascotaFestejo');
+        if (!nodo) {
+            nodo = document.createElement('div');
+            nodo.id = 'mascotaFestejo';
+            nodo.className = 'mascota-festejo';
+            nodo.setAttribute('aria-hidden', 'true');
+            nodo.innerHTML = `<span class="mascota-festejo__globo"></span><img alt="" src="${UI.escapar(mascota.url)}">`;
+            document.body.appendChild(nodo);
+        }
+        nodo.querySelector('.mascota-festejo__globo').textContent = `¡GOOOL de ${mascota.anfitrion}!`;
+        nodo.classList.remove('mascota-festejo--activa');
+        void nodo.offsetWidth;   // reinicia la animación si hay dos goles seguidos
+        nodo.classList.add('mascota-festejo--activa');
+    }
+
     let cronologiaUltimoTotal = 0;
     let cronologiaMatchId = null;
     function renderEventos(eventos, nombreEquipoLocal, nombreEquipoVisitante, matchId) {
@@ -215,6 +231,10 @@ document.addEventListener('DOMContentLoaded', function () {
             listaEventos.innerHTML = '<div class="text-muted text-center py-3">Esperando el primer evento del partido...</div>';
             if (contadorEventos) contadorEventos.textContent = '';
             return;
+        }
+        // Gol del anfitrión entre los eventos nuevos de este poll (no al abrir la página): la mascota sale a festejar
+        if (totalAnterior > 0 && mascota && eventos.slice(totalAnterior).some(ev => (ev.tipo || '').startsWith('⚽') && ev.equipo === mascota.anfitrion)) {
+            festejarMascota();
         }
         let claves = 0;
         // Del más reciente al más antiguo, igual que una transmisión real
@@ -286,6 +306,8 @@ document.addEventListener('DOMContentLoaded', function () {
     let canchaTitularesVisitante = [];
     let canchaDorsales = {};
     let canchaIds = {};
+    let canchaLeyendas = new Set();
+    let mascota = null;   // {anfitrion, url, nombre}: festeja los goles del anfitrión (arte_mundial_service)
     let canchaLineasLocal = [];
     let canchaLineasVisitante = [];
 
@@ -300,6 +322,8 @@ document.addEventListener('DOMContentLoaded', function () {
             canchaTitularesVisitante = data.titulares_visitante || [];
             canchaDorsales = data.dorsales || {};
             canchaIds = data.ids || {};
+            canchaLeyendas = new Set(data.leyendas || []);
+            mascota = data.mascota_url ? { anfitrion: data.anfitrion, url: data.mascota_url, nombre: data.mascota_nombre } : null;
             canchaLineasLocal = data.lineas_local || [];
             canchaLineasVisitante = data.lineas_visitante || [];
             canchaPlantillasMatchId = matchId;
@@ -629,9 +653,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 canchaFichas.set(f.clave, el);
             }
             el.classList.toggle('cancha-jugador--portero', f.portero);
+            el.classList.toggle('cancha-jugador--leyenda', canchaLeyendas.has(f.nombre));
             el.querySelector('.cancha-jugador__dorsal').textContent = canchaDorsales[f.nombre] ?? '';
             const posicion = canchaPlantillas[f.nombre] ? ` · ${canchaPlantillas[f.nombre]}` : '';
-            el.title = `${f.nombre}${posicion}`;
+            el.title = `${f.nombre}${posicion}${canchaLeyendas.has(f.nombre) ? ' · Leyenda' : ''}`;
 
             el.classList.remove('cancha-jugador--activo', 'cancha-jugador--secundario', 'cancha-jugador--gol', 'cancha-jugador--amarilla');
             void el.offsetWidth; // reinicia la animación si el mismo jugador repite protagonismo
@@ -1524,10 +1549,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const base = (window.PAISES_IMG || {}).base;
         const dorsalHtml = dorsal != null ? `<span class="once-dorsal once-dorsal--${lado}">${dorsal}</span>` : '';
         if (id == null || !base) return dorsalHtml;
-        const bandera = paisId != null && window.UI ? UI.urlImagenPais(paisId, 'bandera') : null;
+        const bandera = paisId != null && window.UI ? UI.urlImagenPais(paisId, 'plana') : null;
         const fondo = bandera ? ` style="--bandera-url: url('${bandera}')"` : '';
         return `<span class="once-avatar once-avatar--${lado}">
-                    <span class="avatar-jugador"${fondo}><img src="${base}/jugadores/${encodeURIComponent(id)}.svg" alt="" decoding="async"
+                    <span class="avatar-jugador"${fondo}><img src="${window.UI ? UI.urlAvatar(id) : base + '/jugadores/' + encodeURIComponent(id) + '.svg'}" alt="" decoding="async"
                         onerror="this.closest('.once-avatar').classList.add('once-avatar--sin-imagen')"></span>${dorsalHtml}</span>`;
     }
 
@@ -1555,7 +1580,7 @@ document.addEventListener('DOMContentLoaded', function () {
                  data-bs-toggle="collapse" data-bs-target="#${idAcciones}"
                  aria-expanded="${expandido}" aria-controls="${idAcciones}">
                 <span class="d-flex align-items-center gap-2" style="min-width: 0;">
-                    ${dorsalHtml}<span class="text-truncate">${jugador.nombre}${posicionTexto}</span>
+                    ${dorsalHtml}<span class="text-truncate">${canchaLeyendas.has(jugador.nombre) ? '<span class="insignia-leyenda insignia-leyenda--compacta" title="Leyenda"><i class="bi bi-award-fill"></i></span> ' : ''}${jugador.nombre}${posicionTexto}</span>
                 </span>
                 <span class="d-flex align-items-center gap-1">
                     <span class="badge rounded-pill ${claseBadgeRating(jugador.rating)}">${jugador.rating.toFixed(1)}</span>

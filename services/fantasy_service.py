@@ -81,6 +81,8 @@ ORDEN_SECTORES = {"Portero": 0, "Defensa": 1, "Medio": 2, "Delantero": 3}
 
 CANTIDAD_JUGADORES_LINEUP = 11
 MAX_JUGADORES_POR_PAIS = 2
+# Leyendas (jugadores.leyenda): juegan casi todos los partidos de su selección, así que se permite una sola
+MAX_LEYENDAS_FANTASY = 1
 
 # Jornadas fantasy: el reloj de los cambios es la cantidad de partidos jugados del Mundial (no las
 # fases, que avanzan distinto en cada confederación). Cambios gratis acumulables, como en FPL.
@@ -280,9 +282,12 @@ def _validar_alineacion(lineup: List[int]) -> None:
     if len(set(lineup)) != len(lineup):
         raise ValueError("No se puede repetir el mismo jugador en la alineación")
 
-    jugadores = list(db['jugadores'].find({"id": {"$in": lineup}}, {"id": 1, "posicion_id": 1, "pais_id": 1}))
+    jugadores = list(db['jugadores'].find({"id": {"$in": lineup}}, {"id": 1, "posicion_id": 1, "pais_id": 1, "leyenda": 1}))
     if len(jugadores) != len(lineup):
         raise ValueError("Uno o más jugadores de la alineación no existen")
+
+    if sum(1 for j in jugadores if j.get("leyenda")) > MAX_LEYENDAS_FANTASY:
+        raise ValueError(f"Solo podés tener {MAX_LEYENDAS_FANTASY} leyenda en tu Once Ideal")
 
     # Máximo 2 jugadores por selección
     conteo_por_pais: Dict[int, int] = {}
@@ -418,13 +423,19 @@ def _enriquecer_jugadores(jugadores: List[dict]) -> List[dict]:
             # Su selección ya no juega el Mundial: no suma puntos y reemplazarlo es gratis
             "eliminado": j.get("pais_id") in eliminados,
             "motivo_eliminado": eliminados.get(j.get("pais_id")),
+            "leyenda": bool(j.get("leyenda")),
         })
     return resultado
 
 
-def buscar_jugadores(texto: str = "", pais_id: Optional[int] = None, posicion_id: Optional[int] = None, limite: int = 30) -> List[dict]:
-    """Búsqueda por nombre/país/posición, para el selector de jugadores del Once Ideal."""
+def buscar_jugadores(texto: str = "", pais_id: Optional[int] = None, posicion_id: Optional[int] = None, limite: int = 30,
+                     leyendas: Optional[bool] = None) -> List[dict]:
+    """Búsqueda por nombre/país/posición, para el selector de jugadores del Once Ideal (leyendas=True: solo leyendas)."""
     filtro: Dict[str, Any] = {}
+    if leyendas is True:
+        filtro["leyenda"] = True
+    elif leyendas is False:
+        filtro["leyenda"] = {"$ne": True}
     if texto:
         filtro["nombre"] = {"$regex": texto, "$options": "i"}
     if pais_id is not None:
@@ -434,7 +445,7 @@ def buscar_jugadores(texto: str = "", pais_id: Optional[int] = None, posicion_id
 
     jugadores = list(db['jugadores'].find(
         filtro,
-        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1}
+        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1, "leyenda": 1}
     ).limit(limite))
 
     return _enriquecer_jugadores(jugadores)
@@ -446,7 +457,7 @@ def obtener_detalle_jugadores(ids: List[int]) -> List[dict]:
         return []
     jugadores = list(db['jugadores'].find(
         {"id": {"$in": ids}},
-        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1}
+        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1, "leyenda": 1}
     ))
     return _enriquecer_jugadores(jugadores)
 

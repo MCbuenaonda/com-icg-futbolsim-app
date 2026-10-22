@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as m %}
+
+{% block title %}Póster y mascota{% if arte %} {{ arte.pais }} {{ arte.anio }}{% endif %} - FutbolSim{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/album.css">
+{% endblock %}
+
+{% block content %}
+{#
+  Póster y mascota oficiales del Mundial (services/arte_mundial_service.py): el póster en grande, la ficha de la
+  mascota y la galería histórica. ?anio= abre otra edición.
+#}
+{% if not arte %}
+{{ m.estado_vacio('bi-image', 'Todavía no hay póster', 'El póster y la mascota se generan al crear cada Mundial.') }}
+{% else %}
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo album-tapa mb-4" style="--logo-color: #eab308;">
+    <img src="{{ imagen_inicio('copa') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
+    <div class="card-body p-3 p-md-4 d-flex align-items-center gap-3 flex-wrap">
+        <span class="album-tapa__sello"><img src="{{ imagen_inicio('copa') }}" alt=""></span>
+        <div class="min-w-0">
+            <span class="album-tapa__edicion">Arte oficial · Copa del Mundo FIFAV</span>
+            <h1 class="h2 fw-bold text-white mb-0">{{ m.bandera(arte.bandera, pais_id=arte.pais_id) }} {{ arte.pais }} {{ arte.anio }}</h1>
+            <p class="text-muted small mb-0">Como en cada Mundial real: un póster oficial y una mascota con el uniforme de la sede.</p>
+        </div>
+        {% if puede('gestion_usuarios') and arte.activo %}
+        <a href="/admin/arte-mundial" class="btn btn-sm btn-outline-light rounded-pill ms-auto"><i class="bi bi-palette me-1"></i>Elegir otra propuesta</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-12 col-lg-6">
+        <figure class="arte-poster mb-0">
+            <img src="{{ arte.poster_url }}" alt="Póster oficial del Mundial {{ arte.pais }} {{ arte.anio }}" width="600" height="900">
+            <figcaption>
+                <span>Póster oficial</span>
+                <a href="{{ arte.poster_url }}" download="poster-mundial-{{ arte.anio }}.svg" class="btn btn-sm btn-outline-light rounded-pill"><i class="bi bi-download me-1"></i>Descargar</a>
+            </figcaption>
+        </figure>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="card card-seccion arte-mascota h-100">
+            <div class="card-body p-3 p-md-4 d-flex flex-column">
+                <span class="arte-mascota__sello"><i class="bi bi-stars"></i> Mascota oficial</span>
+                <div class="arte-mascota__figura" {% set plana = img_pais(arte.pais_id, 'plana') %}{% if plana %}style="--bandera-url: url('{{ plana }}')"{% endif %}>
+                    <img src="{{ arte.mascota_url }}" alt="{{ arte.mascota_nombre }}, mascota del Mundial {{ arte.anio }}" width="500" height="600">
+                </div>
+                <h2 class="arte-mascota__nombre">{{ arte.mascota_nombre }}</h2>
+                <p class="text-light mb-2">
+                    {{ arte.mascota_nombre }} es {{ arte.mascota_que }} y viste la camiseta de {{ arte.pais }} con el {{ (arte.anio | string)[-2:] }} en el pecho.
+                    {% if arte.mascota_tipo == 'fruta' %}Como Naranjito o Pique, la mascota es un fruto típico de la sede.{% else %}Representa a la fauna del país anfitrión.{% endif %}
+                </p>
+                <div class="d-flex flex-wrap gap-1 mt-auto">
+                    <span class="resumen-chip">{{ m.bandera(arte.bandera, pais_id=arte.pais_id) }} {{ arte.pais }}</span>
+                    <span class="resumen-chip"><i class="bi bi-calendar3"></i>{{ arte.anio }}</span>
+                    {% if arte.accesorio and arte.accesorio != 'ninguno' %}<span class="resumen-chip"><i class="bi bi-gem"></i>{{ arte.accesorio | replace('_', ' ') }}</span>{% endif %}
+                </div>
+                <a href="{{ arte.mascota_url }}" download="mascota-mundial-{{ arte.anio }}.svg" class="btn btn-sm btn-outline-light rounded-pill align-self-start mt-3"><i class="bi bi-download me-1"></i>Descargar mascota</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if historico | length > 1 or (historico and historico[0].anio != arte.anio) %}
+<h2 class="vivo-titulo"><i class="bi bi-collection text-warning"></i>Todos los Mundiales</h2>
+<div class="row g-3 row-cols-2 row-cols-md-3 row-cols-xl-5">
+    {% for h in historico %}
+    <div class="col">
+        <a href="/mundial/arte?anio={{ h.anio }}" class="arte-galeria {{ 'arte-galeria--actual' if h.anio == arte.anio }}">
+            <img src="{{ h.poster_url }}" alt="Póster {{ h.pais }} {{ h.anio }}" loading="lazy">
+            <span class="arte-galeria__mascota"><img src="{{ h.mascota_url }}" alt="" loading="lazy"></span>
+            <strong>{{ h.pais }} {{ h.anio }}</strong><small>{{ h.mascota_nombre }}</small>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

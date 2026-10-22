@@ -41,15 +41,16 @@ def valores() -> Dict[str, dict]:
                                                           "valor": 1, "aficionados": 1, "estadisticas.rankin": 1,
                                                           "estadisticas.poder": 1})}
     jugadores = list(db["jugadores"].find({}, {"_id": 0, "id": 1, "nombre": 1, "pais_id": 1, "posicion_id": 1, "overall": 1,
-                                               "rendimiento": 1, "edad": 1}))
+                                               "rendimiento": 1, "edad": 1, "leyenda": 1, "fama": 1}))
     poder = {k: (v.get("estadisticas") or {}).get("poder") or 0 for k, v in paises.items()}
-    valores_j = R.valores_jugadores(jugadores, poder)
+    # Leyendas con escala propia: no mueven el percentil ni el valor de los jugadores actuales
+    valores_j, percentil_j = R.valores_con_leyendas(jugadores, poder)
     datos = {
         "jugadores": valores_j,
         "selecciones": {pid: R.valor_seleccion(p) for pid, p in paises.items()},
-        "percentil": R.percentiles(valores_j),
+        "percentil": percentil_j,
         "info_jugadores": {j["id"]: {"nombre": j.get("nombre"), "pais_id": j.get("pais_id"), "posicion_id": j.get("posicion_id"),
-                                     "edad": j.get("edad")} for j in jugadores},
+                                     "edad": j.get("edad"), "leyenda": bool(j.get("leyenda"))} for j in jugadores},
         "info_paises": {pid: {"nombre": p.get("nombre"), "bandera": p.get("bandera"), "confederacion_id": p.get("confederacion_id"),
                               "rankin": (p.get("estadisticas") or {}).get("rankin")} for pid, p in paises.items()},
     }

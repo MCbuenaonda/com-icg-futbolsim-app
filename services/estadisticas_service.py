@@ -723,8 +723,12 @@ def _get_stats_torneos():
     total_mundiales = mundiales_coll.count_documents({})
     return {"total_mundiales": total_mundiales}
 
-def _get_11_ideal():
-    """Selecciona al mejor jugador de cada posición técnica en función del 'overall' y 'rendimiento'."""
+def _get_11_ideal(leyendas: bool = False):
+    """
+    Selecciona al mejor jugador de cada posición técnica en función del 'overall' y 'rendimiento'.
+    Las leyendas (jugadores.leyenda, ~80) van en un once aparte (leyendas=True): si compitieran con
+    el resto se quedarían con los 11 puestos.
+    """
     posiciones_coll = db["posiciones"]
     jugadores_coll = db["jugadores"]
     paises_coll = db["paises"]
@@ -735,8 +739,9 @@ def _get_11_ideal():
     # Un solo aggregate para traer al mejor jugador de cada posición
     # (antes era un find_one por posición del catálogo)
     pipeline_mejores = [
-        {"$match": {"posicion_id": {"$in": ids_posiciones}}},
-        {"$sort": {"overall": -1, "rendimiento": -1}},
+        {"$match": {"posicion_id": {"$in": ids_posiciones}, "leyenda": True if leyendas else {"$ne": True}}},
+        # leyendas: todas arrancan en ~80, así que manda el rendimiento en el Mundial y, a igualdad, la fama
+        {"$sort": {"rendimiento": -1, "wikis": -1, "fama": -1} if leyendas else {"overall": -1, "rendimiento": -1}},
         {"$group": {"_id": "$posicion_id", "mejor_jugador": {"$first": "$$ROOT"}}}
     ]
     mejores_por_posicion = {doc["_id"]: doc["mejor_jugador"] for doc in jugadores_coll.aggregate(pipeline_mejores)}
@@ -754,6 +759,8 @@ def _get_11_ideal():
                 "posicion": pos["nombre"],
                 "siglas": pos["siglas"],
                 "jugador": mejor_jugador["nombre"],
+                "jugador_id": mejor_jugador.get("id"),
+                "pais_id": mejor_jugador.get("pais_id"),
                 "pais": nombres_paises.get(mejor_jugador.get("pais_id"), "?"),
                 "overall": mejor_jugador["overall"]
             })
@@ -1110,6 +1117,7 @@ def obtener_estadisticas_generales():
         "paises": paises,
         "torneos": _get_stats_torneos(),
         "once_ideal": _get_11_ideal(),
+        "once_leyendas": _get_11_ideal(leyendas=True),
         "top_jugadores": _armar_top_jugadores(agregado, nombres_paises),
         "top_selecciones": _armar_top_selecciones(paises_agregado),
         "mundial": db["mundiales"].find_one({"activo": True}, {"_id": 0, "anio": 1}),

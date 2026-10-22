@@ -1,0 +1,102 @@
+{
+  "_comentario": "Leyendas FICTICIAS (las lee agregar_leyendas.py) para completar el once de las selecciones sin suficientes futbolistas históricos registrados. Cada nombre mezcla el nombre de un personaje famoso del país (no futbolista) con el apellido de otro: evocan, pero no son personas reales. Se guardan con ficticia: true e inspirado_en.",
+  "Gibraltar": {
+    "POR": {"nombre": "Albert Galliano", "inspirado_en": "Albert Hammond (cantautor) y John Galliano (diseñador)"},
+    "LD": {"nombre": "Fabian Bossano", "inspirado_en": "Fabian Picardo y Joe Bossano (políticos)"},
+    "MD": {"nombre": "John Caruana", "inspirado_en": "John Galliano (diseñador) y Peter Caruana (político)"},
+    "EI": {"nombre": "Joseph Picardo", "inspirado_en": "Joe Bossano y Fabian Picardo (políticos)"},
+    "ED": {"nombre": "Peter Aldorino", "inspirado_en": "Peter Caruana (político) y Kaiane Aldorino (Miss Mundo)"}
+  },
+  "Curazao": {
+    "LI": {"nombre": "Andruw Calister", "inspirado_en": "Andruw Jones (béisbol) e Izaline Calister (cantante)"},
+    "MD": {"nombre": "Boeli Jansen", "inspirado_en": "Boeli van Leeuwen (escritor) y Kenley Jansen (béisbol)"}
+  },
+  "Dominica": {
+    "POR": {"nombre": "Roosevelt Rhys", "inspirado_en": "Roosevelt Skerrit (político) y Jean Rhys (escritora)"}
+  },
+  "Islas Vírgenes Británicas": {
+    "LD": {"nombre": "Kyron O'Neal", "inspirado_en": "Kyron McMaster (atleta) y Ralph O'Neal (político)"},
+    "MI": {"nombre": "Orlando Harrigan", "inspirado_en": "Orlando Smith (político) y Tahesia Harrigan-Scott (atleta)"},
+    "MD": {"nombre": "Ralph McMaster", "inspirado_en": "Ralph O'Neal (político) y Kyron McMaster (atleta)"}
+  },
+  "República Dominicana": {
+    "DFD": {"nombre": "Óscar Guerra", "inspirado_en": "Óscar de la Renta (diseñador) y Juan Luis Guerra (músico)"},
+    "LD": {"nombre": "Romeo Pacheco", "inspirado_en": "Romeo Santos (cantante) y Johnny Pacheco (músico)"},
+    "MD": {"nombre": "Johnny Ortiz", "inspirado_en": "Johnny Pacheco (músico) y David Ortiz (béisbol)"}
+  },
+  "Santa Lucía": {
+    "POR": {"nombre": "Arthur Walcott", "inspirado_en": "Arthur Lewis (Nobel de Economía) y Derek Walcott (Nobel de Literatura)"}
+  },
+  "Guinea-Bisáu": {
+    "POR": {"nombre": "Amílcar Schwarz", "inspirado_en": "Amílcar Cabral (prócer) y José Carlos Schwarz (músico)"}
+  },
+  "Mauritania": {
+    "POR": {"nombre": "Abderrahmane Ould Daddah", "inspirado_en": "Abderrahmane Sissako (cineasta) y Moktar Ould Daddah (político)"}
+  },
+  "República Centroafricana": {
+    "LI": {"nombre": "Barthélemy Dacko", "inspirado_en": "Barthélemy Boganda y David Dacko (próceres)"},
+    "LD": {"nombre": "Romain Goumba", "inspirado_en": "Romain Sato (básquetbol) y Abel Goumba (político)"},
+    "MI": {"nombre": "Faustin Boganda", "inspirado_en": "Faustin-Archange Touadéra (político) y Barthélemy Boganda (prócer)"},
+    "MC": {"nombre": "Abel Sato", "inspirado_en": "Abel Goumba (político) y Romain Sato (básquetbol)"},
+    "MD": {"nombre": "David Touadéra", "inspirado_en": "David Dacko y Faustin-Archange Touadéra (políticos)"},
+    "ED": {"nombre": "Ange Samba", "inspirado_en": "Ange-Félix Patassé y Catherine Samba-Panza (políticos)"}
+  },
+  "Ruanda": {
+    "POR": {"nombre": "Gaël Mukasonga", "inspirado_en": "Gaël Faye y Scholastique Mukasonga (escritores)"}
+  },
+  "Santo Tomé y Príncipe": {
+    "POR": {"nombre": "Francisco Trovoada", "inspirado_en": "Francisco José Tenreiro (poeta) y Miguel Trovoada (político)"},
+    "DFD": {"nombre": "Manuel Tenreiro", "inspirado_en": "Manuel Pinto da Costa (político) y Francisco José Tenreiro (poeta)"},
+    "LI": {"nombre": "Fradique Pinto", "inspirado_en": "Fradique de Menezes y Manuel Pinto da Costa (políticos)"},
+    "LD": {"nombre": "Miguel Menezes", "inspirado_en": "Miguel Trovoada y Fradique de Menezes (políticos)"},
+    "MI": {"nombre": "Patrice Lima", "inspirado_en": "Patrice Trovoada (político) y Conceição Lima (poeta)"},
+    "MD": {"nombre": "Sum Beja", "inspirado_en": "Sum Marky (músico) y Olinda Beja (escritora)"},
+    "ED": {"nombre": "Olindo Espírito Santo", "inspirado_en": "Olinda Beja y Alda do Espírito Santo (escritoras)"}
+  },
+  "Somalia": {
+    "DFD": {"nombre": "Nuruddin Osman", "inspirado_en": "Nuruddin Farah (escritor) y Aden Abdullah Osman (político)"},
+    "LI": {"nombre": "Aden Dirie", "inspirado_en": "Aden Abdullah Osman (político) y Waris Dirie (modelo y activista)"},
+    "LD": {"nombre": "Abdiqasim Mursal", "inspirado_en": "Abdiqasim Salad Hassan (político) y Maryam Mursal (cantante)"},
+    "MI": {"nombre": "Hadraawi Yusuf", "inspirado_en": "Hadraawi (poeta) y Abdullahi Yusuf (político)"},
+    "MD": {"nombre": "Abdullahi Farah", "inspirado_en": "Abdullahi Yusuf (político) y Nuruddin Farah (escritor)"},
+    "EI": {"nombre": "Keinan Salad", "inspirado_en": "K'naan (músico) y Abdiqasim Salad Hassan (político)"},
+    "DC": {"nombre": "Iman Warsame", "inspirado_en": "Iman (modelo) y Hadraawi, Mohamed Ibrahim Warsame (poeta)"},
+    "ED": {"nombre": "Ilyas Hassan", "inspirado_en": "Abdiqasim Salad Hassan (político)"}
+  },
+  "Sudán del Sur": {
+    "POR": {"nombre": "Manute Garang", "inspirado_en": "Manute Bol (básquetbol) y John Garang (prócer)"},
+    "DFD": {"nombre": "Luol Kiir", "inspirado_en": "Luol Deng (básquetbol) y Salva Kiir (político)"},
+    "LI": {"nombre": "Emmanuel Wek", "inspirado_en": "Emmanuel Jal (músico) y Alek Wek (modelo)"},
+    "LD": {"nombre": "Ger Machar", "inspirado_en": "Ger Duany (actor) y Riek Machar (político)"},
+    "MI": {"nombre": "Thon Jal", "inspirado_en": "Thon Maker (básquetbol) y Emmanuel Jal (músico)"},
+    "MC": {"nombre": "Salva Deng", "inspirado_en": "Salva Kiir (político) y Luol Deng (básquetbol)"},
+    "MD": {"nombre": "Riek Duany", "inspirado_en": "Riek Machar (político) y Ger Duany (actor)"},
+    "EI": {"nombre": "Wal Maker", "inspirado_en": "Wal Duany (actor) y Thon Maker (básquetbol)"},
+    "DC": {"nombre": "Mabior Bol", "inspirado_en": "Mabior Garang (político) y Manute Bol (básquetbol)"},
+    "ED": {"nombre": "Kuol Akec", "inspirado_en": "nombres tradicionales dinka"}
+  },
+  "Yibuti": {
+    "POR": {"nombre": "Abdourahman Gouled", "inspirado_en": "Abdourahman Waberi (escritor) y Hassan Gouled Aptidon (prócer)"},
+    "LD": {"nombre": "Ayanleh Waberi", "inspirado_en": "Ayanleh Souleiman (atleta) y Abdourahman Waberi (escritor)"},
+    "EI": {"nombre": "Ismaïl Djama", "inspirado_en": "Ismaïl Omar Guelleh (político) y Nima Djama (cantante)"},
+    "ED": {"nombre": "Hassan Souleiman", "inspirado_en": "Hassan Gouled Aptidon (prócer) y Ayanleh Souleiman (atleta)"}
+  },
+  "Guam": {
+    "LI": {"nombre": "Ricardo Camacho", "inspirado_en": "Ricardo Bordallo (político) y Frank Camacho (artes marciales mixtas)"},
+    "LD": {"nombre": "Felix Bordallo", "inspirado_en": "Felix Camacho y Madeleine Bordallo (políticos)"},
+    "MI": {"nombre": "Carl Taitano", "inspirado_en": "Carl Gutierrez (político) y apellido chamorro Taitano"},
+    "MD": {"nombre": "Frank Leon Guerrero", "inspirado_en": "Frank Camacho (artes marciales mixtas) y Lou Leon Guerrero (política)"},
+    "ED": {"nombre": "Eddie Ada", "inspirado_en": "Eddie Calvo y Joseph Ada (políticos)"}
+  },
+  "Laos": {
+    "DFI": {"nombre": "Kaysone Vongvichit", "inspirado_en": "Kaysone Phomvihane y Phoumi Vongvichit (próceres)"},
+    "DFD": {"nombre": "Phoumi Siphandone", "inspirado_en": "Phoumi Vongvichit y Khamtai Siphandone (políticos)"},
+    "LI": {"nombre": "Khamtay Phouma", "inspirado_en": "Khamtai Siphandone y Souvanna Phouma (políticos)"},
+    "LD": {"nombre": "Souvanna Sisoulith", "inspirado_en": "Souvanna Phouma y Thongloun Sisoulith (políticos)"},
+    "MI": {"nombre": "Sisavang Phomvihane", "inspirado_en": "Sisavang Vong (rey) y Kaysone Phomvihane (prócer)"},
+    "MD": {"nombre": "Thongloun Bounxouei", "inspirado_en": "Thongloun Sisoulith (político) y Alexandra Bounxouei (cantante)"}
+  },
+  "Yemen": {
+    "MD": {"nombre": "Abu Bakr Al-Baradouni", "inspirado_en": "Abu Bakr Salem (cantante) y Abdullah Al-Baradouni (poeta)"}
+  }
+}

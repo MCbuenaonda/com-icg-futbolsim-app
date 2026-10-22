@@ -5,7 +5,13 @@ Cloud Storage configurado en IMAGENES_PAISES_URL (config/settings.py):
     <IMAGENES_PAISES_URL>/<tipo>/<paises.nombre>.png      ej. .../bandera/Países Bajos.png
 
 El archivo se llama EXACTAMENTE como 'paises.nombre' en Mongo: si se renombra un país en Mongo,
-hay que renombrar sus 4 archivos en el bucket (gcloud storage mv).
+hay que renombrar sus archivos en el bucket (gcloud storage mv).
+
+Tipos: 'bandera' (ondeada, fondo transparente: para usar en línea), 'plana' (carpeta bandera_plana/, a
+sangre y sin transparencia: para fondos con background-size: cover, como el círculo de los avatares),
+'icono' (circular), 'jersey' y 'escudo'. bandera/, icono/ y bandera_plana/ los genera generar_banderas.py
+(respaldo de las anteriores en bandera_v1/ e icono_v1/). La URL lleva ?v=<VERSION_IMAGENES>: el bucket
+cachea 7 días, así que al regenerar un tipo hay que subir su versión para que los navegadores la pidan de nuevo.
 
 Los documentos de partidos/países guardan la bandera como EMOJI (sin el id en muchos lugares), y
 cada emoji es único por país, así que 'pais_id_por_bandera' resuelve el país a partir del emoji.
@@ -26,7 +32,9 @@ from config.settings import IMAGENES_PAISES_URL, MONGODB_URI
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
 
-TIPOS_IMAGEN = ("bandera", "jersey", "icono", "escudo")
+TIPOS_IMAGEN = ("bandera", "plana", "jersey", "icono", "escudo")
+CARPETA_TIPO = {"plana": "bandera_plana"}               # el resto: carpeta = tipo
+VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 2}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
 
 # {id: nombre} y {emoji: id} de 'paises' (se cargan una vez: nombres y banderas no cambian en runtime)
 _nombre_por_id: Optional[dict] = None
@@ -57,7 +65,10 @@ def url_imagen_pais(pais_id, tipo: str = "bandera") -> Optional[str]:
         return None
     _cargar_paises()
     nombre = _nombre_por_id.get(pais_id)
-    return f"{IMAGENES_PAISES_URL}/{tipo}/{quote(nombre)}.png" if nombre else None
+    if not nombre:
+        return None
+    version = VERSION_IMAGENES.get(tipo)
+    return f"{IMAGENES_PAISES_URL}/{CARPETA_TIPO.get(tipo, tipo)}/{quote(nombre)}.png" + (f"?v={version}" if version else "")
 
 
 def mapa_banderas_json() -> str:
@@ -65,6 +76,8 @@ def mapa_banderas_json() -> str:
     _cargar_paises()
     return json.dumps({
         "base": IMAGENES_PAISES_URL,
+        "carpetas": CARPETA_TIPO,
+        "versiones": VERSION_IMAGENES,
         "porBandera": _id_por_bandera,
         "porId": {str(i): n for i, n in _nombre_por_id.items()},
     }, ensure_ascii=False)
@@ -127,7 +140,15 @@ def url_avatar(jugador_id) -> Optional[str]:
         return None
     if _jugadores_con_avatar is None:
         _jugadores_con_avatar = {j["id"] for j in db["jugadores"].find({"avatar_imagen": {"$exists": True}}, {"id": 1})}
-    return f"{IMAGENES_PAISES_URL}/jugadores/{jugador_id}.svg" if jugador_id in _jugadores_con_avatar else None
+    return f"{IMAGENES_PAISES_URL}/jugadores/{jugador_id}.svg?v={VERSION_IMAGENES['avatar']}" if jugador_id in _jugadores_con_avatar else None
+
+
+def url_foto_equipo(pais_id, grupo) -> Optional[str]:
+    """Foto de equipo (generar_fotos_equipo.py): grupo 1 titulares, 2 suplentes, 3 leyendas; fondo transparente."""
+    try:
+        return f"{IMAGENES_PAISES_URL}/fotos_equipo/{int(pais_id)}-{int(grupo)}.svg?v={VERSION_IMAGENES['foto_equipo']}"
+    except (TypeError, ValueError):
+        return None
 
 
 # nombre -> {"url", "pais_id"} de los árbitros (arbitros.avatar_imagen, asignado una vez por generar_avatares_arbitros.py).
@@ -167,10 +188,19 @@ def _corp_representantes(usuario):
     return representantes(usuario)
 
 
+def _arte_mundial(anio=None):
+    """Póster y mascota de un Mundial (o del activo) para las vistas: services/arte_mundial_service.arte_de."""
+    try:
+        from services import arte_mundial_service as arte
+        return arte.arte_de(anio) if anio else arte.arte_activo()
+    except Exception:
+        return None
+
+
 GLOBALES_JINJA = {
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,
     "imagen_inicio": imagen_inicio, "img_estadio": url_estadio, "img_avatar": url_avatar,
     "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo,
-    "corp_representantes": _corp_representantes,
+    "corp_representantes": _corp_representantes, "img_foto_equipo": url_foto_equipo, "arte_mundial": _arte_mundial,
 }

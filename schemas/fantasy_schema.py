@@ -36,6 +36,7 @@ class JugadorBusquedaOut(BaseModel):
     numero: Optional[int] = None
     eliminado: bool = False
     motivo_eliminado: Optional[str] = None
+    leyenda: bool = False
 
 
 class DesgloseConceptoOut(BaseModel):

@@ -8,7 +8,7 @@
  *                                        insignia de nivel (avisa "+N XP" con un toast si sumó XP)
  *   UI.toast(mensaje, {icono, tipo, enlace, duracion}) -> aviso flotante abajo a la derecha
  *   UI.alerta(contenedor, mensaje, tipo) -> alerta Bootstrap descartable dentro de 'contenedor'
- *   UI.bandera(emoji, {tipo, id, clase}) -> HTML de la imagen del país (bandera/escudo/icono/jersey)
+ *   UI.bandera(emoji, {tipo, id, clase}) -> HTML de la imagen del país (bandera/plana/escudo/icono/jersey)
  *                                        o el emoji escapado si no hay imagen; mismo criterio que
  *                                        el macro 'bandera' de templates/partials/macros.html
  *   UI.urlImagenPais(id, tipo)        -> URL de la imagen en el bucket (null si el país no se conoce)
@@ -33,7 +33,11 @@
     function urlImagenPais(id, tipo = 'bandera') {
         const datos = window.PAISES_IMG || {};
         const nombre = (datos.porId || {})[String(id)];
-        return nombre && datos.base ? `${datos.base}/${tipo}/${encodeURIComponent(nombre)}.png` : null;
+        if (!nombre || !datos.base) return null;
+        // Misma regla que services/imagenes_pais_service.url_imagen_pais: carpeta por tipo + versión (caché de 7 días)
+        const carpeta = (datos.carpetas || {})[tipo] || tipo;
+        const version = (datos.versiones || {})[tipo];
+        return `${datos.base}/${carpeta}/${encodeURIComponent(nombre)}.png${version ? '?v=' + version : ''}`;
     }
     // Si la imagen falla, la reemplaza por el emoji guardado en data-emoji
     const ON_ERROR_EMOJI = "this.replaceWith(document.createTextNode(this.dataset.emoji || ''))";
@@ -50,12 +54,19 @@
         return `<span class="jersey-dorsal ${url ? '' : 'jersey-dorsal--sin-imagen'} ${escapar(clase)}">${img}<span>${escapar(numero ?? '')}</span></span>`;
     }
 
+    // URL del avatar ilustrado (bucket jugadores/<id>.svg) con su versión, igual que imagenes_pais_service.url_avatar
+    function urlAvatar(jugadorId) {
+        const datos = window.PAISES_IMG || {};
+        const v = (datos.versiones || {}).avatar;
+        return datos.base && jugadorId != null ? `${datos.base}/jugadores/${encodeURIComponent(jugadorId)}.svg${v ? '?v=' + v : ''}` : null;
+    }
+
     function avatar(jugadorId, paisId = null, tam = '') {
         const base = (window.PAISES_IMG || {}).base;
-        const bandera = paisId != null ? urlImagenPais(paisId, 'bandera') : null;
+        const bandera = paisId != null ? urlImagenPais(paisId, 'plana') : null;   // fondo: la versión plana a sangre
         const fondo = bandera ? ` style="--bandera-url: url('${bandera}')"` : '';
         const img = base && jugadorId != null
-            ? `<img src="${base}/jugadores/${encodeURIComponent(jugadorId)}.svg" alt="" loading="lazy" decoding="async" onerror="this.remove()">`
+            ? `<img src="${urlAvatar(jugadorId)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`
             : '<i class="bi bi-person-fill"></i>';
         return `<span class="avatar-jugador ${tam ? 'avatar-jugador--' + escapar(tam) : ''}"${fondo}>${img}</span>`;
     }
@@ -322,5 +333,5 @@
         });
     };
 
-    window.UI = { escapar, bandera, urlImagenPais, jersey, avatar, confirmar, refrescarSaldo, toast, alerta, mostrarAlertaEn, mejorarAccesibilidad, paginador, cargando };
+    window.UI = { escapar, bandera, urlImagenPais, jersey, avatar, confirmar, refrescarSaldo, toast, alerta, mostrarAlertaEn, mejorarAccesibilidad, paginador, cargando, urlAvatar };
 })();

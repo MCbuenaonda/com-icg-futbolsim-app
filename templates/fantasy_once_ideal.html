@@ -11,7 +11,7 @@
             <span class="plantilla-hero__sub" style="--logo-color: #22c55e;">Fantasy · Jornada {{ jornada.numero }}</span>
             <h1 class="h2 fw-bold text-white mb-1">Once Ideal</h1>
             <p class="text-muted mb-0 small">Un equipo para todo el Mundial: suma en todos los partidos, de cualquier fase y confederación.
-                1 jugador por posición y máximo 2 por selección.</p>
+                1 jugador por posición, máximo 2 por selección y 1 leyenda.</p>
         </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <div class="fixture-kpi"><span>Puntos fantasy</span><strong class="text-success">{{ alineacion.total_points_fase if alineacion else 0 }}</strong></div>
@@ -31,6 +31,7 @@
     <span><i class="bi bi-arrow-repeat text-info"></i><strong>+{{ reglas.cambios_por_jornada }} cambios gratis</strong> por jornada (máx. {{ reglas.tope }})</span>
     <span><i class="bi bi-cash-coin text-warning"></i>Cada cambio extra cuesta <strong>{{ reglas.costo_extra }} pts</strong> de saldo</span>
     <span><i class="bi bi-person-x-fill text-danger"></i>Reemplazar a un jugador <strong>eliminado</strong> es gratis y no gasta cambios</span>
+    <span><i class="bi bi-award-fill" style="color:#d9a066"></i>Podés sumar <strong>1 leyenda</strong> (el once histórico de cada selección)</span>
 </div>
 
 {% if eliminados_en_once %}
@@ -162,6 +163,8 @@
 document.addEventListener('DOMContentLoaded', function () {
     const ETIQUETAS_BLOQUE = { PORTERO: 'Portero', DEFENSA: 'Defensas', MEDIO: 'Medios', DELANTERO: 'Delanteros' };
     const MAX_POR_PAIS = 2;
+    const MAX_LEYENDAS = 1;   // fantasy_service.MAX_LEYENDAS_FANTASY
+    const INSIGNIA_LEYENDA = '<span class="insignia-leyenda insignia-leyenda--compacta" title="Leyenda: parte del once histórico de su selección"><i class="bi bi-award-fill"></i></span>';
 
     // Catálogo real de las 11 posiciones (id/nombre/siglas/sector).
     const POSICIONES_CATALOGO = {{ posiciones | tojson }};
@@ -251,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             <span class="once-ficha__foto">${UI.avatar(jugador.id, jugador.pais_id)}<span class="avatar-dorsal">${UI.escapar(jugador.numero ?? '')}</span>
                                 ${desempeno ? `<span class="once-ficha__estado once-ficha__estado--${desempeno.estado}"></span>` : ''}</span>
                             <button type="button" class="once-ficha__quitar btn-quitar" data-posicion-id="${slot.id}" aria-label="Quitar a ${UI.escapar(jugador.nombre)}" title="Quitar"><i class="bi bi-x"></i></button>
-                            <span class="once-ficha__nombre">${UI.escapar(jugador.nombre)}</span>
+                            <span class="once-ficha__nombre">${jugador.leyenda ? INSIGNIA_LEYENDA + ' ' : ''}${UI.escapar(jugador.nombre)}</span>
                             <span class="once-ficha__meta">${jugador.eliminado ? '<b class="text-danger">cambio gratis</b>' : `${slot.siglas} · ${jugador.overall}${desempeno ? ` · <b>${desempeno.puntos_totales_fase}p</b>` : ''}`}</span>
                         </div>`;
                 } else {
@@ -305,6 +308,13 @@ document.addEventListener('DOMContentLoaded', function () {
             mostrarAlerta(`${jugador.nombre} no puede sumar puntos: ${jugador.pais_nombre} ${jugador.motivo_eliminado === 'No participa' ? 'no juega el Mundial' : 'quedó eliminada'}.`, 'warning');
             return;
         }
+        if (jugador.leyenda) {
+            const otra = Object.entries(seleccionados).find(([pos, j]) => j && j.leyenda && Number(pos) !== jugador.posicion_id);
+            if (otra && Object.values(seleccionados).filter(j => j && j.leyenda).length >= MAX_LEYENDAS) {
+                mostrarAlerta(`Solo podés tener ${MAX_LEYENDAS} leyenda en tu Once Ideal (ya tenés a ${otra[1].nombre}).`, 'warning');
+                return;
+            }
+        }
         const conteo = conteoPorPais();
         if ((conteo[jugador.pais_id] || 0) >= MAX_POR_PAIS) {
             mostrarAlerta(`Ya tenés ${MAX_POR_PAIS} jugadores de ${jugador.pais_nombre} (máximo por selección).`, 'warning');
@@ -354,7 +364,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         ${j.eliminado ? `disabled title="${UI.escapar(j.pais_nombre)}: ya no juega el Mundial"` : ''}>
                     <span class="once-resultado__foto">${UI.avatar(j.id, j.pais_id, 'sm')}<span class="avatar-dorsal">${UI.escapar(j.numero ?? '')}</span></span>
                     <span class="once-resultado__info">
-                        <strong>${UI.escapar(j.nombre)}</strong>
+                        <strong>${UI.escapar(j.nombre)} ${j.leyenda ? INSIGNIA_LEYENDA : ''}</strong>
                         <small>${UI.bandera ? UI.bandera('', { id: j.pais_id }) : ''} ${UI.escapar(j.pais_nombre)} · ${UI.escapar(j.posicion_siglas)}</small>
                     </span>
                     ${aviso}

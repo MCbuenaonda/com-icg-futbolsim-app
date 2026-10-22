@@ -48,14 +48,17 @@ async def pais(request: Request, id: str):
         trayectoria = obtener_trayectoria_pais(int(id)) if pais else []
         partidos = obtener_partidos_pais(int(id)) if pais else {"ultimos": [], "proximo": None}
         estadisticas = obtener_estadisticas_torneo(pais) if pais else {}
-        # figuras de la plantilla: los 6 de mejor valoración (la plantilla completa está en /jugadores/pais/{id})
-        figuras = sorted(get_jugadores(id, logger), key=lambda j: -(j.get("overall") or 0))[:6] if pais else []
+        # figuras de la plantilla: los 6 de mejor valoración (la plantilla completa está en /jugadores/pais/{id});
+        # las leyendas (jugadores.leyenda, ~80) van en su propio bloque, si no se quedarían con las 6 figuras
+        plantel = get_jugadores(id, logger) if pais else []
+        figuras = sorted([j for j in plantel if not j.get("leyenda")], key=lambda j: -(j.get("overall") or 0))[:6]
+        leyendas = sorted([j for j in plantel if j.get("leyenda")], key=lambda j: j.get("posicion_id") or 99)
 
         return templates.TemplateResponse(
             request=request,
             name="pais.html",
             context={"pais": pais, "historial_aficionados": historial_aficionados, "aficionados_base": AFICIONADOS_INICIAL,
-                     "trayectoria": trayectoria, "partidos": partidos, "figuras": figuras,
+                     "trayectoria": trayectoria, "partidos": partidos, "figuras": figuras, "leyendas": leyendas,
                      "estadisticas": estadisticas}
         )
     except FileNotFoundError:

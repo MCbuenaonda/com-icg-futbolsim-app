@@ -119,7 +119,15 @@
                     </div>
                 </div>
                 <div class="col-md-4 d-flex align-items-center justify-content-center justify-content-md-end gap-3 mt-3 mt-md-0">
+                    {% set arte = arte_mundial() %}
+                    {% if arte %}
+                    <a href="/mundial/arte" class="hero-mundial__arte" title="Póster oficial y mascota: {{ arte.mascota_nombre }}">
+                        <img src="{{ arte.poster_url }}" alt="Póster del Mundial {{ arte.pais }} {{ arte.anio }}" class="hero-mundial__arte-poster" decoding="async">
+                        <img src="{{ arte.mascota_url }}" alt="{{ arte.mascota_nombre }}, la mascota" class="hero-mundial__arte-mascota" decoding="async">
+                    </a>
+                    {% else %}
                     <img src="{{ imagen_inicio('copa') }}" alt="Copa del Mundo de la FIFAV" title="Copa del Mundo de la FIFAV" decoding="async" class="hero-mundial__copa" onerror="this.remove()">
+                    {% endif %}
                     <div class="p-3 bg-body-tertiary bg-opacity-10 rounded-3 d-inline-block text-center border border-white border-opacity-10">
                         <div class="text-uppercase fs-7 text-accent fw-bold">Cupos Definidos</div>
                         <div class="display-5 fw-bold text-white">{{ stats.clasificados_count }} / {{ stats.total_cupos }}</div>
@@ -217,7 +225,7 @@
             // izquierda (se desvanece hacia la derecha) y el brillo de moneda al pasar el cursor
             // (.goleador-fila en static/css/styles.css).
             const filas = topGoleadores.map(function (jugador, indice) {
-                const urlBandera = jugador.pais_id != null ? UI.urlImagenPais(jugador.pais_id, 'bandera') : null;
+                const urlBandera = jugador.pais_id != null ? UI.urlImagenPais(jugador.pais_id, 'plana') : null;
                 const fondo = urlBandera ? ` style="--bandera-url: url('${urlBandera}')"` : '';
                 const href = jugador.id != null ? `/jugadores/${encodeURIComponent(jugador.id)}` : '#';
                 return `

@@ -59,6 +59,31 @@ def valores_jugadores(jugadores: Iterable[dict], poder_por_pais: Dict[int, float
     return valores
 
 
+def valor_leyenda(jugador: dict, percentil_poder: float) -> int:
+    """Valor de mercado de una LEYENDA: escala propia (ver config/corporativos.py), por fama y selección."""
+    fmin, fmax = C.RANGO_FAMA_LEYENDA
+    fama = min(max(float(jugador.get("fama") or 0.5), 0.0), 1.0)
+    peso = C.PESO_SELECCION_LEYENDA
+    return int(round(C.VALOR_LEYENDA_BASE * (fmin + (fmax - fmin) * fama) * (1 - peso / 2 + peso * percentil_poder), -1))
+
+
+def valores_con_leyendas(jugadores: Iterable[dict], poder_por_pais: Dict[int, float]) -> tuple:
+    """
+    (valores, percentil) de TODOS los jugadores: los actuales con valores_jugadores/percentiles de siempre,
+    calculados SOLO entre ellos, y las leyendas con valor_leyenda y percentil 1.0 (están por encima de todos).
+    """
+    jugadores = list(jugadores)
+    normales = [j for j in jugadores if not j.get("leyenda")]
+    valores = valores_jugadores(normales, poder_por_pais)
+    percentil = percentiles(valores)
+    pct_poder = percentiles({p: float(v or 0) for p, v in poder_por_pais.items()})
+    for j in jugadores:
+        if j.get("leyenda"):
+            valores[j["id"]] = valor_leyenda(j, pct_poder.get(j.get("pais_id"), 0.5))
+            percentil[j["id"]] = 1.0
+    return valores, percentil
+
+
 def percentiles(valores: Dict[int, float]) -> Dict[int, float]:
     orden = sorted(valores, key=valores.get)
     n = max(len(orden) - 1, 1)

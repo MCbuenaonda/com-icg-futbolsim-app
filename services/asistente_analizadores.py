@@ -423,7 +423,7 @@ def analizar_cambio_once(ctx: Contexto) -> List[dict]:
     if not equipo or not equipo.get("lineup") or not por_pais:
         return []
     eliminados = FS.paises_eliminados()
-    lineup = list(db['jugadores'].find({"id": {"$in": equipo["lineup"]}}, {"id": 1, "nombre": 1, "pais_id": 1, "posicion_id": 1, "rendimiento": 1}))
+    lineup = list(db['jugadores'].find({"id": {"$in": equipo["lineup"]}}, {"id": 1, "nombre": 1, "pais_id": 1, "posicion_id": 1, "rendimiento": 1, "leyenda": 1}))
     activos = [j for j in lineup if j.get("pais_id") not in eliminados]   # los eliminados ya los avisa el Vistazo
     if not activos:
         return []
@@ -434,8 +434,11 @@ def analizar_cambio_once(ctx: Contexto) -> List[dict]:
         if j["id"] != flojo["id"]:
             por_pais_lineup[j.get("pais_id")] = por_pais_lineup.get(j.get("pais_id"), 0) + 1
     paises_ok = [pid for pid in por_pais if pid not in eliminados and por_pais_lineup.get(pid, 0) < FS.MAX_JUGADORES_POR_PAIS]
+    # Tope de leyendas en el Once Ideal: si ya hay otra leyenda (que no es la que sale), el reemplazo no puede serlo
+    otras_leyendas = sum(1 for j in lineup if j.get("leyenda") and j["id"] != flojo["id"])
+    filtro_leyenda = {"leyenda": {"$ne": True}} if otras_leyendas >= FS.MAX_LEYENDAS_FANTASY else {}
     reemplazo = db['jugadores'].find_one({"posicion_id": flojo.get("posicion_id"), "pais_id": {"$in": paises_ok},
-                                          "id": {"$nin": equipo["lineup"]}},
+                                          "id": {"$nin": equipo["lineup"]}, **filtro_leyenda},
                                          {"id": 1, "nombre": 1, "pais_id": 1, "rendimiento": 1}, sort=[("rendimiento", -1)])
     if not reemplazo or (reemplazo.get("rendimiento") or 0) <= (flojo.get("rendimiento") or 0) + 2:
         return []

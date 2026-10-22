@@ -6,6 +6,14 @@ from services.juegos_service import generar_partidos_fase
 from services.ciudades_service import asignar_ubicacion_partidos
 from services.fecha_service import asignar_fechas_y_horas_fase1, asignar_fechas_y_horas_fase_siguiente
 from services.jugadores_service import obtener_top_goleadores, ESTADO_ANIMO_DEFAULT
+
+# Atributos que una leyenda recupera de 'atributos_base' en cada reinicio (agregar_leyendas.py)
+ATRIBUTOS_BASE_LEYENDA = {
+    "rendimiento", "agilidad", "agresividad", "anticipacion", "compostura", "concentracion",
+    "control_balón", "control_balon", "forma_actual", "fuerza_disparo", "fuerza_fisica",
+    "juego_aereo", "moral", "overall", "precision_pase", "precision_tiro", "regate",
+    "resistencia", "velocidad", "vision_juego",
+}
 from services.clasificacion_service import validacion_equipo_anfitrion
 from services.fanbase_service import AFICIONADOS_INICIAL
 from bson.objectid import ObjectId
@@ -117,6 +125,14 @@ def crear_nuevo_mundial() -> Dict[str, Any]:
     # 5. Insertar en base de datos
     resultado = mundiales_coll.insert_one(nuevo_mundial_doc)
     nuevo_mundial_doc["_id"] = str(resultado.inserted_id)
+
+    # 5b. Póster y mascota oficiales del nuevo Mundial (services/arte_mundial_service.py; nunca lanza: si el motor
+    # falla, el Mundial se crea igual y el arte se puede generar después con generar_arte_mundial.py)
+    try:
+        from services.arte_mundial_service import generar_para
+        generar_para({**nuevo_mundial_doc, "_id": resultado.inserted_id})
+    except Exception as e:
+        print(f"No se pudo generar el arte del Mundial: {e}")
     
     # 6. Poblar la colección 'internacional' con los países participantes
     poblar_paises_internacional(db, 1, nuevo_mundial_doc["_id"])
@@ -208,10 +224,7 @@ def restart_mundial():
     # jugadores_service.actualizar_jugadores_post_partido) siguen reseteándose normalmente.
     # También se eliminaron las claves duplicadas que había en este mismo dict
     # ('asistencias'/'asistencias_temp'/'atajadas'/'atajadas_temp' aparecían dos veces).
-    resultado_jug = jugadores_coll.update_many(
-        {},  # Filtro vacío para seleccionar todos los documentos
-        {
-            "$set": {
+    reset_jugador = {
                 "goles": 0,
                 "asistencias": 0,
                 "atajadas": 0,
@@ -271,9 +284,19 @@ def restart_mundial():
                 "tiros_desviados": 0,
                 "goles_tiro_libre": 0,
                 "goles_corner": 0,
-            }
-        }
+    }
+    # Plantel normal: todo vuelve a 60.
+    resultado_jug = jugadores_coll.update_many(
+        {"leyenda": {"$ne": True}}, {"$set": reset_jugador}
     )
+    # Leyendas (jugadores.leyenda): mismos contadores en 0, pero sus atributos vuelven a su
+    # base de leyenda (jugadores.atributos_base, ~80), no a 60. Update de tipo pipeline para
+    # leer cada base desde el propio documento.
+    reset_leyenda = {
+        k: ({"$ifNull": [f"$atributos_base.{k}", v]} if k in ATRIBUTOS_BASE_LEYENDA else {"$literal": v})
+        for k, v in reset_jugador.items()
+    }
+    jugadores_coll.update_many({"leyenda": True}, [{"$set": reset_leyenda}])
     
     resultado_usr = usuarios.update_many(
         {},  # Filtro vacío para seleccionar todos los documentos
@@ -292,6 +315,9 @@ def restart_mundial():
     
     # Actualizar todos los documentos en la colección 'paises'
     mundiales_coll.delete_many({})
+    # arte de los Mundiales (arte_mundial_service): se va con ellos; el nuevo Mundial estrena póster y mascota
+    db["arte_mundial"].delete_many({})
+    db["arte_mundial_usado"].delete_many({})
     inter_coll.delete_many({})
     juegos_coll.delete_many({})
     historial_coll.delete_many({})

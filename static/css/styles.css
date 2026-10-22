@@ -882,9 +882,8 @@ body {
     z-index: -1;
     background-image: var(--bandera-url);
     background-repeat: no-repeat;
-    /* Poco zoom para que la bandera se reconozca: ocupa todo el ancho de esta capa (125% recorta el
-       borde brillante del PNG) y el desvanecido de la máscara cae sobre la propia bandera, sin corte */
-    background-size: 125% auto;
+    /* La versión plana a sangre (bandera_plana/) cubre la capa; el desvanecido de la máscara cae sobre la propia bandera */
+    background-size: cover;
     background-position: center;
     opacity: 0.85;
     -webkit-mask-image: linear-gradient(to right, #000 0%, #000 25%, rgba(0, 0, 0, 0.5) 60%, transparent 100%);
@@ -938,7 +937,8 @@ body {
    tamaño de letra del contenedor, igual que el emoji al que reemplazan. Los PNG de bandera son
    cuadrados con la bandera centrada, por eso se dibujan algo más altos que una línea de texto. */
 .img-pais { display: inline-block; width: auto; vertical-align: middle; object-fit: contain; }
-.img-pais--bandera { height: 1.45em; margin: -0.2em 0; }
+/* bandera/ v2 (generar_banderas.py): ondeada, ajustada al contorno y con fondo transparente -> sin margen negativo */
+.img-pais--bandera { height: 1.15em; }
 .img-pais--icono { height: 1.15em; }
 .img-pais--escudo, .img-pais--jersey { height: 1.25em; }
 /* Escudo grande de encabezado (perfil de país, resumen de partido, scouter) */
@@ -3344,3 +3344,67 @@ a.cdr-llave:hover { border-color: rgba(250, 204, 21, 0.55); transform: translate
 @keyframes ui-pelota-gira { to { rotate: 360deg; } }
 @keyframes ui-pelota-bota { from { transform: translateY(1px); } to { transform: translateY(-3px); } }
 @media (prefers-reduced-motion: reduce) { .ui-barra-carga--activa { animation: none; width: 70%; } .ui-aviso-carga__pelota { animation: none; } }
+
+/* ===== Banderas ondeadas (bandera/ v2) =====
+   La imagen ya trae su silueta (onda + esquinas suaves) con fondo transparente: un border-radius o un box-shadow
+   dibujarían un rectángulo alrededor. Las sombras pasan a drop-shadow, que sigue la silueta. */
+.img-pais--bandera { border-radius: 0 !important; box-shadow: none !important; outline: none !important; }
+:is(.x-marcador__equipo, .clasificado-ficha__bandera, .partido-card__equipo, .plantilla-hero__bandera) .img-pais--bandera {
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45)); }
+.resumen-equipo .img-pais--bandera { filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.5)); }
+.x-marcador__equipo--gana .img-pais--bandera { filter: drop-shadow(0 0 2px #22c55e) drop-shadow(0 0 8px rgba(34, 197, 94, 0.55)); }
+.resumen-equipo.marcador-tv__equipo--local .img-pais--bandera { filter: drop-shadow(0 0 2px rgba(57, 135, 229, 0.95)) drop-shadow(0 5px 12px rgba(0, 0, 0, 0.5)); }
+.resumen-equipo.marcador-tv__equipo--visitante .img-pais--bandera { filter: drop-shadow(0 0 2px rgba(230, 103, 103, 0.95)) drop-shadow(0 5px 12px rgba(0, 0, 0, 0.5)); }
+
+/* ===== Leyendas (jugadores.leyenda): insignia m.insignia_leyenda, bronce clásico como su estampa ===== */
+.insignia-leyenda { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.05rem 0.45rem; border-radius: 999px; vertical-align: middle;
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
+    color: #2b1505; background: linear-gradient(135deg, #fde7c8, #d9a066 55%, #b7793f); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); }
+.insignia-leyenda--compacta { padding: 0.05rem 0.3rem; font-size: 0.62rem; }
+.insignia-leyenda .bi { font-size: 0.85em; }
+.card-leyendas { border-color: rgba(217, 160, 102, 0.35); background: linear-gradient(160deg, rgba(217, 160, 102, 0.08), transparent 55%), var(--bs-card-bg); }
+.figura-mini--leyenda .figura-mini__dorsal { background: linear-gradient(135deg, #fde7c8, #d9a066); color: #2b1505; }
+@media (min-width: 1200px) { .row-cols-xl-11 > * { flex: 0 0 auto; width: calc(100% / 11); } }
+
+/* ===== Póster y mascota del Mundial (templates/arte_mundial.html, services/arte_mundial_service.py) ===== */
+.arte-poster { position: relative; border-radius: 14px; overflow: hidden; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55); max-width: 520px; margin-inline: auto; }
+.arte-poster img { display: block; width: 100%; height: auto; }
+.arte-poster figcaption { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem;
+    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.7)); color: #fff; font-weight: 700; font-size: 0.85rem; opacity: 0; transition: opacity 0.2s ease; }
+.arte-poster:hover figcaption, .arte-poster:focus-within figcaption { opacity: 1; }
+.arte-mascota__sello { align-self: flex-start; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #0f172a; background: linear-gradient(135deg, #fef08a, #facc15); }
+.arte-mascota__figura { position: relative; margin: 0.8rem 0; border-radius: 14px; overflow: hidden; display: grid; place-items: center; min-height: 280px;
+    background: radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.25), transparent 65%), var(--bandera-url, linear-gradient(135deg, #1e3a8a, #0f172a)) center / cover; }
+.arte-mascota__figura::before { content: ""; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.35); }
+.arte-mascota__figura img { position: relative; width: min(100%, 340px); height: auto; filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.45)); }
+.arte-mascota__nombre { font-family: 'Anton', Impact, sans-serif; font-size: clamp(2rem, 5vw, 2.8rem); color: #fff; letter-spacing: 0.02em; margin: 0 0 0.25rem; }
+.arte-galeria { position: relative; display: block; text-decoration: none; color: #fff; border-radius: 10px; overflow: hidden; background: #0b1220; border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: transform 0.2s ease, border-color 0.2s ease; }
+.arte-galeria:hover { transform: translateY(-3px); border-color: rgba(250, 204, 21, 0.6); }
+.arte-galeria--actual { border-color: #facc15; }
+.arte-galeria > img { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; }
+.arte-galeria__mascota { position: absolute; right: 6px; top: 6px; width: 34%; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); }
+.arte-galeria__mascota img { width: 100%; }
+.arte-galeria strong, .arte-galeria small { display: block; padding: 0 0.6rem; }
+.arte-galeria strong { padding-top: 0.4rem; font-size: 0.85rem; }
+.arte-galeria small { padding-bottom: 0.5rem; color: #94a3b8; }
+.arte-admin__poster { width: 140px; border-radius: 8px; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5); }
+.arte-admin__mascota { width: 110px; background: rgba(255, 255, 255, 0.06); border-radius: 8px; }
+/* en el inicio: póster chico + mascota junto a la copa */
+.hero-mundial__arte { display: flex; align-items: flex-end; gap: 0.3rem; text-decoration: none; }
+.hero-mundial__arte-poster { width: 92px; border-radius: 6px; box-shadow: 0 8px 18px rgba(0, 0, 0, 0.55); transform: rotate(-3deg); transition: transform 0.2s ease; }
+.hero-mundial__arte:hover .hero-mundial__arte-poster { transform: rotate(0deg) scale(1.04); }
+.hero-mundial__arte-mascota { width: 84px; margin-left: -18px; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5)); }
+/* Palmarés: miniatura del póster y la mascota en cada edición */
+.edicion__arte { display: flex; align-items: flex-end; gap: 0.2rem; text-decoration: none; }
+.edicion__arte img:first-child { width: 54px; border-radius: 4px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); }
+.edicion__arte img:last-child { width: 48px; margin-left: -12px; }
+/* En Vivo: la mascota festeja los goles del anfitrión */
+.mascota-festejo { position: fixed; z-index: 1080; right: 2vw; bottom: 0; width: min(34vw, 220px); pointer-events: none; transform: translateY(110%);
+    filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.5)); }
+.mascota-festejo--activa { animation: mascota-festeja 3.2s cubic-bezier(0.3, 1.4, 0.5, 1) both; }
+.mascota-festejo__globo { position: absolute; top: -8%; left: -30%; padding: 0.3rem 0.7rem; border-radius: 14px; background: #fff; color: #111; font-weight: 900; font-size: 1rem; white-space: nowrap; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35); }
+@keyframes mascota-festeja {
+    0% { transform: translateY(110%); } 18% { transform: translateY(0) rotate(-4deg); } 30% { transform: translateY(-8%) rotate(4deg); }
+    42% { transform: translateY(0) rotate(-3deg); } 54% { transform: translateY(-6%) rotate(3deg); } 80% { transform: translateY(0); } 100% { transform: translateY(110%); } }
+@media (prefers-reduced-motion: reduce) { .mascota-festejo--activa { animation: none; transform: none; opacity: 1; } }

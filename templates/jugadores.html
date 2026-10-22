@@ -53,6 +53,7 @@
                         <option value="Defensa">Defensas</option>
                         <option value="Medio">Mediocampistas</option>
                         <option value="Delantero">Delanteros</option>
+                        <option value="LEYENDAS">Solo leyendas</option>
                     </select>
                 </div>
                 <div class="col-4 col-md-2">
@@ -72,7 +73,7 @@
         <h2 class="plantilla-linea__titulo"><i class="bi {{ icono }}"></i>{{ titulo }} <span class="vivo-contador">{{ grupo | length }}</span></h2>
         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3">
             {% for j in grupo | sort(attribute='numero') %}
-            <div class="col jugador-card-container" data-nombre="{{ j.nombre|lower }}" data-numero="{{ j.numero }}" data-posicion="{{ j.posicion }}" data-sector="{{ j.sector }}">
+            <div class="col jugador-card-container" data-nombre="{{ j.nombre|lower }}" data-numero="{{ j.numero }}" data-posicion="{{ j.posicion }}" data-sector="{{ j.sector }}" data-leyenda="{{ 1 if j.leyenda else 0 }}">
                 <a href="/jugadores/{{ j.id }}" class="card h-100 card-logo-fondo card-jugador ficha-jugador" style="--logo-color: {{ color }};">
                     {{ m.fondo_bandera(j.pais_id) }}
                     <div class="ficha-jugador__arriba">
@@ -88,6 +89,7 @@
                         <h3 class="text-truncate" title="{{ j.nombre }}">{{ j.nombre }}</h3>
                         <div class="d-flex align-items-center gap-1 flex-wrap">
                             <span class="ficha-jugador__posicion">{{ j.posicion }}</span>
+                            {% if j.leyenda %}{{ m.insignia_leyenda() }}{% endif %}
                             {% if j.titular == 1 %}<span class="ficha-jugador__titular">Titular</span>{% endif %}
                             {% if j.edad %}<span class="ficha-jugador__edad">{{ j.edad }} años</span>{% endif %}
                         </div>
@@ -137,7 +139,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Se filtra por SECTOR (Portero/Defensa/Medio/Delantero), no por el nombre granular de
             // la posición: "Lateral izquierdo" no contiene "Defensa" y quedaba afuera.
             const sector = (card.getAttribute('data-sector') || card.getAttribute('data-posicion') || '').toLowerCase();
-            const visible = (nombre.includes(query) || numero.includes(query)) && (posicionSelected === 'todas' || sector.includes(posicionSelected));
+            const filtroLinea = posicionSelected === 'leyendas' ? card.getAttribute('data-leyenda') === '1'
+                : (posicionSelected === 'todas' || sector.includes(posicionSelected));
+            const visible = (nombre.includes(query) || numero.includes(query)) && filtroLinea;
             card.classList.toggle('d-none', !visible);
             if (visible) visibleCount++;
         });

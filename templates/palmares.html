@@ -55,6 +55,8 @@
                             </div>
                         </div>
                     </div>
+                    {% set arte_e = arte_mundial(e.anio) %}
+                    {% if arte_e %}<a href="/mundial/arte?anio={{ e.anio }}" class="edicion__arte" title="Póster y mascota: {{ arte_e.mascota_nombre }}"><img src="{{ arte_e.poster_url }}" alt="Póster {{ e.anio }}" loading="lazy"><img src="{{ arte_e.mascota_url }}" alt="{{ arte_e.mascota_nombre }}" loading="lazy"></a>{% endif %}
                     {% if e.activo and not e.campeon %}<span class="resumen-chip resumen-chip--fase"><i class="bi bi-hourglass-split"></i>{{ e.fase_actual or 'Por comenzar' }}</span>{% endif %}
                 </div>
 

@@ -9,11 +9,13 @@
 {% import "partials/macros.html" as m %}
 
 {# Jugador obtenido: avatar sobre la bandera de su país; reverso con su ficha #}
-{% macro jugador(j, pais_id, bandera) -%}
-{%- set bandera_url = img_pais(pais_id, 'bandera') -%}
-<div class="estampa estampa--jugador estampa--normal" tabindex="0" role="button" aria-label="Estampa de {{ j.nombre }}: tocá para ver el reverso">
+{# leyenda=True: estampa LEYENDA (jugadores.leyenda, rara: 5%), marco bronce clásico con sello #}
+{% macro jugador(j, pais_id, bandera, leyenda=False) -%}
+{%- set bandera_url = img_pais(pais_id, 'plana') -%}
+<div class="estampa estampa--jugador {{ 'estampa--leyenda' if leyenda else 'estampa--normal' }}" tabindex="0" role="button" aria-label="Estampa {{ 'leyenda ' if leyenda }}de {{ j.nombre }}: tocá para ver el reverso">
   <div class="estampa__giro">
     <div class="estampa__cara estampa__frente" {% if bandera_url %}style="--bandera-url: url('{{ bandera_url }}')"{% endif %}>
+      {% if leyenda %}<span class="estampa__sello"><i class="bi bi-award-fill"></i> Leyenda</span>{% endif %}
       <span class="estampa__numero">{{ j.numero if j.numero is not none else '' }}</span>
       <span class="estampa__posicion">{{ j.posicion }}</span>
       {% if j.tiene_regalia %}<span class="estampa__regalia" title="Esta estampa ya te dio regalías"><i class="bi bi-cash-coin"></i></span>{% endif %}
@@ -42,8 +44,8 @@
 {%- endmacro %}
 
 {# Casillero vacío (jugador que falta): número y nombre impresos, como en el álbum de papel #}
-{% macro vacia(j) -%}
-<div class="estampa estampa--vacia" title="Te falta esta estampa">
+{% macro vacia(j, leyenda=False) -%}
+<div class="estampa estampa--vacia {{ 'estampa--vacia-leyenda' if leyenda }}" title="Te falta esta estampa{{ ' leyenda' if leyenda }}">
   <div class="estampa__hueco">
     <span class="estampa__hueco-numero">{{ j.numero if j.numero is not none else '?' }}</span>
     <i class="bi bi-person"></i>
@@ -77,7 +79,7 @@
 
 {# País: estampa PLATINO (la más rara, 3% por estampa): escudo sobre marco platino holográfico; reverso con datos de la selección #}
 {% macro pais(p) -%}
-{%- set escudo = img_pais(p.id, 'escudo') -%}{%- set bandera_url = img_pais(p.id, 'bandera') -%}
+{%- set escudo = img_pais(p.id, 'escudo') -%}{%- set bandera_url = img_pais(p.id, 'plana') -%}
 {%- set lc = logo_confederacion(p.confederacion) -%}
 <div class="estampa estampa--pais estampa--platino" tabindex="0" role="button" aria-label="Estampa platino de {{ p.nombre }}: tocá para ver el reverso" style="--conf-color: {{ lc.color if lc else '#eab308' }};">
   <div class="estampa__giro">
@@ -109,7 +111,7 @@
 
 {# Ciudad sede: estampa ESPECIAL (20% por estampa): ilustración del estadio; reverso con la sede #}
 {% macro ciudad(c) -%}
-{%- set img = img_estadio(c.id) -%}{%- set bandera_url = img_pais(c.pais_id, 'bandera') -%}
+{%- set img = img_estadio(c.id) -%}{%- set bandera_url = img_pais(c.pais_id, 'plana') -%}
 <div class="estampa estampa--ciudad estampa--especial" tabindex="0" role="button" aria-label="Estampa especial de {{ c.nombre }}: tocá para ver el reverso">
   <div class="estampa__giro">
     <div class="estampa__cara estampa__frente" {% if bandera_url %}style="--bandera-url: url('{{ bandera_url }}')"{% endif %}>
@@ -138,7 +140,7 @@
 {# Árbitro: estampa DORADA (rara: 7% por estampa del sobre). Marco dorado holográfico, avatar del
    árbitro sobre la bandera de su país; reverso con lo que dirigió en el torneo. #}
 {% macro arbitro(a) -%}
-{%- set bandera_url = img_pais(a.pais_id, 'bandera') if a.pais_id else None -%}
+{%- set bandera_url = img_pais(a.pais_id, 'plana') if a.pais_id else None -%}
 <div class="estampa estampa--arbitro estampa--dorada" tabindex="0" role="button" aria-label="Estampa dorada de {{ a.nombre }}: tocá para ver el reverso">
   <div class="estampa__giro">
     <div class="estampa__cara estampa__frente" {% if bandera_url %}style="--bandera-url: url('{{ bandera_url }}')"{% endif %}>
@@ -173,6 +175,75 @@
     <i class="bi bi-person-badge"></i>
     <span class="estampa__hueco-nombre">{{ a.nombre }}</span>
     <span class="estampa__hueco-posicion">{{ a.pais_nombre or '' }}</span>
+  </div>
+</div>
+{%- endmacro %}
+
+
+{# Foto de equipo (categoría "Foto de equipo", 6%): estampa HORIZONTAL con la bandera de fondo, el escudo en la esquina
+   y la foto oficial (generar_fotos_equipo.py); reverso con la formación. 'jugadores' = los 11 de esa foto (por dorsal). #}
+{% macro equipo(f, jugadores=[]) -%}
+{%- set bandera_url = img_pais(f.pais_id, 'plana') -%}
+{%- set escudo = img_pais(f.pais_id, 'escudo') -%}
+<div class="estampa estampa--equipo estampa--horizontal {{ 'estampa--equipo-leyendas' if f.grupo == 3 }}" tabindex="0" role="button" aria-label="Foto de equipo: {{ f.nombre }} de {{ f.pais_nombre }}. Tocá para ver el reverso">
+  <div class="estampa__giro">
+    <div class="estampa__cara estampa__frente" {% if bandera_url %}style="--bandera-url: url('{{ bandera_url }}')"{% endif %}>
+      <span class="estampa__sello"><i class="bi bi-people-fill"></i> {{ f.nombre }}</span>
+      {% if escudo %}<img class="estampa__escudo-esquina" src="{{ escudo }}" alt="" loading="lazy">{% endif %}
+      <div class="estampa__equipo-foto">{% if f.foto_url %}<img src="{{ f.foto_url }}" alt="" loading="lazy" decoding="async">{% endif %}</div>
+      <div class="estampa__banda estampa__banda--equipo"><strong>{{ f.pais_nombre }}</strong><small>{{ f.nombre }}{{ ' · el once histórico' if f.grupo == 3 }}</small></div>
+    </div>
+    <div class="estampa__cara estampa__reverso">
+      <div class="estampa__reverso-titulo"><span><i class="bi bi-people-fill"></i></span>{{ f.nombre }} de {{ f.pais_nombre }}</div>
+      <ol class="estampa__formacion">
+        {% for j in jugadores %}<li><b>{{ j.numero }}</b> {{ j.nombre }} <small>{{ j.posicion }}</small></li>{% endfor %}
+      </ol>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{# Casillero vacío de una foto de equipo (horizontal) #}
+{% macro vacia_equipo(f) -%}
+<div class="estampa estampa--vacia estampa--horizontal estampa--vacia-equipo" title="Te falta la foto de equipo: {{ f.nombre }}">
+  <div class="estampa__hueco">
+    <i class="bi bi-people"></i>
+    <span class="estampa__hueco-nombre">{{ f.nombre }}</span>
+    <span class="estampa__hueco-posicion">Foto de equipo</span>
+  </div>
+</div>
+{%- endmacro %}
+
+
+{# Edición Mundial (2%): el póster oficial o la mascota de una edición (services/arte_mundial_service.py) #}
+{% macro mundial(x, ed) -%}
+{%- set bandera_url = img_pais(ed.pais_id, 'plana') if ed.pais_id else None -%}
+<div class="estampa estampa--mundial {{ 'estampa--mundial-poster' if x.tipo == 'poster' }}" tabindex="0" role="button" aria-label="Estampa Edición Mundial: {{ x.nombre }}">
+  <div class="estampa__giro">
+    <div class="estampa__cara estampa__frente" {% if bandera_url and x.tipo != 'poster' %}style="--bandera-url: url('{{ bandera_url }}')"{% endif %}>
+      <span class="estampa__sello"><i class="bi bi-palette-fill"></i> {{ ed.anio }}</span>
+      <div class="estampa__arte">{% if x.img_url %}<img src="{{ x.img_url }}" alt="" loading="lazy" decoding="async">{% endif %}</div>
+      {% if x.tipo != 'poster' %}<div class="estampa__banda"><strong>{{ x.nombre }}</strong><small>Mascota · {{ ed.pais }} {{ ed.anio }}</small></div>{% endif %}
+    </div>
+    <div class="estampa__cara estampa__reverso">
+      <div class="estampa__reverso-titulo"><span><i class="bi bi-palette-fill"></i></span>{{ 'Póster oficial' if x.tipo == 'poster' else x.nombre }}</div>
+      <dl class="estampa__datos">
+        <div class="estampa__dato-ancho"><dt>Mundial</dt><dd>{{ ed.pais }} {{ ed.anio }}</dd></div>
+        <div class="estampa__dato-ancho"><dt>Estampa</dt><dd>{{ 'Póster' if x.tipo == 'poster' else 'Mascota' }}</dd></div>
+      </dl>
+      <a href="/mundial/arte?anio={{ ed.anio }}" class="estampa__link" tabindex="-1">Ver arte <i class="bi bi-arrow-right"></i></a>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro vacia_mundial(x, ed) -%}
+<div class="estampa estampa--vacia estampa--vacia-mundial" title="Te falta: {{ x.nombre }}">
+  <div class="estampa__hueco">
+    <span class="estampa__hueco-numero">{{ ed.anio }}</span>
+    <i class="bi {{ 'bi-image' if x.tipo == 'poster' else 'bi-emoji-smile' }}"></i>
+    <span class="estampa__hueco-nombre">{{ 'Póster' if x.tipo == 'poster' else x.nombre }}</span>
+    <span class="estampa__hueco-posicion">{{ ed.pais }}</span>
   </div>
 </div>
 {%- endmacro %}

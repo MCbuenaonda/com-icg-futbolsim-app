@@ -55,11 +55,12 @@ def corporativo_inicio(request: Request):
 
 @route_vistas.get("/mercado", response_class=HTMLResponse, name="corporativo_mercado")
 def corporativo_mercado(request: Request, tipo: str = "jugador", vista: str = "libres", q: str = "", conf: Optional[int] = None,
-                              region: bool = False, edad_max: Optional[int] = None, orden: str = "valor", pagina: int = 1):
+                              region: bool = False, edad_max: Optional[int] = None, orden: str = "valor", pagina: int = 1,
+                              leyendas: bool = False):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
-    datos = obtener_mercado(usuario["_id"], tipo, vista, q, conf, region, edad_max, orden, pagina)
+    datos = obtener_mercado(usuario["_id"], tipo, vista, q, conf, region, edad_max, orden, pagina, leyendas)
     if not datos:
         return RedirectResponse(url=request.url_for("corporativo_inicio"), status_code=303)
     return templates.TemplateResponse(request=request, name="corporativo_mercado.html", context=datos)

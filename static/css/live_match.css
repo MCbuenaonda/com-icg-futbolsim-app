@@ -520,3 +520,7 @@
 .vivo-tabla thead th { color: var(--bs-secondary-color); font-size: 0.68rem; border-color: rgba(255, 255, 255, 0.08); }
 .vivo-tabla td { border-color: rgba(255, 255, 255, 0.05); }
 @media (prefers-reduced-motion: reduce) { .vivo-hero__senal, .evento--nuevo { animation: none; } }
+
+/* Leyendas en la cancha (jugadores.leyenda): aro bronce brillante alrededor del jersey */
+.cancha-jugador--leyenda::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; pointer-events: none;
+    border: 2px solid #d9a066; box-shadow: 0 0 10px rgba(217, 160, 102, 0.75); }

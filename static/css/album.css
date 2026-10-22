@@ -240,6 +240,78 @@
 .estampa--platino .estampa__reverso-titulo span, .estampa--platino .estampa__ovr { color: #e2e8f0; }
 .estampa--platino .estampa__link { background: linear-gradient(135deg, #f8fafc, #cbd5e1); }
 
+/* Leyenda: el once histórico de cada país (bronce clásico, holograma sepia suave) */
+.estampa--leyenda .estampa__frente { background: linear-gradient(135deg, #fde7c8, #b7793f 30%, #f3d2a2 50%, #7c4a1e 74%, #d9a066); }
+.estampa--leyenda .estampa__frente::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: soft-light;
+    background-size: 260% 260%; animation: estampa-holo 4.5s linear infinite; opacity: 0.45;
+    background-image: linear-gradient(115deg, transparent 20%, rgba(255, 240, 210, 0.6) 38%, rgba(217, 160, 102, 0.4) 52%, transparent 74%); }
+.estampa--leyenda .estampa__sello { color: #2b1505; background: linear-gradient(135deg, #fde7c8, #d9a066 50%, #9a5b26); }
+.estampa--leyenda .estampa__numero { left: auto; right: 9px; }
+.estampa--leyenda .estampa__foto img { filter: sepia(0.25) saturate(1.05); }
+.estampa--leyenda .estampa__banda { border-top-color: #d9a066; background: linear-gradient(180deg, #2a1d12, #0f0905); }
+.estampa--leyenda .estampa__reverso { border-color: #d9a066; background: radial-gradient(120% 80% at 50% 0%, rgba(217, 160, 102, 0.18), transparent 60%), #120c07; }
+.estampa--leyenda .estampa__reverso-titulo span, .estampa--leyenda .estampa__ovr { color: #f3c58f; }
+.estampa--leyenda .estampa__link { background: linear-gradient(135deg, #f3d2a2, #d9a066); }
+.estampa--vacia-leyenda .estampa__hueco { border-color: rgba(217, 160, 102, 0.4); background: linear-gradient(160deg, rgba(217, 160, 102, 0.06), rgba(0, 0, 0, 0.25)); }
+.album-hoja__seccion--leyendas .bi { color: #d9a066; }
+.album-contador--leyenda { border-color: rgba(217, 160, 102, 0.35); background: linear-gradient(160deg, rgba(217, 160, 102, 0.12), rgba(0, 0, 0, 0.3)); }
+.album-contador--leyenda .album-contador__rareza { background: linear-gradient(135deg, #fde7c8, #d9a066 50%, #9a5b26); color: #2b1505; }
+.carta-sobre--leyenda .carta-sobre__dorso { border-color: #d9a066;
+    background: radial-gradient(circle at 50% 40%, rgba(253, 231, 200, 0.5), transparent 60%), repeating-linear-gradient(45deg, #7c4a1e 0 8px, #9a5b26 8px 16px); }
+.carta-sobre--leyenda .carta-sobre__dorso span { color: #fff; }
+@media (prefers-reduced-motion: reduce) { .estampa--leyenda .estampa__frente::after { animation: none; } }
+
+/* Foto de equipo: estampa HORIZONTAL (bandera de fondo, escudo en la esquina, foto oficial), marco azul cielo */
+.album-grilla--fotos { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.estampa--horizontal { aspect-ratio: 16 / 10; }
+.estampa--equipo .estampa__frente { background: linear-gradient(135deg, #dbeafe, #60a5fa 35%, #bfdbfe 55%, #2563eb 80%, #93c5fd); }
+.estampa--equipo .estampa__sello { color: #0b1d3a; background: linear-gradient(135deg, #dbeafe, #60a5fa); }
+.estampa--equipo-leyendas .estampa__frente { background: linear-gradient(135deg, #fde7c8, #b7793f 30%, #f3d2a2 50%, #7c4a1e 74%, #d9a066); }
+.estampa--equipo-leyendas .estampa__sello { color: #2b1505; background: linear-gradient(135deg, #fde7c8, #d9a066 50%, #9a5b26); }
+.estampa__escudo-esquina { position: absolute !important; z-index: 3; top: 8px; right: 9px; width: 15%; max-width: 64px; height: auto; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55)); }
+.estampa__equipo-foto { position: absolute !important; left: 5px; right: 5px; top: 13%; bottom: 15%; overflow: hidden; }
+.estampa__equipo-foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.45)); }
+.estampa__banda--equipo { border-top-color: #60a5fa; padding: 0.25rem 0.5rem; display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.estampa--equipo-leyendas .estampa__banda--equipo { border-top-color: #d9a066; }
+.estampa__banda--equipo strong { -webkit-line-clamp: 1; font-size: 0.85rem; }
+.estampa__banda--equipo small { margin-top: 0; }
+.estampa--equipo .estampa__reverso { border-color: #60a5fa; }
+.estampa__formacion { list-style: none; margin: 0.3rem 0 0; padding: 0; columns: 2; column-gap: 0.8rem; font-size: 0.7rem; line-height: 1.45; }
+.estampa__formacion li { break-inside: avoid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e2e8f0; }
+.estampa__formacion b { display: inline-block; min-width: 1.4rem; color: #93c5fd; }
+.estampa__formacion small { color: #94a3b8; }
+.estampa--vacia-equipo .estampa__hueco { border-color: rgba(96, 165, 250, 0.4); background: linear-gradient(160deg, rgba(96, 165, 250, 0.06), rgba(0, 0, 0, 0.25)); }
+.album-hoja__seccion--fotos .bi { color: #60a5fa; }
+.album-contador--equipo { border-color: rgba(96, 165, 250, 0.35); background: linear-gradient(160deg, rgba(96, 165, 250, 0.12), rgba(0, 0, 0, 0.3)); }
+.album-contador--equipo .album-contador__rareza { background: linear-gradient(135deg, #dbeafe, #60a5fa); color: #0b1d3a; }
+.carta-sobre--horizontal { width: 240px; aspect-ratio: 16 / 10; }
+.carta-sobre--equipo .carta-sobre__dorso { border-color: #60a5fa;
+    background: radial-gradient(circle at 50% 40%, rgba(219, 234, 254, 0.5), transparent 60%), repeating-linear-gradient(45deg, #1e3a8a 0 8px, #2563eb 8px 16px); }
+.carta-sobre--equipo .carta-sobre__dorso span { color: #fff; }
+.carta-sobre__cinta--equipo { color: #0b1d3a; background: linear-gradient(135deg, #dbeafe, #60a5fa); }
+
+/* Edición Mundial: póster o mascota de cada Mundial (marco rosa holográfico) */
+.estampa--mundial .estampa__frente { background: linear-gradient(135deg, #fce7f3, #f472b6 30%, #fbcfe8 50%, #db2777 74%, #f9a8d4); }
+.estampa--mundial .estampa__frente::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: color-dodge; opacity: .35;
+    background-size: 260% 260%; animation: estampa-holo 3.8s linear infinite;
+    background-image: linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, .55) 34%, rgba(244, 114, 182, .45) 48%, transparent 76%); }
+.estampa--mundial .estampa__sello { color: #500724; background: linear-gradient(135deg, #fce7f3, #f472b6); }
+.estampa--mundial .estampa__banda { border-top-color: #f472b6; }
+.estampa--mundial .estampa__reverso { border-color: #f472b6; }
+.estampa__arte { position: absolute !important; left: 5px; right: 5px; top: 5px; bottom: 30%; overflow: hidden; border-radius: 6px 6px 0 0; }
+.estampa__arte img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .45)); }
+.estampa--mundial-poster .estampa__arte { bottom: 5px; border-radius: 6px; }
+.estampa--mundial-poster .estampa__arte img { object-fit: cover; object-position: center; filter: none; }
+.estampa--mundial-poster .estampa__frente::before { display: none; }
+.estampa--vacia-mundial .estampa__hueco { border-color: rgba(244, 114, 182, .45); background: linear-gradient(160deg, rgba(244, 114, 182, .07), rgba(0, 0, 0, .25)); }
+.album-contador--mundial { border-color: rgba(244, 114, 182, .35); background: linear-gradient(160deg, rgba(244, 114, 182, .12), rgba(0, 0, 0, .3)); cursor: pointer; }
+.album-contador--mundial .album-contador__rareza { background: linear-gradient(135deg, #fce7f3, #f472b6); color: #500724; }
+.carta-sobre--mundial .carta-sobre__dorso { border-color: #f472b6;
+    background: radial-gradient(circle at 50% 40%, rgba(252, 231, 243, .55), transparent 60%), repeating-linear-gradient(45deg, #9d174d 0 8px, #db2777 8px 16px); }
+.carta-sobre--mundial .carta-sobre__dorso span { color: #fff; }
+.carta-sobre__cinta--mundial { color: #500724; background: linear-gradient(135deg, #fce7f3, #f472b6); }
+@media (prefers-reduced-motion: reduce) { .estampa--mundial .estampa__frente::after { animation: none; } }
+
 /* casilleros vacíos con el borde de su categoría */
 .estampa--vacia-ciudad .estampa__hueco { border-color: rgba(45, 212, 191, 0.35); }
 .estampa--vacia-arbitro .estampa__hueco { border-color: rgba(250, 204, 21, 0.35); background: linear-gradient(160deg, rgba(250, 204, 21, 0.05), rgba(0, 0, 0, 0.25)); }
@@ -357,6 +429,7 @@
 .carta-sobre__cinta--especial { color: #042f2e; background: linear-gradient(135deg, #ccfbf1, #2dd4bf); }
 .carta-sobre__cinta--dorada { color: #422006; background: linear-gradient(135deg, #fef08a, #facc15 50%, #ca8a04); }
 .carta-sobre__cinta--platino { color: #0f172a; background: linear-gradient(135deg, #ffffff, #cbd5e1 50%, #94a3b8); }
+.carta-sobre__cinta--leyenda { color: #2b1505; background: linear-gradient(135deg, #fde7c8, #d9a066 50%, #9a5b26); }
 /* leyenda de rarezas en la tapa de /album-estampas/sobres */
 .sobre-rareza { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.72rem; color: #cbd5e1;
     background: rgba(0, 0, 0, 0.3); border: 1px solid color-mix(in srgb, var(--cat-color) 55%, transparent); }

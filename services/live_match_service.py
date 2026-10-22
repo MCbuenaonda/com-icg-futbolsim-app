@@ -344,6 +344,18 @@ def obtener_tabla_grupo_partido_en_vivo() -> Optional[Dict[str, Any]]:
     }
 
 
+def _mascota_en_vivo() -> Dict[str, Any]:
+    """Mascota del Mundial activo (services/arte_mundial_service): festeja en /en-vivo los goles del anfitrión."""
+    try:
+        from services.arte_mundial_service import arte_activo
+        arte = arte_activo()
+        if arte:
+            return {"anfitrion": arte["pais"], "mascota_url": arte["mascota_url"], "mascota_nombre": arte["mascota_nombre"]}
+    except Exception as e:
+        print(f"Sin mascota para En Vivo: {e}")
+    return {}
+
+
 def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
     """
     Datos de plantilla de AMBOS equipos del partido en transmisión, pedidos UNA sola vez por
@@ -377,7 +389,7 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
         p["id"]: p.get("siglas", "") for p in db["posiciones"].find({}, {"id": 1, "siglas": 1})
     }
     jugadores = list(db["jugadores"].find(
-        {"pais_id": {"$in": [id_local, id_visita]}}, {"id": 1, "nombre": 1, "posicion_id": 1, "numero": 1}
+        {"pais_id": {"$in": [id_local, id_visita]}}, {"id": 1, "nombre": 1, "posicion_id": 1, "numero": 1, "leyenda": 1}
     ))
     resultado = juego.get("resultado") or {}
     # Táctica persistida por registrar_resultado_juego; el 11 titular viene en el orden de
@@ -389,6 +401,8 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
         "jugadores": {j["nombre"]: posiciones_por_id.get(j.get("posicion_id"), "") for j in jugadores},
         "dorsales": {j["nombre"]: j.get("numero") for j in jugadores if j.get("numero") is not None},
         "ids": {j["nombre"]: j["id"] for j in jugadores if j.get("id") is not None},  # avatar (bucket jugadores/<id>.svg)
+        "leyendas": [j["nombre"] for j in jugadores if j.get("leyenda")],  # insignia de leyenda en la cancha y el once
+        **_mascota_en_vivo(),
         "titulares_local": resultado.get("titulares_local", []),
         "titulares_visitante": resultado.get("titulares_visitante", []),
         "tactica_local": tactica_local,

@@ -41,8 +41,11 @@
         </div>
         <!-- Contadores por categoría de rareza (de la más común a la más rara): sirven también de leyenda -->
         {% set datos_tipo = {'JUGADOR': ('bi-person-fill', t.jugadores, t.jugadores_total, None),
+                             'LEYENDA': ('bi-award-fill', t.leyendas, t.leyendas_total, None),
+                             'EQUIPO': ('bi-people-fill', t.equipos, t.equipos_total, None),
                              'CIUDAD': ('bi-building', t.ciudades, t.ciudades_total, None),
-                             'ARBITRO': ('bi-star-fill', t.arbitros, t.arbitros_total, album.total_paginas),
+                             'ARBITRO': ('bi-star-fill', t.arbitros, t.arbitros_total, album.pagina_arbitros),
+                             'MUNDIAL': ('bi-palette-fill', t.mundial, t.mundial_total, album.pagina_mundiales),
                              'PAIS': ('bi-gem', t.paises, t.paises_total, None)} %}
         <div class="row g-2 mt-2">
             {% for cat in album.categorias %}
@@ -102,7 +105,7 @@
             <h3 class="album-indice__conf">{% if lc %}<img src="{{ lc.url }}" alt="" class="{{ 'estampa__conf--claro' if lc.claro }}">{% endif %}{{ conf }} <span>{{ 'pág. ' ~ hojas[0].numero if hojas | length == 1 else 'págs. ' ~ hojas[0].numero ~ '–' ~ hojas[-1].numero }}</span></h3>
             {%- for x in hojas %}
             {%- set estado = 'completa' if x.obtenidas == x.total else ('empezada' if x.obtenidas else 'vacia') %}
-            <a href="?pagina={{ x.numero }}" class="album-indice__item album-indice__item--{{ estado }}{{ ' activo' if x.numero == h.numero }}" data-ir-pagina="{{ x.numero }}" data-estado="{{ estado }}" data-nombre="{{ x.nombre | lower }}"><span class="album-indice__num">{{ x.numero }}</span>{% if x.tipo == 'arbitros' %}<i class="bi bi-star-fill album-indice__dorado"></i>{% else %}{{ m.bandera(x.bandera, pais_id=x.pais_id) }}{% endif %}<span class="album-indice__nombre">{{ x.nombre }}</span>{% if x.escudo %}<i class="bi bi-shield-fill-check text-warning" title="Tenés el escudo"></i>{% endif %}<span class="album-indice__avance" title="{{ x.obtenidas }}/{{ x.total }} estampas"><span style="width: {{ x.porcentaje }}%;"></span></span><small>{{ x.obtenidas }}/{{ x.total }}</small></a>
+            <a href="?pagina={{ x.numero }}" class="album-indice__item album-indice__item--{{ estado }}{{ ' activo' if x.numero == h.numero }}" data-ir-pagina="{{ x.numero }}" data-estado="{{ estado }}" data-nombre="{{ x.nombre | lower }}"><span class="album-indice__num">{{ x.numero }}</span>{% if x.tipo == 'arbitros' %}<i class="bi bi-star-fill album-indice__dorado"></i>{% elif x.tipo == 'mundiales' %}<i class="bi bi-palette-fill album-indice__dorado" style="color:#f472b6"></i>{% else %}{{ m.bandera(x.bandera, pais_id=x.pais_id) }}{% endif %}<span class="album-indice__nombre">{{ x.nombre }}</span>{% if x.escudo %}<i class="bi bi-shield-fill-check text-warning" title="Tenés el escudo"></i>{% endif %}<span class="album-indice__avance" title="{{ x.obtenidas }}/{{ x.total }} estampas"><span style="width: {{ x.porcentaje }}%;"></span></span><small>{{ x.obtenidas }}/{{ x.total }}</small></a>
             {%- endfor %}
         </div>
         {% endfor %}

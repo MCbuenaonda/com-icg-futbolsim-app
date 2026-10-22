@@ -41,3 +41,6 @@ juego.json
 # la copia local y el dump SQL de donde se extrajeron no van al repo
 static/img/paises/
 data_base64
+
+# Respaldos locales de scripts de datos (actualizar_jugadores_reales.py)
+respaldos/

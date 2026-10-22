@@ -109,3 +109,8 @@ class PlantillasLiveOut(BaseModel):
     # Línea (1 POR, 2 DEF, 3 MED, 4 DEL) de cada titular, alineada por índice con titulares_*
     lineas_local: List[int] = []
     lineas_visitante: List[int] = []
+    leyendas: List[str] = []  # nombres de las leyendas (jugadores.leyenda) de los dos equipos
+    # Mascota del Mundial (services/arte_mundial_service): festeja en la cancha los goles del anfitrión
+    anfitrion: Optional[str] = None
+    mascota_url: Optional[str] = None
+    mascota_nombre: Optional[str] = None

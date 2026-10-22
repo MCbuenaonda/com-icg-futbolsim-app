@@ -55,7 +55,7 @@
 
                     {% if puede('paises', 'estadisticas', 'cara_a_cara', 'palmares', 'aficionados', 'arbitros') %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/paises', '/jugadores', '/confederacion', '/estadisticas', '/cara-a-cara', '/palmares', '/aficionados', '/arbitros') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Torneo</a>
+                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/paises', '/jugadores', '/confederacion', '/estadisticas', '/cara-a-cara', '/palmares', '/aficionados', '/arbitros', '/mundial/arte') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Torneo</a>
                         <ul class="dropdown-menu dropdown-menu-dark">
                             {% if puede('paises') %}
                             <li><a class="dropdown-item {{ 'active' if nav_activo('/paises', '/jugadores', '/confederacion') and not nav_activo('/jugadores/comparar') }}" href="/paises/"><i class="bi bi-flag me-2"></i>Países</a></li>
@@ -64,6 +64,7 @@
                             {% if puede('estadisticas') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/estadisticas') }}" href="/estadisticas/"><i class="bi bi-bar-chart-line me-2"></i>Estadísticas</a></li>{% endif %}
                             {% if puede('cara_a_cara') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/cara-a-cara') }}" href="/cara-a-cara/"><i class="bi bi-arrow-left-right me-2"></i>Cara a Cara</a></li>{% endif %}
                             {% if puede('palmares') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/palmares') }}" href="/palmares/"><i class="bi bi-trophy me-2"></i>Palmarés</a></li>{% endif %}
+                            {% if puede('palmares') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/mundial/arte') }}" href="/mundial/arte"><i class="bi bi-palette me-2"></i>Póster y mascota</a></li>{% endif %}
                             {% if puede('aficionados') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/aficionados') }}" href="/aficionados/"><i class="bi bi-heart me-2"></i>Popularidad</a></li>{% endif %}
                             {% if puede('arbitros') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/arbitros') }}" href="/arbitros/"><i class="bi bi-person-badge me-2"></i>Árbitros</a></li>{% endif %}
                         </ul>
@@ -114,6 +115,7 @@
                         <ul class="dropdown-menu dropdown-menu-dark">
                             <li><a class="dropdown-item {{ 'active' if nav_activo('/admin/usuarios') }}" href="/admin/usuarios"><i class="bi bi-people-fill me-2"></i>Usuarios</a></li>
                             <li><a class="dropdown-item {{ 'active' if nav_activo('/admin/roles') }}" href="/admin/roles"><i class="bi bi-shield-lock-fill me-2"></i>Roles y permisos</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/admin/arte-mundial') }}" href="/admin/arte-mundial"><i class="bi bi-palette me-2"></i>Póster y mascota</a></li>
                         </ul>
                     </li>
                     {% endif %}

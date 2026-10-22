@@ -223,9 +223,15 @@ def _ia_fichajes(estado, universo: dict, ciclo: int, rng) -> None:
                 pmin, pmax = perfil["percentil"]
                 pool = [j for j in _candidatos_libres(estado, tipo) if pmin <= pct.get(j, 0) <= pmax
                         and (v["info_jugadores"].get(j, {}).get("edad") or 30) <= perfil["edad"]]
+                # Leyendas: tope por corporativo y menos peso en el sorteo (que no se las lleven todas de una)
+                leyendas_propias = sum(1 for c in estado.contratos if c["activo"] and c["sigla"] == sigla and c["tipo"] == "jugador"
+                                       and v["info_jugadores"].get(c["ref_id"], {}).get("leyenda"))
+                if leyendas_propias >= C.MAX_LEYENDAS_IA_POR_CORP:
+                    pool = [j for j in pool if not v["info_jugadores"].get(j, {}).get("leyenda")]
                 if len(pool) > 400:
                     pool = rng.sample(pool, 400)
-                pesos = [C.PESO_AFINIDAD_IA if v["info_jugadores"].get(j, {}).get("pais_id") in region else 1.0 for j in pool]
+                pesos = [(C.PESO_AFINIDAD_IA if v["info_jugadores"].get(j, {}).get("pais_id") in region else 1.0)
+                         * (C.PESO_LEYENDA_IA if v["info_jugadores"].get(j, {}).get("leyenda") else 1.0) for j in pool]
             if not pool:
                 continue
             ref = rng.choices(pool, weights=pesos)[0]

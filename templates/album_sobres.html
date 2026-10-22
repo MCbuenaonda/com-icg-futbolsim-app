@@ -90,24 +90,42 @@ document.addEventListener('DOMContentLoaded', function () {
     const esc = UI.escapar;
 
     // Categoría de rareza de cada estampa (la manda el backend en 'categoria'; respaldo por tipo)
-    const CATEGORIA_POR_TIPO = { JUGADOR: 'normal', CIUDAD: 'especial', ARBITRO: 'dorada', PAIS: 'platino' };
+    const CATEGORIA_POR_TIPO = { JUGADOR: 'normal', MUNDIAL: 'mundial', LEYENDA: 'leyenda', EQUIPO: 'equipo', CIUDAD: 'especial', ARBITRO: 'dorada', PAIS: 'platino' };
     const SELLO = {
         especial: '<span class="estampa__sello"><i class="bi bi-building"></i> Especial</span>',
         dorada: '<span class="estampa__sello"><i class="bi bi-star-fill"></i> Dorada</span>',
         platino: '<span class="estampa__sello"><i class="bi bi-gem"></i> Platino</span>',
+        leyenda: '<span class="estampa__sello"><i class="bi bi-award-fill"></i> Leyenda</span>',
+        equipo: '<span class="estampa__sello"><i class="bi bi-people-fill"></i> Foto de equipo</span>',
+        mundial: '<span class="estampa__sello"><i class="bi bi-palette-fill"></i> Edición Mundial</span>',
     };
     const categoriaDe = e => e.categoria || CATEGORIA_POR_TIPO[e.tipo] || 'normal';
 
     // Frente de la estampa: mismo markup/clases que partials/estampas.html
     function frenteEstampa(e) {
         const bandera = url(e.pais_id, 'bandera');
-        const fondo = bandera ? `style="--bandera-url: url('${esc(bandera)}')"` : '';
-        const banderita = bandera ? `<img class="img-pais" src="${esc(bandera)}" alt="">` : '';
-        if (e.tipo === 'JUGADOR') {
+        const plana = url(e.pais_id, 'plana');   // fondo a sangre; la banderita de la banda sigue siendo la ondeada
+        const fondo = plana ? `style="--bandera-url: url('${esc(plana)}')"` : '';
+        const banderita = bandera ? `<img class="img-pais img-pais--bandera" src="${esc(bandera)}" alt="">` : '';
+        if (e.tipo === 'JUGADOR' || e.tipo === 'LEYENDA') {
             return `<div class="estampa__cara estampa__frente" ${fondo}>
-                <span class="estampa__numero">${e.numero ?? ''}</span><span class="estampa__posicion">${esc(e.posicion || '')}</span>
-                <div class="estampa__foto"><img src="${esc(base)}/jugadores/${e.id}.svg" alt="" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'bi bi-person-fill'}))"></div>
+                ${e.tipo === 'LEYENDA' ? SELLO.leyenda : ''}<span class="estampa__numero">${e.numero ?? ''}</span><span class="estampa__posicion">${esc(e.posicion || '')}</span>
+                <div class="estampa__foto"><img src="${esc(UI.urlAvatar(e.id) || '')}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'bi bi-person-fill'}))"></div>
                 <div class="estampa__banda"><strong>${esc(e.nombre || '?')}</strong><small>${banderita} ${esc(e.pais_nombre || '')}</small></div>
+            </div>`;
+        }
+        if (e.tipo === 'MUNDIAL') {
+            return `<div class="estampa__cara estampa__frente" ${e.tipo_arte === 'poster' ? '' : fondo}>
+                ${SELLO.mundial}<div class="estampa__arte">${e.img_url ? `<img src="${esc(e.img_url)}" alt="">` : ''}</div>
+                ${e.tipo_arte === 'poster' ? '' : `<div class="estampa__banda"><strong>${esc(e.nombre || '')}</strong><small>Mascota · ${esc(e.pais_nombre || '')} ${esc(e.anio || '')}</small></div>`}
+            </div>`;
+        }
+        if (e.tipo === 'EQUIPO') {
+            const escudo = url(e.pais_id, 'escudo');
+            return `<div class="estampa__cara estampa__frente" ${fondo}>
+                ${SELLO.equipo}${escudo ? `<img class="estampa__escudo-esquina" src="${esc(escudo)}" alt="">` : ''}
+                <div class="estampa__equipo-foto">${e.foto_url ? `<img src="${esc(e.foto_url)}" alt="">` : ''}</div>
+                <div class="estampa__banda estampa__banda--equipo"><strong>${esc(e.pais_nombre || '')}</strong><small>${esc((e.nombre || '').split(' de ')[0])}</small></div>
             </div>`;
         }
         if (e.tipo === 'PAIS') {
@@ -133,10 +151,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function cartaSobre(e, i, total) {
-        const tipo = { JUGADOR: 'jugador', PAIS: 'pais', CIUDAD: 'ciudad', ARBITRO: 'arbitro' }[e.tipo] || 'jugador';
+        const tipo = { JUGADOR: 'jugador', MUNDIAL: 'mundial', LEYENDA: 'jugador', EQUIPO: 'equipo estampa--horizontal carta-sobre--horizontal', PAIS: 'pais', CIUDAD: 'ciudad', ARBITRO: 'arbitro' }[e.tipo] || 'jugador';
         const cat = categoriaDe(e);
         const nombreCat = e.categoria_nombre || cat.charAt(0).toUpperCase() + cat.slice(1);
-        const NUEVA = { normal: '¡Nueva!', especial: '¡Especial!', dorada: '★ ¡Dorada!', platino: '◆ ¡Platino!' };
+        const NUEVA = { normal: '¡Nueva!', mundial: '🎨 ¡Edición Mundial!', especial: '¡Especial!', equipo: '📸 ¡Foto de equipo!', leyenda: '🏅 ¡Leyenda!', dorada: '★ ¡Dorada!', platino: '◆ ¡Platino!' };
         const etiqueta = e.duplicado
             ? `<span class="carta-sobre__cinta carta-sobre__cinta--repetida">${cat === 'normal' ? 'Repetida' : esc(nombreCat) + ' repetida'} +${e.bonus_puntos} pts</span>`
             : `<span class="carta-sobre__cinta carta-sobre__cinta--${cat}">${NUEVA[cat] || '¡Nueva!'}</span>`;
@@ -164,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function () {
         await esperar(650);                       // salen del sobre en abanico
         for (const carta of cartas) {            // y se dan vuelta una por una
             // suspenso: las raras brillan y tiemblan antes de darse vuelta (la Platino, más tiempo)
-            const rara = carta.classList.contains('carta-sobre--dorada') || carta.classList.contains('carta-sobre--platino');
+            const rara = ['dorada', 'platino', 'leyenda', 'mundial'].some(c => carta.classList.contains(`carta-sobre--${c}`));
             const platino = carta.classList.contains('carta-sobre--platino');
             if (rara) {
                 carta.classList.add('carta-sobre--suspenso');

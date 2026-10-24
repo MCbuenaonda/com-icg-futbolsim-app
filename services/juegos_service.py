@@ -18,6 +18,7 @@ from services.ownership_service import procesar_valor_y_dividendos_partido
 from services.fantasy_service import procesar_eventos_jugadores_partido
 from services.venue_service import process_match_city_revenue
 import random
+import re
 import logging
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
@@ -229,11 +230,15 @@ def enriquecer_juegos_programados(juegos: List[Dict[str, Any]]) -> List[Dict[str
 
 # --- Resumen de un partido jugado (/juegos/{id}, templates/resumen.html) ---------------------------
 TIPOS_RELLENO_CRONOLOGIA = ("EN TRANSICIÓN", "PREPARACIÓN", "PRESIÓN DEFENSIVA")
+# Eventos del director técnico (services/tecnicos.py): reclamos, amonestación/expulsión del DT y ajustes tácticos
+TIPOS_DT = ("🗣️ RECLAMO DEL DT", "🟨 DT AMONESTADO", "🟥 DT EXPULSADO", "📋 AJUSTE TÁCTICO")
 
 
 def categoria_evento(tipo: str) -> str:
     """Categoría visual de un evento (misma clasificación que la cronología de /en-vivo, live_match.js)."""
     t = tipo or ""
+    if t in TIPOS_DT:
+        return "dt-roja" if t == "🟥 DT EXPULSADO" else ("dt-amarilla" if t == "🟨 DT AMONESTADO" else "dt")
     if "ANULADO" in t:
         return "var"
     if "GOL" in t:
@@ -291,8 +296,8 @@ def armar_detalle_partido(juego: Dict[str, Any]) -> Dict[str, Any]:
         c = conteo[lado]
         if categoria == "gol":
             nombre = (ev.get("jugadores") or [None])[0]
-            tipo_gol = "tiro libre" if "TIRO LIBRE" in tipo else ("córner" if "CÓRNER" in tipo else ("penal" if "PENAL" in tipo else ""))
-            goles[lado].append({"minuto": ev.get("minuto"), "nombre": nombre, "id": jugador(lado, nombre).get("id"), "tipo": tipo_gol})
+            tipo_gol = "tiro libre" if "TIRO LIBRE" in tipo else ("córner" if "CÓRNER" in tipo else ("penal" if ("PENAL" in tipo or ev.get("de_penal")) else ""))
+            goles[lado].append({"minuto": ev.get("minuto"), "adicional": ev.get("adicional") or 0, "nombre": nombre, "id": jugador(lado, nombre).get("id"), "tipo": tipo_gol})
             c["al_arco"] += 1
         elif "ATAJADA" in tipo:
             # la atajada la registra el equipo del arquero: el tiro al arco es del rival
@@ -328,13 +333,45 @@ def armar_detalle_partido(juego: Dict[str, Any]) -> Dict[str, Any]:
         ("Cambios", conteo["local"]["cambios"], conteo["visitante"]["cambios"], ""),
     ]
 
-    goleadores_ids = {g.get("jugador_id"): g.get("goles", 0) for g in resultado.get("goleadores") or []}
-    titulares = {}
+    # Lo que hizo cada jugador (mismos íconos que "Jugadores en Cancha" de /en-vivo): goles del partido (la tanda no
+    # cuenta), asistencias, amarillas, roja, y el minuto en que entró o salió. Y quiénes entraron de cambio.
+    from services.arbitraje import minuto_texto
+    hizo: Dict[tuple, Dict[str, Any]] = {}
+    def info(lado, nombre):
+        return hizo.setdefault((lado, nombre), {"goles": 0, "asistencias": 0, "amarillas": 0, "roja": None, "entro": None, "salio": None, "por": None})
+    entraron = {"local": [], "visitante": []}
+    en_tanda = False
+    for ev in eventos:
+        tipo, lado, js = ev.get("tipo") or "", lado_de(ev.get("equipo")), ev.get("jugadores") or []
+        if tipo == "🥅 TANDA DE PENALTIS":
+            en_tanda = True
+        if lado == "neutral" or not js or en_tanda:
+            continue
+        minuto = minuto_texto(ev)
+        if tipo == "🔄 SUSTITUCIÓN" and len(js) >= 2:
+            info(lado, js[0]).update(entro=minuto, por=js[1])
+            info(lado, js[1])["salio"] = minuto
+            entraron[lado].append(js[0])
+        elif tipo in ("⚽ GOL", "⚽ GOL DE TIRO LIBRE", "⚽ GOL DE CÓRNER"):
+            info(lado, js[0])["goles"] += 1
+            if tipo == "⚽ GOL" and len(js) > 2:
+                info(lado, js[2])["asistencias"] += 1
+        elif tipo in ("🟨 TARJETA AMARILLA", "🖥️ VAR - TARJETA REVISADA"):
+            info(lado, js[0])["amarillas"] += 1
+        elif tipo in ("🟥 TARJETA ROJA", "🟨🟥 DOBLE AMARILLA"):
+            info(lado, js[0])["roja"] = minuto
+
+    titulares, suplentes = {}, {}
     for lado, clave in (("local", "titulares_local"), ("visitante", "titulares_visitante")):
         titulares[lado] = []
         for nombre in resultado.get(clave) or []:
             j = jugador(lado, nombre)
-            titulares[lado].append({"id": j.get("id"), "nombre": nombre, "numero": j.get("numero"), "goles": goleadores_ids.get(j.get("id"), 0)})
+            hecho = hizo.get((lado, nombre)) or info(lado, nombre)
+            titulares[lado].append({"id": j.get("id"), "nombre": nombre, "numero": j.get("numero"), "goles": hecho["goles"], "info": hecho})
+        suplentes[lado] = []
+        for nombre in entraron[lado]:
+            j = jugador(lado, nombre)
+            suplentes[lado].append({"id": j.get("id"), "nombre": nombre, "numero": j.get("numero"), "info": hizo[(lado, nombre)]})
 
     # Figura: el que más goles hizo (desempata a favor del ganador); si no hubo goles, el arquero con más atajadas
     figura = None
@@ -353,7 +390,7 @@ def armar_detalle_partido(juego: Dict[str, Any]) -> Dict[str, Any]:
         figura = {"id": jid, "nombre": nombre, "lado": lado, "pais_id": local.get("id") if lado == "local" else visitante.get("id"),
                   "detalle": f"{n} atajadas"}
 
-    return {"eventos": eventos_vista, "goles": goles, "comparativa": comparativa, "titulares": titulares, "figura": figura,
+    return {"eventos": eventos_vista, "goles": goles, "comparativa": comparativa, "titulares": titulares, "suplentes": suplentes, "figura": figura,
             "claves": sum(1 for e in eventos_vista if e["categoria"] != "relleno")}
 
 
@@ -477,6 +514,9 @@ def registrar_resultado_juego(db: Database, juego_id: str, partido: dict, stats_
         "ganador_lado": "L" if ganador_id == id_local else ("V" if ganador_id == id_visita else "E"),
         "empate": empate        
     }    
+    # DT de cada lado (services/tecnicos.py): {local|visita: {id, nombre, amonestado, expulsado, ajuste, reclamos}}
+    if partido.get("dt"):
+        objeto_resultado["dt"] = partido["dt"]
 
     # 4. Actualizar el registro en MongoDB
     update_data = {
@@ -764,6 +804,30 @@ def aplicar_efectos_secundarios(
     from services.corporativo_universo_service import registrar_partido
     registrar_partido(juego_id, juego_doc)
 
+    # Directores técnicos (services/tecnicos_service.py): suma el partido al cargo de cada DT y la federación decide si
+    # lo mantiene o lo cambia. Va después del avance de fase (sabe si la selección quedó eliminada); nunca lanza.
+    try:
+        from services.tecnicos_service import registrar_partido as registrar_partido_dt
+        registrar_partido_dt(db["juegos"].find_one({"_id": ObjectId(juego_id)}))
+    except Exception as e:
+        print(f"No se pudo registrar el partido para los técnicos: {e}")
+
+    # Crónica del partido (services/cronica_service.py): se escribe al terminar, con la cronología completa.
+    # Nunca lanza; si el partido sigue en transmisión no hace nada y se escribe al abrir su resumen.
+    try:
+        from services.cronica_service import asegurar_cronica
+        asegurar_cronica(db["juegos"].find_one({"_id": ObjectId(juego_id)}))
+    except Exception as e:
+        print(f"No se pudo escribir la crónica: {e}")
+
+    # Probabilidades de clasificar / avanzar (services/probabilidades_service.py): se recalculan en un proceso
+    # aparte con el partido ya contado. Nunca lanza.
+    try:
+        from services.probabilidades_service import recalcular_en_segundo_plano
+        recalcular_en_segundo_plano()
+    except Exception as e:
+        print(f"No se pudo lanzar el recálculo de probabilidades: {e}")
+
     return {"delta_aficionados": delta_aficionados}
 
 
@@ -979,6 +1043,27 @@ def resaltar_jugadores_en_descripcion(descripcion: Optional[str], jugadores: Opt
             nombre_escapado, f'<strong class="evento-jugador">{nombre_escapado}</strong>'
         )
     return Markup(texto_escapado)
+
+
+_CLASE_RESALTE = {"jugadores": "cronica-jugador", "arbitros": "cronica-arbitro", "equipos": "cronica-equipo"}
+
+
+def resaltar_cronica(texto: Optional[str], resaltar: Optional[dict] = None) -> Markup:
+    """
+    Resalta en la crónica (services/cronica_service.py) los nombres de jugadores, árbitros y equipos, cada uno con su
+    clase (cronica-jugador / -arbitro / -equipo). Una sola pasada con el nombre más largo primero, así "Estados
+    Unidos" no se parte ni un nombre queda resaltado dentro de otro. Escapa el texto antes de marcarlo como seguro.
+    """
+    texto_escapado = str(escape(texto or ""))
+    clase_por_nombre = {}
+    for grupo, clase in _CLASE_RESALTE.items():
+        for nombre in (resaltar or {}).get(grupo) or []:
+            if nombre and len(nombre) > 2:
+                clase_por_nombre.setdefault(str(escape(nombre)), clase)
+    if not clase_por_nombre:
+        return Markup(texto_escapado)
+    patron = re.compile(r"(?<!\w)(" + "|".join(re.escape(n) for n in sorted(clase_por_nombre, key=len, reverse=True)) + r")(?!\w)")
+    return Markup(patron.sub(lambda m: f'<strong class="{clase_por_nombre[m.group(1)]}">{m.group(1)}</strong>', texto_escapado))
 
 
 def _resumen_eventos_feed(eventos: list) -> List[str]:
@@ -1466,6 +1551,23 @@ def get_data_dashboard_last_games():
         for p in db["paises"].find({"id": {"$in": list(ids_paises_local)}}, {"id": 1, "aficionados": 1})
     } if ids_paises_local else {}
 
+    # Cambios de técnico que disparó cada partido (services/tecnicos_service.py): van como aviso dentro del post
+    relevos: Dict[str, List[dict]] = {}
+    try:
+        ids_juegos = [str(j["_id"]) for j in juegos]
+        cargos = list(db["dt_cargos"].find({"desde_juego": {"$in": ids_juegos}, "motivo_inicio": "REEMPLAZO"},
+                                           {"desde_juego": 1, "pais_id": 1, "dt_nombre": 1, "reemplaza_a": 1, "regreso": 1}))
+        if cargos:
+            salientes = {t["id"]: t["nombre"] for t in db["directores_tecnicos"].find({"id": {"$in": [c.get("reemplaza_a") for c in cargos]}}, {"id": 1, "nombre": 1})}
+            federaciones = {p["id"]: p for p in db["paises"].find({"id": {"$in": [c["pais_id"] for c in cargos]}}, {"id": 1, "nombre": 1, "federacion": 1})}
+            for c in cargos:
+                fed = federaciones.get(c["pais_id"], {})
+                relevos.setdefault(c["desde_juego"], []).append({
+                    "federacion": fed.get("federacion") or f"La federación de {fed.get('nombre', '')}", "pais": fed.get("nombre"),
+                    "sale": salientes.get(c.get("reemplaza_a"), "su técnico"), "entra": c.get("dt_nombre"), "regreso": c.get("regreso")})
+    except Exception as e:
+        print(f"Relevos de técnicos para el feed: {e}")
+
     ultimos_partidos = []
     for juego in juegos:
         equipo_local = juego.get("equipo_local") or {}
@@ -1491,7 +1593,8 @@ def get_data_dashboard_last_games():
         # 'comentarios_jugadores' en cambio NO se pueden reconstruir retroactivamente (hace
         # falta el 'stats_jugadores' de ESE partido, que no se guardó históricamente), así que
         # para partidos viejos simplemente no hay comentarios.
-        texto_narrativo = resultado.get("texto_narrativo") or generar_texto_narrativo(
+        # El post de la crónica nueva (services/cronica_service.py) si ya está escrita; si no, el de siempre
+        texto_narrativo = (resultado.get("cronica") or {}).get("post") or resultado.get("texto_narrativo") or generar_texto_narrativo(
             equipo_local.get("nombre", "?"), equipo_visitante.get("nombre", "?"),
             goles_local, goles_visitante, juego.get("tag")
         )
@@ -1511,6 +1614,7 @@ def get_data_dashboard_last_games():
             "goles_local": goles_local,
             "goles_visitante": goles_visitante,
             "resumen_eventos": _resumen_eventos_feed(eventos),
+            "relevos_dt": relevos.get(str(juego["_id"]), []),
             "texto_narrativo": texto_narrativo,
             "comentarios_jugadores": comentarios_jugadores,
             "likes": likes,
@@ -1545,15 +1649,27 @@ def obtener_juego_activo(id: str = None):
     return primer_partido, juego_activo
 
 
+def _resumen_partido_encabezado(juego: dict) -> dict:
+    local, visitante = juego.get("equipo_local") or {}, juego.get("equipo_visitante") or {}
+    te = "True" if juego.get("tiempo_extra") else "False"
+    return {"id": str(juego["_id"]), "fecha": juego.get("fecha"), "hora": juego.get("hora"),
+            "url_detalle": f"/simulador/?id={juego['_id']}&id_local={local.get('id')}&id_visita={visitante.get('id')}&te={te}",
+            "local": {"id": local.get("id"), "nombre": local.get("nombre"), "bandera": local.get("bandera")},
+            "visitante": {"id": visitante.get("id"), "nombre": visitante.get("nombre"), "bandera": visitante.get("bandera")}}
+
+
 # funcion para obtener datos para el dashboard
 def get_data_fase_actual_dashboard():
     partidos_coll = db["juegos"]
     confederaciones_coll = db["confederaciones"]
     fases_coll = db["fases"]
     
-    # Consulta el primer documento con estado 'creado', ordenado por fecha y hora ascendente
-    primer_partido, juego_activo = obtener_juego_activo()
-    
+    # El partido de referencia del encabezado: el que se está TRANSMITIENDO (ya simulado, pero todavía en la
+    # ventana de revelación de /en-vivo) y, si no hay, el próximo por jugarse (el primero 'creado' por fecha y hora)
+    en_vivo = partidos_coll.find_one({"transmision.estado": "in_progress"})
+    proximo = obtener_juego_activo()[0]
+    primer_partido = en_vivo or proximo
+
     partidos_jugados = partidos_coll.count_documents({"estado": "finalizado"})
     partidos_totales = 1194
 
@@ -1591,7 +1707,11 @@ def get_data_fase_actual_dashboard():
         "nombre": nombre,
         "descripcion": descripcion,
         "ronda": f"Ronda {fase_id} de {total_rondas}" if total_rondas else None,
-        "progreso": progreso
+        "progreso": progreso,
+        # el partido EN TRANSMISIÓN (sin marcador: no adelanta nada) y el próximo por jugarse. Sin transmisión, el
+        # botón del próximo lleva a /en-vivo/ para arrancarlo; con un partido en transmisión, a su detalle previo.
+        "en_vivo": _resumen_partido_encabezado(en_vivo) if en_vivo else None,
+        "proximo": _resumen_partido_encabezado(proximo) if proximo else None,
     }
     
     return fase_actual

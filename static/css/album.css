@@ -456,3 +456,35 @@
     .carta-sobre--suspenso .carta-sobre__giro, .carta-sobre--dorada .carta-sobre__frente, .carta-sobre--platino .carta-sobre__frente { animation: none !important; }
     .carta-sobre__giro { transition: none; }
 }
+
+/* Técnico (directores técnicos, 5%): marco violeta con brillo frío */
+.estampa--tecnico .estampa__frente { background: linear-gradient(135deg, #ede9fe, #8b5cf6 30%, #c4b5fd 50%, #5b21b6 74%, #a78bfa); }
+.estampa--tecnico .estampa__sello { color: #1e1033; background: linear-gradient(135deg, #ede9fe, #a78bfa 50%, #6d28d9); }
+.estampa--tecnico .estampa__banda { border-top-color: #a78bfa; background: linear-gradient(180deg, #1e1b2e, #0b0915); }
+.estampa--tecnico .estampa__reverso { border-color: #a78bfa; background: radial-gradient(120% 80% at 50% 0%, rgba(167, 139, 250, 0.18), transparent 60%), #0d0b16; }
+.estampa--tecnico .estampa__reverso-titulo span, .estampa--tecnico .estampa__ovr { color: #c4b5fd; }
+.estampa--tecnico .estampa__link { background: linear-gradient(135deg, #c4b5fd, #8b5cf6); }
+.estampa--tecnico .estampa__foto img { width: 106%; height: 106%; }
+.estampa--vacia-tecnico .estampa__hueco { border-color: rgba(167, 139, 250, 0.4); background: linear-gradient(160deg, rgba(167, 139, 250, 0.06), rgba(0, 0, 0, 0.25)); }
+.estampa--vacia-tecnico .estampa__hueco-numero { font-size: 1.2rem; color: rgba(167, 139, 250, 0.55); }
+.album-hoja__seccion--tecnicos i { color: #a78bfa; }
+.carta-sobre__cinta--tecnico { background: linear-gradient(135deg, #c4b5fd, #7c3aed); color: #120a24; }
+
+/* Repetidas: pila para canjear o vender (album_coleccion.html) */
+.album-repetidas { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 0.75rem 1rem; border-radius: 14px;
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.12), rgba(0, 0, 0, 0.25)); border: 1px solid rgba(234, 179, 8, 0.3); }
+.album-repetidas__pila { display: flex; align-items: baseline; gap: 0.35rem; color: #fde68a; }
+.album-repetidas__pila i { font-size: 1.3rem; align-self: center; }
+.album-repetidas__pila strong { font-size: 1.6rem; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; }
+.album-repetidas__pila span { font-size: 0.8rem; }
+.album-repetidas__texto { flex: 1 1 18rem; }
+.album-repetidas__costo { display: inline-block; margin: 0.15rem 0.25rem 0 0; padding: 0 0.45rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700;
+    color: var(--cat-color); border: 1px solid color-mix(in srgb, var(--cat-color) 45%, transparent); background: color-mix(in srgb, var(--cat-color) 10%, transparent); }
+.album-repetidas--pulso { animation: rep-pulso 0.7s ease; }
+@keyframes rep-pulso { 40% { box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.35); transform: scale(1.01); } }
+.estampa--vacia[data-canje-tipo] { cursor: pointer; transition: transform 0.15s ease, filter 0.15s ease; }
+.estampa--vacia[data-canje-tipo]:hover, .estampa--vacia[data-canje-tipo]:focus-visible { transform: translateY(-3px); filter: brightness(1.25); }
+.estampa--vacia[data-canje-tipo]:hover .estampa__hueco::after { content: "Canjear"; position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+    padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.68rem; font-weight: 800; color: #1a1300; background: #facc15; }
+.estampa--vacia .estampa__hueco { position: relative; }
+@media (prefers-reduced-motion: reduce) { .album-repetidas--pulso { animation: none; } }

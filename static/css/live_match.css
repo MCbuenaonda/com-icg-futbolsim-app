@@ -524,3 +524,20 @@
 /* Leyendas en la cancha (jugadores.leyenda): aro bronce brillante alrededor del jersey */
 .cancha-jugador--leyenda::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; pointer-events: none;
     border: 2px solid #d9a066; box-shadow: 0 0 10px rgba(217, 160, 102, 0.75); }
+
+/* Jugadores en Cancha: íconos de lo que hizo cada uno, los que salieron y lo que ocupan en /estadisticas */
+.once-iconos { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin-top: .1rem; font-size: .72rem; line-height: 1; }
+.once-ico { display: inline-flex; align-items: center; gap: .1rem; }
+.once-ico small { font-size: .62rem; color: #cbd5e1; font-weight: 700; }
+.once-ico--entra { color: #22c55e; }
+.once-ico--asistencia { color: #22c55e; font-size: .68rem; }
+.once-ico--sale { color: #f87171; }
+.once-fila--fuera { opacity: .55; }
+.once-fila--fuera:first-of-type, .list-group-item:not(.once-fila--fuera) + .once-fila--fuera { border-top: 1px dashed rgba(255, 255, 255, .18) !important; }
+.once-fila--destacada .once-fila { box-shadow: inset 3px 0 0 #fbbf24; }
+.once-destacado { display: inline-flex; align-items: center; gap: .25rem; padding: .05rem .4rem; border-radius: 999px; font-size: .64rem; font-weight: 700;
+                  color: #fde68a; background: rgba(251, 191, 36, .14); border: 1px solid rgba(251, 191, 36, .35); white-space: nowrap; max-width: 100%; }
+.once-destacado__texto { overflow: hidden; text-overflow: ellipsis; max-width: 9rem; }
+.once-destacado small { color: #fcd34d; }
+.once-destacados-detalle { display: flex; flex-wrap: wrap; gap: .3rem; }
+.once-destacados-pais { display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem; }

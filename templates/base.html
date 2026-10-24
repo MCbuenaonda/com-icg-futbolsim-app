@@ -53,9 +53,9 @@
                     </li>
                     {% endif %}
 
-                    {% if puede('paises', 'estadisticas', 'cara_a_cara', 'palmares', 'aficionados', 'arbitros') %}
+                    {% if puede('paises', 'estadisticas', 'cara_a_cara', 'palmares', 'aficionados', 'arbitros', 'tecnicos') %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/paises', '/jugadores', '/confederacion', '/estadisticas', '/cara-a-cara', '/palmares', '/aficionados', '/arbitros', '/mundial/arte') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Torneo</a>
+                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/paises', '/jugadores', '/confederacion', '/estadisticas', '/cara-a-cara', '/palmares', '/aficionados', '/arbitros', '/tecnicos', '/mundial/arte') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Torneo</a>
                         <ul class="dropdown-menu dropdown-menu-dark">
                             {% if puede('paises') %}
                             <li><a class="dropdown-item {{ 'active' if nav_activo('/paises', '/jugadores', '/confederacion') and not nav_activo('/jugadores/comparar') }}" href="/paises/"><i class="bi bi-flag me-2"></i>Países</a></li>
@@ -67,6 +67,7 @@
                             {% if puede('palmares') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/mundial/arte') }}" href="/mundial/arte"><i class="bi bi-palette me-2"></i>Póster y mascota</a></li>{% endif %}
                             {% if puede('aficionados') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/aficionados') }}" href="/aficionados/"><i class="bi bi-heart me-2"></i>Popularidad</a></li>{% endif %}
                             {% if puede('arbitros') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/arbitros') }}" href="/arbitros/"><i class="bi bi-person-badge me-2"></i>Árbitros</a></li>{% endif %}
+                            {% if puede('tecnicos') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/tecnicos') }}" href="/tecnicos/"><i class="bi bi-clipboard-check me-2"></i>Directores técnicos</a></li>{% endif %}
                         </ul>
                     </li>
                     {% endif %}
@@ -269,6 +270,8 @@
         const GOL_DESCRIPCION_PATRONES = [
             /¡Golazo de ([^!]+)!/,
             /¡Gol de ([^!]+) en la tanda de penaltis!/,
+            /¡Gol de penal! ([^!]+?) cruza/,
+            /¡Adentro! ([^!]+?) cambia el penal/,
         ];
 
         const nav = document.querySelector('nav.navbar');
@@ -351,7 +354,7 @@
             if (!eventoGol) return;
             const esLocal = eventoGol.equipo === data.local;
             mostrarLineaGol(esLocal ? data.bandera_local : data.bandera_visitante, esLocal ? data.id_local : data.id_visita,
-                            extraerNombreJugador(eventoGol.descripcion));
+                            ((eventoGol.jugadores || [])[0] || extraerNombreJugador(eventoGol.descripcion)));
         }
 
         async function consultarLiveBadge() {
@@ -389,7 +392,7 @@
                 elVisita.title = data.visitante;
                 elGolesLocal.textContent = data.goles_local;
                 elGolesVisita.textContent = data.goles_visitante;
-                elMinuto.textContent = `${data.minuto_actual}'`;
+                elMinuto.textContent = data.adicional_actual ? `${data.minuto_actual}+${data.adicional_actual}'` : `${data.minuto_actual}'`;
                 const total = (data.segundos_transcurridos || 0) + (data.segundos_restantes || 0);
                 elProgreso.style.width = `${total ? Math.min(100, (data.segundos_transcurridos / total) * 100) : 0}%`;
 

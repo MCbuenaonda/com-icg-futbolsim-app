@@ -15,8 +15,9 @@ from services.imagenes_pais_service import GLOBALES_JINJA
 from services.cara_a_cara_service import clasicos_destacados, listar_paises, obtener_cara_a_cara
 from services.cuadro_service import obtener_cuadro
 from services.palmares_service import obtener_palmares
-from services.arbitros_service import listar_arbitros, perfil_arbitro, comparar_con_colegas
+from services.arbitros_service import listar_por_puesto, perfil_arbitro, comparar_con_colegas, ROLES as ROLES_ARBITRO
 from services.ranking_usuarios_service import obtener_ranking_usuarios
+from services.tecnicos_service import listar_tecnicos, perfil_tecnico
 
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
 templates.env.globals.update(GLOBALES_JINJA)
@@ -25,6 +26,7 @@ route_cuadro = APIRouter(prefix="/cuadro", tags=["Cuadro UI"])
 route_palmares = APIRouter(prefix="/palmares", tags=["Palmarés UI"])
 route_arbitros = APIRouter(prefix="/arbitros", tags=["Árbitros UI"])
 route_ranking = APIRouter(prefix="/ranking", tags=["Ranking de usuarios UI"])
+route_tecnicos = APIRouter(prefix="/tecnicos", tags=["Directores técnicos UI"])
 tag = 'Mundial'
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -52,8 +54,9 @@ async def palmares(request: Request):
 
 
 @route_arbitros.get("/", response_class=HTMLResponse, name="arbitros")
-async def arbitros(request: Request):
-    return templates.TemplateResponse(request=request, name="arbitros.html", context={"arbitros": listar_arbitros()})
+async def arbitros(request: Request, puesto: str = "central"):
+    activa = puesto if puesto in dict(ROLES_ARBITRO) else "central"
+    return templates.TemplateResponse(request=request, name="arbitros.html", context={"pestanas": listar_por_puesto(), "activa": activa})
 
 
 @route_arbitros.get("/perfil", response_class=HTMLResponse, name="arbitro_perfil")
@@ -67,3 +70,13 @@ async def arbitro(request: Request, nombre: str):
 @route_ranking.get("/", response_class=HTMLResponse, name="ranking_usuarios")
 async def ranking(request: Request):
     return templates.TemplateResponse(request=request, name="ranking_usuarios.html", context={"filas": obtener_ranking_usuarios()})
+
+
+@route_tecnicos.get("/", response_class=HTMLResponse, name="tecnicos")
+def tecnicos(request: Request):
+    return templates.TemplateResponse(request=request, name="tecnicos.html", context={"datos": listar_tecnicos()})
+
+
+@route_tecnicos.get("/{tecnico_id}", response_class=HTMLResponse, name="tecnico_perfil")
+def tecnico(request: Request, tecnico_id: int):
+    return templates.TemplateResponse(request=request, name="tecnico.html", context={"t": perfil_tecnico(tecnico_id)})

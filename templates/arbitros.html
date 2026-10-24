@@ -9,9 +9,9 @@
 
 {% block content %}
 {#
-  Árbitros que dirigieron como central: destacados (más estricto, más permisivo, más expulsiones) y
-  una ficha por árbitro con su avatar sobre la bandera, su "termómetro" de severidad y sus números.
-  Datos: arbitros_service.listar_arbitros.
+  Directorio del cuerpo arbitral en 5 pestañas (central, línea 1, línea 2, 4to árbitro y VAR): destacados del puesto y
+  una ficha por árbitro con su avatar sobre la bandera, la barra de su métrica principal y sus números.
+  Datos: arbitros_service.listar_por_puesto (?puesto=linea1 abre esa pestaña).
 #}
 <div class="card card-logo-fondo card-logo-fondo--sin-brillo fixture-hero mb-4" style="--logo-color: #94a3b8;">
     <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
@@ -19,122 +19,137 @@
             <span class="arbitros-hero__silbato"><i class="bi bi-person-badge-fill"></i></span>
             <div class="min-w-0">
                 <h1 class="h2 fw-bold text-white mb-1">Árbitros</h1>
-                <p class="text-muted mb-0 small">Quiénes dirigieron como árbitro central y cómo dirigen: faltas, tarjetas y expulsiones por partido.</p>
+                <p class="text-muted mb-0 small">El cuerpo arbitral completo: el central cobra y amonesta, los jueces de línea marcan fueras de lugar y córners, el 4to árbitro anuncia cambios, levanta el cartel del descuento y pide el VAR, y el VAR decide.</p>
             </div>
         </div>
-        {% if arbitros %}
         <div class="d-flex gap-2 flex-wrap">
-            <div class="fixture-kpi"><span>Centrales</span><strong>{{ arbitros | length }}</strong></div>
-            <div class="fixture-kpi"><span>Partidos</span><strong>{{ arbitros | sum(attribute='partidos') }}</strong></div>
-            <div class="fixture-kpi"><span>Expulsiones</span><strong class="text-danger">{{ arbitros | sum(attribute='expulsiones') }}</strong></div>
+            <div class="fixture-kpi"><span>Árbitros</span><strong>{{ pestanas | map(attribute='filas') | map('length') | sum }}</strong></div>
+            <div class="fixture-kpi"><span>Partidos</span><strong>{{ pestanas[0].partidos }}</strong></div>
+            <div class="fixture-kpi"><span>Revisiones VAR</span><strong class="text-info">{{ pestanas[4].filas | sum(attribute='revisiones') }}</strong></div>
+        </div>
+    </div>
+</div>
+
+<ul class="nav nav-pills arbitros-pestanas mb-3 flex-nowrap overflow-auto" role="tablist">
+    {% for p in pestanas %}
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {{ 'active' if p.codigo == activa }}" data-bs-toggle="pill" data-bs-target="#puesto-{{ p.codigo }}" type="button" role="tab"
+                data-puesto="{{ p.codigo }}" style="--puesto-color: {{ p.color }};">
+            <i class="bi {{ p.icono }} me-1"></i>{{ p.nombre }} <span class="badge rounded-pill">{{ p.filas | length }}</span>
+        </button>
+    </li>
+    {% endfor %}
+</ul>
+
+<div class="tab-content">
+    {% for p in pestanas %}
+    {% set pr = p.principal %}
+    <div class="tab-pane fade {{ 'show active' if p.codigo == activa }}" id="puesto-{{ p.codigo }}" role="tabpanel">
+        {% if p.destacados %}
+        <div class="row g-3 mb-3">
+            {% for d in p.destacados %}
+            <div class="col-12 col-md-4">
+                <a href="{{ url_for('arbitro_perfil') }}?nombre={{ d.fila.nombre | urlencode }}" class="card h-100 card-logo-fondo card-jugador text-decoration-none" style="--logo-color: {{ d.color }};">
+                    {{ m.fondo_bandera(d.fila.pais_id) }}
+                    <div class="card-body d-flex align-items-center gap-3">
+                        {{ m.avatar_arbitro(d.fila.nombre, 'md', d.fila.nombre) }}
+                        <div class="min-w-0">
+                            <small class="text-secondary text-uppercase fw-semibold">{{ d.titulo }}</small>
+                            <div class="fw-bold text-white text-truncate">{{ d.fila.nombre }}</div>
+                            <small class="text-muted">{{ d.fila.pais or '—' }} · {{ d.detalle }}</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
         </div>
         {% endif %}
-    </div>
-</div>
 
-{% if arbitros %}
-{% set con_rodaje = arbitros | selectattr('partidos', 'ge', 2) | list or arbitros %}
-{% set estricto = (con_rodaje | sort(attribute='tarjetas_prom', reverse=true))[0] %}
-{% set permisivo = (con_rodaje | sort(attribute='tarjetas_prom'))[0] %}
-{% set expulsor = (arbitros | sort(attribute='expulsiones', reverse=true))[0] %}
-{% set max_tarjetas = (arbitros | map(attribute='tarjetas_prom') | max) or 1 %}
-<!-- Destacados -->
-<div class="row g-3 mb-4">
-    {% for titulo, color, a, detalle in [
-        ('🟨 El más estricto', '#eab308', estricto, estricto.tarjetas_prom ~ ' tarjetas por partido'),
-        ('🕊️ El más permisivo', '#14b8a6', permisivo, permisivo.tarjetas_prom ~ ' tarjetas por partido'),
-        ('🟥 Más expulsiones', '#ef4444', expulsor, expulsor.expulsiones ~ ' en ' ~ expulsor.partidos ~ ' partidos')] %}
-    <div class="col-12 col-md-4">
-        <a href="{{ url_for('arbitro_perfil') }}?nombre={{ a.nombre | urlencode }}" class="card h-100 card-logo-fondo card-jugador text-decoration-none" style="--logo-color: {{ color }};">
-            {{ m.fondo_bandera(a.pais_id) }}
-            <div class="card-body d-flex align-items-center gap-3">
-                {{ m.avatar_arbitro(a.nombre, 'md', a.nombre) }}
-                <div class="min-w-0">
-                    <small class="text-secondary text-uppercase fw-semibold">{{ titulo }}</small>
-                    <div class="fw-bold text-white text-truncate">{{ a.nombre }}</div>
-                    <small class="text-muted">{{ a.pais or '—' }} · {{ detalle }}</small>
+        <div class="card panel-filtros mb-3">
+            <div class="card-body p-3 row g-2 align-items-center">
+                <div class="col-md-8">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="search" class="form-control js-buscar-arbitro" placeholder="Buscar árbitro o país..." aria-label="Buscar árbitro">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select form-select-sm js-orden-arbitros" aria-label="Ordenar">
+                        {% for clave, etiqueta in p.ordenes %}<option value="{{ clave }}">Orden: {{ etiqueta }}</option>{% endfor %}
+                    </select>
                 </div>
             </div>
-        </a>
+        </div>
+
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3 js-grilla-arbitros">
+            {% for a in p.filas %}
+            {% set valor = a[pr.clave] or 0 %}
+            <div class="col arbitro-item" data-busqueda="{{ (a.nombre ~ ' ' ~ a.pais) | lower }}"
+                 {% for clave, _ in p.ordenes %} data-{{ clave | replace('_', '-') }}="{{ a[clave] or 0 }}"{% endfor %}>
+                <a href="{{ url_for('arbitro_perfil') }}?nombre={{ a.nombre | urlencode }}" class="card h-100 card-logo-fondo card-jugador ficha-arbitro {{ 'ficha-arbitro--inactivo' if not a.partidos }}" style="--logo-color: {{ p.color }};">
+                    {{ m.fondo_bandera(a.pais_id) }}
+                    <div class="d-flex align-items-center gap-3">
+                        {{ m.avatar_arbitro(a.nombre, 'md', a.nombre) }}
+                        <div class="min-w-0">
+                            <strong class="d-block text-white text-truncate">{{ a.nombre }}</strong>
+                            <small class="text-muted">{% if a.pais_id %}{{ m.bandera('', pais_id=a.pais_id) }} {% endif %}{{ a.pais or '—' }}</small>
+                            <span class="ficha-arbitro__pj">{{ a.partidos }} PJ</span>
+                            {% if a.rigor_etiqueta and a.rigor_etiqueta != 'normal' %}<span class="arbitro-rigor arbitro-rigor--{{ a.rigor_etiqueta }}">{{ '🟨 Estricto' if a.rigor_etiqueta == 'estricto' else '🕊️ Permisivo' }}</span>{% endif %}
+                            {% if a.intervencion_etiqueta and a.intervencion_etiqueta != 'equilibrado' %}<span class="arbitro-rigor arbitro-rigor--{{ 'estricto' if a.intervencion_etiqueta == 'intervencionista' else 'permisivo' }}" title="Cuánto revisa">{{ '🖥️ Intervencionista' if a.intervencion_etiqueta == 'intervencionista' else '▶️ Deja correr' }}</span>{% endif %}
+                            {% if a.severidad_etiqueta and a.severidad_etiqueta != 'ecuánime' %}<span class="arbitro-rigor arbitro-rigor--{{ 'implacable' if a.severidad_etiqueta == 'implacable' else 'respeta' }}" title="Cuánto da por malo lo marcado">{{ '❌ Implacable' if a.severidad_etiqueta == 'implacable' else '✅ Respeta al campo' }}</span>{% endif %}
+                        </div>
+                    </div>
+                    {% if a.partidos %}
+                    <div class="ficha-arbitro__severidad" title="{{ pr.etiqueta }}, comparado con el máximo del puesto">
+                        <div class="d-flex justify-content-between"><small>{{ pr.etiqueta }}</small><small>{{ valor }} {{ pr.unidad }}</small></div>
+                        <div class="ficha-arbitro__termometro" style="--puesto-color: {{ p.color }};"><span style="width: {{ (valor * 100 / pr.max) | round }}%;"></span></div>
+                    </div>
+                    <div class="ficha-jugador__metricas">
+                        {% for etiqueta, clave in p.metricas %}
+                        <div><span>{{ etiqueta }}</span><strong class="{{ 'text-danger' if clave in ('expulsiones', 'revertidas') and a[clave] }}">{{ a[clave] if a[clave] else (0 if a[clave] == 0 else '—') }}</strong></div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="small text-muted mb-0 mt-3"><i class="bi bi-hourglass-split me-1"></i>Todavía no le tocó un partido en este Mundial.</p>
+                    {% endif %}
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="text-muted text-center py-4 d-none js-sin-arbitros">Ningún árbitro coincide con la búsqueda.</p>
     </div>
     {% endfor %}
 </div>
-
-<div class="card panel-filtros mb-3">
-    <div class="card-body p-3 row g-2 align-items-center">
-        <div class="col-md-8">
-            <div class="input-group input-group-sm">
-                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input type="search" id="buscarArbitro" class="form-control" placeholder="Buscar árbitro o país..." aria-label="Buscar árbitro">
-            </div>
-        </div>
-        <div class="col-md-4">
-            <select id="ordenArbitros" class="form-select form-select-sm" aria-label="Ordenar">
-                <option value="partidos">Orden: más partidos</option>
-                <option value="tarjetas">Orden: más tarjetas/PJ</option>
-                <option value="faltas">Orden: más faltas/PJ</option>
-                <option value="expulsiones">Orden: más expulsiones</option>
-            </select>
-        </div>
-    </div>
-</div>
-
-<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3" id="tarjetaArbitros">
-    {% for a in arbitros %}
-    {% set severidad = (a.tarjetas_prom * 100 / max_tarjetas) | round %}
-    <div class="col arbitro-item" data-busqueda="{{ (a.nombre ~ ' ' ~ a.pais) | lower }}" data-partidos="{{ a.partidos }}"
-         data-tarjetas="{{ a.tarjetas_prom }}" data-faltas="{{ a.faltas_prom }}" data-expulsiones="{{ a.expulsiones }}">
-        <a href="{{ url_for('arbitro_perfil') }}?nombre={{ a.nombre | urlencode }}" class="card h-100 card-logo-fondo card-jugador ficha-arbitro" style="--logo-color: #64748b;">
-            {{ m.fondo_bandera(a.pais_id) }}
-            <div class="d-flex align-items-center gap-3">
-                {{ m.avatar_arbitro(a.nombre, 'md', a.nombre) }}
-                <div class="min-w-0">
-                    <strong class="d-block text-white text-truncate">{{ a.nombre }}</strong>
-                    <small class="text-muted">{% if a.pais_id %}{{ m.bandera('', pais_id=a.pais_id) }} {% endif %}{{ a.pais or '—' }}</small>
-                    <span class="ficha-arbitro__pj">{{ a.partidos }} PJ</span>
-                </div>
-            </div>
-            <div class="ficha-arbitro__severidad" title="Tarjetas por partido, comparado con el árbitro más estricto">
-                <div class="d-flex justify-content-between"><small>Severidad</small><small>{{ a.tarjetas_prom }} 🟨/PJ</small></div>
-                <div class="ficha-arbitro__termometro"><span style="width: {{ severidad }}%;"></span></div>
-            </div>
-            <div class="ficha-jugador__metricas">
-                <div><span>Faltas/PJ</span><strong>{{ a.faltas_prom }}</strong></div>
-                <div><span>Rojas</span><strong class="{{ 'text-danger' if a.expulsiones }}">{{ a.expulsiones }}</strong></div>
-                <div><span>Gana local</span><strong>{{ a.pct_gana_local }}%</strong></div>
-            </div>
-        </a>
-    </div>
-    {% endfor %}
-</div>
-<p id="sinArbitros" class="text-muted text-center py-4 d-none">Ningún árbitro coincide con la búsqueda.</p>
-{% else %}
-<div class="album-vacio"><i class="bi bi-person-badge"></i><p class="mb-0">Todavía no se jugó ningún partido.</p></div>
-{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const grilla = document.getElementById('tarjetaArbitros');
-        if (!grilla) return;
-        let filas = grilla.querySelectorAll('.arbitro-item');
-        const paginador = UI.paginador({ items: () => filas, porPagina: 40, despuesDe: grilla, etiqueta: 'árbitros' });
-        const buscar = document.getElementById('buscarArbitro');
-        function filtrar() {
-            const texto = buscar.value.toLowerCase().trim();
-            let visibles = 0;
-            filas.forEach(f => { const ok = f.dataset.busqueda.includes(texto); f.classList.toggle('d-none', !ok); visibles += ok; });
-            document.getElementById('sinArbitros').classList.toggle('d-none', visibles > 0);
-            paginador.reiniciar();
-        }
-        buscar.addEventListener('input', filtrar);
-        document.getElementById('ordenArbitros').addEventListener('change', ev => {
-            const campo = ev.target.value;
-            [...filas].sort((a, b) => Number(b.dataset[campo]) - Number(a.dataset[campo])).forEach(f => grilla.appendChild(f));
-            filas = grilla.querySelectorAll('.arbitro-item');
-            filtrar();
+        // Cada pestaña tiene su buscador, su orden y su "Mostrar más"
+        document.querySelectorAll('.tab-pane').forEach(panel => {
+            const grilla = panel.querySelector('.js-grilla-arbitros');
+            let filas = grilla.querySelectorAll('.arbitro-item');
+            const paginador = UI.paginador({ items: () => filas, porPagina: 40, despuesDe: grilla, etiqueta: 'árbitros' });
+            const buscar = panel.querySelector('.js-buscar-arbitro');
+            function filtrar() {
+                const texto = buscar.value.toLowerCase().trim();
+                let visibles = 0;
+                filas.forEach(f => { const ok = f.dataset.busqueda.includes(texto); f.classList.toggle('d-none', !ok); visibles += ok; });
+                panel.querySelector('.js-sin-arbitros').classList.toggle('d-none', visibles > 0);
+                paginador.reiniciar();
+            }
+            buscar.addEventListener('input', filtrar);
+            panel.querySelector('.js-orden-arbitros').addEventListener('change', ev => {
+                const campo = ev.target.value.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+                [...filas].sort((a, b) => Number(b.dataset[campo]) - Number(a.dataset[campo])).forEach(f => grilla.appendChild(f));
+                filas = grilla.querySelectorAll('.arbitro-item');
+                filtrar();
+            });
         });
+        // La pestaña elegida queda en la URL (?puesto=), así "Volver" desde un perfil vuelve a la misma
+        document.querySelectorAll('[data-puesto]').forEach(b => b.addEventListener('shown.bs.tab', () => {
+            const url = new URL(location.href); url.searchParams.set('puesto', b.dataset.puesto); history.replaceState(null, '', url);
+        }));
     });
 </script>
 {% endblock %}

@@ -50,6 +50,7 @@
                 <a href="/paises/{{ home.pais_id }}" class="marcador-tv__equipo marcador-tv__equipo--local resumen-equipo">
                     <span class="marcador-tv__bandera-wrap">{{ m.bandera(home.bandera, pais_id=home.pais_id, clase='marcador-tv__bandera') }}</span>
                     <h2 class="h4 fw-bold text-white mb-0">{{ home.nombre }}</h2>
+                    {{ m.chip_dt(home.pais_id) }}
                     {% if puede('corporativos') %}{{ m.insignia_corp(reps_corp, 'seleccion', home.pais_id, enlace=False) }}{% endif %}
                     <span class="scouter-prob scouter-prob--local">{{ home.probabilidad_victoria_pct | round | int }}%</span>
                 </a>
@@ -57,6 +58,7 @@
                 <a href="/paises/{{ away.pais_id }}" class="marcador-tv__equipo marcador-tv__equipo--visitante resumen-equipo">
                     <span class="marcador-tv__bandera-wrap">{{ m.bandera(away.bandera, pais_id=away.pais_id, clase='marcador-tv__bandera') }}</span>
                     <h2 class="h4 fw-bold text-white mb-0">{{ away.nombre }}</h2>
+                    {{ m.chip_dt(away.pais_id) }}
                     {% if puede('corporativos') %}{{ m.insignia_corp(reps_corp, 'seleccion', away.pais_id, enlace=False) }}{% endif %}
                     <span class="scouter-prob scouter-prob--visita">{{ away.probabilidad_victoria_pct | round | int }}%</span>
                 </a>

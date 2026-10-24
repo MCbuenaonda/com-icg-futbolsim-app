@@ -46,6 +46,7 @@
                              'CIUDAD': ('bi-building', t.ciudades, t.ciudades_total, None),
                              'ARBITRO': ('bi-star-fill', t.arbitros, t.arbitros_total, album.pagina_arbitros),
                              'MUNDIAL': ('bi-palette-fill', t.mundial, t.mundial_total, album.pagina_mundiales),
+                             'TECNICO': ('bi-clipboard-check', t.tecnicos, t.tecnicos_total, None),
                              'PAIS': ('bi-gem', t.paises, t.paises_total, None)} %}
         <div class="row g-2 mt-2">
             {% for cat in album.categorias %}
@@ -59,6 +60,19 @@
                 </div>
             </div>
             {% endfor %}
+        </div>
+        <!-- Repetidas: se canjean tocando un casillero vacío o se venden (album_service.canjear_estampa / vender_repetidas) -->
+        {% set rp = album.repetidas %}
+        <div class="album-repetidas mt-3" id="albumRepetidas" data-total="{{ rp.total }}">
+            <div class="album-repetidas__pila"><i class="bi bi-layers-fill"></i><strong id="repTotal">{{ rp.total }}</strong><span>repetidas</span></div>
+            <div class="album-repetidas__texto min-w-0">
+                <strong class="d-block text-white">Canjeá tus repetidas</strong>
+                <small class="text-muted">Tocá un casillero vacío y cambialo por repetidas:
+                    {% for cat in album.categorias %}<span class="album-repetidas__costo" style="--cat-color: {{ cat.color }};">{{ cat.nombre }} {{ cat.costo_canje }}</span>{% endfor %}</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" id="btnVenderRepetidas" {{ 'disabled' if not rp.total }}>
+                <i class="bi bi-coin me-1"></i>Vender todas (<span id="repValor">+{{ rp.valor_venta }}</span> pts)
+            </button>
         </div>
         </div>
     </div>
@@ -189,7 +203,67 @@
             }
         }
 
+        // --- Canje y venta de repetidas ---
+        const COSTOS = {{ album.costo_canje | tojson }};
+        const NOMBRE_TIPO = { JUGADOR: 'jugador', LEYENDA: 'leyenda', EQUIPO: 'foto de equipo', CIUDAD: 'estadio', PAIS: 'escudo', ARBITRO: 'árbitro', TECNICO: 'técnico', MUNDIAL: 'edición Mundial' };
+        const panelRep = document.getElementById('albumRepetidas');
+        function pintarRepetidas(r) {
+            panelRep.dataset.total = r.total;
+            document.getElementById('repTotal').textContent = r.total;
+            document.getElementById('repValor').textContent = '+' + r.valor_venta;
+            document.getElementById('btnVenderRepetidas').disabled = !r.total;
+            panelRep.classList.remove('album-repetidas--pulso'); void panelRep.offsetWidth; panelRep.classList.add('album-repetidas--pulso');
+        }
+        async function recargarHoja() {
+            const actual = hojaActual(), n = Number(actual.dataset.pagina);
+            cache.delete(n);
+            const tmp = document.createElement('div');
+            tmp.innerHTML = (await pedirHoja(n)).trim();
+            const nueva = tmp.querySelector('.album-hoja');
+            actual.replaceWith(nueva);
+            sincronizar(nueva);
+            return nueva;
+        }
+        async function canjear(casillero) {
+            const tipo = casillero.dataset.canjeTipo, id = Number(casillero.dataset.canjeId), nombre = casillero.dataset.canjeNombre;
+            const costo = COSTOS[tipo], tengo = Number(panelRep.dataset.total);
+            if (tengo < costo) {
+                UI.toast(`Te faltan repetidas: el canje de ${NOMBRE_TIPO[tipo] || 'esta estampa'} cuesta ${costo} y tenés ${tengo}.`, { icono: 'bi-layers', tipo: 'aviso' });
+                return;
+            }
+            const ok = await UI.confirmar({ titulo: 'Canjear estampa', mensaje: `¿Cambiás ${costo} repetidas por la estampa de ${nombre} (${NOMBRE_TIPO[tipo] || tipo})? Se usan primero las de menor valor.`, textoConfirmar: `Canjear (${costo})` });
+            if (!ok) return;
+            try {
+                const resp = await fetch('{{ url_for("album_canje") }}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo, id }) });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.detail || 'No se pudo canjear');
+                pintarRepetidas(data.repetidas);
+                await recargarHoja();
+                UI.toast(`¡Pegaste la estampa de ${nombre}!`, { icono: 'bi-check2-circle', tipo: 'xp' });
+                UI.refrescarSaldo();
+            } catch (err) {
+                UI.toast(err.message, { icono: 'bi-exclamation-triangle', tipo: 'aviso' });
+            }
+        }
+        document.getElementById('btnVenderRepetidas').addEventListener('click', async () => {
+            const total = Number(panelRep.dataset.total);
+            const ok = await UI.confirmar({ titulo: 'Vender repetidas', mensaje: `¿Vendés tus ${total} repetidas por ${document.getElementById('repValor').textContent} puntos? Ya no las vas a poder canjear.`, textoConfirmar: 'Vender todas', peligro: true });
+            if (!ok) return;
+            try {
+                const resp = await fetch('{{ url_for("album_vender_repetidas") }}', { method: 'POST' });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.detail || 'No se pudieron vender');
+                pintarRepetidas(data.repetidas);
+                UI.toast(`Vendiste ${data.vendidas} repetidas: +${data.puntos} pts`, { icono: 'bi-coin', tipo: 'xp' });
+                UI.refrescarSaldo();
+            } catch (err) {
+                UI.toast(err.message, { icono: 'bi-exclamation-triangle', tipo: 'aviso' });
+            }
+        });
+
         document.addEventListener('click', ev => {
+            const casillero = ev.target.closest('[data-canje-tipo]');
+            if (casillero) { canjear(casillero); return; }
             // pestañas por puesto de la página de árbitros (la hoja se reemplaza al hojear: delegado)
             const puesto = ev.target.closest('.album-puestos [data-puesto]');
             if (puesto) {

@@ -115,6 +115,30 @@
   {{ tarjeta('gPosesion', '¿Tener la pelota sirve?',
              ('Correlación entre posesión y puntos por partido: r = ' ~ ('%.2f' | format(g.selecciones.posesion_r)) ~ '. ' ~ ('Prácticamente nula: dominar la pelota no asegura ganar.' if (g.selecciones.posesion_r | abs) < 0.2 else ('Hay relación: quien tiene la pelota suma más.' if g.selecciones.posesion_r > 0 else 'Relación inversa: los que ceden la pelota suman más.'))) if g.selecciones.posesion_r is not none else 'Todavía no hay datos suficientes.', 300) }}
   {{ tarjeta('gAficionados', 'La fiebre de los hinchas', 'Aficionados de las 5 selecciones más populares, partido a partido.', 300) }}
+  <!-- Balance partido a partido (graficos_service._trayectorias): todas en gris de contexto, hasta 8 destacadas en color
+       con su bandera al final de la línea; filtro por confederación, buscador y clic en una línea gris para destacarla -->
+  <div class="col-12">
+    <figure class="mg-card" id="card-gTrayectoria">
+      <figcaption><h3>Partido a partido</h3><p>Todas las selecciones arrancan en 0: suman +1 por cada victoria, 0 por empate y −1 por derrota. Las líneas se van separando partido a partido. Tocá una línea gris o buscá un país para destacarlo (hasta 8).</p></figcaption>
+      <div class="mg-filtros">
+        <select id="trayConf" class="form-select form-select-sm" aria-label="Confederación">
+          <option value="">Todas las confederaciones</option>
+          {% for c in g.trayectorias.confederaciones %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+        <div class="input-group input-group-sm mg-filtros__buscar">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input id="trayBuscar" class="form-control" list="trayLista" placeholder="Agregar una selección..." aria-label="Agregar una selección">
+          <datalist id="trayLista"></datalist>
+        </div>
+        <button type="button" id="trayRestablecer" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-counterclockwise"></i> Las 5 mejores</button>
+        <button type="button" id="trayPeores" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-down"></i> Las 5 peores</button>
+      </div>
+      <div class="mg-chips" id="trayChips" aria-label="Selecciones destacadas"></div>
+      <div class="mg-lienzo" style="height: 440px;"><canvas id="gTrayectoria" role="img" aria-label="Balance de victorias y derrotas de cada selección, partido a partido"></canvas></div>
+      <button type="button" class="mg-ver-tabla" data-tabla="gTrayectoria"><i class="bi bi-table"></i> Ver datos</button>
+      <div class="mg-tabla d-none" id="tabla-gTrayectoria"></div>
+    </figure>
+  </div>
 </div>
 
 <!-- JUGADORES -->
@@ -407,17 +431,174 @@ document.addEventListener('DOMContentLoaded', function () {
         options: { scales: ejes(), plugins: { legend: { display: false }, tooltip: { callbacks: { label: it => ` ${it.parsed.y} goles (${E.clima[it.dataIndex].partidos} partidos)` } } } },
     });
 
+    // ================= Partido a partido (balance acumulado de cada selección) =================
+    (function () {
+        const T = G.trayectorias;
+        if (!T || !T.series.length || !document.getElementById('gTrayectoria')) return;
+        const porId = new Map(T.series.map(s => [s.id, s]));
+        const MAX = 8;
+        // El color sigue a la selección (no a su puesto): cada destacada ocupa un lugar fijo de la paleta mientras siga destacada
+        const lugar = new Map();
+        const destacar = id => {
+            if (lugar.has(id) || !porId.has(id)) return true;
+            const usados = new Set(lugar.values());
+            const libre = [...Array(MAX).keys()].find(i => !usados.has(i));
+            if (libre === undefined) { UI.toast && UI.toast('Podés destacar hasta 8 selecciones: quitá una primero.', { icono: 'bi-info-circle' }); return false; }
+            lugar.set(id, libre);
+            return true;
+        };
+        const reiniciar = ids => { lugar.clear(); ids.forEach(destacar); };
+        reiniciar(T.destacados);
+        const confSel = document.getElementById('trayConf');
+        const maxPJ = Math.max(...T.series.map(s => s.valores.length - 1));
+
+        // Banderas redondas al final de cada línea destacada
+        const imagenes = {};
+        const icono = id => {
+            if (!imagenes[id]) {
+                const img = new Image();
+                img.onload = () => graficos.gTrayectoria && graficos.gTrayectoria.draw();
+                img.src = UI.urlImagenPais(id, 'icono');
+                imagenes[id] = img;
+            }
+            return imagenes[id];
+        };
+        const banderasFinales = {
+            id: 'banderasFinales',
+            afterDatasetsDraw(chart) {
+                const { ctx } = chart;
+                chart.data.datasets.forEach((ds, i) => {
+                    if (ds.fondo) return;
+                    const pts = chart.getDatasetMeta(i).data;
+                    const ult = pts[pts.length - 1];
+                    if (!ult) return;
+                    const img = icono(ds.paisId), r = 9;
+                    ctx.save();
+                    ctx.beginPath(); ctx.arc(ult.x + 13, ult.y, r + 2, 0, Math.PI * 2); ctx.fillStyle = ds.borderColor; ctx.fill();
+                    if (img.complete && img.naturalWidth) {
+                        ctx.beginPath(); ctx.arc(ult.x + 13, ult.y, r, 0, Math.PI * 2); ctx.clip();
+                        ctx.drawImage(img, ult.x + 13 - r, ult.y - r, r * 2, r * 2);
+                    }
+                    ctx.restore();
+                });
+            },
+        };
+
+        const puntos = s => s.valores.map((y, x) => ({ x, y }));
+        function datasets() {
+            const conf = confSel.value;
+            const fondo = T.series.filter(s => !lugar.has(s.id) && (!conf || s.conf === conf)).map(s => ({
+                label: s.nombre, paisId: s.id, fondo: true, data: puntos(s), borderColor: alfa(NEUTRO, 0.55), backgroundColor: alfa(NEUTRO, 0.55),
+                borderWidth: 1, pointRadius: 0, pointHoverRadius: 0, pointHitRadius: 5, tension: 0, order: 2,
+            }));
+            const destacadas = [...lugar.entries()].sort((a, b) => a[1] - b[1]).map(([id, i]) => {
+                const s = porId.get(id);
+                // Separación vertical mínima por lugar: dos selecciones con el mismo recorrido no se tapan
+                // (el tooltip y la tabla muestran el valor real)
+                const corrimiento = (i - 3.5) * 0.06;
+                return { ...linea(SERIE[i], { tension: 0, pointRadius: 2.5, pointBackgroundColor: SERIE[i], pointBorderWidth: 0 }),
+                         label: s.nombre, paisId: id, data: s.valores.map((y, x) => ({ x, y: y + corrimiento, real: y })), order: 1 };
+            });
+            return fondo.concat(destacadas);
+        }
+        const resultado = (s, x) => {
+            x = Math.round(x);
+            if (x === 0) return 'Arranque: 0';
+            const [rival, gf, gc] = s.partidos[x - 1];
+            const r = gf > gc ? 'Ganó' : (gf < gc ? 'Perdió' : 'Empató');
+            const v = s.valores[x];
+            return `${r} ${gf}-${gc} vs ${rival} · balance ${v > 0 ? '+' : ''}${v}`;
+        };
+        crear('gTrayectoria', {
+            type: 'line',
+            data: { labels: [...Array(maxPJ + 1).keys()], datasets: datasets() },
+            plugins: [banderasFinales, referencia],
+            options: {
+                layout: { padding: { right: 26 } },
+                interaction: { mode: 'nearest', intersect: false, axis: 'xy' },
+                scales: ejes({
+                    x: { type: 'linear', min: 0, max: maxPJ, ticks: { color: TENUE, stepSize: 1, precision: 0 }, title: { display: true, text: 'Partido N°', color: TENUE } },
+                    y: { beginAtZero: false, ticks: { color: TENUE, stepSize: 1, precision: 0, callback: v => (v > 0 ? '+' : '') + v },
+                         title: { display: true, text: 'Balance (victorias − derrotas)', color: TENUE } },
+                }),
+                plugins: {
+                    legend: { display: false },
+                    referencia: { lineas: [{ eje: 'y', valor: 0 }] },
+                    tooltip: {
+                        // por partido: todas las destacadas en ese número de partido (las grises no entran)
+                        mode: 'index', intersect: false,
+                        filter: it => !it.dataset.fondo,
+                        itemSort: (a, b) => b.raw.real - a.raw.real,
+                        callbacks: { title: it => it.length ? (it[0].parsed.x === 0 ? 'Arranque' : `Partido ${it[0].parsed.x}`) : '',
+                                     label: it => ` ${it.dataset.label}: ${resultado(porId.get(it.dataset.paisId), it.parsed.x)}` },
+                    },
+                },
+                onClick(evento, _, chart) {
+                    // clic sobre una línea gris: se destaca esa selección
+                    const el = chart.getElementsAtEventForMode(evento, 'nearest', { intersect: true }, false)[0];
+                    const ds = el && chart.data.datasets[el.datasetIndex];
+                    if (ds && ds.fondo && destacar(ds.paisId)) actualizar();
+                },
+                onHover(evento, _, chart) {
+                    const el = chart.getElementsAtEventForMode(evento, 'nearest', { intersect: true }, false)[0];
+                    evento.native.target.style.cursor = el && chart.data.datasets[el.datasetIndex].fondo ? 'pointer' : 'default';
+                },
+            },
+        });
+
+        const chips = document.getElementById('trayChips');
+        const lista = document.getElementById('trayLista');
+        function actualizar() {
+            const chart = graficos.gTrayectoria;
+            chart.data.datasets = datasets();
+            chart.update();
+            chips.innerHTML = [...lugar.entries()].sort((a, b) => a[1] - b[1]).map(([id, i]) => {
+                const s = porId.get(id), v = s.valores[s.valores.length - 1];
+                return `<span class="mg-chip"><b style="background:${SERIE[i]}"></b>${UI.bandera(s.bandera, { id })}<a href="/paises/${id}">${UI.escapar(s.nombre)}</a>
+                        <strong>${v > 0 ? '+' : ''}${v}</strong><button type="button" data-quitar="${id}" aria-label="Quitar ${UI.escapar(s.nombre)}">×</button></span>`;
+            }).join('');
+            const conf = confSel.value;
+            lista.innerHTML = T.series.filter(s => !lugar.has(s.id) && (!conf || s.conf === conf)).map(s => `<option value="${UI.escapar(s.nombre)}">`).join('');
+            const caja = document.getElementById('tabla-gTrayectoria');
+            if (!caja.classList.contains('d-none')) caja.innerHTML = tablaDe(chart);
+        }
+        chips.addEventListener('click', e => {
+            const b = e.target.closest('[data-quitar]');
+            if (b) { lugar.delete(Number(b.dataset.quitar)); actualizar(); }
+        });
+        document.getElementById('trayBuscar').addEventListener('change', e => {
+            const s = T.series.find(x => x.nombre.toLowerCase() === e.target.value.trim().toLowerCase());
+            if (s && destacar(s.id)) actualizar();
+            e.target.value = '';
+        });
+        confSel.addEventListener('change', () => {
+            // con una confederación elegida, se destacan sus 5 mejores
+            const conf = confSel.value;
+            reiniciar(T.series.filter(s => !conf || s.conf === conf).slice(0, 5).map(s => s.id));
+            actualizar();
+        });
+        document.getElementById('trayRestablecer').addEventListener('click', () => {
+            const conf = confSel.value;
+            reiniciar(T.series.filter(s => !conf || s.conf === conf).slice(0, 5).map(s => s.id)); actualizar();
+        });
+        document.getElementById('trayPeores').addEventListener('click', () => {
+            const conf = confSel.value;
+            reiniciar(T.series.filter(s => !conf || s.conf === conf).slice(-5).reverse().map(s => s.id)); actualizar();
+        });
+        actualizar();
+    })();
+
     // ================= Vista de tabla de cada gráfico =================
     function tablaDe(chart) {
-        const ds = chart.data.datasets.filter(d => !['mínimo'].includes(d.label));
+        const ds = chart.data.datasets.filter(d => !['mínimo'].includes(d.label) && !d.fondo);
         if (chart.config.type === 'scatter') {
             const filas = ds.flatMap(d => d.data).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
             const ex = chart.options.scales.x.title.text, ey = chart.options.scales.y.title.text;
             return `<table><thead><tr><th>Selección</th><th>${ex}</th><th>${ey}</th></tr></thead><tbody>${filas.map(p => `<tr><td>${UI.escapar(p.nombre)}</td><td>${p.x}</td><td>${p.y}</td></tr>`).join('')}</tbody></table>`;
         }
         const etiquetas = chart.data.labels || ds[0].data.map(p => p.x);
-        const valor = (d, i) => { const x = d.data[i]; return x === undefined || x === null ? '—' : (typeof x === 'object' ? x.y : x); };
-        const filas = etiquetas.map((l, i) => `<tr><td>${UI.escapar(String(l))}</td>${ds.map(d => `<td>${fmt(valor(d, i))}</td>`).join('')}</tr>`);
+        const valor = (d, i) => { const x = d.data[i]; return x === undefined || x === null ? '—' : (typeof x === 'object' ? (x.real ?? x.y) : x); };
+        const filas = etiquetas.map((l, i) => `<tr><td>${UI.escapar(String(l))}</td>${ds.map(d => { const x = valor(d, i); return `<td>${x === '—' ? x : fmt(x)}</td>`; }).join('')}</tr>`);
         return `<table><thead><tr><th></th>${ds.map(d => `<th>${UI.escapar(d.label || 'Valor')}</th>`).join('')}</tr></thead><tbody>${filas.join('')}</tbody></table>`;
     }
     document.querySelectorAll('[data-tabla]').forEach(b => b.addEventListener('click', () => {

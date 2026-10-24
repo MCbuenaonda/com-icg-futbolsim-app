@@ -27,6 +27,15 @@ class StickerOut(BaseModel):
     avatar_url: Optional[str] = None
     categoria: Optional[str] = None         # rareza: normal / especial / dorada / platino
     categoria_nombre: Optional[str] = None
+    a_repetidas: bool = False               # repetida guardada para canjear o vender (ya no se vende sola)
+    # foto de equipo / edición Mundial / técnico
+    grupo: Optional[int] = None
+    foto_url: Optional[str] = None
+    img_url: Optional[str] = None
+    anio: Optional[int] = None
+    tipo_arte: Optional[str] = None
+    edad: Optional[int] = None
+    estilo: Optional[str] = None
 
 
 class PackPurchaseOut(BaseModel):
@@ -35,6 +44,7 @@ class PackPurchaseOut(BaseModel):
     costo_pagado: int
     estampas_obtenidas: List[StickerOut]
     fecha: datetime
+    repetidas: Optional[dict] = None        # {'por_tipo', 'total', 'valor_venta'} después de abrir el sobre
 
 
 class JugadorEstampaOut(BaseModel):

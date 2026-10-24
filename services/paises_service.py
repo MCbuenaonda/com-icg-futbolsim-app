@@ -4,7 +4,7 @@ from google.api_core.exceptions import GoogleAPIError
 from pymongo.mongo_client import MongoClient
 from pymongo import UpdateOne
 from config.settings import MONGODB_URI
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, List, Tuple
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -306,6 +306,28 @@ def obtener_trayectoria_pais(pais_id: int) -> list:
             **balance,
         })
     return trayectoria
+
+
+def obtener_balance_pais(pais_id: int) -> List[dict]:
+    """
+    Gráfico "Partido a partido" de la ficha del país: balance acumulado (+1 victoria, 0 empate, -1 derrota, por el
+    marcador del partido) en orden cronológico, con el rival y el marcador de cada punto. Sin el partido que se está
+    transmitiendo (no spoilea).
+    """
+    filtro = {"$or": [{"equipo_local.id": pais_id}, {"equipo_visitante.id": pais_id}], "estado": "finalizado",
+              "transmision.estado": {"$ne": "in_progress"}}
+    balance, puntos = 0, []
+    for j in db["juegos"].find(filtro, {"equipo_local": 1, "equipo_visitante": 1, "fecha": 1, "resultado.goles_local": 1,
+                                        "resultado.goles_visitante": 1}).sort([("fecha", 1), ("hora", 1)]):
+        local, visitante, res = j.get("equipo_local") or {}, j.get("equipo_visitante") or {}, j.get("resultado") or {}
+        es_local = local.get("id") == pais_id
+        gf = res.get("goles_local", 0) if es_local else res.get("goles_visitante", 0)
+        gc = res.get("goles_visitante", 0) if es_local else res.get("goles_local", 0)
+        r = "G" if gf > gc else ("P" if gf < gc else "E")
+        balance += {"G": 1, "E": 0, "P": -1}[r]
+        puntos.append({"id": str(j["_id"]), "fecha": j.get("fecha"), "rival": (visitante if es_local else local).get("nombre"),
+                       "marcador": f"{gf}-{gc}", "r": r, "balance": balance})
+    return puntos
 
 
 def obtener_partidos_pais(pais_id: int, limite: int = 5) -> dict:

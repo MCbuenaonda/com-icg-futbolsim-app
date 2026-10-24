@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as m %}
+
+{% block title %}{{ t.nombre if t else 'Técnico' }} - Directores técnicos{% endblock %}
+
+{% block content %}
+{#
+  Perfil de un director técnico: encabezado (avatar de traje, selección, estilo), rasgos, números del Mundial en curso,
+  su cargo (presión y riesgo de cese), historial de cargos y la bitácora de partidos. Datos: tecnicos_service.perfil_tecnico.
+#}
+<a href="{{ url_for('tecnicos') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 mb-3"><i class="bi bi-arrow-left me-1"></i>Volver a técnicos</a>
+
+{% if not t %}
+<div class="text-center text-muted py-5"><i class="bi bi-person-workspace fs-1 d-block mb-2"></i>No existe ese técnico.</div>
+{% else %}
+{% set s = t.stats %}{% set k = t.carrera %}
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo perfil-jugador-header mb-4" style="--logo-color: #a78bfa;">
+    {% set escudo = img_pais(t.pais_id, 'escudo') %}
+    {% if escudo %}<img src="{{ escudo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo perfil-jugador-header__escudo" onerror="this.remove()">{% endif %}
+    <div class="card-body p-3 p-md-4">
+        <div class="row align-items-center g-3">
+            <div class="col-12 col-md-auto text-center">{{ m.avatar_tecnico(t.id, t.pais_id, 'lg', t.nombre) }}</div>
+            <div class="col-12 col-md min-w-0 text-center text-md-start">
+                <div class="d-flex justify-content-center justify-content-md-start flex-wrap gap-2 mb-1">
+                    <span class="resumen-chip"><i class="bi bi-clipboard-check"></i>Director técnico</span>
+                    <span class="resumen-chip">{{ t.estilo_nombre }}</span>
+                    {% if t.en_funciones %}<span class="arbitro-rigor arbitro-rigor--permisivo m-0">📋 Dirige a {{ t.pais.nombre }}</span>
+                    {% else %}<span class="arbitro-rigor arbitro-rigor--neutro m-0">En el banco de la federación</span>{% endif %}
+                    {% if t.ficticio %}<span class="arbitro-rigor m-0" title="Inventado: su selección no tiene suficientes técnicos registrados">Ficticio</span>{% endif %}
+                </div>
+                <h1 class="display-6 fw-bold text-white mb-2">{{ t.nombre }}</h1>
+                <div class="perfil-jugador-datos justify-content-center justify-content-md-start">
+                    <span class="perfil-dato">{{ m.bandera(t.pais.bandera, pais_id=t.pais_id) }}<span><small>Selección</small><a href="/paises/{{ t.pais_id }}">{{ t.pais.nombre }}</a></span></span>
+                    <span class="perfil-dato"><i class="bi bi-calendar3 text-info"></i><span><small>Edad</small>{{ t.edad }} años</span></span>
+                    {% if t.pais.federacion %}<span class="perfil-dato"><i class="bi bi-bank text-warning"></i><span><small>Federación</small>{{ t.pais.federacion }}</span></span>{% endif %}
+                    {% if t.enlace %}<span class="perfil-dato"><i class="bi bi-wikipedia text-secondary"></i><span><small>Wikipedia</small><a href="https://en.wikipedia.org/wiki/{{ t.enlace | urlencode }}" target="_blank" rel="noopener">ver artículo</a></span></span>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4 js-animar">
+    <div class="col-12 col-lg-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-white mb-3"><i class="bi bi-sliders me-2 text-accent"></i>Cómo dirige</h2>
+                <div class="grupo-atributos" style="--grupo-color: #a78bfa;">
+                    {% for r in t.rasgos %}
+                    <div class="barra-atributo" title="{{ r.nombre }}: {{ r.etiqueta }}">
+                        <span class="barra-atributo__nombre"><i class="bi {{ r.icono }} me-1"></i>{{ r.nombre }}</span>
+                        <span class="barra-atributo__pista"><span style="width: {{ r.valor }}%;"></span></span>
+                        <span class="barra-atributo__valor">{{ r.valor }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p class="small text-muted mb-0 mt-3">
+                    <strong>Estilo {{ t.estilo_nombre | lower }}</strong>: {{ {'ofensivo': 'prefiere el 4-3-3', 'defensivo': 'prefiere el 4-4-2', 'equilibrado': 'prefiere el 3-5-2'}[t.estilo] }}.
+                    La <strong>lectura</strong> decide cuándo y con qué acierto hace los ajustes tácticos; la <strong>motivación</strong>, cuánto empuja a su equipo; el <strong>temperamento</strong>, cuánto reclama.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-7">
+        <div class="row row-cols-2 row-cols-md-4 g-3 mb-3">
+            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">Partidos</small><strong class="fs-3 text-white" data-contar>{{ s.partidos or 0 }}</strong></div></div></div>
+            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">G-E-P</small><strong class="fs-4 text-white">{{ s.ganados or 0 }}-{{ s.empatados or 0 }}-{{ s.perdidos or 0 }}</strong></div></div></div>
+            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">% de puntos</small><strong class="fs-3 text-accent" data-contar>{{ s.puntos_pct or 0 }}%</strong>{% if t.media_pct is not none %}<small class="d-block text-muted">media {{ t.media_pct }}%</small>{% endif %}</div></div></div>
+            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">Goles</small><strong class="fs-4 text-white">{{ s.gf or 0 }}:{{ s.gc or 0 }}</strong></div></div></div>
+        </div>
+        <div class="row row-cols-2 row-cols-md-4 g-3">
+            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">📋 Ajustes</small><strong class="fs-4 text-white">{{ s.ajustes or 0 }}</strong>{% if s.ajustes %}<small class="d-block text-muted">{{ s.ajustes_con_gol }} con gol</small>{% endif %}</div></div></div>
+            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">🗣️ Reclamos</small><strong class="fs-4 text-white">{{ s.reclamos or 0 }}</strong></div></div></div>
+            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">🟨 Amonestado</small><strong class="fs-4 text-warning">{{ s.amonestado or 0 }}</strong></div></div></div>
+            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">🟥 Expulsado</small><strong class="fs-4 text-danger">{{ s.expulsado or 0 }}</strong></div></div></div>
+        </div>
+        {% if t.en_funciones and t.prob_cese is not none %}
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between small mb-1"><span class="text-white"><i class="bi bi-thermometer-half me-1"></i>Presión del cargo</span>
+                    <span class="{{ 'text-danger' if t.prob_cese >= 25 else 'text-warning' if t.prob_cese >= 8 else 'text-success' }}">{{ t.prob_cese }}% de chance de cese tras el próximo partido</span></div>
+                <div class="ficha-arbitro__termometro" style="--puesto-color: {{ '#ef4444' if t.prob_cese >= 25 else '#f59e0b' if t.prob_cese >= 8 else '#22c55e' }};"><span style="width: {{ [t.prob_cese * 1.8, 100] | min }}%;"></span></div>
+                <small class="text-muted">Sale de los puntos que sumó comparados con lo que la federación esperaba de cada rival, y de la paciencia de la federación. Lleva {{ t.cargo_vigente.partidos }} partido{{ 's' if t.cargo_vigente.partidos != 1 }} en el cargo.</small>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-lg-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-white mb-3"><i class="bi bi-briefcase me-2 text-accent"></i>Cargos</h2>
+                {% if t.cargos %}
+                <ul class="list-unstyled mb-0 small">
+                    {% for c in t.cargos | reverse %}
+                    <li class="d-flex justify-content-between gap-2 py-2 border-bottom border-secondary-subtle">
+                        <span>{{ m.bandera(t.pais.bandera, pais_id=c.pais_id) }} {{ 'Asumió al inicio' if c.motivo_inicio == 'INICIO' else ('Volvió' if c.regreso else 'Asumió como reemplazo') }}
+                            {% if c.motivo_fin == 'CESE' %}<span class="text-danger">· cesado{{ ' tras la eliminación' if c.cese_por_eliminacion }}</span>{% elif not c.hasta_juego %}<span class="text-success">· en el cargo</span>{% endif %}</span>
+                        <span class="text-nowrap">{{ c.partidos }} PJ · {{ c.ganados }}-{{ c.empatados }}-{{ c.perdidos }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p class="small text-muted mb-0 mt-2">Carrera: {{ k.partidos or 0 }} partidos, {{ k.ceses or 0 }} cese{{ 's' if k.ceses != 1 }}{% if k.partidos %}, {{ '%+.2f' | format(k.sobre_esperado) }} puntos por partido sobre lo esperado{% endif %}.</p>
+                {% else %}
+                <p class="small text-muted mb-0">Todavía no dirigió a su selección: espera en el banco de la federación.</p>
+                {% endif %}
+                {% if t.banco %}
+                <h3 class="h6 text-white mt-3 mb-2">Los otros técnicos de la federación</h3>
+                <div class="d-flex flex-wrap gap-2">
+                    {% for b in t.banco %}<a href="{{ url_for('tecnico_perfil', tecnico_id=b.id) }}" class="d-flex align-items-center gap-2 text-decoration-none small">{{ m.avatar_tecnico(b.id, t.pais_id, 'sm', b.nombre) }}<span>{{ b.nombre }}</span></a>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-7">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-white mb-3"><i class="bi bi-journal-text me-2 text-accent"></i>Partidos dirigidos en este Mundial</h2>
+                {% if t.partidos_mundial %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-dark align-middle mb-0 small">
+                        <thead><tr><th>Rival</th><th class="text-center">Resultado</th><th>Desde el banco</th></tr></thead>
+                        <tbody>
+                            {% for p in t.partidos_mundial %}
+                            <tr>
+                                <td>{{ m.bandera(None, pais_id=p.rival_id) }} <a href="/juegos/{{ p.id }}">{{ p.rival }}</a> <small class="text-muted d-block">{{ p.jornada or '' }}</small></td>
+                                <td class="text-center"><span class="badge {{ 'bg-success' if p.resultado == 'G' else 'bg-secondary' if p.resultado == 'E' else 'bg-danger' }}">{{ p.gf }}-{{ p.gc }}</span></td>
+                                <td>{% if p.ajustes %}📋×{{ p.ajustes }} {% endif %}{% if p.reclamos %}🗣️×{{ p.reclamos }} {% endif %}{% if p.amonestado %}🟨 {% endif %}{% if p.expulsado %}🟥 expulsado{% endif %}{% if not (p.ajustes or p.reclamos or p.amonestado or p.expulsado) %}<span class="text-muted">—</span>{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="small text-muted mb-0">No dirigió partidos en este Mundial.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}<script src="/static/js/graficos_fifav.js"></script>{% endblock %}

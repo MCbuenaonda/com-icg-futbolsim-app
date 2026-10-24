@@ -69,11 +69,11 @@
             <!-- Goleadores debajo de cada equipo, como en la TV -->
             <div class="resumen-goleadores">
                 <ul class="resumen-goleadores__lista resumen-goleadores__lista--local">
-                    {% for g in detalle.goles.local %}<li>{% if g.id %}<a href="/jugadores/{{ g.id }}">{{ g.nombre }}</a>{% else %}{{ g.nombre }}{% endif %} <strong>{{ g.minuto }}'</strong>{% if g.tipo %} <small>({{ g.tipo }})</small>{% endif %} ⚽</li>{% endfor %}
+                    {% for g in detalle.goles.local %}<li>{% if g.id %}<a href="/jugadores/{{ g.id }}">{{ g.nombre }}</a>{% else %}{{ g.nombre }}{% endif %} <strong>{{ g.minuto }}{% if g.adicional %}+{{ g.adicional }}{% endif %}'</strong>{% if g.tipo %} <small>({{ g.tipo }})</small>{% endif %} ⚽</li>{% endfor %}
                 </ul>
                 <span class="resumen-goleadores__balon"><i class="bi bi-dribbble"></i></span>
                 <ul class="resumen-goleadores__lista resumen-goleadores__lista--visitante">
-                    {% for g in detalle.goles.visitante %}<li>⚽ <strong>{{ g.minuto }}'</strong> {% if g.id %}<a href="/jugadores/{{ g.id }}">{{ g.nombre }}</a>{% else %}{{ g.nombre }}{% endif %}{% if g.tipo %} <small>({{ g.tipo }})</small>{% endif %}</li>{% endfor %}
+                    {% for g in detalle.goles.visitante %}<li>⚽ <strong>{{ g.minuto }}{% if g.adicional %}+{{ g.adicional }}{% endif %}'</strong> {% if g.id %}<a href="/jugadores/{{ g.id }}">{{ g.nombre }}</a>{% else %}{{ g.nombre }}{% endif %}{% if g.tipo %} <small>({{ g.tipo }})</small>{% endif %}</li>{% endfor %}
                 </ul>
             </div>
             {% endif %}
@@ -88,24 +88,34 @@
     </div>
 
     <!-- CRÓNICA + FIGURA DEL PARTIDO -->
-    {% if res.opinion or (detalle and detalle.figura) %}
+    {% if cronica or res.opinion or (detalle and detalle.figura) %}
     <div class="row g-4 mb-4">
-        {% if res.opinion %}
+        {% if cronica or res.opinion %}
         <div class="{{ 'col-lg-8' if detalle and detalle.figura else 'col-12' }}">
             <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: #22c55e;">
                 <img src="{{ imagen_inicio('copa') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
                 <div class="card-body p-3 p-md-4">
                     <h2 class="vivo-titulo"><i class="bi bi-mic-fill text-success"></i>Crónica del partido</h2>
+                    {% if cronica %}
+                    {# Crónica escrita desde la cronología del partido (services/cronica_service.py) #}
+                    <article class="resumen-cronica resumen-cronica--nota mb-0">
+                        <h3 class="resumen-cronica__titular">{{ cronica.titular }}</h3>
+                        {# nombres resaltados: jugadores, árbitros y equipos (cronica.resaltar, filtro resaltar_cronica) #}
+                        {% for p in cronica.parrafos %}<p class="{{ 'resumen-cronica__entrada' if loop.first }}">{{ p | resaltar_cronica(cronica.resaltar) }}</p>{% endfor %}
+                        <footer><span class="resumen-cronica__fifav"><img src="{{ imagen_inicio('copa') }}" alt="">@FIFAV_Oficial</span> {{ cronica.post | resaltar_cronica(cronica.resaltar) }}</footer>
+                    </article>
+                    {% else %}
                     <blockquote class="resumen-cronica mb-0">
                         <p class="mb-2">{{ res.opinion }}</p>
                         {% if res.texto_narrativo %}<footer><span class="resumen-cronica__fifav"><img src="{{ imagen_inicio('copa') }}" alt="">@FIFAV_Oficial</span> {{ res.texto_narrativo }}</footer>{% endif %}
                     </blockquote>
+                    {% endif %}
                 </div>
             </div>
         </div>
         {% endif %}
         {% if detalle and detalle.figura %}{% set f = detalle.figura %}
-        <div class="{{ 'col-lg-4' if res.opinion else 'col-12' }}">
+        <div class="{{ 'col-lg-4' if (cronica or res.opinion) else 'col-12' }}">
             <a href="/jugadores/{{ f.id }}" class="card card-logo-fondo card-jugador h-100 text-decoration-none resumen-figura" style="--logo-color: #facc15;">
                 {{ m.fondo_bandera(f.pais_id) }}
                 <div class="card-body p-3 p-md-4 d-flex align-items-center gap-3">
@@ -161,7 +171,16 @@
             <div class="card card-logo-fondo card-seccion" style="--logo-color: #22c55e;">
                 <img src="{{ imagen_inicio('partidos') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
                 <div class="card-body p-3 p-md-4">
-                    <h2 class="vivo-titulo"><i class="bi bi-people-fill text-success"></i>Alineaciones titulares</h2>
+                    {# Íconos de lo que hizo cada uno (mismos que /en-vivo) y, abajo, los que entraron de cambio. Datos: juegos_service.armar_detalle_partido #}
+                    {% macro iconos_jugador(i) %}{% if i %}<span class="alineacion__iconos">
+                        {% if i.goles %}<span class="alineacion__ico" title="{{ i.goles }} gol{{ 'es' if i.goles > 1 }}">⚽{% if i.goles > 1 %}<small>×{{ i.goles }}</small>{% endif %}</span>{% endif %}
+                        {% if i.asistencias %}<span class="alineacion__ico" title="{{ i.asistencias }} asistencia{{ 's' if i.asistencias > 1 }}"><i class="bi bi-share-fill alineacion__ico--asistencia"></i>{% if i.asistencias > 1 %}<small>×{{ i.asistencias }}</small>{% endif %}</span>{% endif %}
+                        {% if i.amarillas and not i.roja %}<span class="alineacion__ico" title="Amonestado">🟨</span>{% endif %}
+                        {% if i.roja %}<span class="alineacion__ico" title="Expulsado en el {{ i.roja }}">🟥<small>{{ i.roja }}</small></span>{% endif %}
+                        {% if i.entro %}<span class="alineacion__ico alineacion__ico--entra" title="Entró en el {{ i.entro }}{{ ' por ' ~ i.por if i.por }}"><i class="bi bi-arrow-up-circle-fill"></i><small>{{ i.entro }}</small></span>{% endif %}
+                        {% if i.salio %}<span class="alineacion__ico alineacion__ico--sale" title="Salió en el {{ i.salio }}"><i class="bi bi-arrow-down-circle-fill"></i><small>{{ i.salio }}</small></span>{% endif %}
+                    </span>{% endif %}{% endmacro %}
+                    <h2 class="vivo-titulo"><i class="bi bi-people-fill text-success"></i>Alineaciones</h2>
                     <div class="row g-3">
                         {% for lado, equipo in [('local', l), ('visitante', v)] %}
                         <div class="col-sm-6">
@@ -171,10 +190,33 @@
                                 <a href="{{ '/jugadores/' ~ t.id if t.id else '#' }}" class="alineacion__jugador">
                                     {{ m.avatar(t.id, None, 'sm', t.nombre) }}
                                     <span class="alineacion__dorsal">{{ t.numero if t.numero is not none else '' }}</span>
-                                    <span class="text-truncate">{{ t.nombre }}</span>
-                                    {% if t.goles %}<span class="ms-auto">{{ '⚽' * t.goles }}</span>{% endif %}
+                                    <span class="alineacion__nombre"><span class="text-truncate">{{ t.nombre }}</span>{{ iconos_jugador(t.info) }}</span>
                                 </a>
                                 {% endfor %}
+{% if detalle.suplentes and detalle.suplentes[lado] %}
+                                <div class="alineacion__subtitulo"><i class="bi bi-arrow-left-right"></i>Entraron de cambio</div>
+                                {% for t in detalle.suplentes[lado] %}
+                                <a href="{{ '/jugadores/' ~ t.id if t.id else '#' }}" class="alineacion__jugador alineacion__jugador--suplente">
+                                    {{ m.avatar(t.id, None, 'sm', t.nombre) }}
+                                    <span class="alineacion__dorsal">{{ t.numero if t.numero is not none else '' }}</span>
+                                    <span class="alineacion__nombre"><span class="text-truncate">{{ t.nombre }}</span>{{ iconos_jugador(t.info) }}</span>
+                                </a>
+                                {% endfor %}
+                                {% endif %}
+                                {% set dt = (res.dt or {}).get('local' if lado == 'local' else 'visita') %}
+                                {% if dt %}
+                                <div class="alineacion__subtitulo"><i class="bi bi-clipboard-check"></i>Director técnico</div>
+                                <a href="/tecnicos/{{ dt.id }}" class="alineacion__jugador">
+                                    {{ m.avatar_tecnico(dt.id, None, 'sm', dt.nombre) }}
+                                    <span class="alineacion__dorsal">DT</span>
+                                    <span class="alineacion__nombre"><span class="text-truncate">{{ dt.nombre }}</span>
+                                        {% if dt.amonestado or dt.expulsado or dt.ajuste %}<span class="alineacion__iconos">
+                                            {% if dt.ajuste %}<span class="alineacion__ico" title="{{ 'Mandó al equipo al ataque' if dt.ajuste == 'ataque' else 'Cerró el partido' }}">📋</span>{% endif %}
+                                            {% if dt.expulsado %}<span class="alineacion__ico" title="Expulsado por protestar">🟥</span>{% elif dt.amonestado %}<span class="alineacion__ico" title="Amonestado por protestar">🟨</span>{% endif %}
+                                        </span>{% endif %}
+                                    </span>
+                                </a>
+                                {% endif %}
                             </div>
                         </div>
                         {% endfor %}
@@ -186,10 +228,10 @@
             <div class="card card-logo-fondo card-seccion" style="--logo-color: #a3a3a3;">
                 <div class="card-body p-3 p-md-4">
                     <h2 class="vivo-titulo"><i class="bi bi-person-badge-fill text-secondary"></i>Cuerpo arbitral</h2>
-                    <div class="row g-2">
-                        {% for clave, etiqueta in [('central', 'Central'), ('linea1', 'Línea 1'), ('linea2', 'Línea 2'), ('cuarto', '4to árbitro')] %}
+                    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-5 g-2">
+                        {% for clave, etiqueta in [('central', 'Central'), ('linea1', 'Línea 1'), ('linea2', 'Línea 2'), ('cuarto', '4to árbitro'), ('var', 'VAR')] %}
                         {% set nombre_arbitro = (res.arbitros or {}).get(clave) %}
-                        <div class="col-6 col-md-3">
+                        <div class="col">
                             <div class="arbitro-ficha">
                                 {{ m.avatar_arbitro(nombre_arbitro, 'md', nombre_arbitro) }}
                                 <small>{{ etiqueta }}</small>
@@ -217,9 +259,12 @@
             </div>
             <div id="cronologiaResumen" class="cronologia cronologia--clave">
                 {% for ev in detalle.eventos %}
-                {% set minuto_badge = 'PEN' if (ev.minuto == 120 and 'PENAL' in ev.tipo) else ("'" ~ ev.minuto) %}
+                {# periodo 5 = tanda; los partidos viejos (sin 'periodo') la reconocen por minuto 120 + PENAL #}
+                {% set es_tanda = ev.periodo == 5 or (not ev.periodo and ev.minuto == 120 and 'PENAL' in ev.tipo) %}
+                {% set minuto_badge = 'PEN' if es_tanda else ("'" ~ ev.minuto ~ (('+' ~ ev.adicional) if ev.adicional else '')) %}
+                {% set en_alargue = (ev.periodo or 0) >= 3 or (not ev.periodo and ev.minuto and ev.minuto > 90) %}
                 <div class="evento evento--{{ ev.categoria }} evento--{{ ev.lado }}">
-                    <span class="badge rounded-pill {{ 'bg-warning text-dark' if ev.minuto and ev.minuto > 90 else 'bg-primary' }}">{{ minuto_badge }}</span>
+                    <span class="badge rounded-pill {{ 'bg-warning text-dark' if en_alargue else ('bg-info text-dark' if ev.adicional else 'bg-primary') }}">{{ minuto_badge }}</span>
                     <div class="evento__cuerpo">
                         <div class="evento__tipo">{{ ev.tipo }}{% if ev.equipo %} <span class="evento__equipo">{{ ev.equipo }}</span>{% endif %}</div>
                         <div class="evento__texto">{{ ev.descripcion | resaltar_jugadores(ev.jugadores or []) }}</div>

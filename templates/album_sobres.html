@@ -20,10 +20,10 @@
             <div class="min-w-0">
                 <span class="album-tapa__edicion">Sobres oficiales · {{ costo_sobre }} pts</span>
                 <h1 class="h2 fw-bold text-white mb-0">Sobres de Estampas</h1>
-                <p class="text-muted small mb-2">5 estampas por sobre, cada una de una categoría de rareza. Las repetidas se venden solas.</p>
+                <p class="text-muted small mb-2">{{ por_sobre }} estampas por sobre, cada una de una categoría de rareza. Las repetidas se guardan: canjealas por las que te faltan o vendelas, desde tu álbum.</p>
                 <div class="d-flex flex-wrap gap-1 sobre-rarezas">
                     {% for cat in categorias %}
-                    <span class="sobre-rareza sobre-rareza--{{ cat.codigo | lower }}" style="--cat-color: {{ cat.color }};" title="Repetida: +{{ cat.bonus_repetida }} pts">
+                    <span class="sobre-rareza sobre-rareza--{{ cat.codigo | lower }}" style="--cat-color: {{ cat.color }};" title="Canje: {{ cat.costo_canje }} repetidas · venta de una repetida: +{{ cat.bonus_repetida }} pts">
                         <strong>{{ cat.nombre }}</strong> {{ cat.estampa }} · {{ (cat.probabilidad * 100) | round | int }}%
                     </span>
                     {% endfor %}
@@ -47,7 +47,7 @@
             <img class="sobre__copa" src="{{ imagen_inicio('copa') }}" alt="">
             <span class="sobre__marca">FIFAV</span>
             <span class="sobre__titulo">Copa del Mundo</span>
-            <span class="sobre__cantidad">5 estampas</span>
+            <span class="sobre__cantidad">{{ por_sobre }} estampas</span>
         </span>
     </button>
     <div class="sobre-cartas" id="contenedorSobres" aria-live="polite"></div>
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const esc = UI.escapar;
 
     // Categoría de rareza de cada estampa (la manda el backend en 'categoria'; respaldo por tipo)
-    const CATEGORIA_POR_TIPO = { JUGADOR: 'normal', MUNDIAL: 'mundial', LEYENDA: 'leyenda', EQUIPO: 'equipo', CIUDAD: 'especial', ARBITRO: 'dorada', PAIS: 'platino' };
+    const CATEGORIA_POR_TIPO = { JUGADOR: 'normal', MUNDIAL: 'mundial', LEYENDA: 'leyenda', EQUIPO: 'equipo', CIUDAD: 'especial', ARBITRO: 'dorada', PAIS: 'platino', TECNICO: 'tecnico' };
     const SELLO = {
         especial: '<span class="estampa__sello"><i class="bi bi-building"></i> Especial</span>',
         dorada: '<span class="estampa__sello"><i class="bi bi-star-fill"></i> Dorada</span>',
@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
         leyenda: '<span class="estampa__sello"><i class="bi bi-award-fill"></i> Leyenda</span>',
         equipo: '<span class="estampa__sello"><i class="bi bi-people-fill"></i> Foto de equipo</span>',
         mundial: '<span class="estampa__sello"><i class="bi bi-palette-fill"></i> Edición Mundial</span>',
+        tecnico: '<span class="estampa__sello"><i class="bi bi-clipboard-check"></i> Técnico</span>',
     };
     const categoriaDe = e => e.categoria || CATEGORIA_POR_TIPO[e.tipo] || 'normal';
 
@@ -136,6 +137,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="estampa__banda"><strong>${esc(e.nombre || '?')}</strong><small>${banderita} ${esc(e.confederacion || '')}</small></div>
             </div>`;
         }
+        if (e.tipo === 'TECNICO') {
+            return `<div class="estampa__cara estampa__frente" ${fondo}>
+                ${SELLO.tecnico}<span class="estampa__posicion">DT</span>
+                <div class="estampa__foto">${e.avatar_url ? `<img src="${esc(e.avatar_url)}" alt="">` : '<i class="bi bi-person-workspace"></i>'}</div>
+                <div class="estampa__banda"><strong>${esc(e.nombre || '?')}</strong><small>${banderita} ${esc(e.pais_nombre || '')}</small></div>
+            </div>`;
+        }
         if (e.tipo === 'ARBITRO') {
             return `<div class="estampa__cara estampa__frente" ${fondo}>
                 ${SELLO.dorada}<span class="estampa__posicion">${esc(e.puesto_corto || '')}</span>
@@ -151,20 +159,21 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function cartaSobre(e, i, total) {
-        const tipo = { JUGADOR: 'jugador', MUNDIAL: 'mundial', LEYENDA: 'jugador', EQUIPO: 'equipo estampa--horizontal carta-sobre--horizontal', PAIS: 'pais', CIUDAD: 'ciudad', ARBITRO: 'arbitro' }[e.tipo] || 'jugador';
+        const tipo = { JUGADOR: 'jugador', MUNDIAL: 'mundial', LEYENDA: 'jugador', EQUIPO: 'equipo estampa--horizontal carta-sobre--horizontal', PAIS: 'pais', CIUDAD: 'ciudad', ARBITRO: 'arbitro', TECNICO: 'tecnico' }[e.tipo] || 'jugador';
         const cat = categoriaDe(e);
         const nombreCat = e.categoria_nombre || cat.charAt(0).toUpperCase() + cat.slice(1);
-        const NUEVA = { normal: '¡Nueva!', mundial: '🎨 ¡Edición Mundial!', especial: '¡Especial!', equipo: '📸 ¡Foto de equipo!', leyenda: '🏅 ¡Leyenda!', dorada: '★ ¡Dorada!', platino: '◆ ¡Platino!' };
+        const NUEVA = { normal: '¡Nueva!', mundial: '🎨 ¡Edición Mundial!', especial: '¡Especial!', equipo: '📸 ¡Foto de equipo!', leyenda: '🏅 ¡Leyenda!', tecnico: '📋 ¡Técnico!', dorada: '★ ¡Dorada!', platino: '◆ ¡Platino!' };
         const etiqueta = e.duplicado
-            ? `<span class="carta-sobre__cinta carta-sobre__cinta--repetida">${cat === 'normal' ? 'Repetida' : esc(nombreCat) + ' repetida'} +${e.bonus_puntos} pts</span>`
+            ? `<span class="carta-sobre__cinta carta-sobre__cinta--repetida">${cat === 'normal' ? 'Repetida' : esc(nombreCat) + ' repetida'} · a tu pila</span>`
             : `<span class="carta-sobre__cinta carta-sobre__cinta--${cat}">${NUEVA[cat] || '¡Nueva!'}</span>`;
         const nodo = document.createElement('div');
         nodo.className = `carta-sobre estampa--${tipo} estampa--${cat} carta-sobre--${cat} ${e.duplicado ? 'carta-sobre--repetida' : 'carta-sobre--nueva'}`;
         // posición en el abanico (rotación y altura según su lugar)
         const centro = (total - 1) / 2;
-        nodo.style.setProperty('--abanico', `${(i - centro) * 4}deg`);
-        nodo.style.setProperty('--alto', `${Math.abs(i - centro) * 8}px`);
-        nodo.style.setProperty('--retraso', `${i * 90}ms`);
+        const paso = total > 6 ? 2 : 4;   // con muchas cartas, el abanico se cierra
+        nodo.style.setProperty('--abanico', `${(i - centro) * paso}deg`);
+        nodo.style.setProperty('--alto', `${Math.abs(i - centro) * (total > 6 ? 4 : 8)}px`);
+        nodo.style.setProperty('--retraso', `${i * (total > 6 ? 60 : 90)}ms`);
         nodo.innerHTML = `
             <div class="carta-sobre__giro">
                 <div class="carta-sobre__dorso"><img src="{{ imagen_inicio('copa') }}" alt=""><span>FIFAV</span></div>
@@ -174,7 +183,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return nodo;
     }
 
-    async function revelar(estampas) {
+    async function revelar(estampas, repetidas) {
         contenedor.innerHTML = '';
         escenario.classList.add('sobre-escenario--abierto');
         const cartas = estampas.map((e, i) => cartaSobre(e, i, estampas.length));
@@ -190,12 +199,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 carta.classList.remove('carta-sobre--suspenso');
             }
             carta.classList.add('carta-sobre--revelada');
-            await esperar(rara ? 900 : 420);
+            await esperar(rara ? 900 : (estampas.length > 6 ? 260 : 420));
         }
         const nuevas = estampas.filter(e => !e.duplicado).length;
-        const bonus = estampas.reduce((s, e) => s + (e.duplicado ? (e.bonus_puntos || 0) : 0), 0);
+        const pila = repetidas ? ` · tenés <strong>${repetidas.total}</strong> para canjear` : '';
         resumen.innerHTML = `<span class="sobre-resumen__dato"><strong>${nuevas}</strong> nueva${nuevas === 1 ? '' : 's'}</span>
-            <span class="sobre-resumen__dato"><strong>${estampas.length - nuevas}</strong> repetida${estampas.length - nuevas === 1 ? '' : 's'}${bonus ? ` · +${bonus} pts` : ''}</span>
+            <span class="sobre-resumen__dato"><strong>${estampas.length - nuevas}</strong> repetida${estampas.length - nuevas === 1 ? '' : 's'}${pila}</span>
             <a class="btn btn-outline-warning btn-sm rounded-pill px-3" href="{{ url_for('album_coleccion_vista') }}"><i class="bi bi-book-half me-1"></i>Pegarlas en el álbum</a>`;
         resumen.classList.remove('d-none');
     }
@@ -229,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function () {
             escenario.classList.add('sobre-escenario--rasgado');   // se rasga la tapa y brilla
             await esperar(550);
             UI.refrescarSaldo();
-            await revelar(data.estampas_obtenidas || []);
+            await revelar(data.estampas_obtenidas || [], data.repetidas);
             btnAbrir.innerHTML = `<i class="bi bi-stars me-2"></i>Abrir otro sobre (${costo} pts)`;
         } catch (err) {
             sobre.classList.remove('sobre--temblando');

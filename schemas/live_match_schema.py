@@ -16,6 +16,14 @@ class EventoOut(BaseModel):
     zona: Optional[str] = None
     posicion_balon: Optional[Dict[str, float]] = None
     es_preparacion: Optional[bool] = None
+    # Reloj con tiempo añadido y cuerpo arbitral (services/arbitraje.py) -- opcionales, los partidos viejos no los traen
+    periodo: Optional[int] = None
+    adicional: Optional[int] = None
+    arbitro: Optional[str] = None
+    arbitro_rol: Optional[str] = None
+    var_decision: Optional[str] = None
+    de_penal: Optional[bool] = None
+    minutos_anadidos: Optional[int] = None
 
 
 class StartedMatchOut(BaseModel):
@@ -71,6 +79,7 @@ class LiveMatchOut(BaseModel):
     goles_local: int
     goles_visitante: int
     minuto_actual: int
+    adicional_actual: int = 0
     eventos: List[EventoOut]
     segundos_transcurridos: float
     segundos_restantes: float

@@ -155,11 +155,14 @@ def calcular_estado_transmision(
     # reveló ninguno) -- queda sincronizado con lo que el usuario realmente está viendo, en vez
     # de una proyección lineal del minuto máximo independiente de qué eventos se muestran.
     minuto_visible_hasta = eventos_visibles[-1]["minuto"] if eventos_visibles else 0
+    # tiempo añadido del último evento revelado (para mostrar "90+3'"; 0 en partidos viejos)
+    adicional_visible = (eventos_visibles[-1].get("adicional") or 0) if eventos_visibles else 0
 
     return {
         "elapsed_segundos": elapsed_segundos,
         "segundos_restantes": max(0.0, duracion_segundos - elapsed_segundos),
         "minuto_visible_hasta": minuto_visible_hasta,
+        "adicional_visible": adicional_visible,
         "eventos_visibles": eventos_visibles,
         "finalizado_por_tiempo": finalizado_por_tiempo,
     }
@@ -298,6 +301,7 @@ def obtener_estado_live() -> Optional[Dict[str, Any]]:
         "goles_local": marcador["goles_local"],
         "goles_visitante": marcador["goles_visitante"],
         "minuto_actual": int(round(estado_transmision["minuto_visible_hasta"])),
+        "adicional_actual": estado_transmision.get("adicional_visible", 0),
         "eventos": estado_transmision["eventos_visibles"],
         "segundos_transcurridos": estado_transmision["elapsed_segundos"],
         "segundos_restantes": estado_transmision["segundos_restantes"],
@@ -354,6 +358,71 @@ def _mascota_en_vivo() -> Dict[str, Any]:
     except Exception as e:
         print(f"Sin mascota para En Vivo: {e}")
     return {}
+
+
+# Récords de /estadisticas que se marcan en la vista En Vivo: (sección, clave, título, ícono)
+PREMIOS_JUGADOR_EN_VIVO = [
+    ("jugadores", "mas_goles", "Máximo goleador", "bi-dribbble"), ("jugadores", "mas_asistencias", "Rey de las asistencias", "bi-share-fill"),
+    ("porteros", "portero_mas_atajadas", "Guante de oro", "bi-hand-index-thumb-fill"), ("porteros", "portero_mas_vallas_invictas", "Valla invicta", "bi-lock-fill"),
+    ("jugadores", "mayor_racha_goles", "Mayor racha goleadora", "bi-fire"), ("jugadores", "super_sub", "Súper sub", "bi-arrow-repeat"),
+    ("jugadores", "especialista_balon_parado", "Balón parado", "bi-flag-fill"), ("jugadores", "mejor_efectividad_gol", "Más efectivo", "bi-bullseye"),
+    ("jugadores", "mas_partidos", "Más presencias", "bi-person-check-fill"), ("jugadores", "mas_recuperaciones", "Recuperador", "bi-shield-fill-check"),
+    ("jugadores", "especialista_aereo", "Especialista aéreo", "bi-cloud-arrow-up-fill"), ("porteros", "atajapenales", "Atajapenales", "bi-hand-thumbs-up-fill"),
+    ("jugadores", "mas_amarillas", "Más amarillas", "bi-file-earmark-fill"), ("jugadores", "mas_rojas", "Más rojas", "bi-file-earmark-x-fill"),
+    ("jugadores", "mas_faltas", "Infractor constante", "bi-exclamation-octagon-fill"), ("jugadores", "mas_infringido", "Más infractado", "bi-bandaid-fill"),
+    ("partidos", "gol_mas_rapido", "Gol más rápido", "bi-stopwatch-fill"), ("partidos", "gol_mas_tardio", "Gol más tardío", "bi-hourglass-bottom"),
+]
+PREMIOS_PAIS_EN_VIVO = [("pais_mas_goleador", "Más goleadora", "bi-dribbble"), ("mejor_ofensiva", "Mejor ofensiva", "bi-lightning-fill"),
+                        ("mejor_defensiva", "Mejor defensa", "bi-shield-fill"), ("mejor_efectividad_gol", "Mejor efectividad", "bi-bullseye"),
+                        ("fair_play", "Fair play", "bi-hand-thumbs-up-fill")]
+
+
+def obtener_destacados_estadisticas_en_vivo() -> Optional[Dict[str, Any]]:
+    """
+    En qué listas de /estadisticas aparecen los jugadores y las dos selecciones del partido en transmisión: top 10 de
+    jugadores y de selecciones (con su puesto), premios ("Máximo goleador", "Guante de oro"...), once ideal / de
+    leyendas y selecciones destacadas. Estadísticas NO cuenta el partido en transmisión (_filtro_finalizados), así
+    que es el estado ANTES de este partido: no adelanta nada. El frontend lo pide una vez por partido.
+    """
+    juego = _match_en_progreso()
+    if not juego:
+        return None
+    from services.estadisticas_service import obtener_estadisticas_generales
+    loc, vis = juego.get("equipo_local") or {}, juego.get("equipo_visitante") or {}
+    lado_pais = {loc.get("id"): "local", vis.get("id"): "visitante"}
+    nombre_de = {j["id"]: j["nombre"] for j in db["jugadores"].find({"pais_id": {"$in": list(lado_pais)}}, {"id": 1, "nombre": 1})}
+    stats = obtener_estadisticas_generales()
+    jugadores: Dict[str, list] = {}
+    paises: Dict[str, list] = {"local": [], "visitante": []}
+
+    def marcar_jugador(jid, dato):
+        if jid in nombre_de:
+            jugadores.setdefault(nombre_de[jid], []).append(dato)
+
+    for seccion, clave, titulo, icono in PREMIOS_JUGADOR_EN_VIVO:
+        reg = (stats.get(seccion) or {}).get(clave)
+        if isinstance(reg, dict):
+            marcar_jugador(reg.get("jugador_id") or reg.get("id"), {"titulo": titulo, "icono": icono, "tipo": "premio"})
+    for top in stats.get("top_jugadores") or []:
+        for f in top["filas"]:
+            marcar_jugador(f["id"], {"titulo": top["titulo"], "icono": top["icono"], "tipo": "top", "posicion": f["posicion"],
+                                     "valor": f["valor"], "sufijo": top["sufijo"]})
+    for clave, titulo in (("once_ideal", "Once ideal"), ("once_leyendas", "Once de leyendas")):
+        for j in stats.get(clave) or []:
+            marcar_jugador(j.get("jugador_id"), {"titulo": titulo, "icono": "bi-star-fill", "tipo": "once", "detalle": j.get("siglas")})
+    for clave, titulo, icono in PREMIOS_PAIS_EN_VIVO:
+        reg = (stats.get("paises") or {}).get(clave)
+        if isinstance(reg, dict) and reg.get("id") in lado_pais:
+            paises[lado_pais[reg["id"]]].append({"titulo": titulo, "icono": icono, "tipo": "premio"})
+    for top in stats.get("top_selecciones") or []:
+        for f in top["filas"]:
+            if f["id"] in lado_pais:
+                paises[lado_pais[f["id"]]].append({"titulo": top["titulo"], "icono": top["icono"], "tipo": "top", "posicion": f["posicion"],
+                                                   "valor": f["valor"], "sufijo": top["sufijo"]})
+    # premios primero, después los top 10 por puesto
+    orden = lambda d: (0 if d["tipo"] == "premio" else (1 if d["tipo"] == "once" else 2), d.get("posicion") or 0)
+    return {"match_id": str(juego["_id"]), "jugadores": {n: sorted(v, key=orden) for n, v in jugadores.items()},
+            "paises": {k: sorted(v, key=orden) for k, v in paises.items()}}
 
 
 def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:

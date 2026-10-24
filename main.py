@@ -30,7 +30,7 @@ from routes.live_match_route import route as live_match_route, route_vistas as l
 from routes.fanbase_route import route as fanbase_route, route_vistas as fanbase_vistas_route
 from routes.juego_en_vivo_route import route as juego_en_vivo_route
 from routes.admin_route import route as admin_route
-from routes.torneo_route import route_arbitros, route_cara_a_cara, route_cuadro, route_palmares, route_ranking
+from routes.torneo_route import route_arbitros, route_cara_a_cara, route_cuadro, route_palmares, route_ranking, route_tecnicos
 from routes.arte_mundial_route import route_admin as arte_admin_route, route_imagenes as arte_imagenes_route, route_vistas as arte_vistas_route
 
 
@@ -81,6 +81,7 @@ app.include_router(arte_vistas_route, dependencies=_permiso("palmares"))
 app.include_router(arte_imagenes_route)   # imágenes del póster y la mascota: se usan como <img> en varias secciones
 app.include_router(arte_admin_route, dependencies=_permiso("gestion_usuarios"))
 app.include_router(route_arbitros, dependencies=_permiso("arbitros"))
+app.include_router(route_tecnicos, dependencies=_permiso("tecnicos"))
 app.include_router(route_ranking, dependencies=_permiso("ranking_usuarios"))
 app.include_router(prematch_route, dependencies=_permiso("scouter"))
 app.include_router(prematch_vistas_route, dependencies=_permiso("scouter"))

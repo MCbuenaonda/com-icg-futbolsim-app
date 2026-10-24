@@ -58,85 +58,88 @@
         })();
     </script>
 
-    <!-- Banner Estado Actual del Torneo -->
-    <!-- Mismo estilo que las tarjetas de abajo (.card-logo-fondo), en su variante quieta: la bandera
-         del país anfitrión como marca de agua y la copa de la FIFAV (bucket inicio/copa.png) -->
-    {% set icono_sede = img_pais(mundial.pais_id, 'icono') if mundial and mundial.pais_id else None %}
-    <div class="card text-white shadow-lg mb-4 rounded-4 hero-mundial card-logo-fondo card-logo-fondo--sin-brillo" style="--logo-color: #d4a72c;">
-        {% if icono_sede %}
-        <img src="{{ icono_sede }}" alt="" aria-hidden="true" decoding="async" class="card-logo-fondo__logo hero-mundial__bandera" onerror="this.remove()">
-        {% endif %}
-        <!-- Encabezado de la tarjeta: el título del torneo (lo que más tiene que resaltar) y las acciones -->
-        <div class="card-header hero-mundial__header bg-transparent px-4 pt-4 pb-3 d-flex justify-content-between align-items-center flex-wrap flex-lg-nowrap gap-3">
+    <!-- Encabezado del inicio con los colores del país sede (arte_mundial_service.tema_sede: degradé del color
+         dominante de su bandera, franja y detalles en el acento), su escudo de marca de agua, el póster y la mascota,
+         y la fase/jornada del partido EN TRANSMISIÓN o, si no hay, del próximo por jugarse
+         (juegos_service.get_data_fase_actual_dashboard). -->
+    {% set t = tema_sede or {} %}
+    {% set escudo_sede = img_pais(mundial.pais_id, 'escudo') if mundial and mundial.pais_id else None %}
+    {% set vivo = fase_actual.en_vivo %}{% set prox = fase_actual.proximo %}
+    <section class="hero-sede shadow-lg mb-4"
+             style="--sede-fondo: {{ t.fondo or '#14233a' }}; --sede-fondo-profundo: {{ t.fondo_profundo or '#0b1220' }}; --sede-brillo: {{ t.brillo or '#1f3a5f' }}; --sede-acento: {{ t.acento or '#e8b53a' }}; --sede-acento-claro: {{ t.acento_claro or '#f5dea6' }}; --sede-acento-oscuro: {{ t.acento_oscuro or '#8b6d23' }};">
+        <span class="hero-sede__franja" aria-hidden="true"></span>
+        {% if escudo_sede %}<img src="{{ escudo_sede }}" alt="" aria-hidden="true" decoding="async" class="hero-sede__escudo" onerror="this.remove()">{% endif %}
+
+        <header class="hero-sede__header">
             <div class="min-w-0">
-                <h1 class="hero-mundial__titulo mb-1">
-                    <i class="bi bi-trophy-fill me-2" aria-hidden="true"></i>{{ ordinal_mundial | ordinal_torneo }} Torneo Mundial de Fútbol de la FIFAV
-                </h1>
+                <h1 class="hero-sede__titulo"><i class="bi bi-trophy-fill" aria-hidden="true"></i>{{ ordinal_mundial | ordinal_torneo }} Torneo Mundial de Fútbol de la FIFAV</h1>
                 {% if mundial %}
-                <div class="hero-mundial__sede">
-                    {% if mundial.pais_id %}{{ m.bandera(None, pais_id=mundial.pais_id) }}{% endif %} {{ mundial.pais }} · {{ mundial.anio }}
-                </div>
+                <div class="hero-sede__sede">{% if mundial.pais_id %}{{ m.bandera(None, pais_id=mundial.pais_id) }}{% endif %} {{ mundial.pais }} · {{ mundial.anio }}</div>
                 {% endif %}
             </div>
-            <div class="hero-mundial__acciones d-flex gap-2">
+            <div class="hero-sede__acciones">
                 {% if puede('reiniciar_torneo') %}
-                <button type="button" class="btn btn-outline-danger shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalConfirmarReinicio">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i> Reiniciar Torneo
+                <button type="button" class="btn hero-sede__btn hero-sede__btn--peligro" data-bs-toggle="modal" data-bs-target="#modalConfirmarReinicio">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reiniciar Torneo
                 </button>
                 {% endif %}
                 {% if puede('partidos') %}
-                <a href="/juegos/" class="btn btn-outline-light shadow-sm fw-bold">
-                    <i class="bi bi-play-fill me-1"></i> Ir a Partidos
-                </a>
+                <a href="/juegos/" class="btn hero-sede__btn hero-sede__btn--oro"><i class="bi bi-play-fill me-1"></i>Ir a Partidos</a>
+                {% endif %}
+                {% if puede('gestion_usuarios') %}
+                <a href="/admin/arte-mundial" class="btn hero-sede__btn hero-sede__btn--icono" title="Póster y mascota del Mundial" aria-label="Póster y mascota del Mundial"><i class="bi bi-gear"></i></a>
                 {% endif %}
             </div>
-        </div>
-        <div class="card-body p-4 position-relative">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                        <span class="badge bg-accent text-dark fw-bold mb-2 px-3 py-2 text-uppercase fs-7">
-                            <i class="bi bi-broadcast me-1"></i> Fase Activa
-                        </span>
-                        {% if fase_actual.ronda %}
-                        <span class="badge bg-body-tertiary text-body-emphasis border fw-bold mb-2 px-3 py-2 text-uppercase fs-7">
-                            <i class="bi bi-signpost-split me-1"></i> {{ fase_actual.ronda }}
-                        </span>
-                        {% endif %}                        
-                    </div>
-                    <h2 class="display-6 fw-bold text-white mb-2">{{ fase_actual.nombre }}</h2>
-                    <p class="text-light mb-3 opacity-75 fs-5">{{ fase_actual.descripcion }}</p>
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="w-100 max-w-400">
-                            <div class="d-flex justify-content-between text-muted fs-7 mb-1">
-                                <span>Progreso del Torneo</span>
-                                <span class="fw-bold text-accent">{{ fase_actual.progreso | round(2, 'common') }}%</span>
-                            </div>
-                            <div class="progress bg-secondary" style="height: 10px;">
-                                <div class="progress-bar bg-accent" role="progressbar" style="width: {{ fase_actual.progreso }}%;"></div>
-                            </div>
-                        </div>
-                    </div>
+        </header>
+
+        <div class="hero-sede__cuerpo">
+            <div class="hero-sede__info">
+                <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                    <span class="hero-sede__pill hero-sede__pill--fase"><i class="bi bi-broadcast"></i>Fase activa</span>
+                    {% if fase_actual.ronda %}<span class="hero-sede__pill"><i class="bi bi-signpost-split"></i>{{ fase_actual.ronda }}</span>{% endif %}
+                    {% if vivo %}<a href="/en-vivo/" class="hero-sede__pill hero-sede__pill--vivo" title="Ver la transmisión"><span class="hero-sede__punto"></span>En vivo: {{ vivo.local.nombre }} vs {{ vivo.visitante.nombre }}</a>{% endif %}
                 </div>
-                <div class="col-md-4 d-flex align-items-center justify-content-center justify-content-md-end gap-3 mt-3 mt-md-0">
-                    {% set arte = arte_mundial() %}
-                    {% if arte %}
-                    <a href="/mundial/arte" class="hero-mundial__arte" title="Póster oficial y mascota: {{ arte.mascota_nombre }}">
-                        <img src="{{ arte.poster_url }}" alt="Póster del Mundial {{ arte.pais }} {{ arte.anio }}" class="hero-mundial__arte-poster" decoding="async">
-                        <img src="{{ arte.mascota_url }}" alt="{{ arte.mascota_nombre }}, la mascota" class="hero-mundial__arte-mascota" decoding="async">
-                    </a>
-                    {% else %}
-                    <img src="{{ imagen_inicio('copa') }}" alt="Copa del Mundo de la FIFAV" title="Copa del Mundo de la FIFAV" decoding="async" class="hero-mundial__copa" onerror="this.remove()">
-                    {% endif %}
-                    <div class="p-3 bg-body-tertiary bg-opacity-10 rounded-3 d-inline-block text-center border border-white border-opacity-10">
-                        <div class="text-uppercase fs-7 text-accent fw-bold">Cupos Definidos</div>
-                        <div class="display-5 fw-bold text-white">{{ stats.clasificados_count }} / {{ stats.total_cupos }}</div>
-                        <span class="text-light fs-7">Equipos a la Copa del Mundo</span>
-                    </div>
+                <h2 class="hero-sede__fase">{{ fase_actual.nombre }}</h2>
+                <p class="hero-sede__desc">{{ fase_actual.descripcion }}</p>
+                {% if prox %}
+                {# Sin transmisión: lleva a /en-vivo/ para arrancar el partido. Con uno en transmisión: al detalle previo del siguiente #}
+                <a href="{{ (prox.url_detalle if vivo else '/en-vivo/') if puede('partidos') else '#' }}" class="hero-sede__partido"
+                   title="{{ 'Ver el detalle del próximo partido' if vivo else 'Ir a En Vivo para jugar este partido' }}">
+                    <span class="hero-sede__partido-etiqueta">Próximo partido</span>
+                    <span class="hero-sede__partido-equipos">
+                        {{ m.bandera(prox.local.bandera, pais_id=prox.local.id) }}<strong>{{ prox.local.nombre }}</strong>
+                        <span class="hero-sede__vs">vs</span>
+                        <strong>{{ prox.visitante.nombre }}</strong>{{ m.bandera(prox.visitante.bandera, pais_id=prox.visitante.id) }}
+                    </span>
+                    {% if prox.fecha %}<span class="hero-sede__partido-fecha"><i class="bi bi-calendar3"></i>{{ prox.fecha }}{% if prox.hora %} · {{ prox.hora }}{% endif %}</span>{% endif %}
+                    <i class="bi {{ 'bi-card-text' if vivo else 'bi-play-circle-fill' }} hero-sede__partido-ir" aria-hidden="true"></i>
+                </a>
+                {% endif %}
+                <div class="hero-sede__progreso">
+                    <div class="d-flex justify-content-between"><span>Progreso del torneo</span><strong>{{ fase_actual.progreso | round(2, 'common') }}%</strong></div>
+                    <div class="hero-sede__barra"><span style="width: {{ fase_actual.progreso }}%;"></span></div>
+                </div>
+            </div>
+
+            <div class="hero-sede__visual">
+                {% set arte = arte_mundial() %}
+                {% if arte %}
+                <a href="/mundial/arte" class="hero-sede__arte" title="Póster oficial y mascota: {{ arte.mascota_nombre }}">
+                    <img src="{{ arte.poster_url }}" alt="Póster del Mundial {{ arte.pais }} {{ arte.anio }}" class="hero-sede__poster" decoding="async">
+                    <img src="{{ arte.mascota_url }}" alt="{{ arte.mascota_nombre }}, la mascota" class="hero-sede__mascota" decoding="async">
+                </a>
+                {% else %}
+                <img src="{{ imagen_inicio('copa') }}" alt="Copa del Mundo de la FIFAV" title="Copa del Mundo de la FIFAV" decoding="async" class="hero-sede__copa" onerror="this.remove()">
+                {% endif %}
+                <div class="hero-sede__cupos" title="Equipos ya clasificados a la Copa del Mundo">
+                    <i class="bi bi-globe-americas" aria-hidden="true"></i>
+                    <span class="hero-sede__cupos-lbl">Cupos definidos</span>
+                    <strong>{{ stats.clasificados_count }} / {{ stats.total_cupos }}</strong>
+                    <i class="bi bi-globe-europe-africa" aria-hidden="true"></i>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- Tarjetas de Métricas Rápidas (KPIs) -->
     <div class="row g-3 mb-4">
@@ -411,6 +414,9 @@
                                 {% if partido.texto_narrativo %}
                                 <div class="text-body-emphasis fs-7 mb-2">{{ partido.texto_narrativo }}</div>
                                 {% endif %}
+                                {% for r in partido.relevos_dt %}
+                                <div class="feed-relevo-dt fs-7 mb-2"><i class="bi bi-clipboard-x me-1"></i><strong>{{ r.federacion }}</strong> destituye a {{ r.sale }}; {{ 'vuelve' if r.regreso else 'asume' }} <strong>{{ r.entra }}</strong> en el banco de {{ r.pais }}.</div>
+                                {% endfor %}
 
                                 <!-- Marcador destacado: tablero con la bandera de cada equipo; el ganador resaltado -->
                                 <div class="x-marcador mb-2">

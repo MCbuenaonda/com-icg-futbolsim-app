@@ -1,10 +1,11 @@
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from bson.errors import InvalidId
 from schemas.album_schema import PackPurchaseOut, ColeccionOut
-from services.album_service import buy_and_open_pack, obtener_coleccion_usuario, obtener_album_pagina, numero_pagina_de_pais, COSTO_SOBRE, CATEGORIAS_ESTAMPA
+from services.album_service import (buy_and_open_pack, obtener_coleccion_usuario, obtener_album_pagina, numero_pagina_de_pais, COSTO_SOBRE,
+                                    CATEGORIAS_ESTAMPA, CANTIDAD_ESTAMPAS_POR_SOBRE, canjear_estampa, vender_repetidas)
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 from services.imagenes_pais_service import GLOBALES_JINJA
 from services.juegos_service import formatear_numero_compacto
@@ -50,6 +51,30 @@ async def open_pack(request: Request, origen: str = "COMPRA"):
         raise HTTPException(status_code=500, detail="Error interno al abrir el sobre")
 
 
+@route.post("/canje", name="album_canje")
+def canje(request: Request, tipo: str = Body(...), id: int = Body(...)):
+    """Canjea repetidas por una estampa que falta (la elige el usuario de la sesión). Ver album_service.COSTO_CANJE."""
+    usuario = obtener_usuario_actual(request)
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+    try:
+        return canjear_estampa(str(usuario["_id"]), tipo.upper(), int(id))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@route.post("/vender-repetidas", name="album_vender_repetidas")
+def vender(request: Request):
+    """Vende todas las repetidas guardadas por puntos (los mismos de antes: 10 a 50 según la rareza)."""
+    usuario = obtener_usuario_actual(request)
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+    try:
+        return vender_repetidas(str(usuario["_id"]))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @route.get("/collection/{user_id}", response_model=ColeccionOut, name="album_collection")
 async def collection(user_id: str, request: Request):
     """Estampas poseídas por el usuario y % de llenado de jugadores por país."""
@@ -72,7 +97,7 @@ async def sobres_vista(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="album_sobres.html",
-        context={"costo_sobre": COSTO_SOBRE, "categorias": CATEGORIAS_ESTAMPA, "sobres_gratis": int(usuario.get("sobres_gratis") or 0),
+        context={"costo_sobre": COSTO_SOBRE, "categorias": CATEGORIAS_ESTAMPA, "por_sobre": CANTIDAD_ESTAMPAS_POR_SOBRE, "sobres_gratis": int(usuario.get("sobres_gratis") or 0),
                  "sobres_platino": int(usuario.get("sobres_platino") or 0)}
     )
 

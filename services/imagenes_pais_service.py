@@ -34,7 +34,7 @@ db = client.get_database('mundial')
 
 TIPOS_IMAGEN = ("bandera", "plana", "jersey", "icono", "escudo")
 CARPETA_TIPO = {"plana": "bandera_plana"}               # el resto: carpeta = tipo
-VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 2}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
+VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 2, "tecnico": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
 
 # {id: nombre} y {emoji: id} de 'paises' (se cargan una vez: nombres y banderas no cambian en runtime)
 _nombre_por_id: Optional[dict] = None
@@ -151,6 +151,14 @@ def url_foto_equipo(pais_id, grupo) -> Optional[str]:
         return None
 
 
+def url_avatar_tecnico(tecnico_id) -> Optional[str]:
+    """Avatar de traje del director técnico (generar_avatares_tecnicos.py: bucket tecnicos/<id>.svg, fondo transparente)."""
+    try:
+        return f"{IMAGENES_PAISES_URL}/tecnicos/{int(tecnico_id)}.svg?v={VERSION_IMAGENES['tecnico']}"
+    except (TypeError, ValueError):
+        return None
+
+
 # nombre -> {"url", "pais_id"} de los árbitros (arbitros.avatar_imagen, asignado una vez por generar_avatares_arbitros.py).
 # Los partidos guardan solo el NOMBRE del árbitro; con nombres repetidos gana el primero.
 _arbitros_por_nombre: Optional[dict] = None
@@ -188,6 +196,15 @@ def _corp_representantes(usuario):
     return representantes(usuario)
 
 
+def _dt_de_pais(pais_id):
+    """DT en funciones de una selección ({id, nombre, ...} o None) para las vistas (services/tecnicos_service.dt_de_pais)."""
+    try:
+        from services.tecnicos_service import dt_de_pais
+        return dt_de_pais(int(pais_id))
+    except Exception:
+        return None
+
+
 def _arte_mundial(anio=None):
     """Póster y mascota de un Mundial (o del activo) para las vistas: services/arte_mundial_service.arte_de."""
     try:
@@ -203,4 +220,5 @@ GLOBALES_JINJA = {
     "imagen_inicio": imagen_inicio, "img_estadio": url_estadio, "img_avatar": url_avatar,
     "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo,
     "corp_representantes": _corp_representantes, "img_foto_equipo": url_foto_equipo, "arte_mundial": _arte_mundial,
+    "img_tecnico": url_avatar_tecnico, "dt_de_pais": _dt_de_pais,
 }

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from schemas.live_match_schema import StartAutoSimulationResponse, StartedMatchOut, LiveMatchOut, TablaGrupoOut, PlantillasLiveOut
-from services.live_match_service import iniciar_simulacion_automatica, obtener_estado_live, obtener_tabla_grupo_partido_en_vivo, obtener_posiciones_plantillas_en_vivo
+from services.live_match_service import iniciar_simulacion_automatica, obtener_estado_live, obtener_tabla_grupo_partido_en_vivo, obtener_posiciones_plantillas_en_vivo, obtener_destacados_estadisticas_en_vivo
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, requiere_permiso
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
@@ -133,6 +133,20 @@ async def get_live_plantillas():
         raise HTTPException(status_code=404, detail="No hay ningún partido en transmisión en este momento.")
 
     return PlantillasLiveOut(**plantillas)
+
+
+@route.get("/live/destacados", name="matches_live_destacados")
+def get_live_destacados():
+    """
+    En qué top 10, premios y destacados de /estadisticas aparecen los jugadores y las dos selecciones del partido en
+    transmisión (estado previo al partido: Estadísticas no cuenta el que se está transmitiendo). Una vez por partido.
+    'def' y no 'async def': la primera vez arma las estadísticas del Mundial (puede tardar unos segundos) y con async
+    bloquearía el servidor entero.
+    """
+    destacados = obtener_destacados_estadisticas_en_vivo()
+    if not destacados:
+        raise HTTPException(status_code=404, detail="No hay ningún partido en transmisión en este momento.")
+    return destacados
 
 
 # ==========================================================================

@@ -144,6 +144,33 @@ def _selecciones(paises: dict) -> dict:
     }
 
 
+TRAYECTORIAS_DESTACADAS = 5
+
+
+def _trayectorias(juegos: list, nombres: dict) -> dict:
+    """
+    Balance partido a partido de cada selección: todas arrancan en 0 y suman +1 por victoria, 0 por empate y -1 por
+    derrota (por el marcador del partido, alargue incluido; una tanda de penales cuenta como empate). 'juegos' viene en
+    orden cronológico. Destacadas por defecto: las de mejor balance final.
+    """
+    confederacion = {p["id"]: p.get("confederacion_id") for p in db["paises"].find({}, {"id": 1, "confederacion_id": 1})}
+    series: Dict[int, dict] = {}
+    for j in juegos:
+        loc, vis = j.get("equipo_local") or {}, j.get("equipo_visitante") or {}
+        if loc.get("id") is None or vis.get("id") is None:
+            continue
+        gl, gv = _goles(j)
+        for yo, rival, gf, gc in ((loc, vis, gl, gv), (vis, loc, gv, gl)):
+            s = series.setdefault(yo["id"], {"id": yo["id"], "nombre": nombres.get(yo["id"], {}).get("nombre") or yo.get("nombre"),
+                                             "bandera": nombres.get(yo["id"], {}).get("bandera") or yo.get("bandera"),
+                                             "conf": NOMBRE_CONFEDERACION.get(confederacion.get(yo["id"]), ""), "valores": [0], "partidos": []})
+            s["valores"].append(s["valores"][-1] + (1 if gf > gc else (-1 if gf < gc else 0)))
+            s["partidos"].append([rival.get("nombre"), gf, gc])   # compacto: [rival, goles a favor, goles en contra]
+    lista = sorted(series.values(), key=lambda s: (-s["valores"][-1], -len(s["partidos"]), s["nombre"] or ""))
+    return {"series": lista, "destacados": [s["id"] for s in lista[:TRAYECTORIAS_DESTACADAS]],
+            "confederaciones": sorted({s["conf"] for s in lista if s["conf"]})}
+
+
 def _aficionados() -> dict:
     """Curva de aficionados de las 5 selecciones más populares, partido a partido (historial_aficionados)."""
     top = list(db["paises"].find({}, {"id": 1, "nombre": 1, "bandera": 1, "aficionados": 1}).sort("aficionados", -1).limit(TOP_AFICIONADOS))
@@ -321,6 +348,7 @@ def obtener_graficos() -> Dict[str, Any]:
         "confederaciones": _confederaciones(juegos, agregado),
         "selecciones": _selecciones(paises),
         "aficionados": _aficionados(),
+        "trayectorias": _trayectorias(juegos, nombres),
         "jugadores": _jugadores(juegos, agregado, nombres),
         "estadios": _estadios(),
         "proximos": _proximos(poderes),

@@ -7,6 +7,7 @@ from services.mundial_service import crear_nuevo_mundial, restart_mundial, get_d
 from services.juegos_service import get_data_dashboard_last_games, get_data_fase_actual_dashboard, get_data_clasificados_mundial, formatear_numero_compacto, ICONO_ESTADO_ANIMO
 from services.confederacion_service import get_data_confederaciones_dashboard
 from services.auth_service import context_usuario_actual, requiere_permiso
+from services.arte_mundial_service import tema_sede
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
 import uuid
@@ -48,6 +49,8 @@ async def inicio(request: Request):
         name="home.html",
         context={
             "mundial": mundial,
+            # colores del encabezado según la bandera del anfitrión (arte_mundial_service.tema_sede)
+            "tema_sede": tema_sede(mundial.get("pais_id")) if mundial and mundial.get("pais_id") else None,
             "ordinal_mundial": ordinal_mundial,
             "stats": stats,
             "fase_actual": fase_actual,

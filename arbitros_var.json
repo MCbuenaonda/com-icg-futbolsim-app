@@ -1,0 +1,1055 @@
+{
+ "_comentario": "Árbitros VAR (5to árbitro): uno por país, nombres inventados con el estilo de cada país (no son personas reales). Lo lee agregar_arbitros_var.py. genero F/M.",
+ "arbitros": [
+  {
+   "pais": "Afganistán",
+   "nombre": "Farid Noorzai",
+   "genero": "M"
+  },
+  {
+   "pais": "Albania",
+   "nombre": "Elira Hoxhaj",
+   "genero": "F"
+  },
+  {
+   "pais": "Alemania",
+   "nombre": "Johanna Wendland",
+   "genero": "F"
+  },
+  {
+   "pais": "Andorra",
+   "nombre": "Marc Puigcercós",
+   "genero": "M"
+  },
+  {
+   "pais": "Angola",
+   "nombre": "Edvaldo Kiluange",
+   "genero": "M"
+  },
+  {
+   "pais": "Anguila",
+   "nombre": "Kendra Gumbs",
+   "genero": "F"
+  },
+  {
+   "pais": "Antigua y Barbuda",
+   "nombre": "Desmond Joseph-Henry",
+   "genero": "M"
+  },
+  {
+   "pais": "Arabia Saudita",
+   "nombre": "Majed Al-Harbi",
+   "genero": "M"
+  },
+  {
+   "pais": "Argelia",
+   "nombre": "Yacine Belkacemi",
+   "genero": "M"
+  },
+  {
+   "pais": "Argentina",
+   "nombre": "Lucía Barreiro",
+   "genero": "F"
+  },
+  {
+   "pais": "Armenia",
+   "nombre": "Ani Sargsyan",
+   "genero": "F"
+  },
+  {
+   "pais": "Aruba",
+   "nombre": "Rignald Croes",
+   "genero": "M"
+  },
+  {
+   "pais": "Australia",
+   "nombre": "Chloe Pritchard",
+   "genero": "F"
+  },
+  {
+   "pais": "Austria",
+   "nombre": "Lukas Hofbauer",
+   "genero": "M"
+  },
+  {
+   "pais": "Azerbaiyán",
+   "nombre": "Rauf Mammadli",
+   "genero": "M"
+  },
+  {
+   "pais": "Bahamas",
+   "nombre": "Tamika Rolle",
+   "genero": "F"
+  },
+  {
+   "pais": "Baréin",
+   "nombre": "Hussain Al-Mahroos",
+   "genero": "M"
+  },
+  {
+   "pais": "Bangladés",
+   "nombre": "Tanvir Rahman Chowdhury",
+   "genero": "M"
+  },
+  {
+   "pais": "Barbados",
+   "nombre": "Andre Clarke-Gittens",
+   "genero": "M"
+  },
+  {
+   "pais": "Belice",
+   "nombre": "Marisol Chun",
+   "genero": "F"
+  },
+  {
+   "pais": "Benín",
+   "nombre": "Rodrigue Houngbédji",
+   "genero": "M"
+  },
+  {
+   "pais": "Bermudas",
+   "nombre": "Keon Outerbridge",
+   "genero": "M"
+  },
+  {
+   "pais": "Bielorrusia",
+   "nombre": "Dzmitry Kavalenka",
+   "genero": "M"
+  },
+  {
+   "pais": "Bolivia",
+   "nombre": "Rodrigo Quispe Mamani",
+   "genero": "M"
+  },
+  {
+   "pais": "Bosnia y Herzegovina",
+   "nombre": "Amar Kurtović",
+   "genero": "M"
+  },
+  {
+   "pais": "Botsuana",
+   "nombre": "Kagiso Molefhe",
+   "genero": "M"
+  },
+  {
+   "pais": "Brasil",
+   "nombre": "Thaís Bragança Lima",
+   "genero": "F"
+  },
+  {
+   "pais": "Brunéi",
+   "nombre": "Hazwan Haji Rosli",
+   "genero": "M"
+  },
+  {
+   "pais": "Bulgaria",
+   "nombre": "Nikolay Dragomirov",
+   "genero": "M"
+  },
+  {
+   "pais": "Burkina Faso",
+   "nombre": "Aminata Ouédraogo",
+   "genero": "F"
+  },
+  {
+   "pais": "Burundi",
+   "nombre": "Jean-Bosco Niyonzima",
+   "genero": "M"
+  },
+  {
+   "pais": "Bután",
+   "nombre": "Ugyen Tshering",
+   "genero": "M"
+  },
+  {
+   "pais": "Bélgica",
+   "nombre": "Pieter Van Daele",
+   "genero": "M"
+  },
+  {
+   "pais": "Cabo Verde",
+   "nombre": "Nilton Fortes Semedo",
+   "genero": "M"
+  },
+  {
+   "pais": "Camboya",
+   "nombre": "Sokha Chhorn",
+   "genero": "M"
+  },
+  {
+   "pais": "Camerún",
+   "nombre": "Brice Mbarga Atangana",
+   "genero": "M"
+  },
+  {
+   "pais": "Canadá",
+   "nombre": "Mélanie Tremblay-Roy",
+   "genero": "F"
+  },
+  {
+   "pais": "Chad",
+   "nombre": "Abakar Mahamat Saleh",
+   "genero": "M"
+  },
+  {
+   "pais": "Chile",
+   "nombre": "Felipe Araya Contreras",
+   "genero": "M"
+  },
+  {
+   "pais": "China",
+   "nombre": "Liu Yuchen",
+   "genero": "F"
+  },
+  {
+   "pais": "Chipre",
+   "nombre": "Andreas Charalambous",
+   "genero": "M"
+  },
+  {
+   "pais": "Colombia",
+   "nombre": "Daniela Restrepo Gaviria",
+   "genero": "F"
+  },
+  {
+   "pais": "Comoras",
+   "nombre": "Ibrahim Saïd Ahmed",
+   "genero": "M"
+  },
+  {
+   "pais": "Congo",
+   "nombre": "Prince Mabiala",
+   "genero": "M"
+  },
+  {
+   "pais": "Corea del Norte",
+   "nombre": "Ri Chol-ung",
+   "genero": "M"
+  },
+  {
+   "pais": "Corea del Sur",
+   "nombre": "Kim Seo-yeon",
+   "genero": "F"
+  },
+  {
+   "pais": "Costa Rica",
+   "nombre": "Valeria Solano Mora",
+   "genero": "F"
+  },
+  {
+   "pais": "Costa de Marfil",
+   "nombre": "Yao Kouassi Désiré",
+   "genero": "M"
+  },
+  {
+   "pais": "Croacia",
+   "nombre": "Marko Bašić",
+   "genero": "M"
+  },
+  {
+   "pais": "Cuba",
+   "nombre": "Yoandry Pérez Lazo",
+   "genero": "M"
+  },
+  {
+   "pais": "Curazao",
+   "nombre": "Ruthsel Martina",
+   "genero": "M"
+  },
+  {
+   "pais": "Dinamarca",
+   "nombre": "Mads Kjærgaard",
+   "genero": "M"
+  },
+  {
+   "pais": "Dominica",
+   "nombre": "Sherwin Baptiste",
+   "genero": "M"
+  },
+  {
+   "pais": "Estados Unidos",
+   "nombre": "Jordan Whitfield",
+   "genero": "M"
+  },
+  {
+   "pais": "Ecuador",
+   "nombre": "Kevin Caicedo Arboleda",
+   "genero": "M"
+  },
+  {
+   "pais": "Egipto",
+   "nombre": "Mahmoud El-Sayed Ashour",
+   "genero": "M"
+  },
+  {
+   "pais": "El Salvador",
+   "nombre": "Josué Ayala Quintanilla",
+   "genero": "M"
+  },
+  {
+   "pais": "Emiratos Árabes Unidos",
+   "nombre": "Saeed Al-Mansoori",
+   "genero": "M"
+  },
+  {
+   "pais": "Eritrea",
+   "nombre": "Yonas Tesfamariam",
+   "genero": "M"
+  },
+  {
+   "pais": "Escocia",
+   "nombre": "Fraser McAllister",
+   "genero": "M"
+  },
+  {
+   "pais": "Eslovaquia",
+   "nombre": "Martina Hudáková",
+   "genero": "F"
+  },
+  {
+   "pais": "Eslovenia",
+   "nombre": "Žiga Kranjc",
+   "genero": "M"
+  },
+  {
+   "pais": "España",
+   "nombre": "Álvaro Lasarte Iturbe",
+   "genero": "M"
+  },
+  {
+   "pais": "Estonia",
+   "nombre": "Kristjan Saar",
+   "genero": "M"
+  },
+  {
+   "pais": "Etiopía",
+   "nombre": "Tigist Alemayehu",
+   "genero": "F"
+  },
+  {
+   "pais": "Filipinas",
+   "nombre": "Paolo Dimaculangan",
+   "genero": "M"
+  },
+  {
+   "pais": "Finlandia",
+   "nombre": "Aino Lehtonen",
+   "genero": "F"
+  },
+  {
+   "pais": "Fiyi",
+   "nombre": "Josefa Naivalu",
+   "genero": "M"
+  },
+  {
+   "pais": "Francia",
+   "nombre": "Léa Morvan",
+   "genero": "F"
+  },
+  {
+   "pais": "Gabón",
+   "nombre": "Ulrich Ndong Obiang",
+   "genero": "M"
+  },
+  {
+   "pais": "Gales",
+   "nombre": "Rhys Llewellyn",
+   "genero": "M"
+  },
+  {
+   "pais": "Gambia",
+   "nombre": "Lamin Ceesay Jallow",
+   "genero": "M"
+  },
+  {
+   "pais": "Georgia",
+   "nombre": "Nino Kapanadze",
+   "genero": "F"
+  },
+  {
+   "pais": "Ghana",
+   "nombre": "Abena Asante Boateng",
+   "genero": "F"
+  },
+  {
+   "pais": "Gibraltar",
+   "nombre": "Liam Bosio",
+   "genero": "M"
+  },
+  {
+   "pais": "Granada",
+   "nombre": "Kemron Charles",
+   "genero": "M"
+  },
+  {
+   "pais": "Grecia",
+   "nombre": "Dimitris Papakonstantinou",
+   "genero": "M"
+  },
+  {
+   "pais": "Guam",
+   "nombre": "Jared Cruz Santos",
+   "genero": "M"
+  },
+  {
+   "pais": "Guatemala",
+   "nombre": "Héctor Ixcot Barrios",
+   "genero": "M"
+  },
+  {
+   "pais": "Guinea",
+   "nombre": "Mamadou Aliou Camara",
+   "genero": "M"
+  },
+  {
+   "pais": "Guinea-Bisáu",
+   "nombre": "Braima Djaló",
+   "genero": "M"
+  },
+  {
+   "pais": "Guinea Ecuatorial",
+   "nombre": "Rosalía Nsue Obama",
+   "genero": "F"
+  },
+  {
+   "pais": "Guyana",
+   "nombre": "Devon Persaud",
+   "genero": "M"
+  },
+  {
+   "pais": "Haití",
+   "nombre": "Wilner Dorvilier",
+   "genero": "M"
+  },
+  {
+   "pais": "Países Bajos",
+   "nombre": "Sanne de Vries",
+   "genero": "F"
+  },
+  {
+   "pais": "Honduras",
+   "nombre": "Kelvin Zelaya Banegas",
+   "genero": "M"
+  },
+  {
+   "pais": "Hong Kong",
+   "nombre": "Chan Ka-lok",
+   "genero": "M"
+  },
+  {
+   "pais": "Hungría",
+   "nombre": "Bence Tóth-Kovács",
+   "genero": "M"
+  },
+  {
+   "pais": "India",
+   "nombre": "Arjun Raghavan",
+   "genero": "M"
+  },
+  {
+   "pais": "Indonesia",
+   "nombre": "Rizky Pratama Siregar",
+   "genero": "M"
+  },
+  {
+   "pais": "Inglaterra",
+   "nombre": "Oliver Thornbury",
+   "genero": "M"
+  },
+  {
+   "pais": "Irak",
+   "nombre": "Ali Kadhim Al-Saadi",
+   "genero": "M"
+  },
+  {
+   "pais": "Irlanda",
+   "nombre": "Ciarán Moloney",
+   "genero": "M"
+  },
+  {
+   "pais": "Irlanda del Norte",
+   "nombre": "Gareth McKeown",
+   "genero": "M"
+  },
+  {
+   "pais": "Irán",
+   "nombre": "Reza Kazemi-Nejad",
+   "genero": "M"
+  },
+  {
+   "pais": "Islandia",
+   "nombre": "Kristín Björnsdóttir",
+   "genero": "F"
+  },
+  {
+   "pais": "Islas Caimán",
+   "nombre": "Tristan Ebanks",
+   "genero": "M"
+  },
+  {
+   "pais": "Islas Cook",
+   "nombre": "Tama Tuakeu",
+   "genero": "M"
+  },
+  {
+   "pais": "Islas Salomón",
+   "nombre": "Gideon Maeke",
+   "genero": "M"
+  },
+  {
+   "pais": "Islas Vírgenes",
+   "nombre": "Shanice Thomas",
+   "genero": "F"
+  },
+  {
+   "pais": "Islas Vírgenes Británicas",
+   "nombre": "Rohan Penn",
+   "genero": "M"
+  },
+  {
+   "pais": "Israel",
+   "nombre": "Noa Ben-David",
+   "genero": "F"
+  },
+  {
+   "pais": "Italia",
+   "nombre": "Federico Santambrogio",
+   "genero": "M"
+  },
+  {
+   "pais": "Jamaica",
+   "nombre": "Tashana Bryan-Reid",
+   "genero": "F"
+  },
+  {
+   "pais": "Japón",
+   "nombre": "Yui Kanzaki",
+   "genero": "F"
+  },
+  {
+   "pais": "Jordania",
+   "nombre": "Laith Al-Masri",
+   "genero": "M"
+  },
+  {
+   "pais": "Kazajistán",
+   "nombre": "Yerlan Abdrakhmanov",
+   "genero": "M"
+  },
+  {
+   "pais": "Kenia",
+   "nombre": "Wanjiru Kamau",
+   "genero": "F"
+  },
+  {
+   "pais": "Kirguistán",
+   "nombre": "Azamat Toktogulov",
+   "genero": "M"
+  },
+  {
+   "pais": "Kosovo",
+   "nombre": "Arbër Krasniqi",
+   "genero": "M"
+  },
+  {
+   "pais": "Kuwait",
+   "nombre": "Fahad Al-Rashidi",
+   "genero": "M"
+  },
+  {
+   "pais": "Laos",
+   "nombre": "Khamphet Sisouphanh",
+   "genero": "M"
+  },
+  {
+   "pais": "Lesoto",
+   "nombre": "Lerato Mokhehle",
+   "genero": "F"
+  },
+  {
+   "pais": "Letonia",
+   "nombre": "Roberts Ozoliņš",
+   "genero": "M"
+  },
+  {
+   "pais": "Liberia",
+   "nombre": "Emmanuel Kollie Wesseh",
+   "genero": "M"
+  },
+  {
+   "pais": "Libia",
+   "nombre": "Osama Al-Zawi",
+   "genero": "M"
+  },
+  {
+   "pais": "Liechtenstein",
+   "nombre": "Fabian Vogt-Marxer",
+   "genero": "M"
+  },
+  {
+   "pais": "Lituania",
+   "nombre": "Mantas Žukauskas",
+   "genero": "M"
+  },
+  {
+   "pais": "Luxemburgo",
+   "nombre": "Gilles Hoffmann",
+   "genero": "M"
+  },
+  {
+   "pais": "Líbano",
+   "nombre": "Rami Haddad",
+   "genero": "M"
+  },
+  {
+   "pais": "Macao",
+   "nombre": "Leong Chi Hou",
+   "genero": "M"
+  },
+  {
+   "pais": "Macedonia del Norte",
+   "nombre": "Bojan Trajkovski",
+   "genero": "M"
+  },
+  {
+   "pais": "Madagascar",
+   "nombre": "Hery Rakotoarisoa",
+   "genero": "M"
+  },
+  {
+   "pais": "Malasia",
+   "nombre": "Hafiz Azman",
+   "genero": "M"
+  },
+  {
+   "pais": "Malaui",
+   "nombre": "Chikondi Banda",
+   "genero": "F"
+  },
+  {
+   "pais": "Maldivas",
+   "nombre": "Ibrahim Naseem",
+   "genero": "M"
+  },
+  {
+   "pais": "Malí",
+   "nombre": "Seydou Coulibaly Traoré",
+   "genero": "M"
+  },
+  {
+   "pais": "Malta",
+   "nombre": "Daniel Camilleri Zammit",
+   "genero": "M"
+  },
+  {
+   "pais": "Marruecos",
+   "nombre": "Hamza El Idrissi",
+   "genero": "M"
+  },
+  {
+   "pais": "Mauricio",
+   "nombre": "Kevin Ramsamy",
+   "genero": "M"
+  },
+  {
+   "pais": "Mauritania",
+   "nombre": "Sidi Ould Cheikh",
+   "genero": "M"
+  },
+  {
+   "pais": "Moldavia",
+   "nombre": "Vadim Rusnac",
+   "genero": "M"
+  },
+  {
+   "pais": "Mongolia",
+   "nombre": "Bat-Erdene Ganbold",
+   "genero": "M"
+  },
+  {
+   "pais": "Montenegro",
+   "nombre": "Nikola Vujović",
+   "genero": "M"
+  },
+  {
+   "pais": "Montserrat",
+   "nombre": "Alicia Greenaway",
+   "genero": "F"
+  },
+  {
+   "pais": "Mozambique",
+   "nombre": "Dércio Machava",
+   "genero": "M"
+  },
+  {
+   "pais": "Myanmar",
+   "nombre": "Aung Kyaw Htet",
+   "genero": "M"
+  },
+  {
+   "pais": "México",
+   "nombre": "Karla Villaseñor Ibarra",
+   "genero": "F"
+  },
+  {
+   "pais": "Namibia",
+   "nombre": "Ndapewa Shikongo",
+   "genero": "F"
+  },
+  {
+   "pais": "Nepal",
+   "nombre": "Sujan Shrestha",
+   "genero": "M"
+  },
+  {
+   "pais": "Nicaragua",
+   "nombre": "Bayardo Mendieta",
+   "genero": "M"
+  },
+  {
+   "pais": "Nigeria",
+   "nombre": "Chinedu Okafor-Eze",
+   "genero": "M"
+  },
+  {
+   "pais": "Noruega",
+   "nombre": "Ingrid Haugland",
+   "genero": "F"
+  },
+  {
+   "pais": "Nueva Caledonia",
+   "nombre": "Jean-Pierre Wakanumuné",
+   "genero": "M"
+  },
+  {
+   "pais": "Nueva Zelanda",
+   "nombre": "Hannah Te Rangi",
+   "genero": "F"
+  },
+  {
+   "pais": "Níger",
+   "nombre": "Abdoulaye Issoufou Maïga",
+   "genero": "M"
+  },
+  {
+   "pais": "Omán",
+   "nombre": "Salim Al-Busaidi",
+   "genero": "M"
+  },
+  {
+   "pais": "Pakistán",
+   "nombre": "Usman Qureshi",
+   "genero": "M"
+  },
+  {
+   "pais": "Palestina",
+   "nombre": "Yousef Barghouthi",
+   "genero": "M"
+  },
+  {
+   "pais": "Panamá",
+   "nombre": "Ricardo Tejada Batista",
+   "genero": "M"
+  },
+  {
+   "pais": "Papúa Nueva Guinea",
+   "nombre": "Kila Wari",
+   "genero": "M"
+  },
+  {
+   "pais": "Paraguay",
+   "nombre": "Cristhian Benítez Ojeda",
+   "genero": "M"
+  },
+  {
+   "pais": "Perú",
+   "nombre": "Lucero Huamán Salas",
+   "genero": "F"
+  },
+  {
+   "pais": "Polonia",
+   "nombre": "Katarzyna Zielińska",
+   "genero": "F"
+  },
+  {
+   "pais": "Portugal",
+   "nombre": "Tiago Mourão Pires",
+   "genero": "M"
+  },
+  {
+   "pais": "Puerto Rico",
+   "nombre": "Joel Rivera Cintrón",
+   "genero": "M"
+  },
+  {
+   "pais": "Catar",
+   "nombre": "Khalid Al-Naimi",
+   "genero": "M"
+  },
+  {
+   "pais": "RD del Congo",
+   "nombre": "Patrick Mulumba Kabongo",
+   "genero": "M"
+  },
+  {
+   "pais": "República Centroafricana",
+   "nombre": "Thierry Yakité",
+   "genero": "M"
+  },
+  {
+   "pais": "República Checa",
+   "nombre": "Ondřej Dvořáček",
+   "genero": "M"
+  },
+  {
+   "pais": "República Dominicana",
+   "nombre": "Yenny Peralta Rosario",
+   "genero": "F"
+  },
+  {
+   "pais": "Ruanda",
+   "nombre": "Eric Habimana",
+   "genero": "M"
+  },
+  {
+   "pais": "Rumanía",
+   "nombre": "Andrei Constantinescu",
+   "genero": "M"
+  },
+  {
+   "pais": "Rusia",
+   "nombre": "Svetlana Orlova",
+   "genero": "F"
+  },
+  {
+   "pais": "Samoa",
+   "nombre": "Fa'amoana Leota",
+   "genero": "M"
+  },
+  {
+   "pais": "Samoa Americana",
+   "nombre": "Tavita Pouono",
+   "genero": "M"
+  },
+  {
+   "pais": "San Cristóbal y Nieves",
+   "nombre": "Javon Liburd",
+   "genero": "M"
+  },
+  {
+   "pais": "San Marino",
+   "nombre": "Matteo Gasperoni",
+   "genero": "M"
+  },
+  {
+   "pais": "San Vicente y las Granadinas",
+   "nombre": "Akeem Ollivierre",
+   "genero": "M"
+  },
+  {
+   "pais": "Santa Lucía",
+   "nombre": "Kervin Joseph-Alcindor",
+   "genero": "M"
+  },
+  {
+   "pais": "Santo Tomé y Príncipe",
+   "nombre": "Edilson Pires dos Santos",
+   "genero": "M"
+  },
+  {
+   "pais": "Senegal",
+   "nombre": "Ousmane Diouf Ndiaye",
+   "genero": "M"
+  },
+  {
+   "pais": "Serbia",
+   "nombre": "Miloš Radovanović",
+   "genero": "M"
+  },
+  {
+   "pais": "Seychelles",
+   "nombre": "Ryan Labiche",
+   "genero": "M"
+  },
+  {
+   "pais": "Sierra Leona",
+   "nombre": "Fatmata Kamara",
+   "genero": "F"
+  },
+  {
+   "pais": "Singapur",
+   "nombre": "Darren Lim Wei Jie",
+   "genero": "M"
+  },
+  {
+   "pais": "Siria",
+   "nombre": "Bassel Al-Khatib",
+   "genero": "M"
+  },
+  {
+   "pais": "Somalia",
+   "nombre": "Abdirahman Warsame",
+   "genero": "M"
+  },
+  {
+   "pais": "Sri Lanka",
+   "nombre": "Dinesh Wickramasinghe",
+   "genero": "M"
+  },
+  {
+   "pais": "Esuatini",
+   "nombre": "Sibusiso Dlamini",
+   "genero": "M"
+  },
+  {
+   "pais": "Sudáfrica",
+   "nombre": "Thandeka Nkosi",
+   "genero": "F"
+  },
+  {
+   "pais": "Sudán",
+   "nombre": "Mohamed Osman Babiker",
+   "genero": "M"
+  },
+  {
+   "pais": "Sudán del Sur",
+   "nombre": "Deng Akol Mabior",
+   "genero": "M"
+  },
+  {
+   "pais": "Suecia",
+   "nombre": "Ebba Lindqvist",
+   "genero": "F"
+  },
+  {
+   "pais": "Suiza",
+   "nombre": "Nicolas Favre-Bulle",
+   "genero": "M"
+  },
+  {
+   "pais": "Surinam",
+   "nombre": "Romano Pinas",
+   "genero": "M"
+  },
+  {
+   "pais": "Tahití",
+   "nombre": "Teva Tehaamoana",
+   "genero": "M"
+  },
+  {
+   "pais": "Tailandia",
+   "nombre": "Siriporn Chaiwong",
+   "genero": "F"
+  },
+  {
+   "pais": "Taiwán",
+   "nombre": "Chen Wei-ting",
+   "genero": "M"
+  },
+  {
+   "pais": "Tanzania",
+   "nombre": "Baraka Mwakyusa",
+   "genero": "M"
+  },
+  {
+   "pais": "Tayikistán",
+   "nombre": "Firdavs Rahimov",
+   "genero": "M"
+  },
+  {
+   "pais": "Timor Oriental",
+   "nombre": "Nélio Soares Ximenes",
+   "genero": "M"
+  },
+  {
+   "pais": "Togo",
+   "nombre": "Komlan Agbéko",
+   "genero": "M"
+  },
+  {
+   "pais": "Tonga",
+   "nombre": "Sione Fifita",
+   "genero": "M"
+  },
+  {
+   "pais": "Trinidad y Tobago",
+   "nombre": "Keisha Ramdass",
+   "genero": "F"
+  },
+  {
+   "pais": "Turcas y Caicos",
+   "nombre": "Marlon Forbes",
+   "genero": "M"
+  },
+  {
+   "pais": "Turkmenistán",
+   "nombre": "Merdan Annayev",
+   "genero": "M"
+  },
+  {
+   "pais": "Turquía",
+   "nombre": "Emre Karadeniz",
+   "genero": "M"
+  },
+  {
+   "pais": "Túnez",
+   "nombre": "Wassim Ben Slimane",
+   "genero": "M"
+  },
+  {
+   "pais": "Ucrania",
+   "nombre": "Oksana Melnychuk",
+   "genero": "F"
+  },
+  {
+   "pais": "Uganda",
+   "nombre": "Ronald Ssemwogerere",
+   "genero": "M"
+  },
+  {
+   "pais": "Uruguay",
+   "nombre": "Matías Larrosa Piriz",
+   "genero": "M"
+  },
+  {
+   "pais": "Uzbekistán",
+   "nombre": "Sardor Yusupov",
+   "genero": "M"
+  },
+  {
+   "pais": "Vanuatu",
+   "nombre": "Joel Kalotiti",
+   "genero": "M"
+  },
+  {
+   "pais": "Venezuela",
+   "nombre": "Andreína Colmenares",
+   "genero": "F"
+  },
+  {
+   "pais": "Vietnam",
+   "nombre": "Nguyễn Minh Khôi",
+   "genero": "M"
+  },
+  {
+   "pais": "Yemen",
+   "nombre": "Abdullah Al-Hamdani",
+   "genero": "M"
+  },
+  {
+   "pais": "Yibuti",
+   "nombre": "Houssein Daher Robleh",
+   "genero": "M"
+  },
+  {
+   "pais": "Zambia",
+   "nombre": "Mutale Chileshe",
+   "genero": "M"
+  },
+  {
+   "pais": "Zimbabue",
+   "nombre": "Tendai Mavhunga",
+   "genero": "M"
+  }
+ ]
+}

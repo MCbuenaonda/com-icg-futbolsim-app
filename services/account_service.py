@@ -235,6 +235,17 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
                     "monto": bonus_total
                 })
 
+    # Canje y venta de repetidas del álbum (album_service.canjear_estampa / vender_repetidas)
+    for c in db['album_canjes'].find({"user_id": usuario_oid}):
+        usadas = sum((c.get("repetidas_usadas") or {}).values())
+        feed.append({
+            "fecha": c["created_at"],
+            "categoria": "Álbum",
+            "descripcion": (f"Venta de {usadas} repetidas" if c.get("tipo") == "VENTA"
+                            else f"Canje: {usadas} repetidas por la estampa de {c.get('nombre', '?')}"),
+            "monto": c.get("monto", 0)
+        })
+
     for s in sesiones_trivia_completadas:
         if s.get("completed_at"):
             feed.append({

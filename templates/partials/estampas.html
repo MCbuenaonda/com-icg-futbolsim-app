@@ -8,6 +8,11 @@
 #}
 {% import "partials/macros.html" as m %}
 
+{# Atributos para canjear un casillero vacío por repetidas (album_service.canjear_estampa; el JS está en album_coleccion.html) #}
+{% macro canje(tipo, x, nombre=None) -%}
+data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ nombre or x.nombre }}" role="button" tabindex="0"
+{%- endmacro %}
+
 {# Jugador obtenido: avatar sobre la bandera de su país; reverso con su ficha #}
 {# leyenda=True: estampa LEYENDA (jugadores.leyenda, rara: 5%), marco bronce clásico con sello #}
 {% macro jugador(j, pais_id, bandera, leyenda=False) -%}
@@ -45,7 +50,7 @@
 
 {# Casillero vacío (jugador que falta): número y nombre impresos, como en el álbum de papel #}
 {% macro vacia(j, leyenda=False) -%}
-<div class="estampa estampa--vacia {{ 'estampa--vacia-leyenda' if leyenda }}" title="Te falta esta estampa{{ ' leyenda' if leyenda }}">
+<div class="estampa estampa--vacia {{ 'estampa--vacia-leyenda' if leyenda }}" title="Te falta esta estampa{{ ' leyenda' if leyenda }} · tocá para canjearla" {{ canje('LEYENDA' if leyenda else 'JUGADOR', j) }}>
   <div class="estampa__hueco">
     <span class="estampa__hueco-numero">{{ j.numero if j.numero is not none else '?' }}</span>
     <i class="bi bi-person"></i>
@@ -57,7 +62,7 @@
 
 {# Casillero vacío del escudo: el contorno del escudo con el nombre de la selección #}
 {% macro vacia_pais(p) -%}
-<div class="estampa estampa--vacia estampa--vacia-pais" title="Te falta el escudo (estampa platino) de {{ p.nombre }}">
+<div class="estampa estampa--vacia estampa--vacia-pais" title="Te falta el escudo (estampa platino) de {{ p.nombre }} · tocá para canjearla" {{ canje('PAIS', p) }}>
   <div class="estampa__hueco">
     <i class="bi bi-shield"></i>
     <span class="estampa__hueco-nombre">{{ p.nombre }}</span>
@@ -68,7 +73,7 @@
 
 {# Casillero vacío de una sede: ciudad y estadio impresos #}
 {% macro vacia_ciudad(c) -%}
-<div class="estampa estampa--vacia estampa--vacia-ciudad" title="Te falta la estampa de {{ c.nombre }}">
+<div class="estampa estampa--vacia estampa--vacia-ciudad" title="Te falta la estampa de {{ c.nombre }} · tocá para canjearla" {{ canje('CIUDAD', c) }}>
   <div class="estampa__hueco">
     <i class="bi bi-building"></i>
     <span class="estampa__hueco-nombre">{{ c.nombre }}</span>
@@ -167,9 +172,48 @@
 </div>
 {%- endmacro %}
 
+{# Director técnico: estampa TÉCNICO (5%). Marco violeta, avatar de traje sobre la bandera de su país;
+   reverso con edad, estilo y si dirige hoy a la selección. #}
+{% macro tecnico(t) -%}
+{%- set bandera_url = img_pais(t.pais_id, 'plana') if t.pais_id else None -%}
+<div class="estampa estampa--tecnico" tabindex="0" role="button" aria-label="Estampa de técnico de {{ t.nombre }}: tocá para ver el reverso">
+  <div class="estampa__giro">
+    <div class="estampa__cara estampa__frente" {% if bandera_url %}style="--bandera-url: url('{{ bandera_url }}')"{% endif %}>
+      <span class="estampa__sello"><i class="bi bi-clipboard-check"></i> Técnico</span>
+      <span class="estampa__posicion">DT</span>
+      <div class="estampa__foto"><img src="{{ t.avatar_url }}" alt="" loading="lazy" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'bi bi-person-workspace'}))"></div>
+      <div class="estampa__banda">
+        <strong>{{ t.nombre }}</strong>
+        <small>{{ m.bandera(None, pais_id=t.pais_id) }} {{ t.pais_nombre }}</small>
+      </div>
+    </div>
+    <div class="estampa__cara estampa__reverso">
+      <div class="estampa__reverso-titulo"><span>DT</span>{{ t.nombre }}</div>
+      <div class="estampa__ovr"><small>Edad</small>{{ t.edad or '—' }}</div>
+      <dl class="estampa__datos">
+        <div class="estampa__dato-ancho"><dt>Estilo</dt><dd>{{ (t.estilo or '—') | capitalize }}</dd></div>
+        <div class="estampa__dato-ancho"><dt>Hoy</dt><dd>{{ 'Dirige a ' ~ t.pais_nombre if t.en_funciones else 'En el banco de la federación' }}</dd></div>
+      </dl>
+      <a href="/tecnicos/{{ t.id }}" class="estampa__link" tabindex="-1">Ver perfil <i class="bi bi-arrow-right"></i></a>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro vacia_tecnico(t) -%}
+<div class="estampa estampa--vacia estampa--vacia-tecnico" title="Te falta la estampa de {{ t.nombre }} · tocá para canjearla" {{ canje('TECNICO', t) }}>
+  <div class="estampa__hueco">
+    <span class="estampa__hueco-numero">DT</span>
+    <i class="bi bi-person-workspace"></i>
+    <span class="estampa__hueco-nombre">{{ t.nombre }}</span>
+    <span class="estampa__hueco-posicion">{{ 'Dirige hoy' if t.en_funciones else 'Técnico' }}</span>
+  </div>
+</div>
+{%- endmacro %}
+
 {# Casillero vacío de árbitro: marco dorado punteado con nombre y puesto #}
 {% macro vacia_arbitro(a) -%}
-<div class="estampa estampa--vacia estampa--vacia-arbitro" title="Te falta la estampa dorada de {{ a.nombre }}">
+<div class="estampa estampa--vacia estampa--vacia-arbitro" title="Te falta la estampa dorada de {{ a.nombre }} · tocá para canjearla" {{ canje('ARBITRO', a) }}>
   <div class="estampa__hueco">
     <span class="estampa__hueco-numero">{{ a.puesto_corto }}</span>
     <i class="bi bi-person-badge"></i>
@@ -205,7 +249,7 @@
 
 {# Casillero vacío de una foto de equipo (horizontal) #}
 {% macro vacia_equipo(f) -%}
-<div class="estampa estampa--vacia estampa--horizontal estampa--vacia-equipo" title="Te falta la foto de equipo: {{ f.nombre }}">
+<div class="estampa estampa--vacia estampa--horizontal estampa--vacia-equipo" title="Te falta la foto de equipo: {{ f.nombre }} · tocá para canjearla" {{ canje('EQUIPO', f, f.nombre ~ ' de ' ~ f.pais_nombre) }}>
   <div class="estampa__hueco">
     <i class="bi bi-people"></i>
     <span class="estampa__hueco-nombre">{{ f.nombre }}</span>
@@ -238,7 +282,7 @@
 {%- endmacro %}
 
 {% macro vacia_mundial(x, ed) -%}
-<div class="estampa estampa--vacia estampa--vacia-mundial" title="Te falta: {{ x.nombre }}">
+<div class="estampa estampa--vacia estampa--vacia-mundial" title="Te falta: {{ x.nombre }} · tocá para canjearla" {{ canje('MUNDIAL', x) }}>
   <div class="estampa__hueco">
     <span class="estampa__hueco-numero">{{ ed.anio }}</span>
     <i class="bi {{ 'bi-image' if x.tipo == 'poster' else 'bi-emoji-smile' }}"></i>

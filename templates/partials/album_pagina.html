@@ -102,7 +102,7 @@
             {% for icono, etiqueta, tengo, total in [
                 ('bi-shield-fill', 'Escudo', 1 if h.escudo else 0, 1),
                 ('bi-building', 'Sedes', h.ciudades, h.total_ciudades),
-                ('bi-person-fill', 'Plantel', h.jugadores, h.total_jugadores)] + ([('bi-people-fill', 'Fotos', h.fotos, h.total_fotos)] if h.total_fotos else []) + ([('bi-award-fill', 'Leyendas', h.leyendas, h.total_leyendas)] if h.total_leyendas else []) %}
+                ('bi-person-fill', 'Plantel', h.jugadores, h.total_jugadores)] + ([('bi-people-fill', 'Fotos', h.fotos, h.total_fotos)] if h.total_fotos else []) + ([('bi-award-fill', 'Leyendas', h.leyendas, h.total_leyendas)] if h.total_leyendas else []) + ([('bi-clipboard-check', 'Técnicos', h.tecnicos, h.total_tecnicos)] if h.total_tecnicos else []) %}
             <div class="album-hoja__dato {{ 'album-hoja__dato--lleno' if tengo == total }}">
                 <i class="bi {{ icono }}"></i>
                 <span><small>{{ etiqueta }}</small><strong>{{ tengo }}</strong>/{{ total }}</span>
@@ -132,9 +132,17 @@
         {% for j in h.plantel %}{% if j.obtenida %}{{ e.jugador(j, h.pais_id, h.bandera) }}{% else %}{{ e.vacia(j) }}{% endif %}{% endfor %}
     </div>
 
+    {% if h.tecnicos_estampa %}
+    <h3 class="album-hoja__seccion album-hoja__seccion--tecnicos"><i class="bi bi-clipboard-check"></i>Cuerpo técnico <span>{{ h.tecnicos }}/{{ h.total_tecnicos }}</span></h3>
+    <p class="album-hoja__nota">Los técnicos de la federación de {{ h.nombre }}: uno dirige hoy y los demás esperan su turno.</p>
+    <div class="album-grilla">
+        {% for t in h.tecnicos_estampa %}{% if t.obtenida %}{{ e.tecnico(t) }}{% else %}{{ e.vacia_tecnico(t) }}{% endif %}{% endfor %}
+    </div>
+    {% endif %}
+
     {% if h.leyendas_estampa %}
     <h3 class="album-hoja__seccion album-hoja__seccion--leyendas"><i class="bi bi-award-fill"></i>Leyendas <span>{{ h.leyendas }}/{{ h.total_leyendas }}</span></h3>
-    <p class="album-hoja__nota">El once histórico de {{ h.nombre }}. Es una colección aparte: no hace falta para completar la página.</p>
+    <p class="album-hoja__nota">El once histórico de {{ h.nombre }}.</p>
     {% if h.foto_leyendas %}
     <div class="album-grilla album-grilla--fotos mb-3">
         {% if h.foto_leyendas.obtenida %}{{ e.equipo(h.foto_leyendas, h.leyendas_estampa) }}{% else %}{{ e.vacia_equipo(h.foto_leyendas) }}{% endif %}

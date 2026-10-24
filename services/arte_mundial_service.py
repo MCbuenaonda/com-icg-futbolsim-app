@@ -226,5 +226,32 @@ def historico() -> List[dict]:
     return [x for x in (arte_de(m["anio"]) for m in db["mundiales"].find({"arte": {"$exists": True}}, {"anio": 1}).sort("anio", -1)) if x]
 
 
+_cache_tema: Dict[int, dict] = {}
+
+
+def tema_sede(pais_id) -> dict:
+    """
+    Colores del encabezado del inicio a partir de la bandera REAL del anfitrión (paises.colores, misma paleta que el
+    póster): fondo en degradé del color dominante oscurecido, franja diagonal y detalles en el color de acento, y el
+    título en el acento si se lee bien sobre el fondo (si no, oro). Variables CSS --sede-*.
+    """
+    if pais_id in _cache_tema:
+        return _cache_tema[pais_id]
+    from services.arte_mundial import paleta as PA
+    pais = db["paises"].find_one({"id": pais_id}, {"colores": 1}) or {}
+    p = PA.de_bandera(pais.get("colores") or [])
+    # el fondo siempre oscuro (texto blanco legible con cualquier bandera): el dominante bajado a un tono profundo
+    factor = 0.75
+    while factor > 0.2 and PA.luminancia(PA.oscurecer(p["dominante"], factor)) > 0.035:
+        factor -= 0.03
+    fondo = PA.oscurecer(p["dominante"], factor)
+    fondo_profundo = PA.oscurecer(p["dominante"], factor * 0.55)
+    acento = p["acento"] if PA.contraste(p["acento"], fondo) >= 4.5 else PA.ORO
+    tema = {"fondo": fondo, "fondo_profundo": fondo_profundo, "brillo": PA.oscurecer(p["dominante"], min(1.0, factor * 1.45)),
+            "acento": acento, "acento_claro": PA.aclarar(acento, 0.55), "acento_oscuro": PA.oscurecer(acento, 0.6)}
+    _cache_tema[pais_id] = tema
+    return tema
+
+
 def etag(svg: str) -> str:
     return hashlib.md5(svg.encode()).hexdigest()

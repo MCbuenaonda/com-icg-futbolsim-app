@@ -41,6 +41,20 @@
 </span>
 {%- endmacro %}
 
+{# Chip con el DT en funciones de una selección (sin enlace: va dentro de tarjetas que ya son links) #}
+{% macro chip_dt(pais_id) -%}
+{%- set dt = dt_de_pais(pais_id) if pais_id else None -%}
+{%- if dt %}<span class="chip-dt" title="Director técnico de la selección"><i class="bi bi-clipboard-check"></i>DT {{ dt.nombre }}</span>{% endif -%}
+{%- endmacro %}
+
+{# Avatar de traje de un director técnico (generar_avatares_tecnicos.py): mismo contenedor que el de jugador #}
+{% macro avatar_tecnico(tecnico_id, pais_id=None, tam='', titulo='') -%}
+{%- set bandera = img_pais(pais_id, 'plana') if pais_id else None -%}
+<span class="avatar-jugador {{ 'avatar-jugador--' ~ tam if tam }}" {% if bandera %}style="--bandera-url: url('{{ bandera }}')"{% endif %} {% if titulo %}title="{{ titulo }}"{% endif %}>
+  <img src="{{ img_tecnico(tecnico_id) }}" alt="" loading="lazy" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'bi bi-person-workspace'}))">
+</span>
+{%- endmacro %}
+
 {#
   Marca de agua de la bandera del país (ícono redondo, 256 px) para tarjetas con .card-logo-fondo:
   va como primer hijo de la tarjeta, detrás del contenido.

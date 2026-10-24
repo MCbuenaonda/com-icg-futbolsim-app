@@ -196,16 +196,18 @@
                 </p>
             </div>
 
-            <!-- Jugadores en Cancha: 11 (o menos, si hay expulsados) por equipo, con un
-                 rating en vivo calculado a partir de las acciones ya reveladas -- ver
-                 calcularEstadoJugadoresEnCancha()/renderJugadoresEnCancha(). Se
-                 actualiza en cada poll junto con el resto de la vista. -->
+            <!-- Jugadores en Cancha: los que están jugando (rating en vivo calculado a partir de las
+                 acciones ya reveladas) y, al final, los que salieron de cambio o expulsados. Íconos de
+                 goles/asistencias/tarjetas/entró-salió y lo que cada jugador y cada selección ocupa en
+                 /estadisticas (GET /matches/live/destacados) -- ver calcularEstadoJugadoresEnCancha()/
+                 renderJugadoresEnCancha(). Se actualiza en cada poll. -->
             <h6 class="vivo-subtitulo mt-4 mb-2"><i class="bi bi-people-fill"></i>Jugadores en Cancha</h6>
             <div class="row g-2">
                 <div class="col-md-6">
                     <div class="card h-100 once-card once-card--local">
                         <div class="card-header d-flex flex-column align-items-center gap-1 py-2 px-2">
                             <span id="onceNombreLocal" class="fw-bold small text-truncate" style="color:#3987e5; max-width:100%;">Local</span>
+                            <div id="onceDestacadosLocal" class="once-destacados-pais d-none"></div>
                             <div class="d-flex align-items-center gap-2 w-100">
                                 <span id="onceMomentumLocal" class="badge rounded-pill bg-secondary">0</span>
                                 <canvas id="onceMomentumChartLocal" height="24" style="flex:1; min-width:0;"></canvas>
@@ -218,6 +220,7 @@
                     <div class="card h-100 once-card once-card--visitante">
                         <div class="card-header d-flex flex-column align-items-center gap-1 py-2 px-2">
                             <span id="onceNombreVisitante" class="fw-bold small text-truncate" style="color:#e66767; max-width:100%;">Visitante</span>
+                            <div id="onceDestacadosVisitante" class="once-destacados-pais d-none"></div>
                             <div class="d-flex align-items-center gap-2 w-100">
                                 <span id="onceMomentumVisitante" class="badge rounded-pill bg-secondary">0</span>
                                 <canvas id="onceMomentumChartVisitante" height="24" style="flex:1; min-width:0;"></canvas>

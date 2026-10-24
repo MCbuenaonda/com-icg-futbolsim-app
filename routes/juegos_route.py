@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from services.juegos_service import obtener_juegos_programados, enriquecer_juegos_programados, armar_detalle_partido, obtener_juego_activo, obtener_juegos_calendario, armar_eventos_calendario, resaltar_jugadores_en_descripcion
+from services.juegos_service import obtener_juegos_programados, enriquecer_juegos_programados, armar_detalle_partido, obtener_juego_activo, obtener_juegos_calendario, armar_eventos_calendario, resaltar_jugadores_en_descripcion, resaltar_cronica
+from services.cronica_service import asegurar_cronica
 from services.auth_service import context_usuario_actual, obtener_usuario_actual, tiene_permiso
 from services.imagenes_pais_service import GLOBALES_JINJA
 from services.juego_en_vivo_service import sesiones_pendientes_usuario
@@ -20,6 +21,7 @@ db = client.get_database('mundial')
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
 templates.env.globals.update(GLOBALES_JINJA)
 templates.env.filters["resaltar_jugadores"] = resaltar_jugadores_en_descripcion
+templates.env.filters["resaltar_cronica"] = resaltar_cronica
 route = APIRouter(prefix=PREFIX_JUEGOS_PATH, tags=["Juegos"])
 tag='Mundial'
 
@@ -157,10 +159,12 @@ async def juego(request: Request, id: str):
             return RedirectResponse(url=request.url_for("live_match_view"), status_code=303)
 
         detalle = armar_detalle_partido(juego) if juego and juego.get("resultado") else None
+        # Crónica escrita a partir de la cronología (se genera y guarda la primera vez que se abre el partido)
+        cronica = asegurar_cronica(juego) if juego and juego.get("resultado") else None
         return templates.TemplateResponse(
             request=request,
             name="resumen.html",
-            context={"partido": juego, "detalle": detalle}
+            context={"partido": juego, "detalle": detalle, "cronica": cronica}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")

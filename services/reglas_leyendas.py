@@ -31,12 +31,16 @@ def sector(jugador: dict) -> str:
     return SECTOR_POR_POSICION.get(jugador.get("posicion_id"), "Medio")
 
 
-def sectores_para_leyendas(rng=random) -> set:
+def sectores_para_leyendas(rng=random, pesos=None) -> set:
     """
-    Líneas que arrancan con leyenda este partido: el DT sortea CUÁNTAS (0 a 3, misma probabilidad) y en
+    Líneas que arrancan con leyenda este partido: el DT decide CUÁNTAS (0 a 3; `pesos` sale de su
+    confianza en las leyendas, services/tecnicos.pesos_cantidad_leyendas; sin DT, misma probabilidad) y en
     qué líneas (sin repetir). Las demás leyendas quedan en el banco y pueden entrar de cambio.
     """
-    cantidad = rng.randint(0, MAX_LEYENDAS_EN_CANCHA)
+    if pesos:
+        cantidad = rng.choices(range(MAX_LEYENDAS_EN_CANCHA + 1), weights=pesos)[0]
+    else:
+        cantidad = rng.randint(0, MAX_LEYENDAS_EN_CANCHA)
     return set(rng.sample(SECTORES, cantidad))
 
 

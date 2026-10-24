@@ -9,16 +9,16 @@
 
 {% block content %}
 {#
-  Perfil de un árbitro: encabezado con su avatar y la bandera de su país, cómo dirige como central
-  (anillos + comparación con el promedio de todos los centrales, arbitros_service.comparar_con_colegas),
-  resultados que dirigió, partidos por rol y la bitácora de partidos.
+  Perfil de un árbitro: encabezado con su avatar y la bandera de su país; sus números según su PUESTO (central:
+  anillos, severidad y resultados; línea / 4to / VAR: sus acciones y la comparación con los colegas del mismo puesto,
+  arbitros_service.comparar_con_colegas), partidos por rol y la bitácora con lo que hizo en cada partido.
 #}
-<a href="{{ url_for('arbitros') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 mb-3"><i class="bi bi-arrow-left me-1"></i>Volver a árbitros</a>
+<a href="{{ url_for('arbitros') }}{% if arbitro %}?puesto={{ arbitro.rol }}{% endif %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 mb-3"><i class="bi bi-arrow-left me-1"></i>Volver a árbitros</a>
 
 {% if not arbitro %}
 <div class="album-vacio"><i class="bi bi-person-badge"></i><p class="mb-0">No hay partidos registrados para «{{ nombre }}».</p></div>
 {% else %}
-{% set c = arbitro.central %}{% set k = comparativa or {} %}
+{% set c = arbitro.central %}{% set k = comparativa or {} %}{% set n = arbitro.numeros %}
 {% set bandera_url = img_pais(arbitro.pais_id, 'bandera') if arbitro.pais_id else None %}
 {% set severo = k.pct_mas_estricto is defined and k.pct_mas_estricto >= 66 %}
 {% set permisivo = k.pct_mas_estricto is defined and k.pct_mas_estricto <= 33 %}
@@ -33,6 +33,10 @@
             <div class="col-12 col-md min-w-0 text-center text-md-start">
                 <div class="d-flex justify-content-center justify-content-md-start flex-wrap gap-2 mb-1">
                     {% if arbitro.puesto %}<span class="resumen-chip"><i class="bi bi-person-badge"></i>{{ arbitro.puesto }}</span>{% endif %}
+                    {% if n.rigor_etiqueta == 'estricto' %}<span class="arbitro-rigor arbitro-rigor--estricto m-0">Rigor {{ n.rigor }} · estricto</span>
+                    {% elif n.rigor_etiqueta == 'permisivo' %}<span class="arbitro-rigor arbitro-rigor--permisivo m-0">Rigor {{ n.rigor }} · permisivo</span>{% endif %}
+                    {% if n.intervencion_etiqueta %}<span class="arbitro-rigor arbitro-rigor--{{ 'estricto' if n.intervencion_etiqueta == 'intervencionista' else ('permisivo' if n.intervencion_etiqueta == 'deja correr' else 'neutro') }} m-0" title="Multiplica la probabilidad de revisar una jugada">🖥️ {{ n.intervencion_etiqueta | capitalize }} · ×{{ n.intervencion }}</span>{% endif %}
+                    {% if n.severidad_etiqueta %}<span class="arbitro-rigor arbitro-rigor--{{ 'implacable' if n.severidad_etiqueta == 'implacable' else ('respeta' if n.severidad_etiqueta == 'respeta al campo' else 'neutro') }} m-0" title="Multiplica la probabilidad de dar por malo lo marcado en el campo">⚖️ {{ n.severidad_etiqueta | capitalize }} · ×{{ n.severidad }}</span>{% endif %}
                     {% if severo %}<span class="arbitro-perfil-etiqueta arbitro-perfil-etiqueta--estricto">🟨 Mano dura</span>
                     {% elif permisivo %}<span class="arbitro-perfil-etiqueta arbitro-perfil-etiqueta--permisivo">🕊️ Deja jugar</span>{% endif %}
                 </div>
@@ -40,7 +44,7 @@
                 <div class="perfil-jugador-datos justify-content-center justify-content-md-start">
                     <span class="perfil-dato">{% if arbitro.pais_id %}{{ m.bandera('', pais_id=arbitro.pais_id) }}{% else %}<i class="bi bi-flag-fill"></i>{% endif %}<span><small>País</small>{{ arbitro.pais or 'Desconocido' }}</span></span>
                     <span class="perfil-dato"><i class="bi bi-calendar3 text-info"></i><span><small>Partidos</small>{{ arbitro.total_partidos }}</span></span>
-                    {% if k.ranking_partidos %}<span class="perfil-dato"><i class="bi bi-bar-chart-fill text-warning"></i><span><small>Más activo</small>#{{ k.ranking_partidos }} de {{ k.total_centrales }}</span></span>{% endif %}
+                    {% if k.ranking_partidos %}<span class="perfil-dato"><i class="bi bi-bar-chart-fill text-warning"></i><span><small>Más activo</small>#{{ k.ranking_partidos }} de {{ k.total_colegas }}</span></span>{% endif %}
                 </div>
             </div>
         </div>
@@ -83,6 +87,36 @@
         </div>
     </div>
 </div>
+{% elif n.partidos %}
+<!-- Sus números en el puesto (línea, 4to, VAR) -->
+{% if arbitro.rol in ('linea1', 'linea2') %}
+{% set kpis = [('Partidos', n.partidos, 'como ' ~ arbitro.rol_nombre, '#22c55e', 100),
+               ('Fueras de lugar', n.offsides, n.offsides_prom ~ ' por partido', '#38bdf8', k.pct or 0),
+               ('Córners señalados', n.corners, n.corners_prom ~ ' por partido', '#a855f7', [100, n.corners * 10] | min),
+               ('Por partido', n.offsides_prom, 'fueras de lugar · puesto: ' ~ k.liga, '#f97316', k.pct or 0)] %}
+{% elif arbitro.rol == 'cuarto' %}
+{% set kpis = [('Partidos', n.partidos, 'como 4to árbitro', '#22c55e', 100),
+               ('Cambios anunciados', n.cambios, n.cambios_prom ~ ' por partido', '#a855f7', k.pct or 0),
+               ('Revisiones pedidas', n.revisiones_pedidas, 'al VAR', '#22d3ee', [100, n.revisiones_pedidas * 25] | min),
+               ('Tiempo añadido', (n.anadido_prom ~ "'") if n.carteles else '—', (n.carteles ~ ' carteles levantados') if n.carteles else 'sin carteles todavía', '#f97316', [100, n.anadido_prom * 15] | min)] %}
+{% else %}
+{% set kpis = [('Partidos', n.partidos, 'en la sala VAR', '#22c55e', 100),
+               ('Revisiones', n.revisiones, 'jugadas revisadas', '#22d3ee', k.pct or 0),
+               ('Dio por bueno', n.confirmadas, 'confirmó lo marcado', '#22c55e', (100 * n.confirmadas / n.revisiones) | round if n.revisiones else 0),
+               ('Dio por malo', n.revertidas, (n.goles_anulados ~ (' gol anulado' if n.goles_anulados == 1 else ' goles anulados')), '#ef4444', n.pct_revertidas)] %}
+{% endif %}
+<div class="row row-cols-2 row-cols-lg-4 g-3 mb-4">
+    {% for titulo, valor, sub, color, pct in kpis %}
+    <div class="col">
+        <div class="card h-100 card-logo-fondo kpi-logo-fondo ficha-pais__kpi" style="--logo-color: {{ color }};">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="anillo-kpi" style="--pct: {{ pct }};"><span>{{ valor }}</span></div>
+                <div class="min-w-0"><span class="text-muted fs-8 text-uppercase fw-semibold d-block">{{ titulo }}</span><small class="text-secondary">{{ sub }}</small></div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
 {% endif %}
 
 <div class="row g-4 mb-4">
@@ -113,11 +147,23 @@
         </div>
         {% endif %}
 
+        {% if not c.partidos and k.metrica %}
+        <!-- Comparado con sus colegas del mismo puesto -->
+        <div class="card card-logo-fondo card-seccion" style="--logo-color: #38bdf8;">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="vivo-titulo"><i class="bi bi-people-fill text-info"></i>Frente a sus colegas</h2>
+                <p class="text-muted small mb-2">{{ k.metrica }}: <strong class="text-white">{{ k.valor }}</strong> {{ k.unidad }} (promedio del puesto: {{ k.liga }}). Supera al <strong class="text-white">{{ k.pct }}%</strong> de sus {{ k.total_colegas }} colegas del mismo puesto ({{ arbitro.rol_nombre }}).</p>
+                <div class="termometro-arbitro" style="--pct: {{ k.pct }};"><span class="termometro-arbitro__marca" title="{{ k.pct }}%"></span></div>
+                <div class="d-flex justify-content-between small text-muted mt-1"><span>Menos</span><span>Más</span></div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Partidos por rol -->
         <div class="card card-logo-fondo card-seccion" style="--logo-color: #94a3b8;">
             <div class="card-body p-3 p-md-4">
                 <h2 class="vivo-titulo"><i class="bi bi-diagram-3-fill text-secondary"></i>Partidos por rol</h2>
-                <div class="historial-fichas historial-fichas--4">
+                <div class="historial-fichas historial-fichas--5">
                     {% for r in arbitro.por_rol %}
                     <div class="historial-ficha {{ 'historial-ficha--activa' if r.partidos }}"><span>{{ r.rol }}</span><strong>{{ r.partidos }}</strong></div>
                     {% endfor %}
@@ -131,10 +177,10 @@
         <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: #38bdf8;">
             <img src="{{ imagen_perfil('bitacora') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
             <div class="card-body p-3 p-md-4">
-                <h2 class="vivo-titulo"><i class="bi bi-journal-text text-info"></i>Partidos dirigidos <span class="vivo-contador">{{ arbitro.partidos | length }}</span></h2>
+                <h2 class="vivo-titulo"><i class="bi bi-journal-text text-info"></i>Sus partidos <span class="vivo-contador">{{ arbitro.partidos | length }}</span></h2>
                 <div class="d-flex flex-column gap-2">
                     {% for p in arbitro.partidos %}
-                    <a href="/juegos/{{ p.id }}" class="partido-arbitro {{ 'partido-arbitro--central' if p.es_central }}">
+                    <a href="/juegos/{{ p.id }}" class="partido-arbitro {{ 'partido-arbitro--central' if p.es_principal }}">
                         <div class="partido-arbitro__equipos">
                             <span class="text-truncate">{{ m.bandera(p.local.bandera, pais_id=p.local.id) }} {{ p.local.nombre }}</span>
                             <span class="ticket__marcador">{{ p.local.goles }}-{{ p.visitante.goles }}</span>
@@ -143,13 +189,9 @@
                         <div class="partido-arbitro__meta">
                             <span class="partido-arbitro__rol">{{ p.rol }}</span>
                             <small>{{ p.fase }} · {{ p.fecha }}</small>
-                            {% if p.es_central %}
                             <span class="ms-auto partido-arbitro__chips">
-                                <span class="bitacora-chip">🛑 {{ p.faltas }}</span>
-                                <span class="bitacora-chip">🟨 {{ p.tarjetas }}</span>
-                                {% if p.expulsiones %}<span class="bitacora-chip">🟥 {{ p.expulsiones }}</span>{% endif %}
+                                {% for chip in p.chips %}<span class="bitacora-chip">{{ chip }}</span>{% endfor %}
                             </span>
-                            {% endif %}
                         </div>
                     </a>
                     {% endfor %}

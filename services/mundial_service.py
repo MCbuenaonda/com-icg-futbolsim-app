@@ -133,7 +133,15 @@ def crear_nuevo_mundial() -> Dict[str, Any]:
         generar_para({**nuevo_mundial_doc, "_id": resultado.inserted_id})
     except Exception as e:
         print(f"No se pudo generar el arte del Mundial: {e}")
-    
+
+    # 5c. Directores técnicos (services/tecnicos_service.py): las selecciones sin DT sortean uno entre los 5 de su
+    # federación; las que ya tienen siguen con el suyo (la carrera de los técnicos es permanente). Nunca lanza.
+    try:
+        from services.tecnicos_service import asegurar_dt_en_todos
+        asegurar_dt_en_todos(nuevo_mundial_doc["_id"])
+    except Exception as e:
+        print(f"No se pudieron asignar los técnicos: {e}")
+
     # 6. Poblar la colección 'internacional' con los países participantes
     poblar_paises_internacional(db, 1, nuevo_mundial_doc["_id"])
     
@@ -318,6 +326,8 @@ def restart_mundial():
     # arte de los Mundiales (arte_mundial_service): se va con ellos; el nuevo Mundial estrena póster y mascota
     db["arte_mundial"].delete_many({})
     db["arte_mundial_usado"].delete_many({})
+    db["probabilidades_mundial"].delete_many({})   # probabilidades de clasificar (probabilidades_service)
+    db["probabilidades_candado"].delete_many({})
     inter_coll.delete_many({})
     juegos_coll.delete_many({})
     historial_coll.delete_many({})

@@ -27,6 +27,7 @@ SECCIONES = [
     ("scouter", "Scouter Pre-partido", "Torneo", "Análisis y probabilidades antes de cada partido"),
     ("aficionados", "Popularidad", "Torneo", "Ranking de aficionados por selección"),
     ("arbitros", "Árbitros", "Torneo", "Directorio y perfil de árbitros con sus estadísticas"),
+    ("tecnicos", "Directores técnicos", "Torneo", "Directorio, perfil y cambios de técnico de cada selección"),
     # --- Mi Juego (meta-juego con saldo) ---
     ("juego_en_vivo", "Juego en Vivo", "Mi Juego", "Elegir país y jugar puntos durante la transmisión"),
     ("quinielas", "Quinielas", "Mi Juego", "Comprar y ver boletos de quiniela"),
@@ -59,7 +60,7 @@ def secciones_por_grupo():
 
 # Roles que siembra configurar_roles.py ('admin' es de sistema: no se borra ni se recorta)
 ROL_ADMIN = "admin"
-_CONSULTA = ["inicio", "partidos", "cuadro", "en_vivo", "paises", "estadisticas", "cara_a_cara", "palmares", "scouter", "aficionados", "arbitros"]
+_CONSULTA = ["inicio", "partidos", "cuadro", "en_vivo", "paises", "estadisticas", "cara_a_cara", "palmares", "scouter", "aficionados", "arbitros", "tecnicos"]
 _META_JUEGO = ["juego_en_vivo", "quinielas", "selecciones", "sedes", "once_ideal", "album", "misiones", "ranking_usuarios", "niveles", "corporativos", "asistente"]
 ROLES_INICIALES = [
     {"codigo": ROL_ADMIN, "nombre": "Administrador", "descripcion": "Acceso total, incluida la gestión de usuarios", "permisos": [PERMISO_TODO], "es_sistema": True},
@@ -73,7 +74,7 @@ ROL_POR_DEFECTO = "jugador"
 URL_SECCION = {
     "inicio": "/", "partidos": "/juegos/", "cuadro": "/cuadro/", "en_vivo": "/en-vivo/",
     "paises": "/paises/", "estadisticas": "/estadisticas/", "cara_a_cara": "/cara-a-cara/",
-    "palmares": "/palmares/", "aficionados": "/aficionados/", "arbitros": "/arbitros/", "juego_en_vivo": "/en-vivo/",
+    "palmares": "/palmares/", "aficionados": "/aficionados/", "arbitros": "/arbitros/", "tecnicos": "/tecnicos/", "juego_en_vivo": "/en-vivo/",
     "ranking_usuarios": "/ranking/",
     "quinielas": "/quinielas/", "selecciones": "/selecciones/mercado", "sedes": "/sedes/directorio",
     "once_ideal": "/once-ideal/", "album": "/album-estampas/sobres", "misiones": "/misiones/", "niveles": "/niveles/", "corporativos": "/corporativo/", "asistente": "/asistente/",

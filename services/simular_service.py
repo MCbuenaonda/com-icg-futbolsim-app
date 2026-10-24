@@ -4,7 +4,7 @@ from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
 from collections import defaultdict
 import random
-from services import reglas_leyendas, desgaste
+from services import reglas_leyendas, desgaste, arbitraje, tecnicos
 
 TACTICAS = ["4-3-3", "4-4-2", "3-5-2"]
 
@@ -25,6 +25,19 @@ POSICIONES = {
 # y se resuelven como tiro libre (ver ejecutar_tiro_libre) -- el resto sigue el flujo normal
 # de falta (la pelota queda con el equipo infringido, sin remate).
 PROB_TIRO_LIBRE_PELIGROSO = 0.30
+# Falta en el tercio de ataque que fue DENTRO del área: penal en juego (lo cobra el central, el VAR puede revisarlo)
+PROB_PENAL_FALTA_ATAQUE = 0.011
+# Fuera de lugar por posesión en zona de ataque (antes 0.05 = ~20 por partido; el real es 3-5)
+PROB_FUERA_DE_LUGAR = 0.0095
+# Roja directa que cobra el central, y la que ve solo el VAR sobre una falta simple (ambas x agresividad x rigor)
+PROB_ROJA_DIRECTA = 0.0049
+# Conversión base del duelo rematador vs arquero (antes 0.32 fijo): recalibrada con Monte Carlo al sumar el tiempo
+# añadido y los penales en juego, para que los goles por partido no cambien
+BASE_GOL_REMATE = 0.233
+# Con el tiempo añadido se juegan ~6' más: faltas y tarjetas se compensan para que el promedio por partido no cambie
+AJUSTE_TARJETAS_DESCUENTO = 0.96
+AJUSTE_FALTAS_DESCUENTO = 0.88
+PROB_ROJA_VAR_NO_VISTA = 0.0015
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -37,9 +50,7 @@ db = client.get_database('mundial')
 # random.choice([0.5, 1.0]) que usaba el bucle anterior. El campo "minuto" persistido sigue
 # existiendo como entero (minuto = segundos_acumulados // 60) para no romper a ningún
 # consumidor existente (templates, calcular_intensidad_partido, badgeMinuto, etc.).
-DURACION_TIEMPO_REGLAMENTARIO = 5400  # 90' = 2 x 2700s
-DURACION_MEDIO_TIEMPO = 2700          # cierre cosmético del 1er tiempo, ver construir_evento
-DURACION_TIEMPO_EXTRA = 7200          # 120' si hay alargue
+# Los periodos (45' + añadido, alargue 15' + 15') y el tiempo añadido viven en services/arbitraje.py.
 
 RANGO_SEGUNDOS_TRANSICION = (4, 8)        # pase / pase_profundo / despeje / regate
 RANGO_SEGUNDOS_ATAQUE_REMATE = (3, 7)     # build-up + tiro / córner / tiro libre (el remate en sí)
@@ -83,7 +94,8 @@ def _posicion_balon_sintetica(zona_balon: str, tipo: str = None) -> dict:
     return {"x": round(random.uniform(x_min, x_max), 1), "y": round(random.uniform(y_min, y_max), 1)}
 
 def construir_evento(segundos_acumulados: float, equipo: str, tipo: str, descripcion: str,
-                      jugadores: list, zona_balon: str, es_preparacion: bool = False) -> dict:
+                      jugadores: list, zona_balon: str, es_preparacion: bool = False,
+                      periodo: int = None, arbitro_rol: str = None, arbitros: dict = None, **extra) -> dict:
     """
     Arma un evento de 'eventos_visibles' con la forma completa (campos de siempre +
     'segundos_acumulados'/'zona'/'posicion_balon' nuevos). Reemplaza a los dict literales
@@ -103,13 +115,15 @@ def construir_evento(segundos_acumulados: float, equipo: str, tipo: str, descrip
     }
     if es_preparacion:
         evento["es_preparacion"] = True
+    # 'periodo'/'adicional' definitivos los pone arbitraje.aplicar_reloj al final del partido; acá solo los eventos
+    # del cambio de periodo lo fijan (caen en el mismo segundo en que empieza el siguiente)
+    if periodo:
+        evento["periodo"] = periodo
+    if arbitro_rol:
+        evento["arbitro_rol"] = arbitro_rol
+        evento["arbitro"] = (arbitros or {}).get(arbitro_rol)
+    evento.update(extra)
     return evento
-
-def hay_revision_var(prob: float = 0.05) -> bool:
-    """Probabilidad de que una jugada polémica (gol, penal, posible roja directa) pase por
-    revisión del VAR -- mismo 5% que ya usaba el chequeo de gol, generalizado para reusarlo
-    también en penal y roja directa."""
-    return random.random() < prob
 
 # funcion para obtener un jugador oponente segun la zona del balon
 def obtener_oponente_segun_zona(equipo_defensor: dict, zona_balon: str):
@@ -218,7 +232,7 @@ FRASES_PREPARACION_CORNER = [
 ]
 
 # funcion para seleccionar plantilla titular
-def seleccionar_plantilla_titular(plantilla_db: list, esquema="4-3-3") -> list:
+def seleccionar_plantilla_titular(plantilla_db: list, esquema="4-3-3", pesos_leyendas=None) -> list:
     """
     Un titular por posición (posicion_id 1..11, cada uno en la línea que marca la formación).
     Leyendas (ver services/reglas_leyendas.py): el DT sortea cuántas arrancan (0 a 3) y en qué
@@ -232,7 +246,7 @@ def seleccionar_plantilla_titular(plantilla_db: list, esquema="4-3-3") -> list:
     jugadores_disponibles = [j for j in plantilla_db if not reglas_leyendas.es_leyenda(j)]
 
     leyenda_por_posicion = {}
-    for sector in reglas_leyendas.sectores_para_leyendas():
+    for sector in reglas_leyendas.sectores_para_leyendas(pesos=pesos_leyendas):
         del_sector = [j for j in leyendas if reglas_leyendas.sector(j) == sector]
         if del_sector:
             elegida = random.choice(del_sector)
@@ -259,7 +273,8 @@ def seleccionar_plantilla_titular(plantilla_db: list, esquema="4-3-3") -> list:
 # -------------------------------------------------------------------------
 # LÓGICA DE TANDA DE PENALTIS (Serie de 5 + Muerte Súbita)
 # -------------------------------------------------------------------------
-def simular_tanda_penaltis(equipo_local, equipo_visitante, portero_local, portero_visitante, stats_jugadores, eventos_visibles, segundos_acumulados: float, arbitros: dict):
+def simular_tanda_penaltis(equipo_local, equipo_visitante, portero_local, portero_visitante, stats_jugadores, eventos_visibles, segundos_acumulados: float, arbitros: dict,
+                           perfil_var: dict = None):
     penaltis_local = 0
     penaltis_visitante = 0
 
@@ -289,7 +304,7 @@ def simular_tanda_penaltis(equipo_local, equipo_visitante, portero_local, porter
     while ronda < 5:
         # Cobro Local
         tirador_l = cobradores_local[ronda % len(cobradores_local)]
-        gol_l, segundos_acumulados = ejecutar_penal(tirador_l, portero_visitante, equipo_local["nombre"], equipo_visitante["nombre"], stats_jugadores, eventos_visibles, segundos_acumulados, arbitros)
+        gol_l, segundos_acumulados = ejecutar_penal(tirador_l, portero_visitante, equipo_local["nombre"], equipo_visitante["nombre"], stats_jugadores, eventos_visibles, segundos_acumulados, arbitros, perfil_var=perfil_var)
         if gol_l: penaltis_local += 1
 
         # Verificación matemática temprana de victoria local
@@ -298,7 +313,7 @@ def simular_tanda_penaltis(equipo_local, equipo_visitante, portero_local, porter
 
         # Cobro Visitante
         tirador_v = cobradores_visita[ronda % len(cobradores_visita)]
-        gol_v, segundos_acumulados = ejecutar_penal(tirador_v, portero_local, equipo_visitante["nombre"], equipo_local["nombre"], stats_jugadores, eventos_visibles, segundos_acumulados, arbitros)
+        gol_v, segundos_acumulados = ejecutar_penal(tirador_v, portero_local, equipo_visitante["nombre"], equipo_local["nombre"], stats_jugadores, eventos_visibles, segundos_acumulados, arbitros, perfil_var=perfil_var)
         if gol_v: penaltis_visitante += 1
 
         # Verificación matemática temprana de victoria visitante
@@ -310,11 +325,11 @@ def simular_tanda_penaltis(equipo_local, equipo_visitante, portero_local, porter
     # --- MUERTE SÚBITA (Si continúan empatados) ---
     while penaltis_local == penaltis_visitante:
         tirador_l = cobradores_local[ronda % len(cobradores_local)]
-        gol_l, segundos_acumulados = ejecutar_penal(tirador_l, portero_visitante, equipo_local["nombre"], equipo_visitante["nombre"], stats_jugadores, eventos_visibles, segundos_acumulados, arbitros)
+        gol_l, segundos_acumulados = ejecutar_penal(tirador_l, portero_visitante, equipo_local["nombre"], equipo_visitante["nombre"], stats_jugadores, eventos_visibles, segundos_acumulados, arbitros, perfil_var=perfil_var)
         if gol_l: penaltis_local += 1
 
         tirador_v = cobradores_visita[ronda % len(cobradores_visita)]
-        gol_v, segundos_acumulados = ejecutar_penal(tirador_v, portero_local, equipo_visitante["nombre"], equipo_local["nombre"], stats_jugadores, eventos_visibles, segundos_acumulados, arbitros)
+        gol_v, segundos_acumulados = ejecutar_penal(tirador_v, portero_local, equipo_visitante["nombre"], equipo_local["nombre"], stats_jugadores, eventos_visibles, segundos_acumulados, arbitros, perfil_var=perfil_var)
         if gol_v: penaltis_visitante += 1
 
         ronda += 1
@@ -322,7 +337,8 @@ def simular_tanda_penaltis(equipo_local, equipo_visitante, portero_local, porter
     return penaltis_local, penaltis_visitante
 
 # funcion para ejecutar un penal individual
-def ejecutar_penal(tirador, portero, nombre_equipo, nombre_equipo_rival, stats_jugadores, eventos_visibles, segundos_acumulados: float, arbitros: dict):
+def ejecutar_penal(tirador, portero, nombre_equipo, nombre_equipo_rival, stats_jugadores, eventos_visibles, segundos_acumulados: float, arbitros: dict,
+                   en_juego: bool = False, perfil_var: dict = None):
     """Ejecuta un penal individual y registra las estadísticas correspondientes.
 
     'nombre_equipo_rival' (el dueño de 'portero') solo se usa para atribuir correctamente el
@@ -348,16 +364,28 @@ def ejecutar_penal(tirador, portero, nombre_equipo, nombre_equipo_rival, stats_j
     ))
     segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_VAR_ROJA_PENAL)
 
-    # --- REVISIÓN DEL VAR (encroachment del arquero, doble toque, etc.) ---
-    if hay_revision_var():
-        if random.choice([True, False]):
+    # --- REVISIÓN DEL VAR: la pide el 4to árbitro, la decide el 5to (ver services/arbitraje.py) ---
+    tipo_rev = "penal" if en_juego else "penal_tanda"
+    perfil_var = perfil_var or {}
+    if arbitraje.debe_revisar(tipo_rev, intervencion=perfil_var.get("intervencion", 1.0)):
+        eventos_visibles.append(construir_evento(
+            segundos_acumulados, nombre_equipo, "🖥️ REVISIÓN VAR",
+            arbitraje.texto_pedido(arbitros, tipo_rev, tirador["nombre"]), [tirador["nombre"]], "ataque"
+        ))
+        if arbitraje.revierte(tipo_rev, severidad=perfil_var.get("severidad", 1.0)):
+            motivo = ("la falta había sido fuera del área" if en_juego else "el cobrador se detuvo de forma antirreglamentaria")
             eventos_visibles.append(construir_evento(
                 segundos_acumulados, nombre_equipo, "🖥️ VAR - PENAL ANULADO",
-                f"El VAR revisa el cobro y {arbitros['central']} anula el penal de {tirador['nombre']}.",
+                f"{arbitros.get('var', 'El VAR')} da por mala la jugada: {motivo}. {arbitros['central']} anula el penal de {tirador['nombre']}.",
                 [tirador["nombre"]], "ataque"
             ))
-            stats_jugadores[tirador["id"]]["tiros_puerta"] += 1
+            if not en_juego:
+                stats_jugadores[tirador["id"]]["tiros_puerta"] += 1
             return False, segundos_acumulados
+        eventos_visibles.append(construir_evento(
+            segundos_acumulados, nombre_equipo, "🖥️ VAR - CONFIRMADO",
+            arbitraje.texto_confirma(arbitros, tipo_rev, tirador["nombre"]), [tirador["nombre"]], "ataque"
+        ))
 
     # En penaltis la efectividad del cobrador es alta (75% base)
     gol = resolver_duelo(0.75, attr_tirador, attr_portero)
@@ -371,6 +399,17 @@ def ejecutar_penal(tirador, portero, nombre_equipo, nombre_equipo_rival, stats_j
         # ejecutar_corner más abajo) -- juntos alimentan "Especialista a Balón Parado" en
         # estadisticas_service.py.
         stats_jugadores[tirador["id"]]["goles_penal"] += 1
+        if en_juego:
+            # Penal durante el partido: es un gol más del marcador ("⚽ GOL" + de_penal), así lo cuentan el marcador
+            # en vivo, las estadísticas y el Juego en Vivo; "⚽ GOL DE PENAL" queda solo para la tanda.
+            stats_jugadores[portero["id"]]["goles_encajados"] += 1
+            eventos_visibles.append(construir_evento(
+                segundos_acumulados, nombre_equipo, "⚽ GOL",
+                random.choice([f"¡Gol de penal! {tirador['nombre']} cruza el remate y {portero['nombre']} no llega.",
+                               f"¡Adentro! {tirador['nombre']} cambia el penal por gol: engañó a {portero['nombre']}."]),
+                [tirador["nombre"], portero["nombre"]], "ataque", de_penal=True
+            ))
+            return True, segundos_acumulados
         eventos_visibles.append(construir_evento(
             segundos_acumulados, nombre_equipo, "⚽ GOL DE PENAL",
             f"¡Gol de {tirador['nombre']} en la tanda de penaltis!",
@@ -387,7 +426,7 @@ def ejecutar_penal(tirador, portero, nombre_equipo, nombre_equipo_rival, stats_j
         eventos_visibles.append(construir_evento(
             segundos_acumulados, nombre_equipo_rival, "❌ PENAL FALLADO",
             f"¡{portero['nombre']} detiene el disparo de {tirador['nombre']}!",
-            [portero["nombre"], tirador["nombre"]], "ataque"
+            [portero["nombre"], tirador["nombre"]], "ataque", **({"en_juego": True} if en_juego else {})
         ))
         return False, segundos_acumulados
 
@@ -570,26 +609,34 @@ def ejecutar_corner(equipo_atacante: dict, equipo_defensor: dict, portero_rival:
         ))
         return "atajado", rematador, segundos_acumulados
 
+def obtener_dt_en_funciones(pais: dict):
+    """(DT en funciones de la selección, partidos que lleva en el cargo) o (None, 0) si no tiene (ver services/tecnicos.py)."""
+    try:
+        if not pais or not pais.get("dt_id"):
+            return None, 0
+        dt = db["directores_tecnicos"].find_one({"id": pais["dt_id"]})
+        cargo = db["dt_cargos"].find_one({"pais_id": pais["id"], "dt_id": pais["dt_id"], "hasta_juego": None}, {"partidos": 1}) or {}
+        return dt, int(cargo.get("partidos", 99))
+    except Exception:
+        return None, 0
+
+
 # funcion para obtener cuarteta arbitral
-def obtener_cuarteta_arbitral():
-    """Selecciona aleatoriamente una cuarteta de árbitros desde la BD."""
-    collection_arbitros = db['arbitros']
-
-    puestos = ["Arbitro central", "Arbitro de línea 1", "Arbitro de línea 2", "4to Arbitro"]
-
-    # Una sola consulta con $in (en vez de un find() separado por cada uno de los 4 puestos)
+def obtener_cuarteta_arbitral(excluir_paises=()):
+    """
+    Cuerpo arbitral del partido: central, dos jueces de línea, 4to árbitro y VAR (5to), de países distintos a los
+    dos equipos. Devuelve ({rol: nombre}, rigor del central, personalidad del VAR {intervencion, severidad}) -- en el
+    partido solo se guardan los nombres (los rasgos son permanentes en 'arbitros').
+    """
     arbitros_por_puesto = defaultdict(list)
-    for arbitro in collection_arbitros.find({"puesto": {"$in": puestos}}):
+    for arbitro in db['arbitros'].find({"puesto": {"$in": list(arbitraje.PUESTOS.values())}},
+                                       {"nombre": 1, "puesto": 1, "pais_id": 1, "rigor": 1, "var_intervencion": 1, "var_severidad": 1}):
         arbitros_por_puesto[arbitro["puesto"]].append(arbitro)
-
-    cuerpo_arbitral = {
-        "central": random.choice(arbitros_por_puesto["Arbitro central"])["nombre"],
-        "linea1": random.choice(arbitros_por_puesto["Arbitro de línea 1"])["nombre"],
-        "linea2": random.choice(arbitros_por_puesto["Arbitro de línea 2"])["nombre"],
-        "cuarto": random.choice(arbitros_por_puesto["4to Arbitro"])["nombre"]
-    }
-
-    return cuerpo_arbitral
+    elegidos = arbitraje.elegir_cuerpo_arbitral(arbitros_por_puesto, set(excluir_paises))
+    cuerpo_arbitral = {rol: a.get("nombre") for rol, a in elegidos.items()}
+    var = elegidos.get("var") or {}
+    perfil_var = {"intervencion": float(var.get("var_intervencion") or 1.0), "severidad": float(var.get("var_severidad") or 1.0)}
+    return cuerpo_arbitral, float(elegidos["central"].get("rigor") or 1.0), perfil_var
 
 # funcion para realizar sustituciones de jugadores
 # Si el equipo va perdiendo y tiene lugar para una leyenda (ver reglas_leyendas.puede_entrar), el DT
@@ -693,7 +740,7 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
 
     eventos_visibles.append(construir_evento(
         segundos_acumulados, equipo["nombre"], "🔄 SUSTITUCIÓN",
-        f"Entra {entra_jugador['nombre']} sustituyendo a {sale_jugador['nombre']}. (Anunciado por el 4to Árbitro: {arbitros['cuarto']})",
+        f"Entra {entra_jugador['nombre']} sustituyendo a {sale_jugador['nombre']}. (El 4to árbitro, {arbitros['cuarto']}, levanta el tablero)",
         [entra_jugador["nombre"], sale_jugador["nombre"]], zona_balon
     ))
 
@@ -711,7 +758,8 @@ def generar_opinion_partido(resultado: dict, stats_jugadores: dict) -> str:
 
     # Contadores de métricas globales del partido
     total_rojas = sum(1 for e in resultado["eventos"] if "ROJA" in e["tipo"])
-    total_var = sum(1 for e in resultado["eventos"] if "VAR" in e["tipo"])
+    # solo las decisiones que el VAR dio por malas (las confirmaciones no cambian nada)
+    total_var = sum(1 for e in resultado["eventos"] if e.get("var_decision") == "revierte" or "ANULADO" in e["tipo"])
 
     # 1. Calificación de la emoción / ritmo del juego
     if total_goles >= 5:
@@ -983,17 +1031,24 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     pais_visitante = collection_paises.find_one({"id": id_visitante})
 
     # Cargar Árbitros
-    arbitros = obtener_cuarteta_arbitral()
+    arbitros, rigor_central, perfil_var = obtener_cuarteta_arbitral((id_local, id_visitante))
+    var_revisa, var_revierte = perfil_var["intervencion"], perfil_var["severidad"]
+    rigor = rigor_central * AJUSTE_TARJETAS_DESCUENTO   # lo que multiplica las tarjetas
 
     plantilla_local_temp = list(collection.find({"pais_id": id_local}))
     plantilla_visitante_temp = list(collection.find({"pais_id": id_visitante}))
 
-    tactica_elegida_local = random.choice(TACTICAS)
-    tactica_elegida_visita = random.choice(TACTICAS)
+    # Director técnico de cada lado (services/tecnicos.py): elige la táctica y cuántas leyendas arrancan; sin DT, al azar
+    dt_local, cargo_local = obtener_dt_en_funciones(pais_local)
+    dt_visita, cargo_visita = obtener_dt_en_funciones(pais_visitante)
+    tactica_elegida_local = tecnicos.elegir_tactica(dt_local, TACTICAS)
+    tactica_elegida_visita = tecnicos.elegir_tactica(dt_visita, TACTICAS)
 
     # 11 titulares
-    plantilla_local = seleccionar_plantilla_titular(plantilla_local_temp, esquema=tactica_elegida_local)
-    plantilla_visitante = seleccionar_plantilla_titular(plantilla_visitante_temp, esquema=tactica_elegida_visita)
+    plantilla_local = seleccionar_plantilla_titular(plantilla_local_temp, esquema=tactica_elegida_local,
+                                                    pesos_leyendas=tecnicos.pesos_cantidad_leyendas(dt_local))
+    plantilla_visitante = seleccionar_plantilla_titular(plantilla_visitante_temp, esquema=tactica_elegida_visita,
+                                                        pesos_leyendas=tecnicos.pesos_cantidad_leyendas(dt_visita))
 
     # Nombres del 11 inicial, capturados ANTES de que 'plantilla_local'/'plantilla_visitante'
     # empiecen a mutar con sustituciones/expulsiones (son la misma lista que queda referenciada
@@ -1022,6 +1077,11 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     mod_desgaste = modificadores_clima.get("desgaste", 1.0) or 1.0
     for j in plantilla_local + plantilla_visitante:
         desgaste.iniciar(j)
+    bancos = {pais_local["nombre"]: tecnicos.Banco(dt_local, pais_local["nombre"], cargo_local),
+              pais_visitante["nombre"]: tecnicos.Banco(dt_visita, pais_visitante["nombre"], cargo_visita)}
+    if dt_local or dt_visita:
+        bancos[pais_local["nombre"]].aplicar(plantilla_local)
+        bancos[pais_visitante["nombre"]].aplicar(plantilla_visitante)
 
     # Tácticas por equipo (referenciable por nombre) -- usadas por los bonos de formación, ver
     # BONUS_FORMACION_* más arriba.
@@ -1100,11 +1160,12 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
         [sacador_inicial["nombre"], jugador_con_balon["nombre"]], zona_balon
     ))
 
-    # Duración objetivo: 90' reglamentarios, pasa a 120' si hay tiempo extra (ver evaluación más
-    # abajo). El primer tiempo cierra de forma cosmética al cruzar DURACION_MEDIO_TIEMPO (2700s)
-    # -- un solo bucle continuo, no dos sub-fases separadas (ver plan).
-    duracion_objetivo = DURACION_TIEMPO_REGLAMENTARIO
-    primer_tiempo_cerrado = False
+    # Reloj por periodos con tiempo añadido (services/arbitraje.py): al cumplirse el minuto reglamentario del periodo
+    # el 4to árbitro levanta el cartel y se juega ese descuento; 'inicios' = segundo de la línea de tiempo en que
+    # empezó cada periodo (para pasar de segundos a "minuto + adicional" al final).
+    periodo_actual = 1
+    inicios = {1: 0.0}
+    fin_descuento = None
 
     ultimo_tick_desgaste = 0.0
 
@@ -1117,25 +1178,143 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                 [jf["nombre"]], zona_balon
             ))
 
-    while segundos_acumulados < duracion_objetivo:
+    def _penal_en_juego(infractor, victima):
+        """Falta dentro del área: el central marca penal y patea el especialista (o el mejor) del equipo atacante."""
+        nonlocal segundos_acumulados
+        pateadores = [j for j in equipo_con_balon["plantilla"] if j.get("linea_partido") != 1] or equipo_con_balon["plantilla"]
+        tirador = min(pateadores, key=lambda j: (0 if j.get("especialista_penales") else 1,
+                                                 -(j.get("precision_tiro", 60) + j.get("compostura", 60))))
+        eventos_visibles.append(construir_evento(
+            segundos_acumulados, equipo_con_balon["nombre"], "🎯 PENAL",
+            f"¡Penal! {infractor['nombre']} derriba a {victima['nombre']} dentro del área y {arbitros['central']} señala el punto.",
+            [victima["nombre"], infractor["nombre"]], "ataque"
+        ))
+        gol, segundos_acumulados = ejecutar_penal(
+            tirador, portero_rival, equipo_con_balon["nombre"], equipo_defensor["nombre"], stats_jugadores,
+            eventos_visibles, segundos_acumulados, arbitros, en_juego=True, perfil_var=perfil_var)
+        return "gol" if gol else "atajado"
+
+    def _reloj_periodo():
+        return arbitraje.INICIO_PERIODO[periodo_actual] + (segundos_acumulados - inicios[periodo_actual])
+
+    # --- Director técnico (services/tecnicos.py): ajustes tácticos por minuto y reacciones a lo que pasa ---
+    hay_dt = any(b.activo for b in bancos.values())
+    dt_cursor = len(eventos_visibles)
+    dt_ultimo_minuto = 0
+    dt_ultimo_gol = None
+    equipo_por_nombre = {equipo_local["nombre"]: equipo_local, equipo_visitante["nombre"]: equipo_visitante}
+
+    def _turno_dt():
+        nonlocal dt_cursor, dt_ultimo_minuto, dt_ultimo_gol
+        minuto = _reloj_periodo() / 60.0
+        nuevos = []
+        # 1) reacciones a los eventos narrados desde la última vuelta
+        for e in eventos_visibles[dt_cursor:]:
+            for eq, motivo in tecnicos.motivos_de_evento(e, dt_ultimo_gol, equipo_local["nombre"], equipo_visitante["nombre"]):
+                banco = bancos[eq]
+                banco.pasar_tiempo(minuto)
+                accion_dt = banco.reaccionar(motivo, rigor_central)
+                if accion_dt == "reclamo":
+                    nuevos.append(construir_evento(segundos_acumulados, eq, "🗣️ RECLAMO DEL DT",
+                                                   tecnicos.texto(tecnicos.TEXTOS_RECLAMO, dt=banco.nombre, equipo=eq), [],
+                                                   zona_balon, arbitro_rol="cuarto", arbitros=arbitros, dt_id=banco.dt["id"], dt=banco.nombre))
+                elif accion_dt in ("amonestado", "expulsado"):
+                    tipo = "🟨 DT AMONESTADO" if accion_dt == "amonestado" else "🟥 DT EXPULSADO"
+                    plantillas = tecnicos.TEXTOS_AMONESTADO if accion_dt == "amonestado" else tecnicos.TEXTOS_EXPULSADO
+                    nuevos.append(construir_evento(segundos_acumulados, eq, tipo,
+                                                   tecnicos.texto(plantillas, dt=banco.nombre, equipo=eq, arbitro=arbitros["central"]), [],
+                                                   zona_balon, arbitro_rol="central", arbitros=arbitros, dt_id=banco.dt["id"], dt=banco.nombre))
+                    if accion_dt == "expulsado":
+                        banco.aplicar(equipo_por_nombre[eq]["plantilla"])
+            if e.get("tipo") in tecnicos.TIPOS_GOL:
+                dt_ultimo_gol = e.get("equipo")
+        # 2) ajuste táctico, una vez por minuto de juego (no en el alargue ni en la tanda)
+        if periodo_actual == 2 and int(minuto) > dt_ultimo_minuto:
+            dt_ultimo_minuto = int(minuto)
+            dif_local = (goles_local + goles_ida_local) - (goles_visitante + goles_ida_visita)
+            for eq, dif in ((equipo_local, dif_local), (equipo_visitante, -dif_local)):
+                banco = bancos[eq["nombre"]]
+                banco.pasar_tiempo(minuto)
+                nuevo = banco.evaluar_ajuste(minuto, dif)
+                if nuevo:
+                    banco.aplicar(eq["plantilla"])
+                    nuevos.append(construir_evento(segundos_acumulados, eq["nombre"], "📋 AJUSTE TÁCTICO",
+                                                   tecnicos.texto(tecnicos.TEXTOS_AJUSTE[nuevo], dt=banco.nombre, equipo=eq["nombre"]),
+                                                   [], zona_balon, dt_id=banco.dt["id"], dt=banco.nombre, ajuste=nuevo))
+        eventos_visibles.extend(nuevos)
+        dt_cursor = len(eventos_visibles)
+
+    while True:
+        # --- TIEMPO AÑADIDO Y CAMBIO DE PERIODO ---
+        if fin_descuento is None and _reloj_periodo() >= arbitraje.FIN_PERIODO[periodo_actual]:
+            del_periodo = [e for e in eventos_visibles if e["segundos_acumulados"] >= inicios[periodo_actual]]
+            anadido = arbitraje.calcular_anadido(del_periodo, periodo_actual)
+            fin_descuento = segundos_acumulados + anadido * 60
+            eventos_visibles.append(construir_evento(
+                segundos_acumulados, "Árbitro", "⏱️ TIEMPO AÑADIDO",
+                f"El 4to árbitro ({arbitros['cuarto']}) levanta el cartel: se jugarán al menos {anadido} minuto{'s' if anadido != 1 else ''} más.",
+                [], zona_balon, periodo=periodo_actual, minutos_anadidos=anadido
+            ))
+        if fin_descuento is not None and segundos_acumulados >= fin_descuento:
+            fin_descuento = None
+            if periodo_actual == 1:
+                eventos_visibles.append(construir_evento(
+                    segundos_acumulados, "Árbitro", "🚩 FINAL DEL PRIMER TIEMPO",
+                    f"El árbitro {arbitros['central']} pita el final de la primera mitad. {equipo_local['nombre']} {goles_local} - {goles_visitante} {equipo_visitante['nombre']}.",
+                    [], zona_balon, periodo=1
+                ))
+                periodo_actual = 2
+                inicios[2] = segundos_acumulados
+                # Saca del medio el equipo que no sacó en el primer tiempo
+                equipo_con_balon, equipo_defensor = equipo_visitante, equipo_local
+                medios = [j for j in equipo_con_balon["plantilla"] if j.get("linea_partido") == 3]
+                jugador_con_balon = random.choice(medios if medios else equipo_con_balon["plantilla"])
+                zona_balon = "medio"
+                posible_asistente = None
+                eventos_visibles.append(construir_evento(
+                    segundos_acumulados, equipo_con_balon["nombre"], "🔵 COMIENZA EL SEGUNDO TIEMPO",
+                    f"¡Arranca el complemento! {equipo_con_balon['nombre']} mueve del medio con {jugador_con_balon['nombre']}.",
+                    [jugador_con_balon["nombre"]], zona_balon, periodo=2
+                ))
+                continue
+            if periodo_actual == 2 and tiempo_extra and hay_empate_global():
+                max_cambios = 6  # Habilitar sexto cambio para la prórroga
+                if marcador_ida:
+                    desc_tiempo_extra = (
+                        f"¡Marcador global {goles_local + goles_ida_local}-{goles_visitante + goles_ida_visita} "
+                        f"(ida {goles_ida_local}-{goles_ida_visita})! Nos vamos a 30 minutos de tiempo extra."
+                    )
+                else:
+                    desc_tiempo_extra = f"¡Empate a {goles_local}! Nos vamos a 30 minutos de tiempo extra."
+                eventos_visibles.append(construir_evento(
+                    segundos_acumulados, "Árbitro", "⏱️ TIEMPO EXTRA", desc_tiempo_extra, [], zona_balon, periodo=2
+                ))
+                periodo_actual = 3
+                inicios[3] = segundos_acumulados
+                continue
+            if periodo_actual == 3:
+                periodo_actual = 4
+                inicios[4] = segundos_acumulados
+                eventos_visibles.append(construir_evento(
+                    segundos_acumulados, "Árbitro", "🔵 SEGUNDO TIEMPO EXTRA",
+                    f"Cambio de lado y se juegan los últimos 15 minutos. {equipo_local['nombre']} {goles_local} - {goles_visitante} {equipo_visitante['nombre']}.",
+                    [], zona_balon, periodo=4
+                ))
+                continue
+            break  # fin del 2º tiempo sin alargue, o del alargue
+
         # --- DESGASTE POR TIEMPO JUGADO (cada ~30s de reloj) ---
         if segundos_acumulados - ultimo_tick_desgaste >= 30:
             _avisar_cansancio(desgaste.paso_del_tiempo(
                 equipo_local["plantilla"] + equipo_visitante["plantilla"], segundos_acumulados - ultimo_tick_desgaste, mod_desgaste))
             ultimo_tick_desgaste = segundos_acumulados
 
+        if hay_dt:
+            _turno_dt()
+
         portero_rival = portero_visitante if equipo_con_balon == equipo_local else portero_local
         defensor_marcador = obtener_oponente_segun_zona(equipo_defensor, zona_balon)
         posicion_jugador = jugador_con_balon.get("linea_partido", 3)
-
-        # --- CIERRE COSMÉTICO DEL 1ER TIEMPO ---
-        if not primer_tiempo_cerrado and segundos_acumulados >= DURACION_MEDIO_TIEMPO:
-            primer_tiempo_cerrado = True
-            eventos_visibles.append(construir_evento(
-                segundos_acumulados, "Árbitro", "🚩 FINAL DEL PRIMER TIEMPO",
-                f"El árbitro {arbitros['central']} pita el final de la primera mitad. {equipo_local['nombre']} {goles_local} - {goles_visitante} {equipo_visitante['nombre']}.",
-                [], zona_balon
-            ))
 
         # --- PROBABILIDAD DE REALIZAR SUSTITUCIÓN ---
         # Solo en paradas de juego reales (después de narrar falta/tarjeta/fuera de
@@ -1144,7 +1323,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
         # distinguir si el juego estaba detenido.
         def _intentar_sustitucion():
             nonlocal segundos_acumulados
-            if segundos_acumulados < DURACION_MEDIO_TIEMPO:
+            if periodo_actual == 1:
                 return
             # Piernas frescas: la probabilidad de cambio sube si un equipo tiene jugadores fundidos, y cambia
             # primero el equipo más cansado
@@ -1164,15 +1343,17 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     equipo_cambio, bancas, cambios_realizados[nombre_eq], max_cambios, segundos_acumulados,
                     stats_jugadores, eventos_visibles, arbitros, zona_balon, va_perdiendo=va_perdiendo
                 )
+                if bancos[nombre_eq].activo:
+                    bancos[nombre_eq].aplicar(equipo_cambio["plantilla"])
                 segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_SUSTITUCION)
 
         # --- EVENTO CASUAL: FUERA DE LUGAR (Marcado por Jueces de Línea) ---
-        if zona_balon == "ataque" and random.random() < 0.05:
-            linea_arbitro = random.choice([arbitros["linea1"], arbitros["linea2"]])
+        if zona_balon == "ataque" and random.random() < PROB_FUERA_DE_LUGAR:
+            rol_linea = arbitraje.rol_juez_de_linea(equipo_con_balon is equipo_local, periodo_actual)
             eventos_visibles.append(construir_evento(
                 segundos_acumulados, equipo_con_balon["nombre"], "🚩 FUERA DE LUGAR",
-                f"El juez de línea ({linea_arbitro}) señala posición adelantada de {jugador_con_balon['nombre']}.",
-                [jugador_con_balon["nombre"]], zona_balon
+                f"El juez de línea ({arbitros[rol_linea]}) señala posición adelantada de {jugador_con_balon['nombre']}.",
+                [jugador_con_balon["nombre"]], zona_balon, arbitro_rol=rol_linea, arbitros=arbitros
             ))
             segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_OFFSIDE)
             equipo_con_balon, equipo_defensor = equipo_defensor, equipo_con_balon
@@ -1275,7 +1456,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                 # (valores calibrados empíricamente -- ver diagnostico_tarjetas.py -- para que el
                 # total de faltas/tarjetas por partido se acerque al promedio real de fútbol,
                 # dado el volumen de iteraciones que corren ahora en el motor de segundos)
-                prob_falta = 0.15 + ((agresividad_def - compostura_def) / 200.0) + mod_faltas
+                prob_falta = (0.15 + ((agresividad_def - compostura_def) / 200.0) + mod_faltas) * arbitraje.factor_faltas(rigor_central) * AJUSTE_FALTAS_DESCUENTO
                 prob_falta = max(0.06, min(0.32, prob_falta))  # Mantener dentro de rangos cuerdos
 
                 # "Pase fallido" del atacante y "recuperación" del defensor solo cuando NO hubo
@@ -1304,20 +1485,34 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_FALTA)
 
                     # Si el jugador es agresivo, incrementa ligeramente la probabilidad de tarjeta dura
-                    factor_agresivo = agresividad_def / 100.0
+                    # El rigor del central (arbitros.rigor) multiplica la probabilidad de tarjeta
+                    factor_agresivo = agresividad_def / 100.0 * rigor
                     rand_tarjeta = random.random()
 
                     # 🟥 ROJA DIRECTA (calibrado -- ver diagnostico_tarjetas.py)
-                    if rand_tarjeta < (0.006 * factor_agresivo):
-                        # --- REVISIÓN DEL VAR sobre una posible roja directa ---
-                        if hay_revision_var() and random.choice([True, False]):
-                            # El VAR baja la sanción a amarilla
-                            stats_jugadores[defensor_marcador["id"]]["amarillas"] += 1
+                    if rand_tarjeta < (PROB_ROJA_DIRECTA * factor_agresivo):
+                        # --- REVISIÓN DEL VAR sobre la roja: la pide el 4to, la decide el 5to ---
+                        if arbitraje.debe_revisar("roja", intervencion=var_revisa):
                             eventos_visibles.append(construir_evento(
-                                segundos_acumulados, equipo_defensor["nombre"], "🖥️ VAR - TARJETA REVISADA",
-                                f"El VAR revisa la entrada de {defensor_marcador['nombre']} y {arbitros['central']} la baja a amarilla.",
+                                segundos_acumulados, equipo_defensor["nombre"], "🖥️ REVISIÓN VAR",
+                                arbitraje.texto_pedido(arbitros, "roja", defensor_marcador["nombre"]),
                                 [defensor_marcador["nombre"]], zona_balon
                             ))
+                            if arbitraje.revierte("roja", severidad=var_revierte):
+                                # El VAR da por mala la roja: queda en amarilla
+                                stats_jugadores[defensor_marcador["id"]]["amarillas"] += 1
+                                eventos_visibles.append(construir_evento(
+                                    segundos_acumulados, equipo_defensor["nombre"], "🖥️ VAR - TARJETA REVISADA",
+                                    f"{arbitros['var']} da por mala la roja: {arbitros['central']} revisa en el monitor y la baja a amarilla para {defensor_marcador['nombre']}.",
+                                    [defensor_marcador["nombre"]], zona_balon
+                                ))
+                            else:
+                                procesar_expulsion(defensor_marcador, equipo_defensor, stats_jugadores, eventos_visibles, segundos_acumulados, zona_balon, es_doble_amarilla=False)
+                                eventos_visibles.append(construir_evento(
+                                    segundos_acumulados, equipo_defensor["nombre"], "🖥️ VAR - CONFIRMADO",
+                                    arbitraje.texto_confirma(arbitros, "roja", defensor_marcador["nombre"]),
+                                    [defensor_marcador["nombre"]], zona_balon
+                                ))
                         else:
                             procesar_expulsion(defensor_marcador, equipo_defensor, stats_jugadores, eventos_visibles, segundos_acumulados, zona_balon, es_doble_amarilla=False)
                         segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_VAR_ROJA_PENAL)
@@ -1342,6 +1537,20 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                             f"Falta táctica de {defensor_marcador['nombre']}.",
                             [defensor_marcador["nombre"]], zona_balon
                         ))
+                        # El VAR ve una roja que el central no vio (muy poco frecuente)
+                        if random.random() < PROB_ROJA_VAR_NO_VISTA * factor_agresivo * var_revisa:
+                            segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_VAR_ROJA_PENAL)
+                            eventos_visibles.append(construir_evento(
+                                segundos_acumulados, equipo_defensor["nombre"], "🖥️ REVISIÓN VAR",
+                                arbitraje.texto_pedido(arbitros, "falta", defensor_marcador["nombre"]),
+                                [defensor_marcador["nombre"]], zona_balon
+                            ))
+                            eventos_visibles.append(construir_evento(
+                                segundos_acumulados, equipo_defensor["nombre"], "🖥️ VAR - ROJA DIRECTA",
+                                f"{arbitros['var']} recomienda revisar: {arbitros['central']} va al monitor y cambia la falta por roja directa a {defensor_marcador['nombre']}.",
+                                [defensor_marcador["nombre"]], zona_balon
+                            ))
+                            procesar_expulsion(defensor_marcador, equipo_defensor, stats_jugadores, eventos_visibles, segundos_acumulados, zona_balon, es_doble_amarilla=False)
 
                     # Falta en el tercio de ataque: probabilidad de que sea un tiro libre
                     # directo en posición de disparo (ver PROB_TIRO_LIBRE_PELIGROSO y
@@ -1350,11 +1559,15 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     # infringido -- el swap de posesión normal pasa recién más abajo. Se
                     # resuelve la posesión acá mismo y se salta ese hand-off con 'continue',
                     # mismo patrón que ya usan los cortes de VAR/offside en este archivo.
-                    if zona_balon == "ataque" and random.random() < PROB_TIRO_LIBRE_PELIGROSO:
+                    resultado_tl = None
+                    if zona_balon == "ataque" and random.random() < PROB_PENAL_FALTA_ATAQUE:
+                        resultado_tl = _penal_en_juego(defensor_marcador, jugador_con_balon)
+                    elif zona_balon == "ataque" and random.random() < PROB_TIRO_LIBRE_PELIGROSO:
                         resultado_tl, _, segundos_acumulados = ejecutar_tiro_libre(
                             equipo_con_balon, defensor_marcador, portero_rival, equipo_defensor,
                             stats_jugadores, eventos_visibles, segundos_acumulados, mod_precision
                         )
+                    if resultado_tl is not None:
                         if resultado_tl == "gol":
                             if equipo_con_balon == equipo_local:
                                 goles_local += 1
@@ -1469,7 +1682,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
                 # Calibrado empíricamente -- ver diagnostico_tarjetas.py -- mismo motivo que
                 # 'prob_falta' en la rama de pase fallido.
-                prob_falta_regate = max(0.07, min(0.42, 0.24 + mod_faltas))
+                prob_falta_regate = max(0.07, min(0.42, (0.24 + mod_faltas) * arbitraje.factor_faltas(rigor_central) * AJUSTE_FALTAS_DESCUENTO))
                 # Mismo criterio que en la rama de pase fallido: si el atacante fue derribado,
                 # su equipo conserva el balón -- no es una pérdida ni una recuperación.
                 hay_falta = random.random() < prob_falta_regate
@@ -1492,7 +1705,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     ))
                     segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_FALTA)
 
-                    if random.random() < 0.11:
+                    if random.random() < 0.11 * rigor:
                         stats_jugadores[defensor_marcador["id"]]["amarillas"] += 1
 
                         # ⚠️ CORRECCIÓN: VALIDAR DOBLE AMARILLA EN REGATES
@@ -1516,11 +1729,15 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     # directo si la falta fue en el tercio de ataque. Esta rama NO reasigna
                     # 'zona_balon' en el hand-off normal de más abajo, así que acá todavía vale
                     # el 'zona_balon' del momento de la falta.
-                    if zona_balon == "ataque" and random.random() < PROB_TIRO_LIBRE_PELIGROSO:
+                    resultado_tl = None
+                    if zona_balon == "ataque" and random.random() < PROB_PENAL_FALTA_ATAQUE:
+                        resultado_tl = _penal_en_juego(defensor_marcador, jugador_con_balon)
+                    elif zona_balon == "ataque" and random.random() < PROB_TIRO_LIBRE_PELIGROSO:
                         resultado_tl, _, segundos_acumulados = ejecutar_tiro_libre(
                             equipo_con_balon, defensor_marcador, portero_rival, equipo_defensor,
                             stats_jugadores, eventos_visibles, segundos_acumulados, mod_precision
                         )
+                    if resultado_tl is not None:
                         if resultado_tl == "gol":
                             if equipo_con_balon == equipo_local:
                                 goles_local += 1
@@ -1614,17 +1831,22 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
                 # Base bajada de 0.37 a 0.32: la conversión por intento ya estaba cerca de lo
                 # real (~18% medido con atributos promedio), esta reducción es solo margen extra.
-                gol = resolver_duelo(0.32, potencia_remate, reflejos_portero)
+                gol = resolver_duelo(BASE_GOL_REMATE, potencia_remate, reflejos_portero)
 
                 if gol:
-                    # --- INTERVENCIÓN DEL VAR (5% de prob de revisión) ---
-                    if hay_revision_var():
-                        gol_anulado = random.choice([True, False])
+                    # --- REVISIÓN DEL VAR: la pide el 4to, la decide el 5to (services/arbitraje.py) ---
+                    revision_gol = arbitraje.debe_revisar("gol", intervencion=var_revisa)
+                    if revision_gol:
                         segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_VAR_ROJA_PENAL)
-                        if gol_anulado:
+                        if arbitraje.revierte("gol", severidad=var_revierte):
+                            eventos_visibles.append(construir_evento(
+                                segundos_acumulados, equipo_con_balon["nombre"], "🖥️ REVISIÓN VAR",
+                                arbitraje.texto_pedido(arbitros, "gol", jugador_con_balon["nombre"]),
+                                [jugador_con_balon["nombre"]], zona_balon
+                            ))
                             eventos_visibles.append(construir_evento(
                                 segundos_acumulados, "VAR", "🖥️ VAR - GOL ANULADO",
-                                f"El VAR revisa la jugada y {arbitros['central']} anula el gol de {jugador_con_balon['nombre']} por mano previa.",
+                                arbitraje.texto_gol_anulado(arbitros, jugador_con_balon["nombre"]),
                                 [jugador_con_balon["nombre"]], zona_balon
                             ))
                             equipo_con_balon, equipo_defensor = equipo_defensor, equipo_con_balon
@@ -1658,6 +1880,17 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                         [jugador_con_balon["nombre"], portero_rival["nombre"]] + ([asistente["nombre"]] if asistente else []),
                         zona_balon
                     ))
+                    if revision_gol:   # revisado y confirmado: el gol ya está en el marcador, se narra la revisión
+                        eventos_visibles.append(construir_evento(
+                            segundos_acumulados, equipo_con_balon["nombre"], "🖥️ REVISIÓN VAR",
+                            arbitraje.texto_pedido(arbitros, "gol", jugador_con_balon["nombre"]),
+                            [jugador_con_balon["nombre"]], zona_balon
+                        ))
+                        eventos_visibles.append(construir_evento(
+                            segundos_acumulados, equipo_con_balon["nombre"], "🖥️ VAR - CONFIRMADO",
+                            arbitraje.texto_confirma(arbitros, "gol", jugador_con_balon["nombre"]),
+                            [jugador_con_balon["nombre"]], zona_balon
+                        ))
 
                     equipo_con_balon, equipo_defensor = equipo_defensor, equipo_con_balon
                     medios = [j for j in equipo_con_balon["plantilla"] if j.get("linea_partido") == 3]
@@ -1684,6 +1917,12 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                             segundos_acumulados, equipo_defensor["nombre"], "🖐️ DESVÍO A CÓRNER",
                             f"¡Remate potente! {portero_rival['nombre']} mete las manos y envía el balón al tiro de esquina.",
                             [portero_rival["nombre"]], zona_balon
+                        ))
+                        rol_linea = arbitraje.rol_juez_de_linea(equipo_con_balon is equipo_local, periodo_actual)
+                        eventos_visibles.append(construir_evento(
+                            segundos_acumulados, equipo_con_balon["nombre"], "🚩 SAQUE DE ESQUINA",
+                            f"El juez de línea ({arbitros[rol_linea]}) señala el tiro de esquina para {equipo_con_balon['nombre']}.",
+                            [], zona_balon, arbitro_rol=rol_linea, arbitros=arbitros
                         ))
                         # A diferencia de una atajada limpia, acá el equipo atacante CONSERVA
                         # la pelota (el córner es suyo) -- no hay swap de posesión todavía, se
@@ -1723,28 +1962,9 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
         _intentar_sustitucion()
 
-        # ---------------------------------------------------------------------
-        # EVALUACIÓN DE TIEMPO EXTRA (30 Minutos Reglamentarios: 90' al 120')
-        # ---------------------------------------------------------------------
-        if segundos_acumulados >= DURACION_TIEMPO_REGLAMENTARIO and duracion_objetivo == DURACION_TIEMPO_REGLAMENTARIO:
-            if tiempo_extra and hay_empate_global():
-                duracion_objetivo = DURACION_TIEMPO_EXTRA  # Extendemos el simulador a 120 minutos
-                max_cambios = 6  # Habilitar sexto cambio para la prórroga
-                if marcador_ida:
-                    desc_tiempo_extra = (
-                        f"¡Marcador global {goles_local + goles_ida_local}-{goles_visitante + goles_ida_visita} "
-                        f"(ida {goles_ida_local}-{goles_ida_visita})! Nos vamos a 30 minutos de tiempo extra."
-                    )
-                else:
-                    desc_tiempo_extra = f"¡Empate a {goles_local}! Nos vamos a 30 minutos de tiempo extra."
-                eventos_visibles.append(construir_evento(
-                    DURACION_TIEMPO_REGLAMENTARIO, "Árbitro", "⏱️ TIEMPO EXTRA", desc_tiempo_extra, [], zona_balon
-                ))
-            else:
-                break  # Si no hay tiempo extra habilitado o el marcador global no está empatado, finaliza el bucle
 
     # Evento de fin del tiempo reglamentario / extra
-    segundos_final = DURACION_TIEMPO_EXTRA if (tiempo_extra and duracion_objetivo == DURACION_TIEMPO_EXTRA) else DURACION_TIEMPO_REGLAMENTARIO
+    segundos_final = segundos_acumulados
     if marcador_ida:
         descripcion_final = (
             f"¡Final del partido de vuelta! {equipo_local['nombre']} {goles_local} - {goles_visitante} {equipo_visitante['nombre']}. "
@@ -1753,7 +1973,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     else:
         descripcion_final = f"¡Final del partido! {equipo_local['nombre']} {goles_local} - {goles_visitante} {equipo_visitante['nombre']}."
     eventos_visibles.append(construir_evento(
-        segundos_final, "Árbitro", "🏁 PITIDO FINAL", descripcion_final, [], zona_balon
+        segundos_final, "Árbitro", "🏁 PITIDO FINAL", descripcion_final, [], zona_balon, periodo=periodo_actual
     ))
 
     # -------------------------------------------------------------------------
@@ -1766,8 +1986,13 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
         penaltis_local, penaltis_visitante = simular_tanda_penaltis(
             equipo_local, equipo_visitante,
             portero_local, portero_visitante,
-            stats_jugadores, eventos_visibles, segundos_final, arbitros
+            stats_jugadores, eventos_visibles, segundos_final, arbitros, perfil_var=perfil_var
         )
+        inicios[arbitraje.PERIODO_TANDA] = segundos_final
+
+    # Minuto/adicional/periodo de cada evento y el árbitro que actuó en cada uno (services/arbitraje.py)
+    arbitraje.aplicar_reloj(eventos_visibles, inicios)
+    arbitraje.asignar_arbitros(eventos_visibles, arbitros)
 
     # Cálculo de métricas avanzadas del partido
     metricas_partido = calcular_metricas_equipo(stats_jugadores, goles_local, goles_visitante)
@@ -1791,6 +2016,9 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
         "opinion": None,
         "estadisticas": metricas_partido,
         "eventos": eventos_visibles,
+        "dt": {lado: {"id": b.dt["id"], "nombre": b.nombre, "amonestado": b.amonestado, "expulsado": b.expulsado,
+                      "ajuste": b.ajuste, "reclamos": b.reclamos}
+               for lado, b in (("local", bancos[equipo_local["nombre"]]), ("visita", bancos[equipo_visitante["nombre"]])) if b.activo},
         "tactica_local": tactica_elegida_local,
         "tactica_visita": tactica_elegida_visita,
         "marcador_ida": marcador_ida,

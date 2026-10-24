@@ -25,7 +25,9 @@ UMBRAL_FATIGA = 70.0               # desde acá para abajo se nota el cansancio
 PERDIDA_MAXIMA = 0.10              # con 0 de energía, los atributos rinden un 10% menos...
 PERDIDA_DEFENSIVA = 0.38           # ...y los defensivos más: el cansado llega tarde a cerrar (más goles al final)
 ATRIBUTOS_DEFENSIVOS = {"anticipacion", "concentracion", "fuerza_fisica", "agresividad"}
-UMBRAL_AVISO = 30.0                # se narra una vez "🥵 se nota el cansancio" al cruzarlo
+ATRIBUTOS_ATAQUE_DT = {"precision_tiro", "fuerza_disparo", "regate", "vision_juego", "precision_pase", "control_balon", "velocidad"}
+ATRIBUTOS_DEFENSA_DT = {"anticipacion", "concentracion", "fuerza_fisica"}   # mismos que services/tecnicos.py
+UMBRAL_AVISO = 30.0               # se narra una vez "🥵 se nota el cansancio" al cruzarlo
 
 ATRIBUTOS = ("agilidad", "agresividad", "anticipacion", "compostura", "concentracion", "control_balon",
              "fuerza_disparo", "fuerza_fisica", "juego_aereo", "precision_pase", "precision_tiro", "regate",
@@ -58,8 +60,20 @@ def _factor_gasto(jugador: dict, mod_clima: float) -> float:
 def _refrescar(jugador: dict) -> None:
     e = jugador.get("energia", ENERGIA_INICIAL)
     m, m_def = multiplicador(e), multiplicador(e, PERDIDA_DEFENSIVA)
+    # Ajuste del DT (services/tecnicos.py): {general, ataque, defensa} en puntos, después del cansancio
+    aj = jugador.get("_ajuste") or {}
+    general, ataque, defensa = aj.get("general", 0.0), aj.get("ataque", 0.0), aj.get("defensa", 0.0)
     for a, v in (jugador.get("_base") or {}).items():
-        jugador[a] = round(v * (m_def if a in ATRIBUTOS_DEFENSIVOS else m), 2)
+        valor = v * (m_def if a in ATRIBUTOS_DEFENSIVOS else m)
+        if aj:
+            valor += general + (ataque if a in ATRIBUTOS_ATAQUE_DT else defensa if a in ATRIBUTOS_DEFENSA_DT else 0.0)
+        jugador[a] = round(valor, 2)
+
+
+def refrescar(jugador: dict) -> None:
+    """Vuelve a calcular los atributos del partido (después de cambiar jugador['_ajuste'])."""
+    if "_base" in jugador:
+        _refrescar(jugador)
 
 
 def _gastar(jugador: dict, cantidad: float, mod_clima: float) -> bool:

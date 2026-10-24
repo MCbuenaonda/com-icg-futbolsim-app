@@ -18,7 +18,8 @@ semilla es crc32("nombre|pais"), así que siempre sale el mismo dibujo. Las vist
 
 Uso (en este orden; cada paso es idempotente):
     python generar_avatares_arbitros.py --muestra [carpeta]   # árbitros/árbitras de varias regiones
-    python generar_avatares_arbitros.py --generar [carpeta]   # los 840 SVG en <carpeta>/arbitros/
+    python generar_avatares_arbitros.py --muestra-var [carpeta]  # los 210 VAR de arbitros_var.json, sin tocar la base
+    python generar_avatares_arbitros.py --generar [carpeta]   # todos los SVG (840 + 210 VAR) en <carpeta>/arbitros/
     python generar_avatares_arbitros.py --subir [carpeta]     # sube a gs://com-icg-mundial/arbitros/
     python generar_avatares_arbitros.py --asignar             # escribe arbitros.avatar_imagen, genero y pais_id
 """
@@ -218,12 +219,19 @@ def _datos():
     from services.imagenes_pais_service import db
 
     paises = {p["nombre"]: p for p in db["paises"].find({}, {"id": 1, "nombre": 1, "confederacion_id": 1})}
-    arbitros = list(db["arbitros"].find({}, {"nombre": 1, "pais": 1}).sort("_id", 1))
+    arbitros = list(db["arbitros"].find({}, {"nombre": 1, "pais": 1, "genero": 1, "origen": 1}).sort("_id", 1))
     return paises, arbitros
 
 
 def _pais_de(a, paises):
     return paises.get(ALIAS_PAIS.get(a.get("pais"), a.get("pais")))
+
+
+def _es_mujer(a):
+    """Los 840 originales: por la lista MUJERES. Los VAR (agregar_arbitros_var.py) traen su género en el doc."""
+    if a.get("origen") == "var_generado":
+        return a.get("genero") == "F"
+    return a["nombre"] in MUJERES
 
 
 def _semilla(a):
@@ -233,7 +241,7 @@ def _semilla(a):
 def _avatar_de(a, paises):
     pais = _pais_de(a, paises)
     region = _region(pais) if pais else REGION_SIN_PAIS.get(a.get("pais"), "diversa")
-    return AvatarArbitro(_semilla(a), region, a["nombre"] in MUJERES).svg()
+    return AvatarArbitro(_semilla(a), region, _es_mujer(a)).svg()
 
 
 def muestra(carpeta):
@@ -244,9 +252,23 @@ def muestra(carpeta):
     paises, arbitros = _datos()
     for a in arbitros:
         if a.get("pais") in elegidos:
-            with open(os.path.join(carpeta, f"{a['pais']}_{'F' if a['nombre'] in MUJERES else 'M'}_{a['nombre']}.svg"), "w") as f:
+            with open(os.path.join(carpeta, f"{a['pais']}_{'F' if _es_mujer(a) else 'M'}_{a['nombre']}.svg"), "w") as f:
                 f.write(_avatar_de(a, paises))
     print(f"Muestra en {carpeta}")
+
+
+def muestra_var(carpeta):
+    """Los 210 árbitros VAR de arbitros_var.json, antes de insertarlos (misma semilla que tendrán en la base)."""
+    import json
+    os.makedirs(carpeta, exist_ok=True)
+    paises, _ = _datos()
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "arbitros_var.json"), encoding="utf-8") as f:
+        filas = json.load(f)["arbitros"]
+    for i, a in enumerate(filas):
+        a = {**a, "origen": "var_generado"}
+        with open(os.path.join(carpeta, f"{i:03d}.svg"), "w") as f:
+            f.write(_avatar_de(a, paises))
+    print(f"{len(filas)} SVG en {carpeta}")
 
 
 def generar(carpeta):
@@ -256,7 +278,7 @@ def generar(carpeta):
     for a in arbitros:
         with open(os.path.join(destino, f"{a['_id']}.svg"), "w") as f:
             f.write(_avatar_de(a, paises))
-    print(f"{len(arbitros)} SVG en {destino} ({sum(a['nombre'] in MUJERES for a in arbitros)} árbitras)")
+    print(f"{len(arbitros)} SVG en {destino} ({sum(_es_mujer(a) for a in arbitros)} árbitras)")
 
 
 def subir(carpeta):
@@ -274,7 +296,7 @@ def asignar():
     for a in arbitros:
         pais = _pais_de(a, paises)
         ops.append(UpdateOne({"_id": a["_id"]}, {"$set": {"avatar_imagen": f"arbitros/{a['_id']}.svg",
-                                                          "genero": "F" if a["nombre"] in MUJERES else "M",
+                                                          "genero": "F" if _es_mujer(a) else "M",
                                                           "pais_id": pais["id"] if pais else None}}))
     r = db["arbitros"].bulk_write(ops)
     print(f"Árbitros actualizados: {r.modified_count} de {len(ops)}")
@@ -283,5 +305,5 @@ def asignar():
 if __name__ == "__main__":
     modo = sys.argv[1] if len(sys.argv) > 1 else ""
     carpeta = sys.argv[2] if len(sys.argv) > 2 else "avatares_generados"
-    {"--muestra": lambda: muestra(carpeta), "--generar": lambda: generar(carpeta),
+    {"--muestra": lambda: muestra(carpeta), "--muestra-var": lambda: muestra_var(carpeta), "--generar": lambda: generar(carpeta),
      "--subir": lambda: subir(carpeta), "--asignar": asignar}.get(modo, lambda: print(__doc__))()

@@ -155,11 +155,20 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!btnSimular) programarReconsultaInactivo();
     }
 
+    // Minuto con tiempo añadido ("90+3"): los partidos nuevos traen 'periodo'/'adicional' (services/arbitraje.py)
+    function minutoTexto(ev) {
+        const m = Math.round(ev.minuto || 0);
+        return ev.adicional ? `${m}+${ev.adicional}` : `${m}`;
+    }
+    function esDeTanda(ev) {
+        return ev.periodo === 5 || (!ev.periodo && ev.minuto == 120 && (ev.tipo || '').includes('PENAL'));
+    }
     function badgeMinuto(evento) {
-        if (evento.minuto == 120 && evento.tipo.includes('PENAL')) return '<span class="badge bg-danger rounded-pill me-3 fs-6">PEN</span>';
-        if (evento.tipo.includes('VAR')) return `<span class="badge bg-dark text-accent border rounded-pill me-3 fs-6">'${evento.minuto}</span>`;
-        if (evento.minuto > 90) return `<span class="badge bg-warning text-dark rounded-pill me-3 fs-6">'${evento.minuto}</span>`;
-        return `<span class="badge bg-primary rounded-pill me-3 fs-6">'${evento.minuto}</span>`;
+        if (esDeTanda(evento)) return '<span class="badge bg-danger rounded-pill me-3 fs-6">PEN</span>';
+        if (evento.tipo.includes('VAR')) return `<span class="badge bg-dark text-accent border rounded-pill me-3 fs-6">'${minutoTexto(evento)}</span>`;
+        if ((evento.periodo || 0) >= 3 || (!evento.periodo && evento.minuto > 90)) return `<span class="badge bg-warning text-dark rounded-pill me-3 fs-6">'${minutoTexto(evento)}</span>`;
+        if (evento.adicional) return `<span class="badge bg-info text-dark rounded-pill me-3 fs-6">'${minutoTexto(evento)}</span>`;
+        return `<span class="badge bg-primary rounded-pill me-3 fs-6">'${minutoTexto(evento)}</span>`;
     }
 
     // Escapa texto libre antes de insertarlo en innerHTML (defensa en profundidad: la
@@ -188,6 +197,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const TIPOS_RELLENO = ['EN TRANSICIÓN', 'PREPARACIÓN', 'PRESIÓN DEFENSIVA'];
     function categoriaEvento(tipo) {
         const t = tipo || '';
+        if (t === '🟥 DT EXPULSADO') return 'dt-roja';
+        if (t === '🟨 DT AMONESTADO') return 'dt-amarilla';
+        if (t === '🗣️ RECLAMO DEL DT' || t === '📋 AJUSTE TÁCTICO') return 'dt';
         if (t.includes('ANULADO')) return 'var';
         if (t.includes('GOL')) return 'gol';
         if (t.includes('ROJA')) return 'roja';
@@ -310,6 +322,23 @@ document.addEventListener('DOMContentLoaded', function () {
     let mascota = null;   // {anfitrion, url, nombre}: festeja los goles del anfitrión (arte_mundial_service)
     let canchaLineasLocal = [];
     let canchaLineasVisitante = [];
+    // En qué top 10 / premios de /estadisticas están los jugadores y las selecciones del partido
+    // (GET /matches/live/destacados, una vez por partido; es el estado PREVIO al partido)
+    let canchaDestacados = { jugadores: {}, paises: { local: [], visitante: [] } };
+    let canchaDestacadosMatchId = null;
+
+    async function actualizarDestacadosSiCorresponde(matchId) {
+        if (!matchId || matchId === canchaDestacadosMatchId) return;
+        canchaDestacadosMatchId = matchId;   // se marca antes: la primera vez puede tardar unos segundos
+        try {
+            const resp = await fetch('/matches/live/destacados');
+            if (!resp.ok) { canchaDestacadosMatchId = null; return; }
+            const data = await resp.json();
+            canchaDestacados = { jugadores: data.jugadores || {}, paises: data.paises || { local: [], visitante: [] } };
+        } catch (e) {
+            canchaDestacadosMatchId = null;   // se reintenta en el próximo poll
+        }
+    }
 
     async function actualizarPlantillasSiCorresponde(matchId) {
         if (!matchId || matchId === canchaPlantillasMatchId) return;
@@ -407,7 +436,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const CANCHA_TIPO_SUSTITUCION = '🔄 SUSTITUCIÓN';
     // Decisiones del árbitro / VAR: igual que la sustitución, se muestran en una ventana y no como jugada
     const CANCHA_TIPOS_ARBITRO = new Set([
-        '👉 SILBATO INICIAL', '🚩 FINAL DEL PRIMER TIEMPO', '⏱️ TIEMPO EXTRA', '🥅 TANDA DE PENALTIS', '🏁 PITIDO FINAL'
+        '👉 SILBATO INICIAL', '🚩 FINAL DEL PRIMER TIEMPO', '⏱️ TIEMPO EXTRA', '🥅 TANDA DE PENALTIS', '🏁 PITIDO FINAL',
+        '⏱️ TIEMPO AÑADIDO', '🔵 COMIENZA EL SEGUNDO TIEMPO', '🔵 SEGUNDO TIEMPO EXTRA', '🖥️ REVISIÓN VAR',
+        '🚩 SAQUE DE ESQUINA', '🎯 PENAL',
+        '🗣️ RECLAMO DEL DT', '🟨 DT AMONESTADO', '🟥 DT EXPULSADO', '📋 AJUSTE TÁCTICO'
     ]);
     function esEventoVar(ev) { return (ev.tipo || '').startsWith('🖥️ VAR'); }
     function esEventoAviso(ev) {
@@ -961,7 +993,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const encabezado = document.getElementById('canchaAvisoEncabezado');
         const titulo = document.getElementById('canchaAvisoTitulo');
         const cuerpo = document.getElementById('canchaAvisoCuerpo');
-        const minuto = `${Math.round(ev.minuto)}'`;
+        const minuto = `${minutoTexto(ev)}'`;
         cuerpo.innerHTML = '';
 
         if (ev.tipo === CANCHA_TIPO_SUSTITUCION) {
@@ -1350,6 +1382,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // mismo con 'goles_encajados'; los penales no cuentan, igual que allá).
     const TIPOS_GOL_ENCAJADO_PORTERO = new Set(['⚽ GOL', '⚽ GOL DE TIRO LIBRE', '⚽ GOL DE CÓRNER']);
     const PESO_GOL_ENCAJADO_PORTERO = -0.4;
+    // Goles del partido (la tanda de penales no cuenta como gol del jugador en la lista)
+    const TIPOS_GOL_LISTA = new Set(['⚽ GOL', '⚽ GOL DE TIRO LIBRE', '⚽ GOL DE CÓRNER']);
     const RATING_BASE = 6.7; // mismo RATING_BASE "partido normal" que calcular_rating_partido
     const RATING_MIN = 3.0;
     const RATING_MAX = 10.0;
@@ -1382,6 +1416,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const ratings = new Map();
         const acciones = new Map(); // nombre -> [{ tipo, minuto, peso }], en orden cronológico
         const expulsados = new Set();
+        // Lo que hizo cada jugador (para los íconos de la lista) y los que ya no están en cancha
+        const info = new Map();   // nombre -> { goles, asistencias, amarillas, roja, entro, salio }
+        const infoDe = nombre => { if (!info.has(nombre)) info.set(nombre, { goles: 0, asistencias: 0, amarillas: 0, roja: null, entro: null, salio: null }); return info.get(nombre); };
+        const fueraLocal = [], fueraVisitante = [];
+        const fueraDe = equipo => equipo === data.local ? fueraLocal : (equipo === data.visitante ? fueraVisitante : null);
         // Arquero en cancha de cada equipo: el titular de línea 1, actualizado si sale de cambio
         const porteros = {
             [data.local]: canchaTitularesLocal[canchaLineasLocal.indexOf(1)],
@@ -1402,12 +1441,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (once) {
                     once.delete(jugadores[1]);
                     once.add(jugadores[0]);
+                    const fuera = fueraDe(ev.equipo);
+                    if (fuera && !fuera.includes(jugadores[1])) fuera.push(jugadores[1]);
                 }
+                infoDe(jugadores[0]).entro = minutoTexto(ev);
+                infoDe(jugadores[1]).salio = minutoTexto(ev);
                 if (porteros[ev.equipo] === jugadores[1]) porteros[ev.equipo] = jugadores[0];
             } else if ((ev.tipo === '🟥 TARJETA ROJA' || ev.tipo === '🟨🟥 DOBLE AMARILLA') && jugadores.length >= 1) {
                 const once = onceDe(ev.equipo);
                 if (once) once.delete(jugadores[0]);
+                const fuera = fueraDe(ev.equipo);
+                if (fuera && !fuera.includes(jugadores[0])) fuera.push(jugadores[0]);
                 expulsados.add(jugadores[0]);
+                infoDe(jugadores[0]).roja = minutoTexto(ev);
+                if (ev.tipo === '🟨🟥 DOBLE AMARILLA') infoDe(jugadores[0]).amarillas += 1;
+            } else if (TIPOS_GOL_LISTA.has(ev.tipo) && jugadores.length >= 1) {
+                infoDe(jugadores[0]).goles += 1;
+                if (ev.tipo === '⚽ GOL' && jugadores[2]) infoDe(jugadores[2]).asistencias += 1;
+            } else if ((ev.tipo === '🟨 TARJETA AMARILLA' || ev.tipo === '🖥️ VAR - TARJETA REVISADA') && jugadores.length >= 1) {
+                infoDe(jugadores[0]).amarillas += 1;
             }
 
             function sumarAccion(nombre, tipo, peso) {
@@ -1436,12 +1488,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const max = expulsados.has(nombre) ? RATING_MAX_EXPULSADO : RATING_MAX;
             const crudo = ratings.has(nombre) ? ratings.get(nombre) : RATING_BASE;
             const rating = Math.max(RATING_MIN, Math.min(max, crudo));
-            return { nombre, posicion: canchaPlantillas[nombre] || '', rating, acciones: acciones.get(nombre) || [] };
+            return { nombre, posicion: canchaPlantillas[nombre] || '', rating, acciones: acciones.get(nombre) || [],
+                     info: info.get(nombre) || null, destacados: (canchaDestacados.jugadores || {})[nombre] || [] };
         }
+        const fueraDeCancha = nombre => ({ ...filaDe(nombre), fuera: true });
 
+        // En cancha primero; al final, los que salieron (cambio o expulsión) en el orden en que salieron
         return {
-            local: Array.from(onceLocal).map(filaDe),
-            visitante: Array.from(onceVisitante).map(filaDe)
+            local: Array.from(onceLocal).map(filaDe).concat(fueraLocal.filter(n => !onceLocal.has(n)).map(fueraDeCancha)),
+            visitante: Array.from(onceVisitante).map(filaDe).concat(fueraVisitante.filter(n => !onceVisitante.has(n)).map(fueraDeCancha))
         };
     }
 
@@ -1558,7 +1613,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function renderFilaJugadorEnCancha(jugador, lado, paisId) {
         const fila = document.createElement('div');
-        fila.className = 'list-group-item bg-dark text-white p-0 border-secondary border-opacity-10 small';
+        fila.className = 'list-group-item bg-dark text-white p-0 border-secondary border-opacity-10 small'
+            + (jugador.fuera ? ' once-fila--fuera' : '') + ((jugador.destacados || []).length ? ' once-fila--destacada' : '');
 
         const idAcciones = `once-acciones-${lado}-${slugJugador(jugador.nombre)}`;
         const expandido = jugadoresExpandidos.has(jugador.nombre);
@@ -1566,6 +1622,25 @@ document.addEventListener('DOMContentLoaded', function () {
         // Mismo dorsal y color de equipo que su ficha en la cancha, para ubicarlo de un vistazo
         const dorsal = canchaDorsales[jugador.nombre];
         const dorsalHtml = avatarJugadorEnCancha(jugador.nombre, lado, paisId, dorsal);
+
+        // Íconos: goles, asistencias, tarjetas, entró / salió (con el minuto)
+        const inf = jugador.info || {};
+        const iconos = [];
+        if (inf.goles) iconos.push(`<span class="once-ico" title="${inf.goles} gol${inf.goles > 1 ? 'es' : ''}">⚽${inf.goles > 1 ? `<small>×${inf.goles}</small>` : ''}</span>`);
+        if (inf.asistencias) iconos.push(`<span class="once-ico" title="${inf.asistencias} asistencia${inf.asistencias > 1 ? 's' : ''}"><i class="bi bi-share-fill once-ico--asistencia"></i>${inf.asistencias > 1 ? `<small>×${inf.asistencias}</small>` : ''}</span>`);
+        if (inf.amarillas && !inf.roja) iconos.push('<span class="once-ico" title="Amonestado">🟨</span>');
+        if (inf.roja) iconos.push(`<span class="once-ico" title="Expulsado en el ${inf.roja}'">🟥<small>${inf.roja}'</small></span>`);
+        if (inf.entro) iconos.push(`<span class="once-ico once-ico--entra" title="Entró en el ${inf.entro}'"><i class="bi bi-arrow-up-circle-fill"></i><small>${inf.entro}'</small></span>`);
+        if (inf.salio) iconos.push(`<span class="once-ico once-ico--sale" title="Salió en el ${inf.salio}'"><i class="bi bi-arrow-down-circle-fill"></i><small>${inf.salio}'</small></span>`);
+        // En qué top 10 / premios de Estadísticas está (antes de este partido)
+        const dest = jugador.destacados || [];
+        const textoDestacado = d => d.posicion ? `#${d.posicion} ${d.titulo}` : d.titulo;
+        const destacadoHtml = dest.length
+            ? `<span class="once-destacado" title="En Estadísticas: ${escaparHtml(dest.map(textoDestacado).join(' · '))}"><i class="bi ${dest[0].icono}"></i><span class="once-destacado__texto">${escaparHtml(textoDestacado(dest[0]))}</span>${dest.length > 1 ? `<small>+${dest.length - 1}</small>` : ''}</span>`
+            : '';
+        const destacadosDetalle = dest.length
+            ? `<div class="once-destacados-detalle mb-1">${dest.map(d => `<span class="once-destacado once-destacado--chip"><i class="bi ${d.icono}"></i>${escaparHtml(textoDestacado(d))}${d.valor != null ? ` <small class="text-muted">(${d.valor} ${escaparHtml(d.sufijo || '')})</small>` : ''}</span>`).join('')}</div>`
+            : '';
 
         const accionesHtml = jugador.acciones.length
             ? jugador.acciones.slice().reverse().map(a => {
@@ -1580,7 +1655,10 @@ document.addEventListener('DOMContentLoaded', function () {
                  data-bs-toggle="collapse" data-bs-target="#${idAcciones}"
                  aria-expanded="${expandido}" aria-controls="${idAcciones}">
                 <span class="d-flex align-items-center gap-2" style="min-width: 0;">
-                    ${dorsalHtml}<span class="text-truncate">${canchaLeyendas.has(jugador.nombre) ? '<span class="insignia-leyenda insignia-leyenda--compacta" title="Leyenda"><i class="bi bi-award-fill"></i></span> ' : ''}${jugador.nombre}${posicionTexto}</span>
+                    ${dorsalHtml}<span class="d-flex flex-column" style="min-width: 0;">
+                        <span class="text-truncate">${canchaLeyendas.has(jugador.nombre) ? '<span class="insignia-leyenda insignia-leyenda--compacta" title="Leyenda"><i class="bi bi-award-fill"></i></span> ' : ''}${jugador.nombre}${posicionTexto}</span>
+                        ${iconos.length || destacadoHtml ? `<span class="once-iconos">${iconos.join('')}${destacadoHtml}</span>` : ''}
+                    </span>
                 </span>
                 <span class="d-flex align-items-center gap-1">
                     <span class="badge rounded-pill ${claseBadgeRating(jugador.rating)}">${jugador.rating.toFixed(1)}</span>
@@ -1589,11 +1667,22 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
             <div class="collapse${expandido ? ' show' : ''}" id="${idAcciones}" data-jugador="${jugador.nombre}">
                 <div class="px-3 pb-2 pt-1 border-top border-secondary border-opacity-10" style="font-size:.72rem;">
-                    ${accionesHtml}
+                    ${destacadosDetalle}${accionesHtml}
                 </div>
             </div>
         `;
         return fila;
+    }
+
+    function renderDestacadosPais(idContenedor, lista) {
+        const cont = document.getElementById(idContenedor);
+        if (!cont) return;
+        if (!lista.length) { cont.innerHTML = ''; cont.classList.add('d-none'); return; }
+        const texto = d => d.posicion ? `#${d.posicion} ${d.titulo}` : d.titulo;
+        const visibles = lista.slice(0, 4);
+        cont.innerHTML = visibles.map(d => `<span class="once-destacado once-destacado--chip" title="En Estadísticas: ${escaparHtml(texto(d))}${d.valor != null ? ` (${d.valor} ${escaparHtml(d.sufijo || '')})` : ''}"><i class="bi ${d.icono}"></i>${escaparHtml(texto(d))}</span>`).join('')
+            + (lista.length > visibles.length ? `<span class="once-destacado once-destacado--chip" title="${escaparHtml(lista.slice(4).map(texto).join(' · '))}">+${lista.length - visibles.length}</span>` : '');
+        cont.classList.remove('d-none');
     }
 
     function renderJugadoresEnCancha(data) {
@@ -1601,6 +1690,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (onceNombreLocal) onceNombreLocal.textContent = data.local;
         if (onceNombreVisitante) onceNombreVisitante.textContent = data.visitante;
 
+        renderDestacadosPais('onceDestacadosLocal', canchaDestacados.paises.local || []);
+        renderDestacadosPais('onceDestacadosVisitante', canchaDestacados.paises.visitante || []);
         const estado = calcularEstadoJugadoresEnCancha(data);
         onceListaLocal.innerHTML = '';
         estado.local.forEach(j => onceListaLocal.appendChild(renderFilaJugadorEnCancha(j, 'local', data.id_local)));
@@ -1726,6 +1817,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const ICONO_POR_TIPO_GT = {
         '⚽ GOL': '⚽',
         '⚽ GOL DE PENAL': '⚽',
+        '⚽ GOL DE TIRO LIBRE': '⚽',
+        '⚽ GOL DE CÓRNER': '⚽',
+        '🖥️ VAR - TARJETA REVISADA': '🟨',
         '🟨 TARJETA AMARILLA': '🟨',
         '🟥 TARJETA ROJA': '🟥',
         '🟨🟥 DOBLE AMARILLA': '🟥'
@@ -1759,7 +1853,13 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!icono) return;
             const nombre = extraerNombreJugador(ev);
             if (!nombre) return;
-            const entrada = { minuto: ev.minuto, icono, nombre };
+            // Detalle del gol: tiro libre, córner, penal en juego (⚽ GOL + de_penal) o penal de la tanda
+            const detalle = ev.tipo === '⚽ GOL DE TIRO LIBRE' ? 'tiro libre'
+                : ev.tipo === '⚽ GOL DE CÓRNER' ? 'córner'
+                : ev.tipo === '⚽ GOL DE PENAL' ? 'tanda de penales'
+                : ev.de_penal ? 'penal'
+                : ev.tipo === '🖥️ VAR - TARJETA REVISADA' ? 'roja revisada por el VAR' : '';
+            const entrada = { minuto: esDeTanda(ev) ? 'PEN' : minutoTexto(ev), icono, nombre, detalle };
             if (ev.equipo === data.local) porEquipo.local.push(entrada);
             else if (ev.equipo === data.visitante) porEquipo.visit.push(entrada);
         });
@@ -1774,9 +1874,9 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             contenedor.innerHTML = lista.map(e => `
                 <div class="surface-soft p-2 px-2 d-flex align-items-center gap-2">
-                    <span class="badge bg-dark border border-secondary">${e.minuto}'</span>
+                    <span class="badge bg-dark border border-secondary">${e.minuto}${e.minuto === 'PEN' ? '' : "'"}</span>
                     <span>${e.icono}</span>
-                    <span class="text-white small text-truncate">${e.nombre}</span>
+                    <span class="text-white small text-truncate">${escaparHtml(e.nombre)}${e.detalle ? ` <small class="text-muted">(${e.detalle})</small>` : ''}</span>
                 </div>
             `).join('');
         };
@@ -1795,11 +1895,13 @@ document.addEventListener('DOMContentLoaded', function () {
         nombreVisitante.textContent = data.visitante;
         marcador.textContent = `${data.goles_local} - ${data.goles_visitante}`;
         renderMarcadorAgua(data);
-        minutoActual.textContent = data.finalizado ? 'FINAL' : `${data.minuto_actual}'`;
+        minutoActual.textContent = data.finalizado ? 'FINAL'
+            : (data.adicional_actual ? `${data.minuto_actual}+${data.adicional_actual}'` : `${data.minuto_actual}'`);
         minutoActual.classList.toggle('marcador-tv__minuto--final', !!data.finalizado);
         renderEventos(data.eventos, data.local, data.visitante, data.match_id);
         renderMarcadorTv(data);
         await actualizarPlantillasSiCorresponde(data.match_id);
+        actualizarDestacadosSiCorresponde(data.match_id);   // sin await: la primera vez puede tardar, se ve en el próximo poll
         renderCancha(data);
         reiniciarJugadoresCanchaSiCambioPartido(data.match_id);
         renderJugadoresCancha(data);

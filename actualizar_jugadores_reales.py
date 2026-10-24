@@ -561,6 +561,8 @@ def reescribir_partido(res: dict, mapa_ids: Dict[int, str], mapa_local: Dict[str
     for campo in CAMPOS_TEXTO:
         if res.get(campo):
             nuevo[campo] = texto(res[campo])
+    if res.get("cronica"):   # la crónica (cronica_service) se vuelve a escribir sola con los nombres nuevos
+        nuevo["cronica"] = None
     return nuevo
 
 

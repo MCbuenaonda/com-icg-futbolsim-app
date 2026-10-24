@@ -4,7 +4,7 @@
 {% block title %}{{ jugador.nombre }} (#{{ jugador.numero }}) - Ficha Técnica{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-2">
+<div class="container-fluid py-2 js-animar">
 
     <!-- Volver y Encabezado de Perfil -->
     <div class="mb-4">
@@ -279,12 +279,20 @@
                     </div>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
-                    <span class="bitacora-total">⚽ <strong>{{ t.goles }}</strong></span>
-                    {% if t.atajadas %}<span class="bitacora-total">🧤 <strong>{{ t.atajadas }}</strong></span>{% endif %}
-                    <span class="bitacora-total">🟨 <strong>{{ t.amarillas }}</strong></span>
-                    <span class="bitacora-total">🟥 <strong>{{ t.rojas }}</strong></span>
+                    <span class="bitacora-total">⚽ <strong data-contar>{{ t.goles }}</strong></span>
+                    {% if t.atajadas %}<span class="bitacora-total">🧤 <strong data-contar>{{ t.atajadas }}</strong></span>{% endif %}
+                    <span class="bitacora-total">🟨 <strong data-contar>{{ t.amarillas }}</strong></span>
+                    <span class="bitacora-total">🟥 <strong data-contar>{{ t.rojas }}</strong></span>
                 </div>
             </div>
+            {% set es_arquero = jugador.sector == 'Portero' %}
+            {% set total_aporte = t.atajadas if es_arquero else t.goles %}
+            {% if bitacora.partidos | length >= 2 and total_aporte %}
+            <!-- Aporte partido a partido (goles, o atajadas si es arquero); el color de la barra es el resultado del equipo -->
+            <span class="historial-grupo">{{ 'Atajadas' if es_arquero else 'Goles' }} partido a partido</span>
+            <div class="grafico-ficha mb-1" style="height: 150px;"><canvas id="graficoAporte" role="img" aria-label="{{ 'Atajadas' if es_arquero else 'Goles' }} por partido"></canvas></div>
+            <div class="grafico-ficha__leyenda mb-3"><span><b class="bg-success"></b>Su equipo ganó</span><span><b class="bg-secondary"></b>Empató</span><span><b class="bg-danger"></b>Perdió</span></div>
+            {% endif %}
             <div class="d-flex flex-column gap-2" id="listaBitacora">
                 {% for p in bitacora.partidos %}
                 <a href="/juegos/{{ p.id }}" class="bitacora-fila bitacora-fila--{{ p.resultado }}" title="Ver el detalle del partido">
@@ -317,69 +325,104 @@
 
 </div>
 
-<!-- Carga de Chart.js y Script del Gráfico -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Gráficos de la ficha (static/js/graficos_fifav.js): arrancan cuando se ven -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', path='/js/graficos_fifav.js') }}"></script>
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        const ctx = document.getElementById('atributosRadarChart').getContext('2d');
-        
-        // 15 atributos agrupados (técnica, físico, mental), en el mismo orden que las barras de al lado
-        const grupos = {{ grupos_atributos | tojson }};
-        const etiquetas = [], valores = [], colores = [];
-        const jugador = {{ {'regate': jugador.regate, 'control_balon': jugador.control_balon, 'precision_pase': jugador.precision_pase, 'precision_tiro': jugador.precision_tiro, 'fuerza_disparo': jugador.fuerza_disparo, 'vision_juego': jugador.vision_juego, 'velocidad': jugador.velocidad, 'agilidad': jugador.agilidad, 'resistencia': jugador.resistencia, 'fuerza_fisica': jugador.fuerza_fisica, 'juego_aereo': jugador.juego_aereo, 'anticipacion': jugador.anticipacion, 'concentracion': jugador.concentracion, 'compostura': jugador.compostura, 'agresividad': jugador.agresividad} | tojson }};
-        grupos.forEach(([, color, campos]) => campos.forEach(([campo, etiqueta]) => {
-            etiquetas.push(etiqueta); valores.push(Math.round((jugador[campo] || 0) * 10) / 10); colores.push(color);
-        }));
-        // "Zoom": la escala se ajusta al rango de ESTE jugador (de 5 en 5, con margen), no a 0-100, así el
-        // polígono ocupa el gráfico y se notan las diferencias; los valores de la escala quedan visibles
-        const angosto = window.innerWidth < 576;  // celular: etiquetas más chicas para que el radar gane espacio
-        const minimo = Math.max(0, Math.floor((Math.min(...valores) - 8) / 5) * 5);
-        const maximo = Math.min(100, Math.ceil((Math.max(...valores) + 6) / 5) * 5);
-        const degradado = ctx.createRadialGradient(ctx.canvas.width / 2, ctx.canvas.height / 2, 10, ctx.canvas.width / 2, ctx.canvas.height / 2, ctx.canvas.width / 2);
-        degradado.addColorStop(0, 'rgba(34, 197, 94, 0.15)');
-        degradado.addColorStop(1, 'rgba(34, 197, 94, 0.45)');
-
-        new Chart(ctx, {
-            type: 'radar',
-            data: {
-                labels: etiquetas,
-                datasets: [{
-                    label: 'Atributos',
-                    data: valores,
-                    backgroundColor: degradado,
-                    borderColor: '#22c55e',
-                    borderWidth: 2.5,
-                    pointBackgroundColor: colores,
-                    pointBorderColor: '#0b1220',
-                    pointBorderWidth: 2,
-                    pointRadius: 4.5,
-                    pointHoverRadius: 7
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: { padding: 4 },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: (c) => ` ${c.label}: ${c.raw}` } }
-                },
-                scales: {
-                    r: {
-                        min: minimo,
-                        max: maximo,
-                        ticks: { stepSize: 5, color: 'rgba(255, 255, 255, 0.35)', backdropColor: 'transparent', font: { size: 9 }, z: 1 },
-                        grid: { color: 'rgba(255, 255, 255, 0.08)', circular: true },
-                        angleLines: { color: 'rgba(255, 255, 255, 0.12)' },
-                        pointLabels: {
-                            color: colores,
-                            padding: angosto ? 2 : 6,
-                            font: { size: angosto ? 9 : 11, weight: '600', family: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' }
+        const GF = window.GraficosFIFAV;
+        const lienzo = document.getElementById('atributosRadarChart');
+        if (lienzo) {
+            const ctx = lienzo.getContext('2d');
+            // 15 atributos agrupados (técnica, físico, mental), en el mismo orden que las barras de al lado
+            const grupos = {{ grupos_atributos | tojson }};
+            const etiquetas = [], valores = [], colores = [];
+            const jugador = {{ {'regate': jugador.regate, 'control_balon': jugador.control_balon, 'precision_pase': jugador.precision_pase, 'precision_tiro': jugador.precision_tiro, 'fuerza_disparo': jugador.fuerza_disparo, 'vision_juego': jugador.vision_juego, 'velocidad': jugador.velocidad, 'agilidad': jugador.agilidad, 'resistencia': jugador.resistencia, 'fuerza_fisica': jugador.fuerza_fisica, 'juego_aereo': jugador.juego_aereo, 'anticipacion': jugador.anticipacion, 'concentracion': jugador.concentracion, 'compostura': jugador.compostura, 'agresividad': jugador.agresividad} | tojson }};
+            grupos.forEach(([, color, campos]) => campos.forEach(([campo, etiqueta]) => {
+                etiquetas.push(etiqueta); valores.push(Math.round((jugador[campo] || 0) * 10) / 10); colores.push(color);
+            }));
+            // "Zoom": la escala se ajusta al rango de ESTE jugador (de 5 en 5, con margen), no a 0-100, así el
+            // polígono ocupa el gráfico y se notan las diferencias; los valores de la escala quedan visibles
+            const angosto = window.innerWidth < 576;  // celular: etiquetas más chicas para que el radar gane espacio
+            const minimo = Math.max(0, Math.floor((Math.min(...valores) - 8) / 5) * 5);
+            const maximo = Math.min(100, Math.ceil((Math.max(...valores) + 6) / 5) * 5);
+            // relleno: degradé radial verde, más intenso hacia afuera
+            const relleno = c => {
+                const a = c.chart.chartArea;
+                if (!a) return 'rgba(34, 197, 94, 0.3)';
+                const cx = (a.left + a.right) / 2, cy = (a.top + a.bottom) / 2, r = Math.min(a.width, a.height) / 2;
+                const g = c.chart.ctx.createRadialGradient(cx, cy, r * 0.05, cx, cy, r);
+                g.addColorStop(0, 'rgba(34, 197, 94, 0.08)'); g.addColorStop(0.7, 'rgba(34, 197, 94, 0.32)'); g.addColorStop(1, 'rgba(56, 189, 248, 0.42)');
+                return g;
+            };
+            GF.alVer(lienzo, () => {
+                GF.estilo();
+                // Crece desde el centro: arranca con todos los atributos en el mínimo de la escala y cada punto sale con
+                // una pequeña demora (va dando la vuelta al radar)
+                const grafico = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: etiquetas,
+                        datasets: [{
+                            label: 'Atributos', data: GF.reducido ? valores : valores.map(() => minimo),
+                            backgroundColor: relleno, borderColor: '#22c55e', borderWidth: 2.5, brillo: 'rgba(34, 197, 94, 0.75)',
+                            pointBackgroundColor: colores, pointBorderColor: '#0b1220', pointBorderWidth: 2, pointRadius: 4.5, pointHoverRadius: 8,
+                        }]
+                    },
+                    plugins: [GF.brillo],
+                    options: {
+                        responsive: true, maintainAspectRatio: false, layout: { padding: 4 },
+                        animation: { duration: 1100, easing: 'easeOutBack', delay: c => (c.type === 'data' && c.mode === 'default') ? c.dataIndex * 55 : 0 },
+                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${c.label}: ${c.raw}` } } },
+                        scales: {
+                            r: {
+                                min: minimo, max: maximo,
+                                ticks: { stepSize: 5, color: 'rgba(255, 255, 255, 0.35)', backdropColor: 'transparent', font: { size: 9 }, z: 1 },
+                                grid: { color: 'rgba(255, 255, 255, 0.08)', circular: true },
+                                angleLines: { color: 'rgba(255, 255, 255, 0.12)' },
+                                pointLabels: { color: colores, padding: angosto ? 2 : 6,
+                                               font: { size: angosto ? 9 : 11, weight: '600', family: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' } }
+                            }
                         }
                     }
-                }
-            }
-        });
+                });
+                if (!GF.reducido) requestAnimationFrame(() => { grafico.data.datasets[0].data = valores; grafico.update(); });
+            }, 0.3);
+        }
+
+        // Aporte partido a partido (bitácora): barras que crecen una tras otra, del partido más viejo al más nuevo
+        const lienzoAporte = document.getElementById('graficoAporte');
+        if (lienzoAporte) {
+            const esArquero = {{ (jugador.sector == 'Portero') | tojson }};
+            const partidos = {{ ((bitacora or {}).partidos or []) | reverse | list | tojson }};
+            const COLOR_R = { V: '#22c55e', E: '#94a3b8', D: '#ef4444' };
+            const valor = p => esArquero ? (p.atajadas || 0) : (p.goles || 0);
+            GF.alVer(lienzoAporte, () => {
+                GF.estilo();
+                new Chart(lienzoAporte, {
+                    type: 'bar',
+                    data: { labels: partidos.map(p => p.rival.nombre), datasets: [{
+                        data: partidos.map(valor), borderRadius: 5, borderSkipped: 'start', maxBarThickness: 22,
+                        backgroundColor: partidos.map(p => GF.alfa(COLOR_R[p.resultado] || '#94a3b8', 0.85)),
+                        hoverBackgroundColor: partidos.map(p => COLOR_R[p.resultado] || '#94a3b8'),
+                        minBarLength: 3,
+                    }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        animation: { duration: 700, easing: 'easeOutQuart', delay: c => (c.type === 'data' && c.mode === 'default') ? c.dataIndex * 60 : 0 },
+                        scales: { x: { grid: { display: false }, ticks: { display: false } },
+                                  y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.05)' }, border: { display: false }, ticks: { stepSize: 1, precision: 0, color: '#64748b' } } },
+                        plugins: { legend: { display: false }, tooltip: { callbacks: {
+                            title: it => `${partidos[it[0].dataIndex].fecha} · vs ${partidos[it[0].dataIndex].rival.nombre}`,
+                            label: it => { const p = partidos[it.dataIndex]; const n = valor(p);
+                                           return ` ${p.marcador} · ${n} ${esArquero ? (n === 1 ? 'atajada' : 'atajadas') : (n === 1 ? 'gol' : 'goles')}`; } } } },
+                        onClick: (_, els) => { if (els.length) window.location.href = `/juegos/${partidos[els[0].index].id}`; },
+                        onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+                    },
+                });
+            }, 0.3);
+        }
     });
 </script>
+
 {% endblock %}

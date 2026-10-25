@@ -284,6 +284,9 @@
         {% endif %}
     </div>
 
+    <!-- POR QUÉ MIRAR ESTE PARTIDO (services/partidos_interes_service.py) -->
+    {% if not stats_jugadores %}{% include "partials/motivos_partido.html" %}{% endif %}
+
     <!-- ENFRENTAMIENTOS ANTERIORES (mismo bloque que el Scouter) -->
     {% include "partials/enfrentamientos.html" %}
 

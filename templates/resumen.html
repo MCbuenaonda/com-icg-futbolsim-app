@@ -87,6 +87,33 @@
         </div>
     </div>
 
+    <!-- CESE DE DT: la federación cambió de técnico tras este partido (tecnicos_service.ceses_del_partido) -->
+    {% for c in ceses_dt %}
+    <div class="resumen-cese mb-4" style="--i: {{ loop.index0 }};">
+        <div class="resumen-cese__sello"><i class="bi bi-clipboard-x"></i><span>{{ 'Cese tras la eliminación' if c.por_eliminacion else 'Cese del DT' }}</span></div>
+        <p class="resumen-cese__texto">
+            {{ m.bandera(c.bandera, pais_id=c.pais_id) }} Tras este partido, {{ '' if c.federacion.lower().startswith(('la ', 'el ')) else 'la ' }}<strong>{{ c.federacion }}</strong>
+            {{ 'dio por terminado el ciclo de' if c.por_eliminacion else 'destituyó a' }} <strong>{{ c.sale.nombre }}</strong>{% if c.entra %} y {{ 'vuelve' if c.entra.regreso else 'asume' }} <strong>{{ c.entra.nombre }}</strong>{% endif %}.
+        </p>
+        <div class="resumen-cese__relevo">
+            <a href="/tecnicos/{{ c.sale.id }}" class="resumen-cese__dt resumen-cese__dt--sale">
+                {{ m.avatar_tecnico(c.sale.id, c.pais_id, 'md', c.sale.nombre) }}
+                <span class="min-w-0"><small>Se va</small><strong class="text-truncate d-block">{{ c.sale.nombre }}</strong>
+                    <span class="resumen-cese__datos">{{ c.sale.partidos }} PJ · {{ c.sale.record }}{% if c.sale.partidos %} · {{ '%+.2f' | format(c.sale.sobre) }} vs. esperado{% endif %}</span>
+                    {% if c.sale.desde %}<span class="resumen-cese__datos">En el cargo desde el {{ c.sale.desde }}</span>{% endif %}</span>
+            </a>
+            <span class="resumen-cese__flecha"><i class="bi bi-arrow-right"></i></span>
+            {% if c.entra %}
+            <a href="/tecnicos/{{ c.entra.id }}" class="resumen-cese__dt resumen-cese__dt--entra">
+                {{ m.avatar_tecnico(c.entra.id, c.pais_id, 'md', c.entra.nombre) }}
+                <span class="min-w-0"><small>{{ 'Vuelve' if c.entra.regreso else 'Asume' }}</small><strong class="text-truncate d-block">{{ c.entra.nombre }}</strong>
+                    <span class="resumen-cese__datos">{{ c.entra.arquetipo }}{% if c.entra.edad %} · {{ c.entra.edad }} años{% endif %}</span></span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
     <!-- CRÓNICA + FIGURA DEL PARTIDO -->
     {% if cronica or res.opinion or (detalle and detalle.figura) %}
     <div class="row g-4 mb-4">

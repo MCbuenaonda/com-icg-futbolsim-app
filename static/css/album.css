@@ -488,3 +488,98 @@
     padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.68rem; font-weight: 800; color: #1a1300; background: #facc15; }
 .estampa--vacia .estampa__hueco { position: relative; }
 @media (prefers-reduced-motion: reduce) { .album-repetidas--pulso { animation: none; } }
+
+/* ===== Giro sin "fantasmas" =====
+   Algunas piezas del frente (número, posición, sellos, escudo, holograma) tienen sombras y capas propias que Chrome dibuja
+   aunque la cara esté de espaldas (backface-visibility no alcanza a esas capas). Solución: cada cara se oculta justo a
+   mitad del giro (0.3 s de los 0.6 s), así nunca se ve el frente invertido a través del reverso, ni al revés. */
+.estampa__frente, .estampa__reverso { transition: visibility 0s linear 0.3s; }
+.estampa__reverso { visibility: hidden; }
+@media (hover: hover) {
+    .estampa:not(.estampa--vacia):hover .estampa__frente { visibility: hidden; }
+    .estampa:not(.estampa--vacia):hover .estampa__reverso { visibility: visible; }
+}
+.estampa--girada .estampa__frente, .estampa:focus-visible .estampa__frente { visibility: hidden; }
+.estampa--girada .estampa__reverso, .estampa:focus-visible .estampa__reverso { visibility: visible; }
+@media (prefers-reduced-motion: reduce) { .estampa__frente, .estampa__reverso { transition: none; } }
+
+/* Reverso: escudo del país de la estampa como marca de agua (estampas.html: marca_escudo) */
+.estampa__reverso::before { content: ""; position: absolute; inset: 12% 8%; pointer-events: none; z-index: 0;
+    background: var(--escudo-url, none) center / contain no-repeat; opacity: 0.1; filter: grayscale(0.3); }
+.estampa__reverso > * { position: relative; z-index: 1; }
+.estampa--horizontal .estampa__reverso::before { inset: 8% 30%; }
+
+/* ===== Leyendas: estampa CROMO (como las especiales de papel): metal pulido con reflejo prismático =====
+   Base metálica bronce-dorada con un patrón de rombos en relieve, un holograma arcoíris que se desplaza y un destello
+   blanco que cruza la estampa. Aplica a las leyendas y a la foto de equipo de las leyendas. */
+.estampa--leyenda .estampa__frente, .estampa--equipo-leyendas .estampa__frente {
+    background:
+        repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.16) 0 2px, transparent 2px 9px),
+        repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.12) 0 2px, transparent 2px 9px),
+        linear-gradient(135deg, #fff4dc 0%, #c58b4a 18%, #fde6bd 32%, #8a5320 48%, #f7d79c 62%, #a8692c 78%, #ffe9c2 100%);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 12px rgba(255, 236, 200, 0.45); }
+.estampa--leyenda .estampa__frente::after, .estampa--equipo-leyendas .estampa__frente::after {
+    content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: color-dodge; opacity: 0.55;
+    background-size: 300% 300%; animation: estampa-holo 3.2s linear infinite;
+    background-image: linear-gradient(115deg, transparent 12%, rgba(255, 0, 170, 0.35) 26%, rgba(0, 210, 255, 0.4) 38%, rgba(120, 255, 140, 0.35) 50%,
+                                      rgba(255, 230, 0, 0.4) 62%, rgba(255, 120, 40, 0.3) 72%, transparent 86%); }
+/* destello que cruza la estampa cada pocos segundos. Va en la estampa (fuera de .estampa__giro) y SIN mix-blend-mode:
+   un hijo con modo de mezcla dentro del contenedor 3D obliga a Chrome a aplanarlo y el reverso desaparece al girar. */
+.estampa--leyenda, .estampa--equipo-leyendas { position: relative; }
+.estampa--leyenda::after, .estampa--equipo-leyendas::after {
+    content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none; border-radius: 10px;
+    background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.28) 48%, rgba(255, 255, 255, 0.06) 54%, transparent 62%);
+    background-size: 250% 100%; background-position: 150% 0; animation: estampa-destello 4.5s ease-in-out infinite; transition: opacity 0.2s ease; }
+@keyframes estampa-destello { 0%, 60% { background-position: 150% 0; } 100% { background-position: -60% 0; } }
+@media (hover: hover) { .estampa--leyenda:hover::after, .estampa--equipo-leyendas:hover::after { opacity: 0; } }
+.estampa--leyenda.estampa--girada::after, .estampa--equipo-leyendas.estampa--girada::after,
+.estampa--leyenda:focus-visible::after, .estampa--equipo-leyendas:focus-visible::after { opacity: 0; }
+.estampa--leyenda .estampa__frente::before, .estampa--equipo-leyendas .estampa__frente::before { box-shadow: inset 0 0 0 1px rgba(255, 240, 210, 0.6); }
+.estampa--leyenda .estampa__sello, .estampa--equipo-leyendas .estampa__sello {
+    color: #2b1505; background: linear-gradient(135deg, #fffaf0, #f3c58f 35%, #fff1d6 55%, #b7793f); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.7); }
+.estampa--leyenda .estampa__banda, .estampa--equipo-leyendas .estampa__banda {
+    border-top: 2px solid transparent; border-image: linear-gradient(90deg, #f3c58f, #fff1d6, #c58b4a, #fff1d6, #f3c58f) 1;
+    background: linear-gradient(180deg, #2a1d12, #0f0905); }
+.estampa--leyenda .estampa__reverso, .estampa--equipo-leyendas .estampa__reverso { border-color: #f3c58f;
+    background: radial-gradient(120% 80% at 50% 0%, rgba(243, 197, 143, 0.22), transparent 60%),
+                repeating-linear-gradient(45deg, rgba(255, 230, 190, 0.05) 0 2px, transparent 2px 9px), #120c07; }
+@media (prefers-reduced-motion: reduce) {
+    .estampa--leyenda .estampa__frente::after, .estampa--equipo-leyendas .estampa__frente::after,
+    .estampa--leyenda::after, .estampa--equipo-leyendas::after { animation: none; }
+}
+
+/* El título, el OVR y el botón del reverso no se achican: si falta lugar, se compactan los datos (antes el título
+   quedaba en 0 de alto en los jugadores) */
+.estampa__reverso-titulo, .estampa__ovr, .estampa__link { flex-shrink: 0; }
+.estampa__reverso { gap: 0.28rem; }
+.estampa__reverso .estampa__datos { min-height: 0; overflow: hidden; row-gap: 0.12rem; }
+.estampa__reverso .estampa__ovr { padding: 0.1rem 0; font-size: 1.2rem; }
+.estampa__datos--3col { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 0.25rem; }
+.estampa__datos--3col dd { font-size: 0.7rem; }
+.estampa__datos dt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.estampa__datos--1col { row-gap: 0; }
+.estampa__datos--1col dd { line-height: 1.2; }
+
+/* ===== Giro robusto (reemplaza al de .estampa__giro) =====
+   Antes giraba el contenedor .estampa__giro (preserve-3d) con las dos caras adentro: cualquier efecto dentro de ese
+   contexto 3D (brillos con mix-blend-mode, animaciones, filtros) puede hacer que el navegador lo "aplane", y entonces el
+   reverso queda de espaldas y la estampa desaparece al pasar el mouse. Ahora el contenedor no gira: cada cara gira por su
+   cuenta con su propia perspectiva (no hay contexto 3D compartido que romper) y además se oculta a mitad del giro. */
+.estampa__giro, .estampa:hover .estampa__giro, .estampa--girada .estampa__giro, .estampa:focus-visible .estampa__giro {
+    transform: none !important; transform-style: flat; transition: none; }
+.estampa__cara { transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1), visibility 0s linear 0.3s; }
+.estampa__frente { transform: perspective(900px) rotateY(0deg); visibility: visible; }
+.estampa__reverso { transform: perspective(900px) rotateY(-180deg); visibility: hidden; }
+@media (hover: hover) {
+    .estampa:not(.estampa--vacia):hover .estampa__frente { transform: perspective(900px) rotateY(180deg); visibility: hidden; }
+    .estampa:not(.estampa--vacia):hover .estampa__reverso { transform: perspective(900px) rotateY(0deg); visibility: visible; }
+}
+.estampa--girada .estampa__frente, .estampa:focus-visible .estampa__frente { transform: perspective(900px) rotateY(180deg); visibility: hidden; }
+.estampa--girada .estampa__reverso, .estampa:focus-visible .estampa__reverso { transform: perspective(900px) rotateY(0deg); visibility: visible; }
+@media (prefers-reduced-motion: reduce) { .estampa__cara { transition: none; } }
+
+/* Holograma: 'color-dodge' Safari lo pinta saturadísimo (neón); 'overlay' se ve parecido en Chrome y Safari */
+.estampa--dorada .estampa__frente::after, .estampa--platino .estampa__frente::after, .estampa--mundial .estampa__frente::after,
+.estampa--leyenda .estampa__frente::after, .estampa--equipo-leyendas .estampa__frente::after { mix-blend-mode: overlay; }
+.estampa--platino .estampa__frente::after { opacity: 0.6; }
+.estampa--leyenda .estampa__frente::after, .estampa--equipo-leyendas .estampa__frente::after { opacity: 0.5; }

@@ -588,6 +588,18 @@ def simular_y_registrar_resultado(juego_id: str, id_local: int, id_visita: int, 
     # Recuperar el clima ya generado/persistido para este partido (endpoint "/") para que influya en la simulación
     juego_doc = db["juegos"].find_one({"_id": ObjectId(juego_id)})
     clima = juego_doc.get("clima") if juego_doc else None
+    # Antes el clima y el aforo solo se generaban al abrir el detalle previo (/simulador/?id=): los partidos simulados sin
+    # pasar por ahí (en vivo, en lote) se jugaban sin clima y quedaban sin aforo. Ahora se generan acá si faltan.
+    if juego_doc and (not clima or not juego_doc.get("aforo")):
+        try:
+            if not clima:
+                clima = generar_clima_partido(juego_doc.get("ubicacion"), juego_doc.get("hora"))
+            aforo = juego_doc.get("aforo") or calcular_asistencia(juego_doc.get("fase_id"), (juego_doc.get("equipo_local") or {}).get("rankin"),
+                                                                    (juego_doc.get("equipo_visitante") or {}).get("rankin"))
+            guardar_aforo_clima_juego(juego_id, aforo, clima)
+            juego_doc["clima"], juego_doc["aforo"] = clima, aforo
+        except Exception as e:
+            print(f"No se pudo generar el clima/aforo del partido {juego_id}: {e}")
 
     # Si es el partido de vuelta de un grupo de 2 equipos, obtener los goles de la ida para
     # que la simulación evalúe tiempo extra/penales por marcador GLOBAL (ida + vuelta)

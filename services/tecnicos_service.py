@@ -308,8 +308,10 @@ def _carrera() -> Dict[int, dict]:
 
 
 def listar_tecnicos() -> dict:
-    paises = {p["id"]: p for p in db["paises"].find({}, {"id": 1, "nombre": 1, "bandera": 1, "confederacion_id": 1, "dt_id": 1, "estado": 1})}
+    paises = {p["id"]: p for p in db["paises"].find({}, {"id": 1, "nombre": 1, "bandera": 1, "confederacion_id": 1, "dt_id": 1, "estado": 1,
+                                                       "federacion_paciencia": 1})}
     stats, carrera = _stats_mundial(), _carrera()
+    vigentes = {c["dt_id"]: c for c in db["dt_cargos"].find({"hasta_juego": None}, {"juegos": 0})}
     filas = []
     for t in db["directores_tecnicos"].find({}, {"_id": 0}).sort("id", 1):
         p = paises.get(t["pais_id"], {})
@@ -321,7 +323,17 @@ def listar_tecnicos() -> dict:
                       "perdidos": s.get("perdidos", 0), "puntos_pct": s.get("puntos_pct", 0), "expulsado": s.get("expulsado", 0),
                       "amonestado": s.get("amonestado", 0), "ajustes": s.get("ajustes", 0),
                       "ceses": c.get("ceses", 0), "cargos": c.get("cargos", 0), "sobre_esperado": c.get("sobre_esperado", 0.0)})
+        fila = filas[-1]
+        cg = vigentes.get(t["id"]) if fila["en_funciones"] else None
+        pj = (cg or {}).get("partidos", 0)
+        fila.update({"riesgo": round(prob_cese(cg, p.get("federacion_paciencia") or 1.0, False) * 100) if cg else None,
+                     "cargo_pj": pj, "cargo_record": f'{cg.get("ganados", 0)}-{cg.get("empatados", 0)}-{cg.get("perdidos", 0)}' if cg else None,
+                     "cargo_sobre": round((cg.get("puntos", 0) - cg.get("esperados", 0)) / pj, 2) if pj else 0.0,
+                     "arquetipo": arquetipo(t)["titulo"]})
     en_funciones = [f for f in filas if f["en_funciones"]]
+    cuerda_floja = sorted([f for f in en_funciones if f["cargo_pj"] >= MIN_PARTIDOS and (f["riesgo"] or 0) > 0],
+                          key=lambda f: (-f["riesgo"], f["cargo_sobre"]))[:5]
+    intocables = sorted([f for f in en_funciones if f["cargo_pj"] >= MIN_PARTIDOS], key=lambda f: (-f["cargo_sobre"], -f["cargo_pj"]))[:5]
     con_partidos = [f for f in en_funciones if f["partidos"] >= 5]
     destacados = []
     if con_partidos:
@@ -330,13 +342,17 @@ def listar_tecnicos() -> dict:
     caliente = max(filas, key=lambda f: (f["expulsado"], f["amonestado"]), default=None)
     if caliente and (caliente["expulsado"] or caliente["amonestado"]):
         destacados.append({"titulo": "El más caliente", "fila": caliente,
-                           "detalle": f"{caliente['amonestado']} amonestaciones · {caliente['expulsado']} expulsiones"})
+                           "detalle": f"{caliente['amonestado']} amonestaci{'ón' if caliente['amonestado'] == 1 else 'ones'} · {caliente['expulsado']} expulsi{'ón' if caliente['expulsado'] == 1 else 'ones'}"})
     estratega = max(filas, key=lambda f: (f["ajustes"], f["partidos"]), default=None)
     if estratega and estratega["ajustes"]:
         destacados.append({"titulo": "El que más mueve el tablero", "fila": estratega, "detalle": f"{estratega['ajustes']} ajustes tácticos"})
     ceses = db["dt_cargos"].count_documents({"motivo_fin": "CESE"})
     return {"filas": filas, "destacados": destacados, "en_funciones": len(en_funciones), "ceses": ceses,
-            "confederaciones": [v for k, v in sorted(SIGLA_CONF.items())], "ultimos_cambios": _relevos(8, paises)}
+            "confederaciones": [v for k, v in sorted(SIGLA_CONF.items())], "ultimos_cambios": _relevos(9, paises),
+            "cuerda_floja": cuerda_floja, "intocables": intocables,
+            "regresos": db["dt_cargos"].count_documents({"regreso": True}),
+            "expulsiones": sum(f["expulsado"] for f in filas), "ajustes": sum(f["ajustes"] for f in filas),
+            "reales": sum(1 for f in filas if not f.get("ficticio"))}
 
 
 def _relevos(limite: int, paises: Optional[dict] = None) -> List[dict]:
@@ -345,7 +361,11 @@ def _relevos(limite: int, paises: Optional[dict] = None) -> List[dict]:
     salida = []
     for c in ultimos_cambios(limite):
         p = paises.get(c["pais_id"], {})
+        saliente = db["dt_cargos"].find_one({"pais_id": c["pais_id"], "dt_id": c.get("reemplaza_a"), "hasta_juego": c.get("desde_juego")},
+                                            {"ganados": 1, "empatados": 1, "perdidos": 1, "cese_por_eliminacion": 1}) or {}
         salida.append({"pais_id": c["pais_id"], "pais": p.get("nombre"), "bandera": p.get("bandera"),
+                       "fecha_txt": fecha_corta(c.get("desde_fecha_juego")), "por_eliminacion": saliente.get("cese_por_eliminacion"),
+                       "record_sale": f'{saliente.get("ganados", 0)}-{saliente.get("empatados", 0)}-{saliente.get("perdidos", 0)}' if saliente else None,
                        "entra_id": c["dt_id"], "entra": c.get("dt_nombre") or nombres.get(c["dt_id"]),
                        "sale_id": c.get("reemplaza_a"), "sale": nombres.get(c.get("reemplaza_a")), "regreso": c.get("regreso"),
                        "desde_juego": c.get("desde_juego"), "creado_en": c.get("creado_en")})
@@ -358,7 +378,7 @@ def perfil_tecnico(tecnico_id: int) -> Optional[dict]:
         return None
     pais = db["paises"].find_one({"id": t["pais_id"]}, {"_id": 0, "id": 1, "nombre": 1, "bandera": 1, "federacion": 1,
                                                           "confederacion_id": 1, "dt_id": 1, "federacion_paciencia": 1})
-    cargos = list(db["dt_cargos"].find({"dt_id": tecnico_id}, {"juegos": 0}).sort("creado_en", 1))
+    cargos = list(db["dt_cargos"].find({"dt_id": tecnico_id}).sort([("desde_partido_pais", 1), ("creado_en", 1)]))
     vigente = next((c for c in cargos if c.get("hasta_juego") is None and pais and pais.get("dt_id") == tecnico_id), None)
     # bitácora: los partidos del Mundial en curso que dirigió, con lo que hizo
     partidos = []
@@ -382,15 +402,59 @@ def perfil_tecnico(tecnico_id: int) -> Optional[dict]:
     # comparación con los colegas que dirigen hoy
     todos = [s for s in _stats_mundial().values() if s.get("partidos", 0) >= 3]
     media_pct = round(sum(s["puntos_pct"] for s in todos) / len(todos)) if todos else None
-    banco = list(db["directores_tecnicos"].find({"pais_id": t["pais_id"], "id": {"$ne": tecnico_id}}, {"_id": 0, "id": 1, "nombre": 1, "edad": 1}))
+    banco = list(db["directores_tecnicos"].find({"pais_id": t["pais_id"], "id": {"$ne": tecnico_id}}, {"_id": 0, "id": 1, "nombre": 1, "edad": 1, "estilo": 1}))
+    # fechas de cada cargo (primer y último partido que dirigió) y la serie de puntos reales vs esperados (cronológica)
+    fechas_juegos = {p["id"]: p["fecha"] for p in partidos}
+    for c in cargos:
+        js = [j for j in (c.get("juegos") or []) if j in fechas_juegos]
+        c["desde_txt"] = fecha_corta(fechas_juegos.get(js[0]) if js else c.get("desde_fecha_juego"))
+        c["hasta_txt"] = fecha_corta(fechas_juegos.get(c.get("hasta_juego")) or c.get("hasta_fecha_juego")) if c.get("hasta_juego") else None
+        c.pop("juegos", None)
+    afic = {q["id"]: q.get("aficionados") or 1 for q in db["paises"].find({}, {"id": 1, "aficionados": 1})}
+    real = esperado = 0.0
+    serie = []
+    for k, pm in enumerate(reversed(partidos), start=1):
+        real += 3 if pm["resultado"] == "G" else 1 if pm["resultado"] == "E" else 0
+        esperado += puntos_esperados(afic.get(t["pais_id"]), afic.get(pm["rival_id"]))
+        serie.append({"n": k, "rival": pm["rival"], "marcador": f'{pm["gf"]}-{pm["gc"]}', "real": real, "esperado": round(esperado, 2)})
+    for pm in partidos:
+        pm["fecha_txt"] = fecha_corta(pm["fecha"])
+    # percentil de cada rasgo entre todos los técnicos (y el promedio, para el radar)
+    claves = ["lectura", "motivacion", "temperamento", "confianza_leyendas"]
+    todos_rasgos = list(db["directores_tecnicos"].find({}, {"_id": 0, **{k: 1 for k in claves}}))
+    promedio = {k: round(sum(x.get(k) or 0 for x in todos_rasgos) / max(1, len(todos_rasgos)), 1) for k in claves}
+    percentil = {k: round(100 * sum(1 for x in todos_rasgos if (x.get(k) or 0) < (t.get(k) or 0)) / max(1, len(todos_rasgos))) for k in claves}
     rasgos = [("Lectura de partido", "lectura", "bi-eye"), ("Motivación", "motivacion", "bi-fire"),
               ("Temperamento", "temperamento", "bi-megaphone"), ("Confianza en las leyendas", "confianza_leyendas", "bi-award")]
     return {**t, "pais": pais, "confederacion": SIGLA_CONF.get((pais or {}).get("confederacion_id"), ""),
             "estilo_nombre": ETIQUETA_ESTILO.get(t.get("estilo"), "—"), "en_funciones": bool(vigente), "cargo_vigente": vigente,
             "cargos": cargos, "partidos_mundial": partidos, "stats": stats, "carrera": carrera, "media_pct": media_pct,
-            "rasgos": [{"nombre": n, "valor": t.get(k), "etiqueta": etiqueta_rasgo(t.get(k)), "icono": i} for n, k, i in rasgos],
+            "rasgos": [{"nombre": n, "clave": k, "valor": t.get(k), "etiqueta": etiqueta_rasgo(t.get(k)), "icono": i,
+                        "percentil": percentil[k], "promedio": promedio[k]} for n, k, i in rasgos],
+            "arquetipo": arquetipo(t), "serie": serie, "racha": [pm["resultado"] for pm in partidos[:5]][::-1],
+            "sobre_esperado_mundial": round((serie[-1]["real"] - serie[-1]["esperado"]) / len(serie), 2) if serie else None,
             "banco": banco, "presion": round((vigente or {}).get("presion", 0.0), 2) if vigente else None,
             "prob_cese": round(prob_cese(vigente, (pais or {}).get("federacion_paciencia") or 1.0, False) * 100) if vigente else None}
+
+
+def arquetipo(t: dict) -> dict:
+    """Etiqueta del DT a partir de sus rasgos (para las vistas): rol por lectura/motivación, estilo y temple."""
+    lec, mot, tem = t.get("lectura") or 55, t.get("motivacion") or 55, t.get("temperamento") or 55
+    if lec >= 65 and lec >= mot:
+        rol, desc_rol = "Estratega", "lee el partido como pocos y mueve el tablero a tiempo"
+    elif mot >= 65:
+        rol, desc_rol = "Motivador", "contagia al plantel y saca lo mejor de cada jugador"
+    elif lec < 45 and mot < 45:
+        rol, desc_rol = "Conservador", "confía en el plan inicial y cambia poco"
+    else:
+        rol, desc_rol = "Técnico", "equilibra la pizarra y el vestuario"
+    estilo = {"ofensivo": "ofensivo", "defensivo": "pragmático", "equilibrado": "equilibrado"}.get(t.get("estilo"), "equilibrado")
+    temple = "de sangre caliente" if tem >= 68 else ("de temple frío" if tem <= 42 else "de carácter firme")
+    desc_temple = ("discute cada fallo y suele terminar amonestado" if tem >= 68 else
+                   "casi nunca protesta: el árbitro rara vez lo mira" if tem <= 42 else "reclama cuando hace falta")
+    icono = {"Estratega": "bi-diagram-3-fill", "Motivador": "bi-fire", "Conservador": "bi-shield-fill", "Técnico": "bi-clipboard-check"}[rol]
+    return {"titulo": f"{rol} {estilo} {temple}", "rol": rol, "icono": icono,
+            "descripcion": f"{desc_rol.capitalize()}; {desc_temple}."}
 
 
 MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
@@ -449,3 +513,26 @@ def tarjeta_pais(pais_id: int) -> Optional[dict]:
             "puntos_pct": round(cargo.get("puntos", 0) / (3 * pj) * 100) if pj else 0,
             "sobre_esperado": round((cargo.get("puntos", 0) - cargo.get("esperados", 0)) / pj, 2) if pj else 0.0,
             "protegido": pj < MIN_PARTIDOS}
+
+
+def ceses_del_partido(juego_id: str) -> List[dict]:
+    """Los técnicos que su federación cesó tras este partido, con quién los reemplazó (para el resumen /juegos/{id})."""
+    salida = []
+    for c in db["dt_cargos"].find({"hasta_juego": str(juego_id), "motivo_fin": "CESE"}, {"juegos": 0}):
+        pais = db["paises"].find_one({"id": c["pais_id"]}, {"_id": 0, "id": 1, "nombre": 1, "bandera": 1, "federacion": 1}) or {}
+        nuevo = db["dt_cargos"].find_one({"pais_id": c["pais_id"], "desde_juego": str(juego_id), "motivo_inicio": "REEMPLAZO"}, {"juegos": 0}) or {}
+        sale = db["directores_tecnicos"].find_one({"id": c["dt_id"]}, {"_id": 0}) or {}
+        entra = db["directores_tecnicos"].find_one({"id": nuevo.get("dt_id")}, {"_id": 0}) or {} if nuevo else {}
+        pj = c.get("partidos", 0)
+        salida.append({
+            "pais_id": c["pais_id"], "pais": pais.get("nombre"), "bandera": pais.get("bandera"),
+            "federacion": pais.get("federacion") or f"La federación de {pais.get('nombre', '')}",
+            "por_eliminacion": bool(c.get("cese_por_eliminacion")),
+            "sale": {"id": c["dt_id"], "nombre": c.get("dt_nombre") or sale.get("nombre"), "partidos": pj,
+                     "record": f'{c.get("ganados", 0)}-{c.get("empatados", 0)}-{c.get("perdidos", 0)}',
+                     "sobre": round((c.get("puntos", 0) - c.get("esperados", 0)) / pj, 2) if pj else 0.0,
+                     "desde": fecha_corta(c.get("desde_fecha_juego")), "arquetipo": arquetipo(sale)["titulo"] if sale else ""},
+            "entra": ({"id": nuevo["dt_id"], "nombre": nuevo.get("dt_nombre") or entra.get("nombre"), "regreso": bool(nuevo.get("regreso")),
+                       "edad": entra.get("edad"), "arquetipo": arquetipo(entra)["titulo"] if entra else ""} if nuevo else None),
+        })
+    return salida

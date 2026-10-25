@@ -340,6 +340,100 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // ---------------------------------------------------------------------------------------
+    // Lo que está en juego (GET /matches/live/interes): se pide una vez por partido y se re-pinta en cada poll con el
+    // marcador YA REVELADO ("así como va"), así nunca adelanta el resultado.
+    // ---------------------------------------------------------------------------------------
+    let interesVivo = null, interesMatchId = null;
+    const interesCaja = document.getElementById('interesVivo');
+    async function actualizarInteresSiCorresponde(matchId) {
+        if (!matchId || matchId === interesMatchId) return;
+        interesMatchId = matchId;
+        interesVivo = null;
+        try {
+            const resp = await fetch('/matches/live/interes');
+            if (!resp.ok) { interesMatchId = null; return; }
+            interesVivo = await resp.json();
+        } catch (e) { interesMatchId = null; }
+    }
+    const ESTADO_TEXTO = { clasificado: 'clasificado', eliminado: 'eliminado', depende: 'depende de sí', necesita: 'necesita ayuda' };
+    function renderInteresVivo(data) {
+        if (!interesCaja) return;
+        const iv = interesVivo;
+        if (!iv || iv.match_id !== data.match_id || !(iv.chips.length || iv.escenarios || iv.serie)) { interesCaja.classList.add('d-none'); return; }
+        const gl = Number(data.goles_local) || 0, gv = Number(data.goles_visitante) || 0;
+        const fin = !!data.finalizado;
+        const prefijo = fin ? 'Final' : 'Así como va';
+        const e = escaparHtml;
+        let vivoHtml = '';
+        if (iv.escenarios) {
+            const filas = ['local', 'visita'].filter(l => iv.escenarios[l]).map(lado => {
+                const esc = iv.escenarios[lado];
+                const res = lado === 'local' ? (gl > gv ? 'gana' : gl === gv ? 'empata' : 'pierde') : (gv > gl ? 'gana' : gl === gv ? 'empata' : 'pierde');
+                const ahora = esc.por_resultado[res];
+                const cambia = ahora.codigo !== esc.hoy.codigo;
+                const nombre = lado === 'local' ? iv.local : iv.visita;
+                const clave = ahora.codigo === 'clasificado' || ahora.codigo === 'eliminado';
+                return `<div class="iv-equipo iv-equipo--${ahora.codigo} ${cambia && clave ? 'iv-equipo--alerta' : ''}">
+                    <span class="iv-equipo__nombre">${UI.bandera('', { id: iv.ids[lado] })} ${e(nombre)}</span>
+                    <span class="iv-equipo__antes">Antes: ${e(ESTADO_TEXTO[esc.hoy.codigo] || esc.hoy.texto)}</span>
+                    <span class="iv-equipo__ahora"><small>${prefijo}</small><strong>${e((ESTADO_TEXTO[ahora.codigo] || ahora.texto).replace(/^./, c => c.toUpperCase()))}</strong></span>
+                </div>`;
+            });
+            if (filas.length) vivoHtml = `<div class="iv-vivo">${filas.join('')}</div>`;
+        } else if (iv.serie) {
+            let tl = gl, tv = gv, texto;
+            if (iv.serie.tipo === 'vuelta' && iv.serie.ida) { tl += Number(iv.serie.ida.goles_local) || 0; tv += Number(iv.serie.ida.goles_visita) || 0; }
+            const global = iv.serie.tipo === 'vuelta' && iv.serie.ida ? ` <small>(global ${tl}-${tv})</small>` : '';
+            if (tl !== tv) texto = `${prefijo}, avanza <strong>${e(tl > tv ? iv.local : iv.visita)}</strong>${global}`;
+            else texto = fin ? `Empate${global}: se definió en el alargue o los penales` : `${prefijo}: empate${global}, se iría al alargue`;
+            vivoHtml = `<div class="iv-serie"><i class="bi bi-arrow-left-right"></i><span>${texto}</span></div>`;
+        }
+        const chips = iv.chips.map(c => `<li class="motivo motivo--${e(c.tipo)}"><i class="bi ${e(c.icono)}"></i><span>${e(c.texto)}</span></li>`).join('');
+        interesCaja.innerHTML = `
+            <div class="iv__cabecera">
+                <span class="iv__titulo"><i class="bi bi-binoculars-fill"></i>Lo que está en juego</span>
+                ${iv.nivel ? `<span class="partido-card__nivel partido-card__nivel--${e(iv.nivel.codigo)} iv__nivel"><i class="bi ${e(iv.nivel.icono)}"></i>${e(iv.nivel.texto)}</span>` : ''}
+            </div>
+            ${vivoHtml}
+            ${chips ? `<ul class="iv__motivos">${chips}</ul>` : ''}`;
+        interesCaja.classList.remove('d-none');
+    }
+
+    let canchaDT = {};   // DT de cada lado (/matches/live/plantillas): {local|visita: {id, nombre, estilo, arquetipo, avatar_url, record}}
+
+    // Fila del DT al tope de "Jugadores en Cancha": lo que hizo desde el banco sale SOLO de los eventos ya revelados
+    function renderFilaDT(lado, data) {
+        const dt = canchaDT[lado === 'local' ? 'local' : 'visita'];
+        if (!dt) return null;
+        const propios = (data.eventos || []).filter(ev => ev.dt_id === dt.id);
+        const ajustes = propios.filter(ev => ev.tipo === '📋 AJUSTE TÁCTICO');
+        const reclamos = propios.filter(ev => ev.tipo === '🗣️ RECLAMO DEL DT').length;
+        const amonestado = propios.find(ev => ev.tipo === '🟨 DT AMONESTADO');
+        const expulsado = propios.find(ev => ev.tipo === '🟥 DT EXPULSADO');
+        const ultimoAjuste = ajustes.length ? ajustes[ajustes.length - 1] : null;
+        const textoAjuste = { ataque: 'Al ataque', cerrar: 'Cerrojo', normal: 'Plan inicial' };
+        const iconos = [];
+        if (ultimoAjuste) iconos.push(`<span class="once-ico once-dt__ajuste once-dt__ajuste--${escaparHtml(ultimoAjuste.ajuste || 'normal')}" title="Ajuste táctico en el ${minutoTexto(ultimoAjuste)}">📋 ${escaparHtml(textoAjuste[ultimoAjuste.ajuste] || 'Ajuste')}<small>${minutoTexto(ultimoAjuste)}</small></span>`);
+        if (reclamos) iconos.push(`<span class="once-ico" title="${reclamos} reclamo${reclamos > 1 ? 's' : ''}">🗣️${reclamos > 1 ? `<small>×${reclamos}</small>` : ''}</span>`);
+        if (amonestado && !expulsado) iconos.push(`<span class="once-ico" title="Amonestado en el ${minutoTexto(amonestado)}">🟨<small>${minutoTexto(amonestado)}</small></span>`);
+        if (expulsado) iconos.push(`<span class="once-ico" title="Expulsado en el ${minutoTexto(expulsado)}">🟥<small>${minutoTexto(expulsado)}</small></span>`);
+        const fila = document.createElement('div');
+        fila.className = `list-group-item bg-dark text-white p-0 border-secondary border-opacity-10 small once-dt${expulsado ? ' once-dt--expulsado' : ''}`;
+        fila.innerHTML = `
+            <a href="/tecnicos/${dt.id}" target="_blank" rel="noopener" class="once-fila once-dt__fila d-flex justify-content-between align-items-center py-1 px-3 text-decoration-none text-white">
+                <span class="d-flex align-items-center gap-2" style="min-width: 0;">
+                    <span class="once-dt__avatar">${dt.avatar_url ? `<img src="${escaparHtml(dt.avatar_url)}" alt="" onerror="this.remove()">` : '<i class="bi bi-person-workspace"></i>'}<b>DT</b></span>
+                    <span class="d-flex flex-column" style="min-width: 0;">
+                        <span class="text-truncate fw-semibold">${escaparHtml(dt.nombre)} <span class="text-muted fw-normal">· ${escaparHtml(dt.estilo || 'DT')}</span></span>
+                        <span class="once-iconos">${expulsado ? '<span class="once-dt__tribuna">En la tribuna: dirige el ayudante</span>' : `<span class="once-dt__arquetipo">${escaparHtml(dt.arquetipo || '')}</span>`}${iconos.join('')}</span>
+                    </span>
+                </span>
+                <span class="badge rounded-pill once-dt__record" title="Récord en el cargo antes de este partido">${escaparHtml(dt.record)}</span>
+            </a>`;
+        return fila;
+    }
+
     async function actualizarPlantillasSiCorresponde(matchId) {
         if (!matchId || matchId === canchaPlantillasMatchId) return;
         try {
@@ -352,6 +446,7 @@ document.addEventListener('DOMContentLoaded', function () {
             canchaDorsales = data.dorsales || {};
             canchaIds = data.ids || {};
             canchaLeyendas = new Set(data.leyendas || []);
+            canchaDT = data.dt || {};
             mascota = data.mascota_url ? { anfitrion: data.anfitrion, url: data.mascota_url, nombre: data.mascota_nombre } : null;
             canchaLineasLocal = data.lineas_local || [];
             canchaLineasVisitante = data.lineas_visitante || [];
@@ -1043,6 +1138,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }, CANCHA_AVISO_DURACION_MS);
     }
 
+    const bloqueCanchaVivo = document.getElementById('bloqueCanchaVivo');
+    const canchaVisible = () => !bloqueCanchaVivo || bloqueCanchaVivo.offsetParent !== null;
+
     function renderCancha(data) {
         if (!canchaBalon) return;
         const eventos = data.eventos || [];
@@ -1694,8 +1792,12 @@ document.addEventListener('DOMContentLoaded', function () {
         renderDestacadosPais('onceDestacadosVisitante', canchaDestacados.paises.visitante || []);
         const estado = calcularEstadoJugadoresEnCancha(data);
         onceListaLocal.innerHTML = '';
+        const dtLocal = renderFilaDT('local', data);
+        if (dtLocal) onceListaLocal.appendChild(dtLocal);
         estado.local.forEach(j => onceListaLocal.appendChild(renderFilaJugadorEnCancha(j, 'local', data.id_local)));
         onceListaVisitante.innerHTML = '';
+        const dtVisita = renderFilaDT('visitante', data);
+        if (dtVisita) onceListaVisitante.appendChild(dtVisita);
         estado.visitante.forEach(j => onceListaVisitante.appendChild(renderFilaJugadorEnCancha(j, 'visitante', data.id_visita)));
 
         const momentum = calcularMomentumAcumuladoPorEquipo(data);
@@ -1902,9 +2004,13 @@ document.addEventListener('DOMContentLoaded', function () {
         renderMarcadorTv(data);
         await actualizarPlantillasSiCorresponde(data.match_id);
         actualizarDestacadosSiCorresponde(data.match_id);   // sin await: la primera vez puede tardar, se ve en el próximo poll
-        renderCancha(data);
-        reiniciarJugadoresCanchaSiCambioPartido(data.match_id);
-        renderJugadoresCancha(data);
+        actualizarInteresSiCorresponde(data.match_id).then(() => renderInteresVivo(data));
+        // La cancha virtual no se dibuja si está oculta (celular): ahorra el trabajo más pesado de cada poll
+        if (canchaVisible()) {
+            renderCancha(data);
+            reiniciarJugadoresCanchaSiCambioPartido(data.match_id);
+            renderJugadoresCancha(data);
+        }
         renderJugadoresEnCancha(data);
         actualizarInfoPartido(data);
         await actualizarTablaGrupoSiCorresponde(data);

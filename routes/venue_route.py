@@ -6,7 +6,7 @@ from bson.errors import InvalidId
 from schemas.venue_schema import SedeOut, CiudadDisponibleOut
 from services.venue_service import (
     obtener_ciudades_disponibles, buscar_ciudades_directorio, contar_ciudades_directorio,
-    buy_city_venue, sell_city_venue, obtener_portafolio_sedes
+    buy_city_venue, sell_city_venue, obtener_portafolio_sedes, obtener_portafolio_vista, resumen_directorio
 )
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 from services.imagenes_pais_service import GLOBALES_JINJA
@@ -108,13 +108,14 @@ async def directorio_vista(request: Request):
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
 
-    ciudades = buscar_ciudades_directorio("", usuario["_id"], limite=50)
+    ciudades = buscar_ciudades_directorio("", usuario["_id"], limite=51)
     total = contar_ciudades_directorio("", usuario["_id"])
+    resumen = resumen_directorio(str(usuario["_id"]))
 
     return templates.TemplateResponse(
         request=request,
         name="directorio_sedes.html",
-        context={"ciudades": ciudades, "total_ciudades": total}
+        context={"ciudades": ciudades, "total_ciudades": total, "resumen": resumen}
     )
 
 
@@ -124,10 +125,10 @@ async def portafolio_vista(request: Request):
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
 
-    sedes = obtener_portafolio_sedes(usuario["_id"])
+    portafolio = obtener_portafolio_vista(str(usuario["_id"]))
 
     return templates.TemplateResponse(
         request=request,
         name="mi_portafolio_sedes.html",
-        context={"sedes": sedes}
+        context={"p": portafolio, "sedes": portafolio["sedes"]}
     )

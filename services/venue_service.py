@@ -146,6 +146,8 @@ def buscar_ciudades_directorio(texto: str = "", usuario_id: Optional[str] = None
         {"id": 1, "nombre": 1, "estadio": 1, "tipo": 1, "pais_id": 1, "pais": 1, "owner_user_id": 1, "estadio_imagen": 1}
     ).sort([("pais", 1), ("nombre", 1)]).skip(max(0, saltar)).limit(limite))
 
+    programados = partidos_programados([c["id"] for c in ciudades])
+    estampas = _estampas_ciudades(usuario_id)
     resultado = []
     for c in ciudades:
         owner_user_id = c.get("owner_user_id", 0)
@@ -161,8 +163,108 @@ def buscar_ciudades_directorio(texto: str = "", usuario_id: Optional[str] = None
             "tiene_dueno": tiene_dueno,
             "es_mia": tiene_dueno and usuario_id is not None and str(owner_user_id) == str(usuario_id),
             "estadio_img": f"{IMAGENES_PAISES_URL}/{c['estadio_imagen']}" if c.get("estadio_imagen") else None,
+            "programados": (programados.get(c["id"]) or {}).get("n", 0),
+            "proximo": (programados.get(c["id"]) or {}).get("proximo"),
+            "tengo_estampa": c["id"] in estampas,
         })
     return resultado
+
+
+# ==========================================
+# Datos para las vistas (directorio y portafolio)
+# ==========================================
+def partidos_programados(ids_ciudades: Optional[List[int]] = None) -> Dict[int, dict]:
+    """{ciudad_id: {'n': partidos por jugarse ahí, 'proximo': el primero}} (juegos 'creado' con sede asignada)."""
+    filtro: Dict[str, Any] = {"estado": "creado", "ubicacion.id": {"$exists": True}}
+    if ids_ciudades is not None:
+        filtro["ubicacion.id"] = {"$in": list(ids_ciudades)}
+    salida: Dict[int, dict] = {}
+    for j in db['juegos'].find(filtro, {"ubicacion.id": 1, "fecha": 1, "hora": 1, "fase_id": 1,
+                                        "equipo_local.id": 1, "equipo_local.nombre": 1, "equipo_visitante.id": 1,
+                                        "equipo_visitante.nombre": 1}).sort([("fecha", 1), ("hora", 1)]):
+        cid = (j.get("ubicacion") or {}).get("id")
+        d = salida.setdefault(cid, {"n": 0, "proximo": None})
+        d["n"] += 1
+        if d["proximo"] is None:
+            loc, vis = j.get("equipo_local") or {}, j.get("equipo_visitante") or {}
+            from services.tecnicos_service import fecha_corta
+            d["proximo"] = {"id": str(j["_id"]), "fecha": j.get("fecha"), "fecha_txt": fecha_corta(j.get("fecha")), "hora": j.get("hora"), "fase_alta": (j.get("fase_id") or 0) >= FASE_ID_BONO_ALTO,
+                            "local": loc.get("nombre"), "local_id": loc.get("id"), "visita": vis.get("nombre"), "visita_id": vis.get("id")}
+    return salida
+
+
+def _estampas_ciudades(usuario_id: Optional[str]) -> set:
+    if not usuario_id:
+        return set()
+    album = db['user_albums'].find_one({"user_id": ObjectId(str(usuario_id))}, {"owned_ciudades": 1}) or {}
+    return set(album.get("owned_ciudades") or [])
+
+
+def resumen_directorio(usuario_id: str) -> dict:
+    """Encabezado del Directorio: cupos del usuario, totales y las mejores OPORTUNIDADES (sedes libres con más partidos
+    programados: cada partido paga regalía al dueño)."""
+    total = db['ciudades'].count_documents({})
+    libres = db['ciudades'].count_documents({"owner_user_id": {"$in": SIN_DUENO}})
+    mias = db['city_ownerships'].count_documents({"user_id": ObjectId(str(usuario_id)), "status": ESTADO_SEDE_ACTIVO})
+    programados = partidos_programados()
+    ids = list(programados)
+    libres_con_partidos = {c["id"]: c for c in db['ciudades'].find({"id": {"$in": ids}, "owner_user_id": {"$in": SIN_DUENO}},
+                                                                    {"id": 1, "nombre": 1, "estadio": 1, "pais_id": 1, "pais": 1, "estadio_imagen": 1})}
+    estampas = _estampas_ciudades(usuario_id)
+    orden = sorted(libres_con_partidos, key=lambda cid: (-programados[cid]["n"], programados[cid]["proximo"]["fecha"] or ""))
+    oportunidades = []
+    for cid in orden[:6]:
+        c, p = libres_con_partidos[cid], programados[cid]
+        # regalía esperada: base (×3 en fase alta) + goles promedio del torneo (~3,8) × bono por gol
+        estimada = round(p["n"] * (REGALIA_BASE + 3.8 * BONO_POR_GOL) * (MULTIPLICADOR_SINERGIA if cid in estampas else 1))
+        oportunidades.append({"ciudad_id": cid, "nombre": c.get("nombre"), "estadio": c.get("estadio"), "pais_id": c.get("pais_id"),
+                              "pais_nombre": c.get("pais"), "programados": p["n"], "proximo": p["proximo"],
+                              "estadio_img": f"{IMAGENES_PAISES_URL}/{c['estadio_imagen']}" if c.get("estadio_imagen") else None,
+                              "tengo_estampa": cid in estampas, "regalia_estimada": estimada, "costo": COSTO_BASE_SEDE})
+    return {"total": total, "libres": libres, "ocupadas": total - libres, "mias": mias, "max_total": MAX_CIUDADES_TOTAL,
+            "max_por_pais": MAX_CIUDADES_POR_PAIS, "con_partidos": len(programados), "oportunidades": oportunidades,
+            "reglas": {"base": REGALIA_BASE, "fase_alta": MULTIPLICADOR_FASE_ALTA, "por_gol": BONO_POR_GOL,
+                       "sinergia": MULTIPLICADOR_SINERGIA, "pasivo": BONUS_PASIVO_ALBUM, "costo": COSTO_BASE_SEDE,
+                       "reembolso": int(PORCENTAJE_REEMBOLSO_VENTA * 100)}}
+
+
+def obtener_portafolio_vista(user_id: str) -> dict:
+    """Portafolio para la vista: cada sede con su recupero (ganado vs. pagado), sinergia de álbum, próximo partido y últimas
+    regalías; totales; y la serie de ingresos acumulados de las sedes (para el gráfico)."""
+    usuario_oid = ObjectId(str(user_id))
+    sedes = obtener_portafolio_sedes(user_id)
+    ids = [s["ciudad_id"] for s in sedes]
+    programados = partidos_programados(ids)
+    estampas = _estampas_ciudades(user_id)
+    imgs = {c["id"]: c.get("estadio_imagen") for c in db['ciudades'].find({"id": {"$in": ids}}, {"id": 1, "estadio_imagen": 1})}
+    desde = {s["ciudad_id"]: s.get("purchased_at") for s in sedes}
+    historial = [h for h in db['city_revenue_history'].find({"user_id": usuario_oid, "ciudad_id": {"$in": ids}}).sort("created_at", 1)
+                 if not desde.get(h["ciudad_id"]) or h["created_at"] >= desde[h["ciudad_id"]]]
+    por_ciudad: Dict[int, List[dict]] = {}
+    for h in historial:
+        por_ciudad.setdefault(h["ciudad_id"], []).append(h)
+    for s in sedes:
+        ganado, pagado = s.get("total_revenue_earned", 0), s.get("purchase_price") or COSTO_BASE_SEDE
+        p = programados.get(s["ciudad_id"]) or {}
+        s.update({"recupero_pct": round(ganado / pagado * 100) if pagado else 0, "neto": ganado - pagado,
+                  "tengo_estampa": s["ciudad_id"] in estampas, "programados": p.get("n", 0), "proximo": p.get("proximo"),
+                  "reembolso": round(pagado * PORCENTAJE_REEMBOLSO_VENTA),
+                  "estadio_img": f"{IMAGENES_PAISES_URL}/{imgs[s['ciudad_id']]}" if imgs.get(s["ciudad_id"]) else None,
+                  "ultimas": [{"monto": h["total_earned"], "sinergia": h.get("album_synergy_applied"), "fecha": h["created_at"]}
+                              for h in reversed(por_ciudad.get(s["ciudad_id"], [])[-3:])]})
+    sedes.sort(key=lambda s: -s.get("total_revenue_earned", 0))
+    acumulado, serie = 0, []
+    for h in historial:
+        acumulado += h["total_earned"]
+        serie.append({"x": h["created_at"].strftime("%d/%m %H:%M"), "y": acumulado})
+    invertido = sum(s.get("purchase_price") or COSTO_BASE_SEDE for s in sedes)
+    ganado = sum(s.get("total_revenue_earned", 0) for s in sedes)
+    return {"sedes": sedes, "serie": serie, "invertido": invertido, "ganado": ganado, "neto": ganado - invertido,
+            "recupero_pct": round(ganado / invertido * 100) if invertido else 0,
+            "partidos": sum(s.get("matches_hosted_count", 0) for s in sedes),
+            "con_sinergia": sum(1 for s in sedes if s["tengo_estampa"]), "programados": sum(s["programados"] for s in sedes),
+            "max_total": MAX_CIUDADES_TOTAL, "max_por_pais": MAX_CIUDADES_POR_PAIS,
+            "reglas": {"base": REGALIA_BASE, "fase_alta": MULTIPLICADOR_FASE_ALTA, "por_gol": BONO_POR_GOL, "sinergia": MULTIPLICADOR_SINERGIA}}
 
 
 # ==========================================

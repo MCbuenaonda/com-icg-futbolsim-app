@@ -1,0 +1,127 @@
+{#
+  "Por qué mirar este partido" en el detalle previo (/simulador/?id=): services/partidos_interes_service.motivos_partido.
+  Recibe 'mot' (con 'detalle') y 'partido' (id_local, id_visita, local, visitante, banderas).
+#}
+{% import "partials/macros.html" as m %}
+{% if mot and (mot.chips or mot.detalle.dts) %}
+{% set d = mot.detalle %}
+{% set lados = [(partido.id_local, partido.local, partido.bandera_local), (partido.id_visita, partido.visitante, partido.bandera_visitante)] %}
+<div class="card pp mb-4 {{ 'pp--' ~ mot.nivel.codigo if mot.nivel }}">
+    <div class="pp__brillo" aria-hidden="true"></div>
+    <div class="card-body p-3 p-md-4 position-relative">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h2 class="pp__titulo"><i class="bi bi-binoculars-fill"></i>Por qué mirar este partido</h2>
+            {% if mot.nivel %}<span class="partido-card__nivel partido-card__nivel--{{ mot.nivel.codigo }} pp__nivel"><i class="bi {{ mot.nivel.icono }}"></i>{{ mot.nivel.texto }}</span>{% endif %}
+        </div>
+
+        {% if mot.chips %}
+        <ul class="pp__motivos">
+            {% for c in mot.chips %}<li class="motivo motivo--{{ c.tipo }}" style="--i: {{ loop.index0 }};"><i class="bi {{ c.icono }}"></i><span>{{ c.texto }}</span></li>{% endfor %}
+        </ul>
+        {% endif %}
+
+        {# --- Qué se juega cada uno (fase de grupos) --- #}
+        {% if d.escenarios %}
+        <h3 class="pp__subtitulo"><i class="bi bi-diagram-2-fill"></i>Qué se juega cada uno</h3>
+        <div class="row g-3 mb-1">
+            {% for pid, nombre, bandera in lados %}
+            {% set e = d.escenarios.equipos.get(pid) %}
+            {% if e %}
+            <div class="col-12 col-md-6">
+                <div class="pp-escenario {{ 'pp-escenario--define' if e.define }}">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        {{ m.bandera(bandera, pais_id=pid) }}<strong class="text-white">{{ nombre }}</strong>
+                        <span class="pp-estado pp-estado--{{ e.hoy.codigo }} ms-auto">Hoy: {{ e.hoy.texto }}</span>
+                    </div>
+                    <small class="text-muted d-block mb-2">{{ e.posicion }}° del grupo · {{ e.puntos }} pts · {{ e.restantes }} partido{{ 's' if e.restantes != 1 }} por jugar{% if e.ultima_fecha %} · <strong class="text-warning">última fecha</strong>{% endif %}</small>
+                    <div class="pp-escenario__grilla">
+                        {% for clave, etiqueta, icono in [('gana', 'Si gana', 'bi-trophy'), ('empata', 'Si empata', 'bi-dash-circle'), ('pierde', 'Si pierde', 'bi-x-circle')] %}
+                        {% set r = e.por_resultado[clave] %}
+                        <div class="pp-escenario__celda pp-estado-celda--{{ r.codigo }}">
+                            <small><i class="bi {{ icono }}"></i>{{ etiqueta }}</small>
+                            <strong>{{ r.texto }}</strong>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        <small class="text-muted d-block mb-3">Con la matemática del Scouter: cuenta solo lo que pasa en este partido (los demás quedan abiertos), así que es conservador.</small>
+        {% elif d.serie %}
+        <div class="pp-serie mb-3">
+            <i class="bi {{ 'bi-lightning-charge-fill' if d.serie.tipo == 'mata_mata' else 'bi-arrow-repeat' }}"></i>
+            {% if d.serie.tipo == 'mata_mata' %}
+            <span><strong>Eliminación directa.</strong> No hay revancha: si terminan empatados hay alargue y penales, y el que pierde se va.</span>
+            {% else %}
+            <span><strong>Partido de vuelta.</strong> {% if d.serie.ida %}La ida terminó {{ d.serie.ida.goles_local }}-{{ d.serie.ida.goles_visita }}: {% endif %}se define por el marcador global, con alargue y penales si hace falta.</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# --- Duelo de técnicos --- #}
+        {% if d.dts %}
+        <h3 class="pp__subtitulo"><i class="bi bi-clipboard-check"></i>Duelo en los bancos</h3>
+        <div class="pp-dts mb-3">
+            {% for pid, nombre, bandera in lados %}
+            {% set dt = d.dts.get(pid) %}
+            {% if dt %}
+            {% set col = '#ef4444' if dt.riesgo >= 25 else ('#f59e0b' if dt.riesgo >= 8 else '#22c55e') %}
+            <a href="/tecnicos/{{ dt.id }}" class="pp-dt {{ 'pp-dt--riesgo' if dt.riesgo >= 25 }}" style="--logo-color: {{ col }};">
+                <span class="ct-dt__halo pp-dt__halo">{{ m.avatar_tecnico(dt.id, pid, 'md', dt.nombre) }}</span>
+                <span class="min-w-0 flex-grow-1">
+                    <small class="pp__rotulo">{{ m.bandera(bandera, pais_id=pid) }} DT de {{ nombre }}</small>
+                    <strong class="d-block text-white text-truncate">{{ dt.nombre }}</strong>
+                    <small class="pp-dt__arquetipo">{{ dt.arquetipo }}</small>
+                    <span class="d-flex flex-wrap gap-1 mt-1">
+                        {% if dt.debut %}<span class="tc-chip">{{ 'Vuelve al cargo' if dt.regreso else 'Debut en el cargo' }}</span>
+                        {% else %}<span class="tc-chip">{{ dt.partidos }} PJ · {{ dt.record }}</span>
+                        <span class="tc-chip {{ 'tc-chip--ok' if dt.sobre >= 0 }}">{{ '%+.2f' | format(dt.sobre) }} vs. esperado</span>{% endif %}
+                    </span>
+                </span>
+                <span class="pp-dt__riesgo">
+                    <span class="anillo-kpi" style="--pct: {{ [dt.riesgo * 1.6, 100] | min }};"><span>{{ dt.riesgo }}%</span></span>
+                    <small>riesgo de cese</small>
+                </span>
+            </a>
+            {% if loop.first %}<span class="pp-dts__vs">VS</span>{% endif %}
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# --- Top 10 de Estadísticas --- #}
+        {% if d.tops %}
+        <h3 class="pp__subtitulo"><i class="bi bi-bar-chart-fill"></i>En los top 10 de Estadísticas</h3>
+        <div class="row g-3">
+            {% for pid, nombre, bandera in lados %}
+            {% set t = d.tops.get(pid) %}
+            <div class="col-12 col-md-6">
+                <div class="pp-tops">
+                    <div class="d-flex align-items-center gap-2 mb-2">{{ m.bandera(bandera, pais_id=pid) }}<strong class="text-white">{{ nombre }}</strong></div>
+                    {% if t %}
+                    {% if t.selecciones %}
+                    <div class="d-flex flex-wrap gap-1 mb-2">
+                        {% for x in t.selecciones | sort(attribute='posicion') %}<span class="pp-top-sel {{ 'pp-top-sel--podio' if x.posicion <= 3 }}"><i class="bi {{ x.icono }}"></i>#{{ x.posicion }} {{ x.titulo }}</span>{% endfor %}
+                    </div>
+                    {% endif %}
+                    {% for jid, entradas in t.jugadores | groupby('id') %}
+                    {% set e0 = entradas | sort(attribute='posicion') | first %}
+                    <a href="/jugadores/{{ jid }}" class="pp-figura">
+                        {{ m.avatar(jid, pid, 'sm', e0.nombre) }}
+                        <span class="min-w-0 flex-grow-1"><strong class="d-block text-truncate">{{ e0.nombre }}</strong>
+                            <small class="d-flex flex-wrap gap-1">{% for x in entradas | sort(attribute='posicion') %}<span class="pp-figura__lista {{ 'pp-figura__lista--podio' if x.posicion <= 3 }}">#{{ x.posicion }} {{ x.titulo | lower }} · {{ x.valor }}</span>{% endfor %}</small></span>
+                    </a>
+                    {% endfor %}
+                    {% else %}
+                    <small class="text-muted">No aparece en los top 10 todavía.</small>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

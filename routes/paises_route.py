@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from services.partidos_interes_service import destacados_de_pais
 from services.paises_service import get_paises, get_pais, obtener_trayectoria_pais, obtener_partidos_pais, obtener_estadisticas_torneo, obtener_balance_pais
 from services.probabilidades_service import probabilidades_pais
 from services.tecnicos_service import tarjeta_pais
@@ -60,6 +61,11 @@ async def pais(request: Request, id: str):
         except Exception as e:   # nunca rompe la ficha
             logger.error(f"Cuerpo técnico del país {id}: {e}")
             cuerpo_tecnico = None
+        try:   # en qué top 10 de /estadisticas aparece la selección y sus jugadores + sus líderes en el Mundial
+            destacados = destacados_de_pais(int(id)) if pais else None
+        except Exception as e:   # nunca rompe la ficha
+            logger.error(f"Destacados del país {id}: {e}")
+            destacados = None
         estadisticas = obtener_estadisticas_torneo(pais) if pais else {}
         # figuras de la plantilla: los 6 de mejor valoración (la plantilla completa está en /jugadores/pais/{id});
         # las leyendas (jugadores.leyenda, ~80) van en su propio bloque, si no se quedarían con las 6 figuras
@@ -73,7 +79,7 @@ async def pais(request: Request, id: str):
             context={"pais": pais, "historial_aficionados": historial_aficionados, "aficionados_base": AFICIONADOS_INICIAL,
                      "trayectoria": trayectoria, "partidos": partidos, "figuras": figuras, "leyendas": leyendas,
                      "estadisticas": estadisticas, "balance": balance,
-                     "probabilidades": probabilidades, "cuerpo_tecnico": cuerpo_tecnico}
+                     "probabilidades": probabilidades, "cuerpo_tecnico": cuerpo_tecnico, "destacados": destacados}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")

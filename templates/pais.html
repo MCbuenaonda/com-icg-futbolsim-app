@@ -224,16 +224,64 @@
                         <a href="/jugadores/pais/{{ pais.id }}" class="btn btn-sm btn-outline-light rounded-pill px-3">Ver los 22</a>
                     </div>
                     <div class="row row-cols-2 row-cols-sm-3 g-2">
+                        {% set dst = destacados or {} %}{% set en_top = dst.por_jugador or {} %}
                         {% for j in figuras %}
+                        {% set t = en_top.get(j.id) %}
                         <div class="col">
-                            <a href="/jugadores/{{ j.id }}" class="figura-mini">
+                            <a href="/jugadores/{{ j.id }}" class="figura-mini {{ 'figura-mini--top' if t }}" {% if t %}title="En los top 10 de Estadísticas: {{ t.resumen }}"{% endif %}>
+                                {% if t %}<span class="figura-mini__top figura-mini__top--{{ t.mejor if t.mejor <= 3 else 'n' }}"><i class="bi bi-trophy-fill"></i>#{{ t.mejor }}</span>{% endif %}
                                 <span class="figura-mini__foto">{{ m.avatar(j.id, pais.id, '', j.nombre) }}<span class="figura-mini__dorsal">{{ j.numero }}</span></span>
                                 <strong class="text-truncate">{{ j.nombre }}</strong>
                                 <small>{{ j.posicion }} · <span class="text-warning">{{ j.overall | round(1) }}</span></small>
+                                {% if t %}<span class="figura-mini__lista text-truncate"><i class="bi {{ t.listas[0].icono }}"></i>{{ t.listas[0].titulo }}{% if t.listas | length > 1 %} +{{ t.listas | length - 1 }}{% endif %}</span>{% endif %}
                             </a>
                         </div>
                         {% endfor %}
                     </div>
+
+                    {# Lo que aporta la selección en /estadisticas (partidos_interes_service.destacados_de_pais) #}
+                    {% if destacados %}{% set d = destacados %}
+                    {% if d.selecciones or d.jugadores %}
+                    <div class="fg-bloque" style="--i: 0;">
+                        <div class="fg-bloque__cabecera">
+                            <h3><i class="bi bi-bar-chart-fill"></i>En los top 10 de Estadísticas</h3>
+                            <a href="/estadisticas/" class="fg-bloque__ver">Ver todo <i class="bi bi-arrow-right"></i></a>
+                        </div>
+                        {% if d.selecciones %}
+                        <div class="d-flex flex-wrap gap-1 mb-2">
+                            {% for x in d.selecciones %}<span class="fg-chip fg-chip--{{ x.posicion if x.posicion <= 3 else 'n' }}" title="{{ x.titulo }}: {{ '{:,}'.format(x.valor) if x.valor is number else x.valor }} {{ x.sufijo }}"><i class="bi {{ x.icono }}"></i><b>#{{ x.posicion }}</b>{{ x.titulo }}</span>{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% for j in d.jugadores[:4] %}
+                        <a href="/jugadores/{{ j.id }}" class="fg-jugador">
+                            {{ m.avatar(j.id, pais.id, 'sm', j.nombre) }}
+                            <span class="min-w-0 flex-grow-1">
+                                <strong class="d-block text-truncate">{{ j.nombre }}</strong>
+                                <span class="d-flex flex-wrap gap-1">{% for x in j.listas[:3] %}<span class="fg-chip fg-chip--mini fg-chip--{{ x.posicion if x.posicion <= 3 else 'n' }}"><b>#{{ x.posicion }}</b>{{ x.titulo }} · {{ x.valor }}</span>{% endfor %}{% if j.listas | length > 3 %}<span class="fg-chip fg-chip--mini">+{{ j.listas | length - 3 }}</span>{% endif %}</span>
+                            </span>
+                        </a>
+                        {% endfor %}
+                        {% if d.jugadores | length > 4 %}<small class="text-muted d-block mt-1">y {{ d.jugadores | length - 4 }} jugador{{ 'es' if d.jugadores | length - 4 > 1 }} más en las listas.</small>{% endif %}
+                    </div>
+                    {% endif %}
+                    {% if d.lideres %}
+                    <div class="fg-bloque" style="--i: 1;">
+                        <div class="fg-bloque__cabecera"><h3><i class="bi bi-award-fill"></i>Sus líderes en el Mundial</h3></div>
+                        <div class="fg-lideres">
+                            {% for l in d.lideres[:(6 if d.jugadores | length < 2 else 4)] %}
+                            <a href="/jugadores/{{ l.id }}" class="fg-lider">
+                                <small class="fg-lider__titulo"><i class="bi {{ l.icono }}"></i>{{ l.titulo }}</small>
+                                <span class="d-flex align-items-center gap-2 min-w-0">
+                                    {{ m.avatar(l.id, pais.id, 'sm', l.nombre) }}
+                                    <span class="min-w-0"><strong class="d-block text-truncate">{{ l.nombre }}</strong>
+                                        <span class="fg-lider__valor"><b data-contar>{{ l.valor }}</b> {{ l.sufijo }} <small>en {{ l.partidos }} PJ</small></span></span>
+                                </span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </div>

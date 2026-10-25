@@ -425,6 +425,29 @@ def obtener_destacados_estadisticas_en_vivo() -> Optional[Dict[str, Any]]:
             "paises": {k: sorted(v, key=orden) for k, v in paises.items()}}
 
 
+def _dts_en_vivo(dt_partido: dict, id_local, id_visita) -> Dict[str, Any]:
+    """{local|visita: {id, nombre, estilo, arquetipo, avatar_url, record, partidos}} del DT de cada lado (sin spoilers)."""
+    try:
+        from services import tecnicos_service as T
+        from services.imagenes_pais_service import url_avatar_tecnico
+        salida = {}
+        for lado, pais_id in (("local", id_local), ("visita", id_visita)):
+            ref = dt_partido.get(lado) or {}
+            if not ref.get("id"):
+                continue
+            doc = db["directores_tecnicos"].find_one({"id": ref["id"]}, {"_id": 0}) or {}
+            # récord del cargo ANTES de este partido (registrar_partido lo suma recién al terminar la transmisión)
+            cargo = db["dt_cargos"].find_one({"pais_id": pais_id, "dt_id": ref["id"], "hasta_juego": None}, {"juegos": 0}) or {}
+            salida[lado] = {"id": ref["id"], "nombre": ref.get("nombre") or doc.get("nombre"), "estilo": T.ETIQUETA_ESTILO.get(doc.get("estilo"), ""),
+                            "arquetipo": T.arquetipo(doc)["titulo"] if doc else "", "avatar_url": url_avatar_tecnico(ref["id"]),
+                            "partidos": cargo.get("partidos", 0),
+                            "record": f'{cargo.get("ganados", 0)}-{cargo.get("empatados", 0)}-{cargo.get("perdidos", 0)}'}
+        return salida
+    except Exception as e:
+        print(f"[en vivo] DT del partido: {e}")
+        return {}
+
+
 def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
     """
     Datos de plantilla de AMBOS equipos del partido en transmisión, pedidos UNA sola vez por
@@ -478,4 +501,7 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
         "tactica_visitante": tactica_visitante,
         "lineas_local": FORMACIONES.get(tactica_local, FORMACIONES["4-3-3"]),
         "lineas_visitante": FORMACIONES.get(tactica_visitante, FORMACIONES["4-3-3"]),
+        # DT de cada lado: solo quién es (sus reclamos, amonestación, expulsión y ajustes salen de los eventos ya
+        # revelados, en el navegador, para no adelantar nada de la transmisión)
+        "dt": _dts_en_vivo(resultado.get("dt") or {}, id_local, id_visita),
     }

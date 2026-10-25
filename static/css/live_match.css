@@ -541,3 +541,46 @@
 .once-destacado small { color: #fcd34d; }
 .once-destacados-detalle { display: flex; flex-wrap: wrap; gap: .3rem; }
 .once-destacados-pais { display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem; }
+
+/* DT al tope de "Jugadores en Cancha" (renderFilaDT en live_match.js) */
+.once-dt { background: linear-gradient(90deg, rgba(167, 139, 250, 0.14), transparent 70%) !important; border-bottom: 1px solid rgba(167, 139, 250, 0.25) !important; }
+.once-dt__fila:hover { background: rgba(167, 139, 250, 0.12); }
+.once-dt__avatar { position: relative; width: 2.2rem; height: 2.2rem; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; overflow: visible;
+    background: radial-gradient(circle at 50% 35%, rgba(167, 139, 250, 0.35), rgba(15, 23, 42, 0.9)); box-shadow: 0 0 0 2px #a78bfa; }
+.once-dt__avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.once-dt__avatar b { position: absolute; bottom: -4px; right: -6px; padding: 0 0.25rem; border-radius: 5px; font-size: 0.55rem; font-weight: 900; color: #1e1033;
+    background: linear-gradient(135deg, #ede9fe, #a78bfa); }
+.once-dt__arquetipo { font-size: 0.68rem; color: #c4b5fd; margin-right: 0.3rem; }
+.once-dt__ajuste { padding: 0 0.35rem; border-radius: 6px; background: rgba(167, 139, 250, 0.18); color: #ddd6fe; font-size: 0.68rem; }
+.once-dt__ajuste--ataque { background: rgba(249, 115, 22, 0.2); color: #fed7aa; }
+.once-dt__ajuste--cerrar { background: rgba(56, 189, 248, 0.18); color: #bae6fd; }
+.once-dt__record { background: rgba(167, 139, 250, 0.2); color: #ddd6fe; font-variant-numeric: tabular-nums; }
+.once-dt--expulsado .once-dt__avatar { box-shadow: 0 0 0 2px #ef4444; filter: grayscale(0.6); }
+.once-dt__tribuna { font-size: 0.68rem; color: #fca5a5; margin-right: 0.3rem; }
+
+/* Lo que está en juego (renderInteresVivo en live_match.js) */
+.iv { max-width: 860px; padding: 0.9rem 1rem; border-radius: 16px; position: relative; overflow: hidden;
+    background: radial-gradient(90% 140% at 0% 0%, rgba(167, 139, 250, 0.14), transparent 60%), rgba(0, 0, 0, 0.28); border: 1px solid rgba(167, 139, 250, 0.3); }
+.iv__cabecera { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.7rem; flex-wrap: wrap; }
+.iv__titulo { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 900; color: #fff; }
+.iv__titulo .bi { color: #c4b5fd; }
+.iv__nivel { border-radius: 999px; }
+.iv-vivo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 0.7rem; }
+.iv-equipo { --c: #94a3b8; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 0.6rem; align-items: center;
+    padding: 0.55rem 0.7rem; border-radius: 12px; background: rgba(255, 255, 255, 0.04); border-left: 3px solid var(--c); transition: background 0.3s ease; }
+.iv-equipo--clasificado { --c: #22c55e; } .iv-equipo--eliminado { --c: #ef4444; } .iv-equipo--depende { --c: #facc15; } .iv-equipo--necesita { --c: #fb923c; }
+.iv-equipo__nombre { font-weight: 800; color: #fff; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iv-equipo__nombre .img-pais { height: 1rem; }
+.iv-equipo__antes { grid-row: 2; font-size: 0.7rem; color: var(--bs-secondary-color); }
+.iv-equipo__ahora { grid-row: 1 / span 2; grid-column: 2; display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.iv-equipo__ahora small { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bs-secondary-color); }
+.iv-equipo__ahora strong { font-size: 0.92rem; color: var(--c); }
+.iv-equipo--alerta { background: color-mix(in srgb, var(--c) 14%, transparent); animation: iv-alerta 1.6s ease-in-out infinite; }
+@keyframes iv-alerta { 50% { box-shadow: 0 0 0 1px var(--c), 0 0 16px color-mix(in srgb, var(--c) 45%, transparent); } }
+.iv-serie { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.8rem; margin-bottom: 0.7rem; border-radius: 12px; color: #fed7aa;
+    background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.35); }
+.iv-serie .bi { color: #fb923c; font-size: 1.2rem; }
+.iv-serie strong { color: #fff; }
+.iv__motivos { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.4rem; }
+@media (max-width: 575.98px) { .iv-vivo { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .iv-equipo--alerta { animation: none; } }

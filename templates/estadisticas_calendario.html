@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as m %}
+
+{% block title %}El calendario del Mundial - FutbolSim{% endblock %}
+
+{% block content %}
+{#
+  "El calendario del Mundial" (services/calendario_service.obtener_calendario): un día como hoy, el calendario de calor,
+  el ritmo por mes / día de la semana / horario, los récords por fecha y la línea de tiempo de efemérides.
+  Usa la capa visual de "El Mundial en gráficos" (mg-*) más el calendario (cal-*) y la línea de tiempo (efe-*).
+#}
+{% set r = c.records %}{% set u = c.un_dia_como_hoy %}
+{% macro seccion(id, numero, icono, titulo, bajada, color) -%}
+<header class="mg-seccion" id="{{ id }}" style="--sec: {{ color }};">
+  <span class="mg-seccion__num">{{ numero }}</span>
+  <span class="mg-seccion__icono"><i class="bi {{ icono }}"></i></span>
+  <div class="min-w-0"><h2>{{ titulo }}</h2><p>{{ bajada }}</p></div>
+</header>
+{%- endmacro %}
+{% macro tabla(id, filas, col, titulo) -%}
+<button type="button" class="mg-ver-tabla" data-tabla="{{ id }}"><i class="bi bi-table"></i> Ver datos</button>
+<div class="mg-tabla d-none" id="tabla-{{ id }}"><table><thead><tr><th>{{ titulo }}</th><th>Partidos</th><th>Goles</th><th>Goles/partido</th></tr></thead>
+<tbody>{% for f in filas %}<tr><td>{{ f[col] }}</td><td>{{ f.partidos }}</td><td>{{ f.goles }}</td><td>{{ f.gpp }}</td></tr>{% endfor %}</tbody></table></div>
+{%- endmacro %}
+<div class="mg cal js-animar">
+{% if not c.total_partidos %}{{ m.estado_vacio('bi-calendar-x', 'Todavía no hay partidos', 'El calendario se arma cuando termina el primer partido del Mundial.') }}{% else %}
+
+<!-- ENCABEZADO -->
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo mg-hero mb-3" style="--logo-color: #d55181;">
+  <div class="mg-hero__aurora" aria-hidden="true"></div>
+  <div class="card-body p-3 p-md-4">
+    <div class="cal-hero">
+      <div class="min-w-0">
+        <a href="{{ url_for('estadisticas') }}" class="mg-volver"><i class="bi bi-arrow-left"></i> Estadísticas</a>
+        <h1 class="h2 fw-bold text-white mb-1 mt-1">El calendario del Mundial</h1>
+        <p class="text-muted small mb-3">Qué días se jugó más, cuándo caen los goles y las fechas que quedaron en la historia del Mundial {{ c.mundial or '' }}.</p>
+        <div class="mg-tiles mg-tiles--4">
+          <div class="mg-tile"><span>Partidos</span><strong>{{ '{:,}'.format(c.total_partidos) }}</strong><small>jugados hasta hoy</small></div>
+          <div class="mg-tile"><span>Goles</span><strong>{{ '{:,}'.format(c.total_goles) }}</strong><small>{{ '%.2f' | format(c.total_goles / (c.total_partidos or 1)) }} por partido</small></div>
+          <div class="mg-tile"><span>Días con fútbol</span><strong data-contar>{{ r.dias_con_partidos }}</strong><small>de {{ r.dias_totales }} desde el primer partido</small></div>
+          <div class="mg-tile"><span>Día más goleador</span><strong data-contar>{{ r.dia_goles.goles }}</strong><small>goles el {{ r.dia_goles.fecha_txt }}</small></div>
+        </div>
+      </div>
+      {% if u %}
+      <div class="cal-pared" aria-label="Fecha del torneo: {{ u.dia_semana }} {{ u.hoy_txt }}">
+        <span class="cal-pared__aro"></span><span class="cal-pared__aro cal-pared__aro--der"></span>
+        <div class="cal-pared__mes">{{ u.mes }}</div>
+        <div class="cal-pared__dia">{{ u.dia }}</div>
+        <div class="cal-pared__semana">{{ u.dia_semana }}</div>
+        <div class="cal-pared__anio">{{ u.anio }}</div>
+        <small class="cal-pared__nota">Hoy en el torneo</small>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<nav class="mg-nav mb-3" aria-label="Secciones">
+  <a href="#hoy"><i class="bi bi-calendar-heart"></i>Un día como hoy</a><a href="#calendario"><i class="bi bi-calendar3"></i>Calendario</a>
+  <a href="#ritmo"><i class="bi bi-activity"></i>Ritmo por fechas</a><a href="#records"><i class="bi bi-trophy-fill"></i>Récords</a>
+  <a href="#efemerides"><i class="bi bi-clock-history"></i>Efemérides</a>
+</nav>
+
+<!-- 01 UN DÍA COMO HOY -->
+{{ seccion('hoy', '01', 'bi-calendar-heart', 'Un día como hoy',
+           ('Hace exactamente un año, el ' ~ u.hoy_txt[:6] if u and u.modo == 'mismo_dia' else ('Lo que pasó esta misma semana, hace un año' if u and u.modo == 'semana' else 'Lo más importante de los últimos días')), '#d55181') }}
+{% if u and u['items'] %}
+<div class="row g-3 mb-4">
+  {% for e in u['items'] %}
+  <div class="col-12 col-lg-4">
+    <a href="{{ '/juegos/' ~ e.juego_id if e.juego_id else '#' }}" class="cal-recorte efe--{{ e.tipo }} {{ 'cal-recorte--destacada' if e.destacada }}" style="--i: {{ loop.index0 }};">
+      <span class="cal-recorte__sello"><strong>{{ e.fecha_txt[:2] }}</strong><small>{{ e.fecha_txt[3:6] }} {{ e.fecha_txt[-4:] }}</small></span>
+      <span class="cal-recorte__ico"><i class="bi {{ e.icono }}"></i></span>
+      <small class="cal-recorte__hace">{{ e.hace | capitalize }} · {{ e.titulo }}</small>
+      <strong class="cal-recorte__texto">{{ e.texto }}</strong>
+      <span class="cal-recorte__ver">Ver el partido <i class="bi bi-arrow-right"></i></span>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="mg-aviso mb-4"><i class="bi bi-info-circle"></i>Todavía no hay efemérides para este día.</p>
+{% endif %}
+
+<!-- 02 CALENDARIO DE CALOR -->
+{{ seccion('calendario', '02', 'bi-calendar3', 'El calendario', 'Cada día con partidos, más intenso cuantos más goles hubo. Tocá un día para ver sus partidos.', '#3987e5') }}
+<div class="mg-card mb-2 cal-card">
+  <div class="cal-leyenda"><span>Menos goles</span>{% for k in range(5) %}<b style="--n: {{ (k + 1) / 5 }};"></b>{% endfor %}<span>Más goles</span>
+    <span class="ms-3"><i class="bi bi-trophy-fill text-warning"></i> día récord</span><span class="ms-2"><span class="cal-dia-muestra"></span> hoy</span></div>
+  <div class="cal-meses">
+    {% for mes in c.meses %}
+    <div class="cal-mes" style="--i: {{ loop.index0 }};">
+      <h3 class="cal-mes__nombre">{{ mes.nombre }}</h3>
+      <div class="cal-mes__grilla">
+        {% for d in ['L', 'M', 'M', 'J', 'V', 'S', 'D'] %}<span class="cal-mes__dow">{{ d }}</span>{% endfor %}
+        {% for _ in range(mes.offset) %}<span></span>{% endfor %}
+        {% for d in mes.dias %}
+        {% if d.partidos %}
+        <button type="button" class="cal-dia {{ 'cal-dia--claro' if d.goles / (c.max_goles_dia or 1) > 0.55 }} {{ 'cal-dia--record' if d.fecha == r.dia_goles.fecha }} {{ 'cal-dia--hoy' if d.fecha == c.hoy }}"
+                style="--n: {{ (d.goles / (c.max_goles_dia or 1)) | round(2) }};" data-fecha="{{ d.fecha }}"
+                title="{{ d.dia }} · {{ d.partidos }} partido{{ 's' if d.partidos != 1 }}, {{ d.goles }} goles">
+          {{ d.dia }}{% if d.fecha == r.dia_goles.fecha %}<i class="bi bi-trophy-fill"></i>{% endif %}
+        </button>
+        {% else %}<span class="cal-dia cal-dia--vacio {{ 'cal-dia--fuera' if d.fuera }}">{{ d.dia }}</span>{% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="cal-detalle d-none" id="calDetalle" aria-live="polite"></div>
+</div>
+
+<!-- 03 RITMO POR FECHAS -->
+{{ seccion('ritmo', '03', 'bi-activity', 'Ritmo por fechas', 'Cómo se reparten los partidos y los goles a lo largo del calendario.', '#199e70') }}
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <figure class="mg-card"><figcaption><h3>Mes a mes</h3><p>Partidos y goles de cada mes. Los meses sin partidos no aparecen.</p></figcaption>
+      <div class="mg-lienzo" style="height: 280px;"><canvas id="gMes" role="img" aria-label="Goles por mes"></canvas></div>
+      {{ tabla('gMes', c.por_mes, 'mes', 'Mes') }}</figure>
+  </div>
+  <div class="col-12 col-xl-6">
+    <figure class="mg-card"><figcaption><h3>¿Qué día de la semana hay más goles?</h3><p>Goles por partido según el día. La línea gris es la media del Mundial.</p></figcaption>
+      <div class="mg-lienzo" style="height: 260px;"><canvas id="gDow" role="img" aria-label="Goles por partido según el día de la semana"></canvas></div>
+      {{ tabla('gDow', c.por_dow, 'dia', 'Día') }}</figure>
+  </div>
+  <div class="col-12 col-xl-6">
+    <figure class="mg-card"><figcaption><h3>¿A qué hora conviene mirar?</h3><p>Goles por partido según el horario de inicio (con cuántos partidos se jugaron a esa hora).</p></figcaption>
+      <div class="mg-lienzo" style="height: 260px;"><canvas id="gHora" role="img" aria-label="Goles por partido según el horario"></canvas></div>
+      {{ tabla('gHora', c.por_hora, 'hora', 'Horario') }}</figure>
+  </div>
+</div>
+
+<!-- 04 RÉCORDS -->
+{{ seccion('records', '04', 'bi-trophy-fill', 'Récords por fecha', 'Los días que se salieron de lo normal.', '#c98500') }}
+<div class="cal-records mb-4">
+  {% for ico, color, titulo, valor, detalle, enlace in [
+      ('bi-fire', '#ef4444', 'El día más goleador', r.dia_goles.goles ~ ' goles', r.dia_goles.fecha_txt ~ ' · ' ~ r.dia_goles.partidos ~ ' partidos', None),
+      ('bi-calendar-plus', '#3987e5', 'El día con más partidos', r.dia_partidos.partidos ~ ' partidos', r.dia_partidos.fecha_txt ~ ' · ' ~ r.dia_partidos.goles ~ ' goles', None),
+      ('bi-collection-fill', '#199e70', 'La jornada más goleadora', r.jornada.goles ~ ' goles', r.jornada.texto ~ ' · ' ~ r.jornada.partidos ~ ' partidos', None),
+      ('bi-lightning-charge-fill', '#c98500', 'La racha más larga', r.racha.dias ~ ' días seguidos', 'del ' ~ r.racha.desde_txt ~ ' al ' ~ r.racha.hasta_txt, None),
+      ('bi-flag-fill', '#9085e9', 'El primer partido', r.primero.local ~ ' ' ~ r.primero.gl ~ '-' ~ r.primero.gv ~ ' ' ~ r.primero.visita, r.primero.fecha_txt ~ ' · ' ~ r.primero.hora, '/juegos/' ~ r.primero.id),
+      ('bi-hourglass-bottom', '#d55181', 'El último partido', r.ultimo.local ~ ' ' ~ r.ultimo.gl ~ '-' ~ r.ultimo.gv ~ ' ' ~ r.ultimo.visita, r.ultimo.fecha_txt ~ ' · ' ~ r.ultimo.hora, '/juegos/' ~ r.ultimo.id)] %}
+  <{{ 'a href=' ~ enlace if enlace else 'div' }} class="cal-record" style="--c: {{ color }}; --i: {{ loop.index0 }};">
+    <span class="cal-record__ico"><i class="bi {{ ico }}"></i></span>
+    <span class="min-w-0"><small>{{ titulo }}</small><strong class="d-block">{{ valor }}</strong><span class="cal-record__det">{{ detalle }}</span></span>
+  </{{ 'a' if enlace else 'div' }}>
+  {% endfor %}
+</div>
+
+<!-- 05 EFEMÉRIDES -->
+{{ seccion('efemerides', '05', 'bi-clock-history', 'Efemérides', 'Los partidos, goles, técnicos y eliminaciones que marcaron el torneo, día por día.', '#9085e9') }}
+<div class="efe-filtros mb-3">
+  <button type="button" class="efe-pill activo" data-tipo="">Todo <b>{{ c.efemerides | length }}</b></button>
+  {% for t in c.tipos %}<button type="button" class="efe-pill efe-pill--{{ t.codigo }}" data-tipo="{{ t.codigo }}"><i class="bi {{ t.icono }}"></i>{{ t.nombre }} <b>{{ t.n }}</b></button>{% endfor %}
+  <label class="efe-solo form-check form-switch mb-0 ms-auto"><input class="form-check-input" type="checkbox" id="efeSolo" checked><span class="form-check-label">Solo destacadas</span></label>
+</div>
+<div class="efe-linea" id="efeLinea">
+  {% set ns = namespace(mes='') %}
+  {% for e in c.efemerides %}
+  {% set mes = e.fecha[:7] %}
+  {% if mes != ns.mes %}{% set ns.mes = mes %}<div class="efe-mes" data-mes="{{ mes }}"><span>{{ e.fecha_txt[3:] }}</span></div>{% endif %}
+  <a href="{{ '/juegos/' ~ e.juego_id if e.juego_id else ('/tecnicos/' ~ e.dt_id if e.dt_id else '#') }}" class="efe-item efe--{{ e.tipo }} {{ 'efe-item--destacada' if e.destacada }}"
+     data-tipo="{{ e.tipo }}" data-destacada="{{ 1 if e.destacada else 0 }}" data-mes="{{ mes }}">
+    <span class="efe-item__nodo"><i class="bi {{ e.icono }}"></i></span>
+    <span class="efe-item__cuerpo">
+      <span class="efe-item__cabecera"><small class="efe-item__fecha">{{ e.fecha_txt }}</small><strong>{{ e.titulo }}</strong></span>
+      <span class="efe-item__texto">{{ e.texto }}</span>
+    </span>
+  </a>
+  {% endfor %}
+</div>
+<p class="text-muted text-center py-4 d-none" id="efeVacio">No hay efemérides con ese filtro.</p>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="/static/js/graficos_fifav.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (!document.getElementById('efeLinea')) return;
+    const C = {{ {'por_mes': c.por_mes, 'por_dow': c.por_dow, 'por_hora': c.por_hora, 'dias': c.dias, 'media': (c.total_goles / (c.total_partidos or 1)) | round(2)} | tojson }};
+    const css = getComputedStyle(document.querySelector('.mg'));
+    const v = n => css.getPropertyValue(n).trim();
+    const S = [1, 2, 3, 4, 5, 6, 7, 8].map(i => v(`--s${i}`));
+    const G = window.GraficosFIFAV;
+    G.estilo();
+    const GRILLA = v('--grilla'), TENUE = v('--tinta-3');
+    const ejes = () => ({ x: { grid: { display: false }, ticks: { color: TENUE } }, y: { beginAtZero: true, grid: { color: GRILLA }, border: { display: false }, ticks: { color: TENUE } } });
+    const barra = (color, extra = {}) => ({ backgroundColor: color, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 26, ...extra });
+    const media = { id: 'mediaCal', afterDraw(ch, _, o) {
+        if (!o || o.valor == null) return; const y = ch.scales.y.getPixelForValue(o.valor), a = ch.chartArea, ctx = ch.ctx;
+        ctx.save(); ctx.strokeStyle = TENUE; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(a.left, y); ctx.lineTo(a.right, y); ctx.stroke();
+        ctx.font = '600 11px system-ui'; const t = `Media ${o.valor}`, w = ctx.measureText(t).width;
+        ctx.fillStyle = '#111c2e'; ctx.fillRect(a.right - w - 10, y - 9, w + 8, 16); ctx.fillStyle = TENUE; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(t, a.right - 6, y); ctx.restore(); } };
+
+    G.crearAlVer(document.getElementById('gMes'), {
+        type: 'bar',
+        data: { labels: C.por_mes.map(x => x.mes), datasets: [
+            { ...barra(S[0]), label: 'Goles', data: C.por_mes.map(x => x.goles) },
+            { ...barra(S[2]), label: 'Partidos', data: C.por_mes.map(x => x.partidos) } ] },
+        options: { maintainAspectRatio: false, scales: ejes(), animation: { duration: 900, easing: 'easeOutQuart' },
+                   plugins: { tooltip: { callbacks: { afterBody: it => `${C.por_mes[it[0].dataIndex].gpp} goles por partido` } } } },
+    });
+    G.crearAlVer(document.getElementById('gDow'), {
+        type: 'bar',
+        data: { labels: C.por_dow.map(x => x.dia), datasets: [{ ...barra(S[0]), label: 'Goles por partido', data: C.por_dow.map(x => x.gpp) }] },
+        options: { maintainAspectRatio: false, scales: ejes(), animation: { duration: 900 }, plugins: { legend: { display: false }, mediaCal: { valor: C.media },
+                   tooltip: { callbacks: { label: it => ` ${it.parsed.y} goles por partido (${C.por_dow[it.dataIndex].partidos} partidos)` } } } },
+        plugins: [media],
+    });
+    G.crearAlVer(document.getElementById('gHora'), {
+        type: 'bar',
+        data: { labels: C.por_hora.map(x => x.hora), datasets: [{ ...barra(S[3]), label: 'Goles por partido', data: C.por_hora.map(x => x.gpp) }] },
+        options: { maintainAspectRatio: false, scales: ejes(), animation: { duration: 900 }, plugins: { legend: { display: false }, mediaCal: { valor: C.media },
+                   tooltip: { callbacks: { label: it => ` ${it.parsed.y} goles por partido (${C.por_hora[it.dataIndex].partidos} partidos)` } } } },
+        plugins: [media],
+    });
+
+    document.querySelectorAll('.mg-ver-tabla').forEach(b => b.addEventListener('click', () => {
+        const t = document.getElementById('tabla-' + b.dataset.tabla); t.classList.toggle('d-none');
+        b.innerHTML = t.classList.contains('d-none') ? '<i class="bi bi-table"></i> Ver datos' : '<i class="bi bi-bar-chart"></i> Ver gráfico';
+    }));
+
+    // ---- Calendario: tocar un día despliega sus partidos ----
+    const detalle = document.getElementById('calDetalle');
+    let abierto = null;
+    document.querySelectorAll('.cal-dia[data-fecha]').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('.cal-dia--abierto').forEach(x => x.classList.remove('cal-dia--abierto'));
+        if (abierto === b.dataset.fecha) { abierto = null; detalle.classList.add('d-none'); return; }
+        abierto = b.dataset.fecha; b.classList.add('cal-dia--abierto');
+        const d = C.dias[abierto], e = UI.escapar;
+        detalle.innerHTML = `<div class="cal-detalle__cabecera"><strong>${e(d.fecha_txt)}</strong><span>${d.partidos.length} partido${d.partidos.length > 1 ? 's' : ''} · ${d.goles} goles</span>
+            <button type="button" class="btn-close btn-close-white btn-sm ms-auto" aria-label="Cerrar"></button></div>
+            <div class="cal-detalle__lista">${d.partidos.map((p, i) => `<a href="/juegos/${e(p.id)}" class="cal-partido" style="--i:${i}">
+                <small>${e(p.hora || '')} · ${e(p.conf)}</small>
+                <span class="cal-partido__eq">${UI.bandera('', { id: p.local_id })}<span class="text-truncate">${e(p.local)}</span></span>
+                <strong>${p.gl}-${p.gv}</strong>
+                <span class="cal-partido__eq cal-partido__eq--v"><span class="text-truncate">${e(p.visita)}</span>${UI.bandera('', { id: p.visita_id })}</span></a>`).join('')}</div>`;
+        detalle.classList.remove('d-none');
+        detalle.querySelector('.btn-close').addEventListener('click', () => { abierto = null; b.classList.remove('cal-dia--abierto'); detalle.classList.add('d-none'); });
+        detalle.scrollIntoView({ block: 'nearest', behavior: G.reducido ? 'auto' : 'smooth' });
+    }));
+
+    // ---- Efemérides: filtros, solo destacadas y "Mostrar más" ----
+    const linea = document.getElementById('efeLinea');
+    const items = [...linea.querySelectorAll('.efe-item')];
+    const cabeceras = [...linea.querySelectorAll('.efe-mes')];
+    const solo = document.getElementById('efeSolo');
+    let tipo = '';
+    const paginador = UI.paginador({ items: () => items, porPagina: 30, despuesDe: linea, etiqueta: 'efemérides' });
+    const cabecerasVisibles = () => cabeceras.forEach(h => h.classList.toggle('d-none',
+        !items.some(i => i.dataset.mes === h.dataset.mes && !i.classList.contains('d-none') && !i.classList.contains('ui-pag-oculto'))));
+    function filtrar() {
+        let n = 0;
+        items.forEach(i => { const ok = (!tipo || i.dataset.tipo === tipo) && (!solo.checked || i.dataset.destacada === '1'); i.classList.toggle('d-none', !ok); n += ok; });
+        document.getElementById('efeVacio').classList.toggle('d-none', n > 0);
+        paginador.reiniciar(); cabecerasVisibles();
+    }
+    document.querySelectorAll('.efe-pill').forEach(p => p.addEventListener('click', () => {
+        document.querySelectorAll('.efe-pill').forEach(x => x.classList.toggle('activo', x === p));
+        tipo = p.dataset.tipo;
+        if (tipo) solo.checked = false;  // dentro de un tipo se ve todo (los ceses y eliminaciones casi nunca son 'destacadas')
+        filtrar();
+    }));
+    solo.addEventListener('change', filtrar);
+    document.addEventListener('click', ev => { if (ev.target.closest('.ui-paginador button')) setTimeout(cabecerasVisibles, 0); });
+    filtrar();
+
+    // ---- Navegación activa y aparición (como en Gráficos) ----
+    const enlaces = new Map([...document.querySelectorAll('.mg-nav a')].map(a => [a.getAttribute('href').slice(1), a]));
+    if ('IntersectionObserver' in window) {
+        const espia = new IntersectionObserver(es => es.forEach(e => {
+            if (!e.isIntersecting) return;
+            enlaces.forEach(a => a.classList.remove('activo'));
+            const a = enlaces.get(e.target.id); if (a) a.classList.add('activo');
+        }), { rootMargin: '-30% 0px -60% 0px' });
+        document.querySelectorAll('.mg-seccion').forEach(s => espia.observe(s));
+        if (!G.reducido) {
+            const t = document.querySelectorAll('.mg-card, .cal-recorte, .cal-record');
+            t.forEach(x => x.classList.add('mg-revelar'));
+            const ver = new IntersectionObserver((es, o) => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('mg-visible'); o.unobserve(e.target); } }), { threshold: 0.12 });
+            t.forEach(x => ver.observe(x));
+        }
+    }
+});
+</script>
+{% endblock %}

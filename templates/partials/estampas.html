@@ -8,6 +8,12 @@
 #}
 {% import "partials/macros.html" as m %}
 
+{# Marca de agua del reverso: el escudo del país de la estampa (album.css: .estampa__reverso::before) #}
+{% macro marca_escudo(pais_id) -%}
+{%- set url = img_pais(pais_id, 'escudo') if pais_id else None -%}
+{%- if url %}style="--escudo-url: url('{{ url }}')"{% endif -%}
+{%- endmacro %}
+
 {# Atributos para canjear un casillero vacío por repetidas (album_service.canjear_estampa; el JS está en album_coleccion.html) #}
 {% macro canje(tipo, x, nombre=None) -%}
 data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ nombre or x.nombre }}" role="button" tabindex="0"
@@ -31,14 +37,14 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
         <small>{{ m.bandera(bandera, pais_id=pais_id) }} {{ j.posicion_nombre or j.posicion }}</small>
       </div>
     </div>
-    <div class="estampa__cara estampa__reverso">
+    <div class="estampa__cara estampa__reverso" {{ marca_escudo(pais_id) }}>
       <div class="estampa__reverso-titulo"><span>#{{ j.numero if j.numero is not none else '–' }}</span>{{ j.nombre }}</div>
       <div class="estampa__ovr"><small>OVR</small>{{ j.overall }}</div>
-      <dl class="estampa__datos">
-        <div><dt>Posición</dt><dd>{{ j.posicion or '—' }}</dd></div>
+      <dl class="estampa__datos estampa__datos--3col">
+        <div><dt>Pos.</dt><dd>{{ j.posicion or '—' }}</dd></div>
         <div><dt>Edad</dt><dd>{{ j.edad or '—' }}</dd></div>
-        <div><dt>Pie</dt><dd class="text-capitalize">{{ j.pie_habil or '—' }}</dd></div>
-        <div><dt>Partidos</dt><dd>{{ j.partidos or 0 }}</dd></div>
+        <div><dt>Pie</dt><dd class="text-capitalize" title="{{ j.pie_habil or '' }}">{{ (j.pie_habil or '—')[:3] }}</dd></div>
+        <div><dt>PJ</dt><dd>{{ j.partidos or 0 }}</dd></div>
         <div><dt>Goles</dt><dd>{{ j.goles or 0 }}</dd></div>
         <div><dt>Asist.</dt><dd>{{ j.asistencias or 0 }}</dd></div>
       </dl>
@@ -98,14 +104,16 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
         <small>{{ m.bandera(p.bandera, pais_id=p.id) }} {{ p.confederacion }}</small>
       </div>
     </div>
-    <div class="estampa__cara estampa__reverso">
+    <div class="estampa__cara estampa__reverso" {{ marca_escudo(p.id) }}>
+      {%- set dt = dt_de_pais(p.id) -%}
+      {%- set est = (p.estado or '') | upper -%}
       <div class="estampa__reverso-titulo">{{ m.bandera(p.bandera, pais_id=p.id) }} {{ p.nombre }}</div>
-      <div class="estampa__ovr"><small>Ranking</small>#{{ p.ranking or '—' }}</div>
+      <div class="estampa__ovr"><small>Fans</small>{{ p.aficionados | numero_compacto if p.aficionados else '—' }}</div>
       <dl class="estampa__datos">
         <div><dt>Confed.</dt><dd>{{ p.confederacion or '—' }}</dd></div>
-        <div><dt>Poder</dt><dd>{{ p.poder if p.poder is not none else '—' }}</dd></div>
-        <div><dt>Fans</dt><dd>{{ p.aficionados | numero_compacto if p.aficionados else '—' }}</dd></div>
         <div><dt>Valor</dt><dd>{{ p.valor or '—' }}</dd></div>
+        <div class="estampa__dato-ancho"><dt>Mundial</dt><dd>{{ 'Eliminado' if est.startswith('ELIMINADO') else ('Clasificado' if est.startswith('CALIFICADO') or est.startswith('CLASIFICADO') else 'En carrera') }}</dd></div>
+        <div class="estampa__dato-ancho"><dt>DT</dt><dd>{{ dt.nombre if dt else '—' }}</dd></div>
       </dl>
       {% if p.federacion %}<p class="estampa__nota">{{ p.federacion }}</p>{% endif %}
       <a href="/paises/{{ p.id }}" class="estampa__link" tabindex="-1">Ver selección <i class="bi bi-arrow-right"></i></a>
@@ -128,7 +136,7 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
         <small>{{ c.estadio or 'Estadio sin nombre' }}</small>
       </div>
     </div>
-    <div class="estampa__cara estampa__reverso">
+    <div class="estampa__cara estampa__reverso" {{ marca_escudo(c.pais_id) }}>
       <div class="estampa__reverso-titulo">{{ c.nombre }}</div>
       <div class="estampa__ovr"><small>Partidos</small>{{ c.partidos }}</div>
       <dl class="estampa__datos estampa__datos--1col">
@@ -157,7 +165,7 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
         <small>{% if a.pais_id %}{{ m.bandera(a.bandera, pais_id=a.pais_id) }} {% endif %}{{ a.pais_nombre or 'Árbitro FIFAV' }}</small>
       </div>
     </div>
-    <div class="estampa__cara estampa__reverso">
+    <div class="estampa__cara estampa__reverso" {{ marca_escudo(a.pais_id) }}>
       <div class="estampa__reverso-titulo"><span>{{ a.puesto_corto }}</span>{{ a.nombre }}</div>
       <div class="estampa__ovr"><small>Partidos</small>{{ a.partidos or 0 }}</div>
       <dl class="estampa__datos">
@@ -187,7 +195,7 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
         <small>{{ m.bandera(None, pais_id=t.pais_id) }} {{ t.pais_nombre }}</small>
       </div>
     </div>
-    <div class="estampa__cara estampa__reverso">
+    <div class="estampa__cara estampa__reverso" {{ marca_escudo(t.pais_id) }}>
       <div class="estampa__reverso-titulo"><span>DT</span>{{ t.nombre }}</div>
       <div class="estampa__ovr"><small>Edad</small>{{ t.edad or '—' }}</div>
       <dl class="estampa__datos">
@@ -237,7 +245,7 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
       <div class="estampa__equipo-foto">{% if f.foto_url %}<img src="{{ f.foto_url }}" alt="" loading="lazy" decoding="async">{% endif %}</div>
       <div class="estampa__banda estampa__banda--equipo"><strong>{{ f.pais_nombre }}</strong><small>{{ f.nombre }}{{ ' · el once histórico' if f.grupo == 3 }}</small></div>
     </div>
-    <div class="estampa__cara estampa__reverso">
+    <div class="estampa__cara estampa__reverso" {{ marca_escudo(f.pais_id) }}>
       <div class="estampa__reverso-titulo"><span><i class="bi bi-people-fill"></i></span>{{ f.nombre }} de {{ f.pais_nombre }}</div>
       <ol class="estampa__formacion">
         {% for j in jugadores %}<li><b>{{ j.numero }}</b> {{ j.nombre }} <small>{{ j.posicion }}</small></li>{% endfor %}
@@ -269,7 +277,7 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
       <div class="estampa__arte">{% if x.img_url %}<img src="{{ x.img_url }}" alt="" loading="lazy" decoding="async">{% endif %}</div>
       {% if x.tipo != 'poster' %}<div class="estampa__banda"><strong>{{ x.nombre }}</strong><small>Mascota · {{ ed.pais }} {{ ed.anio }}</small></div>{% endif %}
     </div>
-    <div class="estampa__cara estampa__reverso">
+    <div class="estampa__cara estampa__reverso" {{ marca_escudo(ed.pais_id) }}>
       <div class="estampa__reverso-titulo"><span><i class="bi bi-palette-fill"></i></span>{{ 'Póster oficial' if x.tipo == 'poster' else x.nombre }}</div>
       <dl class="estampa__datos">
         <div class="estampa__dato-ancho"><dt>Mundial</dt><dd>{{ ed.pais }} {{ ed.anio }}</dd></div>

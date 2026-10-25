@@ -11,10 +11,11 @@
   2+ series, el texto nunca lleva el color de la serie, y cada gráfico tiene su tabla ("Ver datos").
 #}
 {% set r = g.resumen %}
-<div class="mg">
+<div class="mg js-animar">
 
 <!-- ENCABEZADO -->
-<div class="card card-logo-fondo card-logo-fondo--sin-brillo mb-3" style="--logo-color: #3987e5;">
+<div class="card card-logo-fondo card-logo-fondo--sin-brillo mg-hero mb-3" style="--logo-color: #3987e5;">
+  <div class="mg-hero__aurora" aria-hidden="true"></div>
   <img src="{{ imagen_inicio('goles') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
   <div class="card-body p-3 p-md-4">
     <a href="{{ url_for('estadisticas') }}" class="mg-volver"><i class="bi bi-arrow-left"></i> Estadísticas</a>
@@ -23,12 +24,12 @@
     <div class="mg-tiles">
       <div class="mg-tile mg-tile--hero">
         <span>Avance del torneo</span>
-        <strong>{{ r.pct_avance }}%</strong>
+        <strong data-contar>{{ r.pct_avance }}%</strong>
         <div class="mg-meter" role="img" aria-label="{{ r.jugados }} de {{ r.programados }} partidos jugados"><i style="width: {{ r.pct_avance }}%"></i></div>
         <small>{{ '{:,}'.format(r.jugados) }} de {{ '{:,}'.format(r.programados) }} partidos programados</small>
       </div>
       <div class="mg-tile"><span>Goles</span><strong>{{ '{:,}'.format(r.goles) }}</strong><small>{{ r.promedio }} por partido</small></div>
-      <div class="mg-tile"><span>Ambos marcan</span><strong>{{ r.ambos_marcan }}%</strong><small>de los partidos</small></div>
+      <div class="mg-tile"><span>Ambos marcan</span><strong data-contar>{{ r.ambos_marcan }}%</strong><small>de los partidos</small></div>
       <div class="mg-tile"><span>Proyección final</span><strong>{{ '{:,}'.format((g.ritmo.goles_finales or {}).y or r.goles) }}</strong><small>goles al terminar las eliminatorias</small></div>
     </div>
   </div>
@@ -36,9 +37,29 @@
 
 <!-- NAVEGACIÓN DE SECCIONES -->
 <nav class="mg-nav mb-3" aria-label="Secciones">
-  <a href="#ritmo">Ritmo</a><a href="#confederaciones">Confederaciones</a><a href="#selecciones">Selecciones</a>
-  <a href="#jugadores">Jugadores</a>{% if g.estadios.ocupacion | sum(attribute='partidos') >= 30 %}<a href="#estadios">Estadios</a>{% endif %}<a href="#pronosticos">Pronósticos</a>
+  <a href="#ritmo"><i class="bi bi-activity"></i>Ritmo</a><a href="#confederaciones"><i class="bi bi-globe-americas"></i>Confederaciones</a><a href="#selecciones"><i class="bi bi-flag-fill"></i>Selecciones</a>
+  <a href="#jugadores"><i class="bi bi-person-fill"></i>Jugadores</a><a href="#tecnicos"><i class="bi bi-clipboard-check"></i>Técnicos</a><a href="#estadios"><i class="bi bi-cloud-sun-fill"></i>Estadios y clima</a><a href="#pronosticos"><i class="bi bi-magic"></i>Pronósticos</a>
+  <a href="{{ url_for('estadisticas_calendario') }}" class="mg-nav__externo"><i class="bi bi-calendar-heart"></i>Calendario <i class="bi bi-box-arrow-up-right"></i></a>
 </nav>
+
+{% macro seccion(id, numero, icono, titulo, bajada, color) -%}
+<header class="mg-seccion" id="{{ id }}" style="--sec: {{ color }};">
+  <span class="mg-seccion__num">{{ numero }}</span>
+  <span class="mg-seccion__icono"><i class="bi {{ icono }}"></i></span>
+  <div class="min-w-0"><h2>{{ titulo }}</h2><p>{{ bajada }}</p></div>
+</header>
+{%- endmacro %}
+
+{% macro progreso(actual, minimo, texto) -%}
+<div class="mg-progreso">
+  <div class="mg-progreso__icono"><i class="bi bi-hourglass-split"></i></div>
+  <div class="flex-grow-1 min-w-0">
+    <strong>{{ texto }}</strong>
+    <div class="mg-meter mt-2"><i style="width: {{ [actual * 100 / minimo, 100] | min }}%"></i></div>
+    <small>{{ actual }} de {{ minimo }} partidos · se activa sola al llegar</small>
+  </div>
+</div>
+{%- endmacro %}
 
 {% macro tarjeta(id, titulo, lectura, alto=280, clase='col-12 col-xl-6', tabla=true) -%}
 <div class="{{ clase }}">
@@ -52,7 +73,7 @@
 {%- endmacro %}
 
 <!-- RITMO DEL TORNEO -->
-<h2 class="vivo-titulo" id="ritmo"><i class="bi bi-activity text-info"></i>El ritmo del torneo</h2>
+{{ seccion('ritmo', '01', 'bi-activity', 'El ritmo del torneo', 'Cuántos goles hay, cuándo caen y cómo terminan los partidos.', '#3987e5') }}
 <div class="row g-3 mb-4">
   {{ tarjeta('gAcumulados', 'Goles acumulados y proyección',
              'Al ritmo actual (' ~ g.ritmo.media ~ ' por partido), las eliminatorias cerrarían con unos ' ~ '{:,}'.format((g.ritmo.goles_finales or {}).y or 0) ~ ' goles.', 300) }}
@@ -87,7 +108,7 @@
 </div>
 
 <!-- CONFEDERACIONES -->
-<h2 class="vivo-titulo" id="confederaciones"><i class="bi bi-globe-americas text-info"></i>Confederaciones</h2>
+{{ seccion('confederaciones', '02', 'bi-globe-americas', 'Confederaciones', 'Cómo avanza cada eliminatoria y dónde se juega más abierto o más fuerte.', '#199e70') }}
 <div class="row g-3 mb-4">
   {{ tarjeta('gConfAvance', 'Avance de las eliminatorias', 'Partidos jugados y por jugar de cada confederación, con la ronda en curso.', 300, 'col-12') }}
   {{ tarjeta('gConfGoles', 'Goles por partido', 'La línea vertical marca la media del Mundial.', 260) }}
@@ -95,7 +116,7 @@
 </div>
 
 <!-- SELECCIONES -->
-<h2 class="vivo-titulo" id="selecciones"><i class="bi bi-flag-fill text-info"></i>Selecciones</h2>
+{{ seccion('selecciones', '03', 'bi-flag-fill', 'Selecciones', 'Ataque, defensa, posesión, hinchas y la carrera partido a partido.', '#d95926') }}
 <div class="row g-3 mb-4">
   {{ tarjeta('gAtaqueDefensa', 'Ataque contra defensa',
              'Cada punto es una selección (mínimo ' ~ g.selecciones.minimo_pj ~ ' partidos). Arriba a la derecha: mete mucho y recibe poco. Con nombre, las 5 mejores.', 380, 'col-12 col-xl-7') }}
@@ -142,7 +163,7 @@
 </div>
 
 <!-- JUGADORES -->
-<h2 class="vivo-titulo" id="jugadores"><i class="bi bi-person-fill text-info"></i>Jugadores</h2>
+{{ seccion('jugadores', '04', 'bi-person-fill', 'Jugadores', 'La Bota de Oro y de dónde salen los goles.', '#c98500') }}
 <div class="row g-3 mb-4">
   {{ tarjeta('gCarrera', 'La carrera por la Bota de Oro', 'Goles acumulados de los 5 máximos goleadores a lo largo del torneo.', 320, 'col-12') }}
   {{ tarjeta('gTipos', 'Cómo llegan los goles', g.jugadores.suplentes ~ ' goles (' ~ ((g.jugadores.suplentes * 100 / (g.jugadores.total_goles or 1)) | round | int) ~ '%) los metieron jugadores que entraron desde el banco.', 260, 'col-12 col-md-6 col-xl-4') }}
@@ -150,17 +171,48 @@
   {{ tarjeta('gEdades', 'Goles por edad', 'Goles según la edad del goleador.', 260, 'col-12 col-xl-4') }}
 </div>
 
-{% if g.estadios.ocupacion | sum(attribute='partidos') >= 30 %}
-<!-- ESTADIOS -->
-<h2 class="vivo-titulo" id="estadios"><i class="bi bi-building text-info"></i>Estadios y clima</h2>
+<!-- TÉCNICOS (graficos_service._tecnicos) -->
+{% set tc = g.tecnicos %}
+{{ seccion('tecnicos', '05', 'bi-clipboard-check', 'Técnicos', 'Los ceses de las federaciones y, con más partidos, cómo influye cada DT desde el banco.', '#9085e9') }}
 <div class="row g-3 mb-4">
-  {{ tarjeta('gOcupacion', 'Ocupación de los estadios', 'Cuántos partidos se jugaron con cada nivel de público.', 260) }}
-  {{ tarjeta('gClima', 'Goles según el clima', 'Promedio de goles por condición climática (mínimo 5 partidos).', 260) }}
+  <div class="col-12">
+    <div class="mg-tiles mg-tiles--4">
+      <div class="mg-tile"><span>Ceses</span><strong>{{ tc.total_ceses }}</strong><small>en lo que va del torneo</small></div>
+      <div class="mg-tile"><span>Por eliminación</span><strong>{{ tc.ceses_conf | sum(attribute='eliminacion') }}</strong><small>la selección quedó afuera</small></div>
+      <div class="mg-tile"><span>Regresos</span><strong>{{ tc.regresos }}</strong><small>técnicos que volvieron</small></div>
+      <div class="mg-tile"><span>Con el DT en juego</span><strong>{{ tc.motor }}</strong><small>partidos con ajustes y reclamos</small></div>
+    </div>
+  </div>
+  {{ tarjeta('gCesesConf', 'Ceses por confederación', 'Por malos resultados o por quedar eliminada la selección.', 280) }}
+  {{ tarjeta('gCesesTiempo', 'La silla eléctrica', 'Ceses acumulados a lo largo del torneo: cada escalón es un técnico que se fue.', 280) }}
+  {% if tc.estilos %}
+  {{ tarjeta('gDtEstilo', '¿Qué estilo rinde más?', 'Puntos y goles por partido según el estilo del DT (partidos jugados con el DT en el motor).', 280) }}
+  {{ tarjeta('gDtTemple', 'El temperamento se paga', 'Reclamos, amonestaciones y expulsiones del DT por partido, según su temperamento.', 280) }}
+  <div class="col-12">
+    <div class="mg-tiles mg-tiles--2">
+      <div class="mg-tile"><span>Ir al ataque</span><strong>{{ tc.ajustes.ataque.pct }}%</strong><small>de {{ tc.ajustes.ataque.n }} ajustes terminaron con un gol propio</small></div>
+      <div class="mg-tile"><span>Cerrar el partido</span><strong>{{ tc.ajustes.cerrar.pct }}%</strong><small>de {{ tc.ajustes.cerrar.n }} cerrojos terminaron en victoria</small></div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12">{{ progreso(tc.motor, tc.minimo, 'Rendimiento por estilo, temperamento y efecto de los ajustes tácticos') }}</div>
+  {% endif %}
 </div>
-{% endif %}
+
+<!-- ESTADIOS Y CLIMA -->
+{% set es = g.estadios %}
+{{ seccion('estadios', '06', 'bi-cloud-sun-fill', 'Estadios y clima', 'Cuánta gente va a la cancha y si el clima cambia los partidos.', '#008300') }}
+<div class="row g-3 mb-4">
+  {% if es.con_datos >= es.minimo %}
+  {{ tarjeta('gOcupacion', 'Ocupación de los estadios', 'Cuántos partidos se jugaron con cada nivel de público.', 260) }}
+  {{ tarjeta('gClima', 'Goles según el clima', 'Promedio de goles por condición climática (mínimo 5 partidos).' ~ ((' Temperatura y goles: r = ' ~ ('%.2f' | format(es.temperatura_r)) ~ '.') if es.temperatura_r is not none else ''), 260) }}
+  {% else %}
+  <div class="col-12">{{ progreso(es.con_datos, es.minimo, 'Ocupación de los estadios y goles según el clima') }}</div>
+  {% endif %}
+</div>
 
 <!-- PRONÓSTICOS -->
-<h2 class="vivo-titulo" id="pronosticos"><i class="bi bi-magic text-info"></i>Pronósticos</h2>
+{{ seccion('pronosticos', '07', 'bi-magic', 'Pronósticos', 'Qué puede pasar en lo que viene, con un modelo prudente.', '#d55181') }}
 <p class="mg-aviso"><i class="bi bi-info-circle"></i>Modelo prudente: usa el poder de cada selección, pero medido sobre los partidos ya jugados el favorito gana menos de lo que dice el papel, así que las probabilidades son conservadoras. Es una estimación, no una certeza.</p>
 <div class="row g-3 mb-4">
   <div class="col-12 col-xl-6">
@@ -199,6 +251,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="/static/js/graficos_fifav.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const G = {{ g | tojson }};
@@ -418,6 +471,41 @@ document.addEventListener('DOMContentLoaded', function () {
         options: { scales: ejes({ x: { title: { display: true, text: 'Años', color: TENUE } } }), plugins: { legend: { display: false } } },
     });
 
+    // ================= TÉCNICOS =================
+    const TC = G.tecnicos;
+    crear('gCesesConf', {
+        type: 'bar',
+        data: { labels: TC.ceses_conf.map(c => c.conf), datasets: [
+            { ...barra(SERIE[7]), label: 'Por resultados', data: TC.ceses_conf.map(c => c.resultados), stack: 'c' },
+            { ...barra(SERIE[3]), label: 'Por eliminación', data: TC.ceses_conf.map(c => c.eliminacion), stack: 'c' } ] },
+        options: { scales: ejes({ x: { stacked: true }, y: { stacked: true, ticks: { precision: 0, color: TENUE } } }) },
+    });
+    crear('gCesesTiempo', {
+        type: 'line',
+        data: { labels: TC.ceses_tiempo.map(c => c.fecha), datasets: [{ ...linea(SERIE[6], { stepped: true, fill: true,
+                backgroundColor: alfa(SERIE[6], 0.15), tension: 0 }), label: 'Ceses acumulados', data: TC.ceses_tiempo.map(c => c.n) }] },
+        options: { scales: ejes({ x: { ticks: { maxTicksLimit: 6, color: TENUE } }, y: { ticks: { precision: 0, color: TENUE } } }),
+                   plugins: { legend: { display: false } } },
+    });
+    if (TC.estilos) {
+        crear('gDtEstilo', {
+            type: 'bar',
+            data: { labels: TC.estilos.map(e => e.estilo[0].toUpperCase() + e.estilo.slice(1)), datasets: [
+                { ...barra(SERIE[0]), label: 'Puntos por partido', data: TC.estilos.map(e => e.ppp) },
+                { ...barra(SERIE[2]), label: 'Goles a favor', data: TC.estilos.map(e => e.gfp) },
+                { ...barra(SERIE[7]), label: 'Goles en contra', data: TC.estilos.map(e => e.gcp) } ] },
+            options: { scales: ejes() },
+        });
+        crear('gDtTemple', {
+            type: 'bar',
+            data: { labels: TC.temple.map(t => t.banda), datasets: [
+                { ...barra(SERIE[6]), label: 'Reclamos', data: TC.temple.map(t => t.reclamos_p) },
+                { ...barra(SERIE[3]), label: 'Amonestaciones', data: TC.temple.map(t => t.amonestado_p) },
+                { ...barra(SERIE[7]), label: 'Expulsiones', data: TC.temple.map(t => t.expulsado_p) } ] },
+            options: { scales: ejes() },
+        });
+    }
+
     // ================= ESTADIOS (si hay datos) =================
     const E = G.estadios;
     crear('gOcupacion', {
@@ -586,6 +674,29 @@ document.addEventListener('DOMContentLoaded', function () {
             reiniciar(T.series.filter(s => !conf || s.conf === conf).slice(-5).reverse().map(s => s.id)); actualizar();
         });
         actualizar();
+    })();
+
+    // ================= Navegación activa y aparición de las tarjetas =================
+    (function () {
+        const enlaces = new Map([...document.querySelectorAll('.mg-nav a')].map(a => [a.getAttribute('href').slice(1), a]));
+        const reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if ('IntersectionObserver' in window) {
+            const espia = new IntersectionObserver(entradas => entradas.forEach(e => {
+                if (!e.isIntersecting) return;
+                enlaces.forEach(a => a.classList.remove('activo'));
+                const a = enlaces.get(e.target.id);
+                if (a) { a.classList.add('activo'); a.scrollIntoView({ block: 'nearest', inline: 'center', behavior: reducido ? 'auto' : 'smooth' }); }
+            }), { rootMargin: '-30% 0px -60% 0px' });
+            document.querySelectorAll('.mg-seccion').forEach(s => espia.observe(s));
+            if (!reducido) {
+                const tarjetas = document.querySelectorAll('.mg-card, .mg-progreso');
+                tarjetas.forEach(t => t.classList.add('mg-revelar'));
+                const ver = new IntersectionObserver((entradas, obs) => entradas.forEach(e => {
+                    if (e.isIntersecting) { e.target.classList.add('mg-visible'); obs.unobserve(e.target); }
+                }), { threshold: 0.12 });
+                tarjetas.forEach(t => ver.observe(t));
+            }
+        }
     })();
 
     // ================= Vista de tabla de cada gráfico =================

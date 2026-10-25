@@ -43,6 +43,14 @@ async def inicio(request: Request):
     clasificados = get_data_clasificados_mundial()
     
     stats["clasificados_count"] = len(clasificados)
+
+    # "Un día como hoy" (services/calendario_service.py): nunca espera; si el calendario todavía no está armado, no se muestra
+    try:
+        from services.calendario_service import un_dia_como_hoy_inicio
+        efemerides_hoy = un_dia_como_hoy_inicio()
+    except Exception as e:
+        print(f"Un día como hoy: {e}")
+        efemerides_hoy = None
     
     return templates.TemplateResponse(
         request=request,
@@ -52,6 +60,7 @@ async def inicio(request: Request):
             # colores del encabezado según la bandera del anfitrión (arte_mundial_service.tema_sede)
             "tema_sede": tema_sede(mundial.get("pais_id")) if mundial and mundial.get("pais_id") else None,
             "ordinal_mundial": ordinal_mundial,
+            "efemerides_hoy": efemerides_hoy,
             "stats": stats,
             "fase_actual": fase_actual,
             "confederaciones": confederaciones,

@@ -1,129 +1,200 @@
 {% extends "base.html" %}
+{% import "partials/macros.html" as m %}
 
 {% block title %}Mi Portafolio de Estadios - FutbolSim{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-    <div>
-        <h1 class="display-6 fw-bold mb-1">Mi Portafolio de Estadios</h1>
-        <p class="text-muted mb-0">Tus sedes patrocinadas y las ganancias acumuladas por taquilla.</p>
-    </div>
-    <div class="d-flex align-items-center gap-3">
-        <a href="{{ url_for('venues_directorio_vista') }}" class="btn btn-success btn-sm fw-bold">
-            <i class="bi bi-plus-circle me-1"></i>Patrocinar Sede
-        </a>
+{#
+  Portafolio de sedes (venue_service.obtener_portafolio_vista): encabezado con el recupero de la inversión, la curva de
+  regalías acumuladas, cómo se cobra, y una tarjeta por sede (ordenadas por lo que ganaron) con su recupero, sinergia
+  con el álbum, próximo partido programado y últimos cobros.
+#}
+<div class="sd js-animar">
+<!-- Encabezado -->
+<div class="card sd-hero mb-4">
+    <div class="sd-hero__luces" aria-hidden="true"></div>
+    <div class="card-body p-3 p-md-4 position-relative">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div class="min-w-0">
+                <span class="sd-eyebrow"><i class="bi bi-buildings-fill me-1"></i>Inversión en sedes</span>
+                <h1 class="sd-hero__titulo">Mi imperio de estadios</h1>
+                <p class="text-muted mb-0">Cada partido que se juega en tus sedes te paga taquilla. Con la estampa de la ciudad, cobrás ×{{ p.reglas.sinergia }}.</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{{ url_for('venues_directorio_vista') }}" class="btn btn-success fw-bold rounded-pill px-3"><i class="bi bi-plus-circle me-1"></i>Patrocinar sede</a>
+            </div>
+        </div>
+
+        {% if sedes %}
+        <div class="sd-hero__grid mt-4">
+            <div class="sd-recupero" style="--logo-color: {{ '#22c55e' if p.recupero_pct >= 100 else '#facc15' }};">
+                <div class="anillo-kpi sd-recupero__anillo" style="--pct: {{ [p.recupero_pct, 100] | min }};"><span>{{ p.recupero_pct }}%</span></div>
+                <div>
+                    <small class="sd-rotulo">Inversión recuperada</small>
+                    <strong class="d-block fs-5 text-white">{{ '{:,}'.format(p.ganado) }} <small class="text-muted fw-normal">de {{ '{:,}'.format(p.invertido) }} pts</small></strong>
+                    <small class="{{ 'text-success' if p.neto >= 0 else 'text-warning' }}">{{ ('Ganancia neta +' ~ '{:,}'.format(p.neto)) if p.neto >= 0 else ('Faltan ' ~ '{:,}'.format(-p.neto) ~ ' pts para recuperarla') }}</small>
+                </div>
+            </div>
+            <div class="sd-kpis">
+                <div class="sd-kpi"><span>Sedes</span><strong><span data-contar>{{ sedes | length }}</span><small>/{{ p.max_total }}</small></strong>
+                    <div class="sd-kpi__barra"><span style="width: {{ (sedes | length) * 100 / p.max_total }}%;"></span></div></div>
+                <div class="sd-kpi"><span>Ganado</span><strong class="text-success" data-contar>{{ p.ganado }}</strong></div>
+                <div class="sd-kpi"><span>Partidos alojados</span><strong data-contar>{{ p.partidos }}</strong></div>
+                <div class="sd-kpi"><span>Por jugarse</span><strong class="text-info" data-contar>{{ p.programados }}</strong></div>
+                <div class="sd-kpi" title="Sedes cuya estampa tenés en el álbum: cobran ×{{ p.reglas.sinergia }}"><span>Con sinergia</span><strong class="text-warning"><span data-contar>{{ p.con_sinergia }}</span><small>/{{ sedes | length }}</small></strong></div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <div id="alertaPortafolio" class="alert d-none" role="alert"></div>
 
 {% if sedes %}
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-lg-3">
-            <div class="stat-card p-3 text-center">
-                <div class="fs-4 fw-bold">{{ sedes | length }}</div>
-                <div class="text-muted small text-uppercase">Sedes Activas</div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="stat-card p-3 text-center">
-                <div class="fs-4 fw-bold text-accent">{{ "{:,}".format(sedes | sum(attribute="total_revenue_earned")) }}</div>
-                <div class="text-muted small text-uppercase">Ganancias Totales</div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="stat-card p-3 text-center">
-                <div class="fs-4 fw-bold">{{ sedes | sum(attribute="matches_hosted_count") }}</div>
-                <div class="text-muted small text-uppercase">Partidos Alojados</div>
+<div class="row g-3 mb-4">
+    <div class="col-12 col-lg-8">
+        <div class="card h-100 sd-panel">
+            <div class="card-body">
+                <h2 class="sd-subtitulo"><i class="bi bi-graph-up-arrow text-success"></i>Cómo crecen tus regalías</h2>
+                {% if p.serie | length >= 2 %}
+                <div style="height: 220px;"><canvas id="graficoRegalias" role="img" aria-label="Regalías acumuladas de tus sedes"></canvas></div>
+                {% else %}
+                <div class="sd-vacio"><i class="bi bi-hourglass-split"></i><span>La curva se dibuja a medida que tus sedes alojan partidos{% if p.programados %}: hay {{ p.programados }} programado{{ 's' if p.programados != 1 }}{% endif %}.</span></div>
+                {% endif %}
             </div>
         </div>
     </div>
+    <div class="col-12 col-lg-4">
+        <div class="card h-100 sd-panel">
+            <div class="card-body">
+                <h2 class="sd-subtitulo"><i class="bi bi-cash-coin text-warning"></i>Cómo se cobra</h2>
+                <ul class="sd-reglas">
+                    <li><span class="sd-regla__ico">🎟️</span><span><strong>{{ p.reglas.base }} pts</strong> por partido alojado</span></li>
+                    <li><span class="sd-regla__ico">⚽</span><span><strong>+{{ p.reglas.por_gol }}</strong> por cada gol del partido</span></li>
+                    <li><span class="sd-regla__ico">🏆</span><span><strong>×{{ p.reglas.fase_alta }}</strong> la base en semis, tercer puesto y final</span></li>
+                    <li><span class="sd-regla__ico">📒</span><span><strong>×{{ p.reglas.sinergia }}</strong> si tenés la estampa de la ciudad</span></li>
+                </ul>
+                <small class="text-muted">Máximo {{ p.max_por_pais }} sedes por país y {{ p.max_total }} en total.</small>
+            </div>
+        </div>
+    </div>
+</div>
 
-    <div class="row g-3">
-        {% for sede in sedes %}
-            <div class="col-12 col-md-6 col-xl-4">
-                <div class="card bg-dark border-0 shadow-sm h-100 overflow-hidden">
-                    {% set img_sede = img_estadio(sede.ciudad_id) %}
-                    {% if img_sede %}
-                    <div class="estadio-ilustracion"><img src="{{ img_sede }}" alt="Estadio de {{ sede.ciudad_nombre }}" loading="lazy" decoding="async" onerror="this.parentNode.remove()"></div>
-                    {% endif %}
-                    <div class="card-body p-3">
-                        <div class="fw-bold text-white fs-5">{{ sede.ciudad_nombre }}</div>
-                        <small class="text-muted"><i class="bi bi-flag-fill me-1"></i>{{ sede.pais_nombre }}</small>
-                        <div class="text-muted small mb-3"><i class="bi bi-building-fill me-1"></i>{{ sede.estadio or 'Estadio sin nombre' }}</div>
+<div class="row g-3">
+    {% for sede in sedes %}
+    {% set completo = sede.recupero_pct >= 100 %}
+    <div class="col-12 col-md-6 col-xl-4">
+        <article class="sd-sede {{ 'sd-sede--sinergia' if sede.tengo_estampa }}" style="--i: {{ loop.index0 }};">
+            <div class="sd-sede__foto">
+                {% if sede.estadio_img %}<img src="{{ sede.estadio_img }}" alt="Estadio de {{ sede.ciudad_nombre }}" loading="lazy" decoding="async" onerror="this.remove()">{% endif %}
+                <span class="sd-sede__pais">{{ m.bandera(None, pais_id=sede.pais_id) }} {{ sede.pais_nombre }}</span>
+                {% if loop.first and sede.total_revenue_earned %}<span class="sd-sede__top" title="Tu sede que más ganó"><i class="bi bi-trophy-fill"></i> Top</span>{% endif %}
+                {% if sede.tengo_estampa %}<span class="sd-sede__sinergia" title="Tenés su estampa: cobra ×{{ p.reglas.sinergia }}"><i class="bi bi-stars"></i> ×{{ p.reglas.sinergia }}</span>{% endif %}
+            </div>
+            <div class="sd-sede__cuerpo">
+                <h3 class="sd-sede__nombre">{{ sede.ciudad_nombre }}</h3>
+                <div class="sd-sede__estadio"><i class="bi bi-building-fill"></i>{{ sede.estadio or 'Estadio sin nombre' }}</div>
 
-                        <div class="row g-2 my-2">
-                            <div class="col-6">
-                                <div class="surface-soft p-2">
-                                    <div class="text-muted small text-uppercase">Compra</div>
-                                    <div class="fw-bold">{{ "{:,}".format(sede.purchase_price) }}</div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="surface-soft p-2">
-                                    <div class="text-muted small text-uppercase">Partidos</div>
-                                    <div class="fw-bold">{{ sede.matches_hosted_count }}</div>
-                                </div>
-                            </div>
-                        </div>
+                <div class="sd-sede__ganado">
+                    <div><small class="sd-rotulo">Ganado</small><strong><span data-contar>{{ sede.total_revenue_earned }}</span><small class="sd-sede__pts"> pts</small></strong></div>
+                    <div class="text-end"><small class="sd-rotulo">Recupero</small><strong class="{{ 'text-success' if completo else 'text-warning' }}">{{ sede.recupero_pct }}%</strong></div>
+                </div>
+                <div class="sd-recupero-barra {{ 'sd-recupero-barra--ok' if completo }}" title="{{ sede.total_revenue_earned }} de {{ sede.purchase_price }} pts invertidos">
+                    <span style="width: {{ [sede.recupero_pct, 100] | min }}%;"></span>
+                </div>
 
-                        <div class="fs-4 fw-bold text-success">
-                            <i class="bi bi-cash-coin"></i> {{ "{:,}".format(sede.total_revenue_earned) }}
-                        </div>
-                        <div class="text-muted small mb-3">Ganancias por taquilla</div>
+                <div class="sd-sede__datos">
+                    <div><span>Pagaste</span><strong>{{ sede.purchase_price }}</strong></div>
+                    <div><span>Alojados</span><strong>{{ sede.matches_hosted_count }}</strong></div>
+                    <div><span>Por jugarse</span><strong class="{{ 'text-info' if sede.programados }}">{{ sede.programados }}</strong></div>
+                </div>
 
-                        <button type="button" class="btn btn-outline-danger btn-sm w-100 fw-bold btn-vender" data-ciudad-id="{{ sede.ciudad_id }}">
-                            <i class="bi bi-bag-dash-fill me-1"></i>Vender (recuperás el 80%)
-                        </button>
+                {% if sede.proximo %}
+                <a href="/scouter/{{ sede.proximo.id }}" class="sd-proximo">
+                    <small class="sd-rotulo"><i class="bi bi-calendar-event me-1"></i>Próximo partido aquí · {{ sede.proximo.fecha_txt or sede.proximo.fecha }}</small>
+                    <span class="sd-proximo__equipos">{{ m.bandera(None, pais_id=sede.proximo.local_id) }} {{ sede.proximo.local }} <span class="text-muted">vs</span> {{ sede.proximo.visita }} {{ m.bandera(None, pais_id=sede.proximo.visita_id) }}</span>
+                    {% if sede.proximo.fase_alta %}<span class="sd-chip sd-chip--oro">Fase final: base ×{{ p.reglas.fase_alta }}</span>{% endif %}
+                </a>
+                {% else %}
+                <div class="sd-proximo sd-proximo--vacio"><small class="sd-rotulo"><i class="bi bi-calendar-x me-1"></i>Sin partidos programados por ahora</small></div>
+                {% endif %}
+
+                {% if sede.ultimas %}
+                <div class="sd-ultimas">
+                    <small class="sd-rotulo">Últimos cobros</small>
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                        {% for u in sede.ultimas %}<span class="sd-chip {{ 'sd-chip--oro' if u.sinergia }}" title="{{ u.fecha.strftime('%d/%m/%Y %H:%M') }}{{ ' · con sinergia' if u.sinergia }}">+{{ u.monto }}</span>{% endfor %}
                     </div>
                 </div>
-            </div>
-        {% endfor %}
-    </div>
-{% else %}
-    <div class="text-center py-5">
-        <div class="display-1 mb-3">🏟️</div>
-        <h4 class="text-muted">Todavía no tenés ninguna sede</h4>
-        <a href="{{ url_for('venues_directorio_vista') }}" class="btn btn-success fw-bold mt-3">
-            <i class="bi bi-plus-circle me-1"></i>Ir al Directorio de Sedes
-        </a>
-    </div>
-{% endif %}
+                {% endif %}
 
+                <button type="button" class="btn btn-outline-danger btn-sm w-100 fw-bold btn-vender mt-auto" data-ciudad-id="{{ sede.ciudad_id }}" data-nombre="{{ sede.ciudad_nombre }}" data-reembolso="{{ sede.reembolso }}">
+                    <i class="bi bi-bag-dash-fill me-1"></i>Vender por {{ sede.reembolso }} pts
+                </button>
+            </div>
+        </article>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card sd-panel">
+    <div class="card-body text-center py-5">
+        <div class="sd-vacio__estadio">🏟️</div>
+        <h2 class="h4 text-white">Todavía no tenés ninguna sede</h2>
+        <p class="text-muted mb-3">Patrociná una ciudad por 500 pts y cobrá taquilla cada vez que se juegue un partido ahí.</p>
+        <a href="{{ url_for('venues_directorio_vista') }}" class="btn btn-success fw-bold rounded-pill px-4"><i class="bi bi-search me-1"></i>Buscar oportunidades</a>
+    </div>
+</div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="/static/js/graficos_fifav.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Curva de regalías acumuladas (venue_service.obtener_portafolio_vista: serie)
+    const serie = {{ p.serie | tojson }};
+    const lienzo = document.getElementById('graficoRegalias');
+    if (lienzo && window.GraficosFIFAV) {
+        const G = window.GraficosFIFAV;
+        G.crearAlVer(lienzo, {
+            type: 'line',
+            data: { labels: serie.map(p => p.x), datasets: [{ label: 'Regalías acumuladas', data: serie.map(p => p.y), borderColor: '#22c55e', borderWidth: 2.5,
+                    backgroundColor: G.degradado('#22c55e', 0.35), fill: true, tension: 0.25, pointRadius: 3, pointBackgroundColor: '#22c55e', brillo: '#22c55e' }] },
+            options: { maintainAspectRatio: false, animation: { duration: 1100, easing: 'easeOutCubic' },
+                       plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.parsed.y.toLocaleString('es')} pts acumulados` } } },
+                       scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } }, y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('es') } } } },
+            plugins: [G.brillo],
+        });
+    }
+
     const urlVenderTemplate = "{{ url_for('venues_sell', ciudad_id='__CIUDAD_ID__') }}";
     const alertaPortafolio = document.getElementById('alertaPortafolio');
-
-    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaPortafolio, mensaje, tipo);
-
     document.querySelectorAll('.btn-vender').forEach(btn => {
         btn.addEventListener('click', async function () {
             const ok = await UI.confirmar({
-                titulo: 'Vender sede',
-                mensaje: 'Recuperás el 80% de lo que pagaste y dejás de cobrar sus regalías.',
-                textoConfirmar: 'Vender', peligro: true,
+                titulo: `Vender ${btn.dataset.nombre}`,
+                mensaje: `Recibís ${btn.dataset.reembolso} pts (el 80% de lo que pagaste) y dejás de cobrar sus regalías.`,
+                textoConfirmar: `Vender por ${btn.dataset.reembolso} pts`, peligro: true,
             });
             if (!ok) return;
-
-            const ciudadId = btn.dataset.ciudadId;
+            const original = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-            fetch(urlVenderTemplate.replace('__CIUDAD_ID__', ciudadId), { method: 'POST' })
-                .then(async resp => {
-                    const data = await resp.json();
-                    if (!resp.ok) {
-                        throw new Error(data.detail || 'No se pudo completar la venta.');
-                    }
-                    mostrarAlerta('¡Sede vendida! Actualizando tu portafolio...', 'success');
-                    setTimeout(() => { window.location.reload(); }, 1000);
-                })
-                .catch(err => {
-                    mostrarAlerta(err.message, 'danger');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bi bi-bag-dash-fill me-1"></i>Vender (recuperás el 80%)';
-                });
+            try {
+                const resp = await fetch(urlVenderTemplate.replace('__CIUDAD_ID__', btn.dataset.ciudadId), { method: 'POST' });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.detail || 'No se pudo completar la venta.');
+                UI.refrescarSaldo();
+                UI.mostrarAlertaEn(alertaPortafolio, '¡Sede vendida! Actualizando tu portafolio...', 'success');
+                setTimeout(() => window.location.reload(), 1000);
+            } catch (err) {
+                UI.mostrarAlertaEn(alertaPortafolio, err.message, 'danger');
+                btn.disabled = false;
+                btn.innerHTML = original;
+            }
         });
     });
 });

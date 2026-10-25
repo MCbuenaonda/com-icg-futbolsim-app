@@ -74,6 +74,13 @@ async def juegos(request: Request, q: str = "", confederacion: str = "", grupo: 
         total_paginas = max(1, -(-len(filtrados) // JUEGOS_POR_PAGINA))
         pagina = min(max(1, pagina), total_paginas)
         juegos = enriquecer_juegos_programados(filtrados[(pagina - 1) * JUEGOS_POR_PAGINA: pagina * JUEGOS_POR_PAGINA])
+        # Por qué mirar cada partido (services/partidos_interes_service.py): decisivo, serie, DT en la cuerda floja, top 10
+        try:
+            from services.partidos_interes_service import motivos_partidos
+            motivos = motivos_partidos(juegos)
+        except Exception as e:
+            print(f"Motivos de interés: {e}")
+            motivos = {}
         filtros = {"q": q, "confederacion": confederacion, "grupo": grupo, "fecha": fecha, "jornada": jornada}
             
         # Elecciones pendientes del Juego en Vivo del usuario (badge "Vas con X" en cada tarjeta)
@@ -85,6 +92,7 @@ async def juegos(request: Request, q: str = "", confederacion: str = "", grupo: 
             name="juegos.html",
             context={
                 "sesiones_juego_en_vivo": sesiones_juego_en_vivo,
+                "motivos": motivos,
                 "juegos": juegos,
                 "mundial": mundial_activo,
                 "grupos": grupos,
@@ -161,10 +169,17 @@ async def juego(request: Request, id: str):
         detalle = armar_detalle_partido(juego) if juego and juego.get("resultado") else None
         # Crónica escrita a partir de la cronología (se genera y guarda la primera vez que se abre el partido)
         cronica = asegurar_cronica(juego) if juego and juego.get("resultado") else None
+        # Técnicos cesados por su federación tras este partido (services/tecnicos_service.py)
+        try:
+            from services.tecnicos_service import ceses_del_partido
+            ceses_dt = ceses_del_partido(str(juego["_id"])) if juego and juego.get("resultado") else []
+        except Exception as e:
+            print(f"Ceses del partido: {e}")
+            ceses_dt = []
         return templates.TemplateResponse(
             request=request,
             name="resumen.html",
-            context={"partido": juego, "detalle": detalle, "cronica": cronica}
+            context={"partido": juego, "detalle": detalle, "cronica": cronica, "ceses_dt": ceses_dt}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")

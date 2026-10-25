@@ -25,6 +25,9 @@ class CiudadDisponibleOut(BaseModel):
     tiene_dueno: bool
     es_mia: bool = False
     estadio_img: Optional[str] = None  # ilustración del estadio (bucket estadios/, ver generar_estadios.py)
+    programados: int = 0               # partidos por jugarse en esta sede (cada uno paga regalía al dueño)
+    proximo: Optional[dict] = None     # el primero de ellos: {fecha, hora, local, visita, ...}
+    tengo_estampa: bool = False        # el usuario tiene la estampa de la ciudad (sinergia ×1.5)
 
 
 # ==========================================

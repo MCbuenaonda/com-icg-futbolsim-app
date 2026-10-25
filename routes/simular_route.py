@@ -132,11 +132,18 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
             logger.error(f"Error al calcular marcas del partido {id}: {str(e)}")
 
     h2h = _enfrentamientos(id_local, id_visita, id)
+    try:
+        from services.partidos_interes_service import motivos_partido
+        mot = motivos_partido(id)
+    except Exception as e:
+        logger.error(f"Motivos de interés del partido {id}: {e}")
+        mot = None
 
     return templates.TemplateResponse(
         request=request,
         name="simulador.html",
         context={
+            "mot": mot,
             "partido": partido,
             "stats_jugadores": None,
             "prefix": PREFIX_SIMULADOR_PATH,

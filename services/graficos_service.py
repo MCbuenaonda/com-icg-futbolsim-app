@@ -265,7 +265,83 @@ def _estadios() -> dict:
     clima = sorted(({"condicion": c, "partidos": len(v), "promedio": round(sum(v) / len(v), 2)} for c, v in por_clima.items() if len(v) >= 5),
                    key=lambda x: -x["promedio"])
     return {"clima": clima, "ocupacion": [{"banda": f"{b}-{b + 10}%", "partidos": ocupacion.get(b, 0)} for b in range(0, 100, 10)],
-            "temperatura_r": _pearson([t for t, _ in temperatura], [g for _, g in temperatura])}
+            "temperatura_r": _pearson([t for t, _ in temperatura], [g for _, g in temperatura]),
+            "con_datos": sum(ocupacion.values()), "minimo": 30, "con_clima": len(temperatura)}
+
+
+# ==========================================
+# Técnicos (services/tecnicos_service.py)
+# ==========================================
+MINIMO_MOTOR_DT = 30   # partidos jugados con el DT en el motor (reclamos, ajustes) para mostrar sus gráficos
+
+
+def _tecnicos() -> dict:
+    from services.tecnicos_service import fecha_corta
+    """Ceses por confederación y a lo largo del torneo; y, con suficientes partidos jugados con el DT en el motor,
+    rendimiento por estilo, reclamos según el temperamento y efecto de los ajustes tácticos."""
+    siglas = {1: "UEFA", 2: "CONMEBOL", 3: "CONCACAF", 4: "CAF", 5: "OFC", 6: "AFC"}
+    conf = {p["id"]: siglas.get(p.get("confederacion_id"), "?") for p in db["paises"].find({}, {"id": 1, "confederacion_id": 1})}
+    ceses = list(db["dt_cargos"].find({"motivo_fin": "CESE"}, {"pais_id": 1, "cese_por_eliminacion": 1, "hasta_fecha_juego": 1}))
+    por_conf = {s: {"conf": s, "resultados": 0, "eliminacion": 0} for s in siglas.values()}
+    for c in ceses:
+        fila = por_conf.get(conf.get(c["pais_id"]))
+        if fila:
+            fila["eliminacion" if c.get("cese_por_eliminacion") else "resultados"] += 1
+    tiempo, n = [], 0
+    for c in sorted(ceses, key=lambda c: c.get("hasta_fecha_juego") or ""):
+        n += 1
+        tiempo.append({"fecha": fecha_corta(c.get("hasta_fecha_juego")) or c.get("hasta_fecha_juego"), "n": n})
+    # partidos jugados con el DT en el motor: traen 'reclamos' en resultado.dt.*
+    juegos = list(db["juegos"].find({**ES._filtro_finalizados(), "resultado.dt.local.reclamos": {"$exists": True}},
+                                    {"resultado.dt": 1, "resultado.goles_local": 1, "resultado.goles_visitante": 1, "resultado.local": 1,
+                                     "resultado.visitante": 1, "resultado.eventos.tipo": 1, "resultado.eventos.dt_id": 1,
+                                     "resultado.eventos.equipo": 1, "resultado.eventos.ajuste": 1}))
+    salida = {"ceses_conf": list(por_conf.values()), "ceses_tiempo": tiempo, "total_ceses": len(ceses),
+              "regresos": db["dt_cargos"].count_documents({"regreso": True}), "motor": len(juegos), "minimo": MINIMO_MOTOR_DT}
+    if len(juegos) < MINIMO_MOTOR_DT:
+        return salida
+    dts = {d["id"]: d for d in db["directores_tecnicos"].find({}, {"_id": 0, "id": 1, "estilo": 1, "temperamento": 1})}
+    estilos = {e: {"estilo": e, "partidos": 0, "puntos": 0, "gf": 0, "gc": 0} for e in ("ofensivo", "equilibrado", "defensivo")}
+    bandas = [("Frío (≤42)", 0, 42), ("Firme (43-67)", 43, 67), ("Caliente (≥68)", 68, 100)]
+    temple = {b[0]: {"banda": b[0], "partidos": 0, "reclamos": 0, "amonestado": 0, "expulsado": 0} for b in bandas}
+    ajustes = {"ataque": {"n": 0, "gol": 0}, "cerrar": {"n": 0, "mantuvo": 0}}
+    for j in juegos:
+        r = j["resultado"]
+        for lado, gf, gc, eq in (("local", r["goles_local"], r["goles_visitante"], r.get("local")),
+                                 ("visita", r["goles_visitante"], r["goles_local"], r.get("visitante"))):
+            dt = (r.get("dt") or {}).get(lado) or {}
+            d = dts.get(dt.get("id"))
+            if not d:
+                continue
+            e = estilos.get(d.get("estilo"))
+            if e:
+                e["partidos"] += 1
+                e["puntos"] += 3 if gf > gc else (1 if gf == gc else 0)
+                e["gf"] += gf
+                e["gc"] += gc
+            t = next(temple[b[0]] for b in bandas if b[1] <= (d.get("temperamento") or 55) <= b[2])
+            t["partidos"] += 1
+            t["reclamos"] += dt.get("reclamos", 0)
+            t["amonestado"] += bool(dt.get("amonestado"))
+            t["expulsado"] += bool(dt.get("expulsado"))
+            # efecto de los ajustes: tras "ataque", ¿llegó un gol propio?; tras "cerrar", ¿ganó el partido?
+            eventos = r.get("eventos") or []
+            for k, ev in enumerate(eventos):
+                if ev.get("tipo") == "📋 AJUSTE TÁCTICO" and ev.get("dt_id") == dt.get("id") and ev.get("ajuste") in ajustes:
+                    a = ajustes[ev["ajuste"]]
+                    a["n"] += 1
+                    if ev["ajuste"] == "ataque":
+                        a["gol"] += any(x.get("tipo", "").startswith("⚽ GOL") and x.get("equipo") == eq for x in eventos[k + 1:])
+                    else:
+                        a["mantuvo"] += gf > gc
+    salida["estilos"] = [{**e, "ppp": round(e["puntos"] / e["partidos"], 2) if e["partidos"] else 0,
+                          "gfp": round(e["gf"] / e["partidos"], 2) if e["partidos"] else 0,
+                          "gcp": round(e["gc"] / e["partidos"], 2) if e["partidos"] else 0} for e in estilos.values()]
+    salida["temple"] = [{**t, **{f"{k}_p": round(t[k] / t["partidos"], 2) if t["partidos"] else 0 for k in ("reclamos", "amonestado", "expulsado")}}
+                        for t in temple.values()]
+    salida["ajustes"] = {"ataque": {**ajustes["ataque"], "pct": round(100 * ajustes["ataque"]["gol"] / ajustes["ataque"]["n"]) if ajustes["ataque"]["n"] else 0},
+                         "cerrar": {**ajustes["cerrar"], "pct": round(100 * ajustes["cerrar"]["mantuvo"] / ajustes["cerrar"]["n"]) if ajustes["cerrar"]["n"] else 0}}
+    return salida
 
 
 # ==========================================
@@ -351,6 +427,7 @@ def obtener_graficos() -> Dict[str, Any]:
         "trayectorias": _trayectorias(juegos, nombres),
         "jugadores": _jugadores(juegos, agregado, nombres),
         "estadios": _estadios(),
+        "tecnicos": _tecnicos(),
         "proximos": _proximos(poderes),
         "titulo": _candidatos_titulo(poderes),
         "mundial": cv["stats"].get("mundial"),

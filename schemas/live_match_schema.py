@@ -1,6 +1,6 @@
 """Esquemas Pydantic para el módulo de Simulación Automática en Vivo (services/live_match_service.py)."""
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 
@@ -24,6 +24,10 @@ class EventoOut(BaseModel):
     var_decision: Optional[str] = None
     de_penal: Optional[bool] = None
     minutos_anadidos: Optional[int] = None
+    # Director técnico (services/tecnicos.py): reclamos, amonestación/expulsión del DT y ajustes tácticos
+    dt_id: Optional[int] = None
+    dt: Optional[str] = None
+    ajuste: Optional[str] = None
 
 
 class StartedMatchOut(BaseModel):
@@ -123,3 +127,5 @@ class PlantillasLiveOut(BaseModel):
     anfitrion: Optional[str] = None
     mascota_url: Optional[str] = None
     mascota_nombre: Optional[str] = None
+    # DT de cada lado (live_match_service._dts_en_vivo): {local|visita: {id, nombre, estilo, arquetipo, avatar_url, partidos, record}}
+    dt: Dict[str, Any] = {}

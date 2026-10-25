@@ -5,148 +5,194 @@
 
 {% block content %}
 {#
-  Directorio de los directores técnicos (5 por selección): quién dirige hoy, cómo le va en el Mundial y su carrera
-  (cargos, ceses). Datos: tecnicos_service.listar_tecnicos.
+  Directorio de los directores técnicos (tecnicos_service.listar_tecnicos): encabezado con el mercado de técnicos,
+  destacados, la cuerda floja (más riesgo de cese) y los intocables (más por encima de lo esperado), los últimos
+  relevos y el buscador de los 1.055 técnicos con su arquetipo, rasgos y presión del cargo.
 #}
-<div class="card card-logo-fondo card-logo-fondo--sin-brillo fixture-hero mb-4" style="--logo-color: #a78bfa;">
-    <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <div class="d-flex align-items-center gap-3 min-w-0">
-            <span class="arbitros-hero__silbato" style="color:#a78bfa"><i class="bi bi-clipboard-check"></i></span>
+{% set d = datos %}
+<div class="tc js-animar">
+<div class="card tc-hero mb-4">
+    <div class="tc-hero__fondo" aria-hidden="true"></div>
+    <div class="card-body p-3 p-md-4 position-relative">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
             <div class="min-w-0">
-                <h1 class="h2 fw-bold text-white mb-1">Directores técnicos</h1>
-                <p class="text-muted mb-0 small">Cada federación tiene cinco técnicos: uno dirige y los demás esperan. Si los resultados no llegan, la federación lo cambia, y un técnico cesado puede volver más adelante.</p>
+                <span class="tc-eyebrow"><i class="bi bi-clipboard-check me-1"></i>El banco de cada selección</span>
+                <h1 class="tc-hero__nombre">Directores técnicos</h1>
+                <p class="tc-hero__desc mb-0">Cada federación tiene cinco técnicos: uno dirige y los demás esperan. Si los resultados no llegan, la federación lo cambia, y un cesado puede volver más adelante.</p>
             </div>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <div class="fixture-kpi"><span>Técnicos</span><strong>{{ datos.filas | length }}</strong></div>
-            <div class="fixture-kpi"><span>Dirigiendo</span><strong>{{ datos.en_funciones }}</strong></div>
-            <div class="fixture-kpi"><span>Ceses</span><strong class="text-danger">{{ datos.ceses }}</strong></div>
+        <div class="tc-kpis tc-kpis--hero mt-3">
+            <div class="tc-kpi"><span>Técnicos</span><strong data-contar>{{ d.filas | length }}</strong><small>{{ d.reales }} reales</small></div>
+            <div class="tc-kpi"><span>Dirigiendo</span><strong class="text-accent" data-contar>{{ d.en_funciones }}</strong></div>
+            <div class="tc-kpi"><span>Ceses</span><strong class="text-danger" data-contar>{{ d.ceses }}</strong></div>
+            <div class="tc-kpi"><span>Regresos</span><strong class="text-info" data-contar>{{ d.regresos }}</strong></div>
+            <div class="tc-kpi"><span>Ajustes tácticos</span><strong data-contar>{{ d.ajustes }}</strong></div>
+            <div class="tc-kpi"><span>DT expulsados</span><strong class="text-warning" data-contar>{{ d.expulsiones }}</strong></div>
         </div>
     </div>
 </div>
 
-{% if datos.destacados %}
+{% if d.destacados %}
 <div class="row g-3 mb-3">
-    {% for d in datos.destacados %}
+    {% for x in d.destacados %}
     <div class="col-12 col-md-4">
-        <a href="{{ url_for('tecnico_perfil', tecnico_id=d.fila.id) }}" class="card h-100 card-logo-fondo card-jugador text-decoration-none" style="--logo-color: #a78bfa;">
-            {{ m.fondo_bandera(d.fila.pais_id) }}
-            <div class="card-body d-flex align-items-center gap-3">
-                {{ m.avatar_tecnico(d.fila.id, d.fila.pais_id, 'md', d.fila.nombre) }}
-                <div class="min-w-0">
-                    <small class="text-secondary text-uppercase fw-semibold">{{ d.titulo }}</small>
-                    <div class="fw-bold text-white text-truncate">{{ d.fila.nombre }}</div>
-                    <small class="text-muted">{{ d.fila.pais_nombre }} · {{ d.detalle }}</small>
-                </div>
-            </div>
+        <a href="{{ url_for('tecnico_perfil', tecnico_id=x.fila.id) }}" class="tc-destacado" style="--i: {{ loop.index0 }};">
+            {{ m.fondo_bandera(x.fila.pais_id) }}
+            <span class="ct-dt__halo tc-destacado__halo">{{ m.avatar_tecnico(x.fila.id, x.fila.pais_id, 'md', x.fila.nombre) }}</span>
+            <span class="min-w-0">
+                <small class="tc-rotulo">{{ x.titulo }}</small>
+                <strong class="d-block text-white text-truncate">{{ x.fila.nombre }}</strong>
+                <small class="text-muted">{{ m.bandera(x.fila.bandera, pais_id=x.fila.pais_id) }} {{ x.fila.pais_nombre }} · {{ x.detalle }}</small>
+            </span>
         </a>
     </div>
     {% endfor %}
 </div>
 {% endif %}
 
-{% if datos.ultimos_cambios %}
-<div class="card mb-3">
-    <div class="card-body p-3">
-        <h2 class="h6 text-white mb-2"><i class="bi bi-arrow-left-right me-2 text-warning"></i>Últimos cambios de técnico</h2>
-        <ul class="list-unstyled mb-0 small tecnicos-relevos">
-            {% for r in datos.ultimos_cambios %}
-            <li class="d-flex align-items-center gap-2 py-1 flex-wrap">
-                {{ m.bandera(r.bandera, pais_id=r.pais_id) }} <strong class="text-white">{{ r.pais }}</strong>
-                <span class="text-muted">sale</span> <a href="{{ url_for('tecnico_perfil', tecnico_id=r.sale_id) }}">{{ r.sale }}</a>
-                <span class="text-muted">· asume</span> <a href="{{ url_for('tecnico_perfil', tecnico_id=r.entra_id) }}" class="fw-semibold">{{ r.entra }}</a>
-                {% if r.regreso %}<span class="badge bg-info-subtle text-info-emphasis">vuelve</span>{% endif %}
-            </li>
+<div class="row g-3 mb-3">
+    {% for titulo, icono, lista, clase, ayuda in [
+        ('En la cuerda floja', 'bi-thermometer-high', d.cuerda_floja, 'riesgo', 'Los que tienen más chance de ser cesados tras su próximo partido.'),
+        ('Intocables', 'bi-shield-check', d.intocables, 'intocable', 'Los que más puntos sacan por encima de lo que esperaba su federación.')] %}
+    <div class="col-12 col-lg-6">
+        <div class="card h-100 tc-panel tc-ranking tc-ranking--{{ clase }}">
+            <div class="card-body">
+                <h2 class="tc-subtitulo mb-1"><i class="bi {{ icono }}"></i>{{ titulo }}</h2>
+                <small class="text-muted d-block mb-2">{{ ayuda }}</small>
+                {% for f in lista %}
+                <a href="{{ url_for('tecnico_perfil', tecnico_id=f.id) }}" class="tc-ranking__fila" style="--i: {{ loop.index0 }};">
+                    <span class="tc-ranking__pos">{{ loop.index }}</span>
+                    {{ m.avatar_tecnico(f.id, f.pais_id, 'sm', f.nombre) }}
+                    <span class="min-w-0 flex-grow-1"><strong class="text-truncate d-block">{{ f.nombre }}</strong>
+                        <small class="text-muted">{{ m.bandera(f.bandera, pais_id=f.pais_id) }} {{ f.pais_nombre }} · {{ f.cargo_record }}</small></span>
+                    {% if clase == 'riesgo' %}
+                    <span class="tc-ranking__valor"><strong>{{ f.riesgo }}%</strong><span class="tc-mini-barra"><span style="width: {{ [f.riesgo * 1.6, 100] | min }}%;"></span></span></span>
+                    {% else %}
+                    <span class="tc-ranking__valor"><strong>{{ '%+.2f' | format(f.cargo_sobre) }}</strong><small>pts/partido</small></span>
+                    {% endif %}
+                </a>
+                {% else %}
+                <div class="tc-vacio py-3"><i class="bi bi-hourglass-split"></i><span>Todavía no hay técnicos con 3 partidos en el cargo.</span></div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if d.ultimos_cambios %}
+<div class="card tc-panel mb-3">
+    <div class="card-body">
+        <h2 class="tc-subtitulo"><i class="bi bi-arrow-left-right text-warning"></i>Últimos cambios de técnico</h2>
+        <div class="tc-relevos">
+            {% for r in d.ultimos_cambios %}
+            <div class="tc-relevo" style="--i: {{ loop.index0 }};">
+                <div class="tc-relevo__pais">{{ m.bandera(r.bandera, pais_id=r.pais_id) }}<strong>{{ r.pais }}</strong>{% if r.fecha_txt %}<small>{{ r.fecha_txt }}</small>{% endif %}</div>
+                <div class="tc-relevo__cambio">
+                    <a href="{{ url_for('tecnico_perfil', tecnico_id=r.sale_id) }}" class="tc-relevo__dt tc-relevo__dt--sale">
+                        {{ m.avatar_tecnico(r.sale_id, r.pais_id, 'sm', r.sale) }}<span class="min-w-0"><strong class="text-truncate d-block">{{ r.sale }}</strong>
+                        <small>{{ 'eliminado' if r.por_eliminacion else 'cesado' }}{% if r.record_sale %} · {{ r.record_sale }}{% endif %}</small></span>
+                    </a>
+                    <i class="bi bi-arrow-right tc-relevo__flecha"></i>
+                    <a href="{{ url_for('tecnico_perfil', tecnico_id=r.entra_id) }}" class="tc-relevo__dt tc-relevo__dt--entra">
+                        {{ m.avatar_tecnico(r.entra_id, r.pais_id, 'sm', r.entra) }}<span class="min-w-0"><strong class="text-truncate d-block">{{ r.entra }}</strong>
+                        <small>{{ 'vuelve' if r.regreso else 'asume' }}</small></span>
+                    </a>
+                </div>
+            </div>
             {% endfor %}
-        </ul>
+        </div>
     </div>
 </div>
 {% endif %}
 
-<div class="card panel-filtros mb-3">
-    <div class="card-body p-3 row g-2 align-items-center">
-        <div class="col-md-5">
-            <div class="input-group input-group-sm">
-                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input type="search" class="form-control js-buscar" placeholder="Buscar técnico o país..." aria-label="Buscar técnico">
-            </div>
+<div class="card tc-panel tc-filtros mb-3">
+    <div class="card-body p-2 p-md-3 d-flex flex-wrap gap-2 align-items-center">
+        <div class="input-group input-group-sm tc-buscador">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="search" class="form-control js-buscar" placeholder="Buscar técnico o país..." aria-label="Buscar técnico">
         </div>
-        <div class="col-6 col-md-2">
-            <select class="form-select form-select-sm js-conf" aria-label="Confederación">
-                <option value="">Todas</option>
-                {% for c in datos.confederaciones %}<option>{{ c }}</option>{% endfor %}
-            </select>
+        <div class="sd-pills js-estado" role="group" aria-label="Estado">
+            <button type="button" class="sd-pill activo" data-valor="funciones">Dirigiendo</button>
+            <button type="button" class="sd-pill" data-valor="banco">En el banco</button>
+            <button type="button" class="sd-pill" data-valor="">Todos</button>
         </div>
-        <div class="col-6 col-md-2">
-            <select class="form-select form-select-sm js-estado" aria-label="Estado">
-                <option value="funciones">Dirigiendo</option>
-                <option value="">Todos</option>
-                <option value="banco">En el banco</option>
-            </select>
-        </div>
-        <div class="col-md-3">
-            <select class="form-select form-select-sm js-orden" aria-label="Ordenar">
-                <option value="puntos">Orden: % de puntos</option>
-                <option value="partidos">Orden: partidos</option>
-                <option value="sobre">Orden: sobre lo esperado</option>
-                <option value="ajustes">Orden: ajustes tácticos</option>
-                <option value="expulsiones">Orden: expulsiones</option>
-                <option value="ceses">Orden: ceses</option>
-            </select>
-        </div>
+        <select class="form-select form-select-sm tc-select js-conf" aria-label="Confederación">
+            <option value="">Todas las confederaciones</option>
+            {% for c in d.confederaciones %}<option>{{ c }}</option>{% endfor %}
+        </select>
+        <select class="form-select form-select-sm tc-select js-orden" aria-label="Ordenar">
+            <option value="puntos">Orden: % de puntos</option>
+            <option value="riesgo">Orden: riesgo de cese</option>
+            <option value="sobre">Orden: sobre lo esperado</option>
+            <option value="partidos">Orden: partidos</option>
+            <option value="ajustes">Orden: ajustes tácticos</option>
+            <option value="expulsiones">Orden: expulsiones</option>
+            <option value="ceses">Orden: ceses</option>
+        </select>
     </div>
 </div>
 
 <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3 js-grilla">
-    {% for t in datos.filas %}
+    {% for t in d.filas %}
     <div class="col tecnico-item" data-busqueda="{{ (t.nombre ~ ' ' ~ t.pais_nombre) | lower }}" data-conf="{{ t.confederacion }}"
-         data-estado="{{ 'funciones' if t.en_funciones else 'banco' }}" data-puntos="{{ t.puntos_pct }}" data-partidos="{{ t.partidos }}"
-         data-sobre="{{ t.sobre_esperado }}" data-ajustes="{{ t.ajustes }}" data-expulsiones="{{ t.expulsado }}" data-ceses="{{ t.ceses }}">
-        <a href="{{ url_for('tecnico_perfil', tecnico_id=t.id) }}" class="card h-100 card-logo-fondo card-jugador ficha-arbitro {{ 'ficha-arbitro--inactivo' if not t.en_funciones }}" style="--logo-color: #a78bfa;">
+         data-estado="{{ 'funciones' if t.en_funciones else 'banco' }}" data-puntos="{{ t.puntos_pct * 1000 + t.partidos }}" data-partidos="{{ t.partidos }}"
+         data-sobre="{{ t.cargo_sobre if t.en_funciones else t.sobre_esperado }}" data-ajustes="{{ t.ajustes }}" data-expulsiones="{{ t.expulsado }}"
+         data-ceses="{{ t.ceses }}" data-riesgo="{{ t.riesgo or 0 }}">
+        <a href="{{ url_for('tecnico_perfil', tecnico_id=t.id) }}" class="tc-card tc-card--{{ t.estilo }} {{ 'tc-card--banco' if not t.en_funciones }}">
             {{ m.fondo_bandera(t.pais_id) }}
             <div class="d-flex align-items-center gap-3">
-                {{ m.avatar_tecnico(t.id, t.pais_id, 'md', t.nombre) }}
+                <span class="tc-card__avatar">{{ m.avatar_tecnico(t.id, t.pais_id, 'md', t.nombre) }}</span>
                 <div class="min-w-0">
                     <strong class="d-block text-white text-truncate">{{ t.nombre }}</strong>
                     <small class="text-muted">{{ m.bandera(t.bandera, pais_id=t.pais_id) }} {{ t.pais_nombre }} · {{ t.edad }} años</small>
-                    <span class="ficha-arbitro__pj">{{ t.estilo_nombre }}</span>
-                    {% if t.en_funciones %}<span class="arbitro-rigor arbitro-rigor--permisivo">📋 Dirige hoy</span>{% endif %}
-                    {% if t.ficticio %}<span class="arbitro-rigor" title="Técnico inventado: su selección no tiene suficientes técnicos registrados">Ficticio</span>{% endif %}
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                        <span class="tc-chip tc-chip--estilo">{{ t.estilo_nombre }}</span>
+                        {% if t.en_funciones %}<span class="tc-chip tc-chip--ok">Dirige</span>{% endif %}
+                        {% if t.ficticio %}<span class="tc-chip" title="Inventado: su selección no tiene suficientes técnicos registrados">Ficticio</span>{% endif %}
+                    </div>
                 </div>
             </div>
-            {% if t.partidos %}
-            <div class="ficha-arbitro__severidad" title="Porcentaje de puntos obtenidos en el Mundial">
-                <div class="d-flex justify-content-between"><small>Puntos obtenidos</small><small>{{ t.puntos_pct }}%</small></div>
-                <div class="ficha-arbitro__termometro" style="--puesto-color: #a78bfa;"><span style="width: {{ t.puntos_pct }}%;"></span></div>
+            <small class="tc-card__arquetipo">{{ t.arquetipo }}</small>
+            <div class="tc-card__rasgos">
+                {% for etiqueta, clave in [('Lectura', 'lectura'), ('Motivación', 'motivacion'), ('Temperamento', 'temperamento')] %}
+                <div title="{{ etiqueta }}: {{ t[clave] }}"><span>{{ etiqueta }}</span><span class="tc-mini-barra tc-mini-barra--{{ clave }}"><span style="width: {{ t[clave] }}%;"></span></span></div>
+                {% endfor %}
             </div>
-            <div class="ficha-jugador__metricas">
-                <div><span>PJ</span><strong>{{ t.partidos }}</strong></div>
-                <div><span>G-E-P</span><strong>{{ t.ganados }}-{{ t.empatados }}-{{ t.perdidos }}</strong></div>
-                <div><span>Ajustes</span><strong>{{ t.ajustes }}</strong></div>
-                <div><span>Expuls.</span><strong class="{{ 'text-danger' if t.expulsado }}">{{ t.expulsado }}</strong></div>
+            {% if t.en_funciones and t.cargo_pj %}
+            {% set col = '#ef4444' if t.riesgo >= 25 else ('#f59e0b' if t.riesgo >= 8 else '#22c55e') %}
+            <div class="tc-card__cargo">
+                <div><span>Cargo</span><strong>{{ t.cargo_record }}</strong></div>
+                <div><span>% puntos</span><strong>{{ t.puntos_pct }}%</strong></div>
+                <div><span>Riesgo</span><strong style="color: {{ col }};">{{ t.riesgo }}%</strong></div>
             </div>
+            {% elif t.en_funciones %}
+            <p class="tc-card__nota"><i class="bi bi-hourglass-split me-1"></i>Todavía no debutó en el cargo.</p>
             {% else %}
-            <p class="small text-muted mb-0 mt-3"><i class="bi bi-hourglass-split me-1"></i>{{ 'Todavía no dirigió en este Mundial.' if t.en_funciones else 'En el banco de la federación.' }}{% if t.ceses %} Cesado {{ t.ceses }} {{ 'vez' if t.ceses == 1 else 'veces' }}.{% endif %}</p>
+            <p class="tc-card__nota"><i class="bi bi-people me-1"></i>En el banco de la federación{% if t.ceses %} · cesado {{ t.ceses }} {{ 'vez' if t.ceses == 1 else 'veces' }}{% endif %}.</p>
             {% endif %}
         </a>
     </div>
     {% endfor %}
 </div>
 <p class="text-muted text-center py-4 d-none js-sin">Ningún técnico coincide con los filtros.</p>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="/static/js/graficos_fifav.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const grilla = document.querySelector('.js-grilla');
         let filas = grilla.querySelectorAll('.tecnico-item');
         const paginador = UI.paginador({ items: () => filas, porPagina: 40, despuesDe: grilla, etiqueta: 'técnicos' });
-        const buscar = document.querySelector('.js-buscar'), conf = document.querySelector('.js-conf'), estado = document.querySelector('.js-estado');
+        const buscar = document.querySelector('.js-buscar'), conf = document.querySelector('.js-conf');
+        let estado = 'funciones';
         function filtrar() {
             const texto = buscar.value.toLowerCase().trim();
             let visibles = 0;
             filas.forEach(f => {
-                const ok = f.dataset.busqueda.includes(texto) && (!conf.value || f.dataset.conf === conf.value) && (!estado.value || f.dataset.estado === estado.value);
+                const ok = f.dataset.busqueda.includes(texto) && (!conf.value || f.dataset.conf === conf.value) && (!estado || f.dataset.estado === estado);
                 f.classList.toggle('d-none', !ok); visibles += ok;
             });
             document.querySelector('.js-sin').classList.toggle('d-none', visibles > 0);
@@ -158,8 +204,13 @@
             filas = grilla.querySelectorAll('.tecnico-item');
             filtrar();
         }
-        [buscar].forEach(el => el.addEventListener('input', filtrar));
-        [conf, estado].forEach(el => el.addEventListener('change', filtrar));
+        buscar.addEventListener('input', filtrar);
+        conf.addEventListener('change', filtrar);
+        document.querySelectorAll('.js-estado .sd-pill').forEach(p => p.addEventListener('click', () => {
+            document.querySelectorAll('.js-estado .sd-pill').forEach(x => x.classList.toggle('activo', x === p));
+            estado = p.dataset.valor;
+            filtrar();
+        }));
         document.querySelector('.js-orden').addEventListener('change', ordenar);
         ordenar();
     });

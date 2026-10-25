@@ -135,6 +135,16 @@ async def get_live_plantillas():
     return PlantillasLiveOut(**plantillas)
 
 
+@route.get("/live/interes", name="matches_live_interes")
+def get_live_interes():
+    """Qué se juega en el partido en transmisión (services/partidos_interes_service.motivos_en_vivo). Se pide una vez por partido."""
+    from services.partidos_interes_service import motivos_en_vivo
+    datos = motivos_en_vivo()
+    if not datos:
+        raise HTTPException(status_code=404, detail="No hay ningún partido en transmisión en este momento.")
+    return datos
+
+
 @route.get("/live/destacados", name="matches_live_destacados")
 def get_live_destacados():
     """

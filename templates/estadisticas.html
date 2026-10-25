@@ -92,7 +92,9 @@
   </div>
 
   <!-- Acceso a "El Mundial en gráficos" -->
-  <a href="{{ url_for('estadisticas_graficos') }}" class="est-graficos-cta mb-4" aria-label="Ver El Mundial en gráficos">
+  <div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+  <a href="{{ url_for('estadisticas_graficos') }}" class="est-graficos-cta h-100" aria-label="Ver El Mundial en gráficos">
     <span class="est-graficos-cta__icono" aria-hidden="true">
       <svg viewBox="0 0 64 40" width="64" height="40"><path d="M2 34 L14 24 L24 28 L36 14 L46 18 L62 4" fill="none" stroke="#3987e5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
         <rect x="4" y="30" width="6" height="8" rx="1.5" fill="#d95926"/><rect x="14" y="26" width="6" height="12" rx="1.5" fill="#d95926"/><rect x="24" y="22" width="6" height="16" rx="1.5" fill="#d95926"/></svg>
@@ -103,6 +105,21 @@
     </span>
     <i class="bi bi-arrow-right-circle-fill"></i>
   </a>
+  </div>
+  <div class="col-12 col-md-6">
+  <a href="{{ url_for('estadisticas_calendario') }}" class="est-graficos-cta est-graficos-cta--cal h-100" aria-label="Ver El calendario del Mundial">
+    <span class="est-graficos-cta__icono" aria-hidden="true">
+      <svg viewBox="0 0 64 40" width="64" height="40"><rect x="14" y="4" width="36" height="34" rx="5" fill="#f6f3ea"/><rect x="14" y="4" width="36" height="10" rx="5" fill="#d55181"/>
+        <rect x="14" y="10" width="36" height="4" fill="#d55181"/><text x="32" y="33" text-anchor="middle" font-size="17" font-weight="800" fill="#1b2433" font-family="system-ui">26</text></svg>
+    </span>
+    <span class="min-w-0 flex-grow-1">
+      <strong>El calendario del Mundial</strong>
+      <small>Un día como hoy, los días más goleadores, el ritmo por mes y horario, y las efemérides del torneo.</small>
+    </span>
+    <i class="bi bi-arrow-right-circle-fill"></i>
+  </a>
+  </div>
+  </div>
 
   <!-- CUADRO DE HONOR -->
   <h2 class="vivo-titulo"><i class="bi bi-award-fill text-warning"></i>Cuadro de honor</h2>

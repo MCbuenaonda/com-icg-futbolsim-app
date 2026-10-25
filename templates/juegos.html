@@ -100,7 +100,9 @@
             {% set lc = logo_confederacion(sigla_conf) %}
             {% set fav = juego.favoritismo or {'local': 50, 'visitante': 50} %}
             {% set l = juego.equipo_local %}{% set v = juego.equipo_visitante %}
-            <div class="card h-100 card-logo-fondo partido-card" style="--logo-color: {{ lc.color if lc else '#3b82f6' }};">
+            {% set mot = motivos.get(juego._id | string) or {} %}
+            <div class="card h-100 card-logo-fondo partido-card {{ 'partido-card--' ~ mot.nivel.codigo if mot.nivel }}" style="--logo-color: {{ lc.color if lc else '#3b82f6' }};">
+                {% if mot.nivel %}<span class="partido-card__nivel partido-card__nivel--{{ mot.nivel.codigo }}"><i class="bi {{ mot.nivel.icono }}"></i>{{ mot.nivel.texto }}</span>{% endif %}
                 {% if lc %}<img src="{{ lc.url }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo {{ 'card-logo-fondo__logo--claro' if lc.claro }}" onerror="this.remove()">{% endif %}
 
                 <!-- Fecha/hora, confederación y grupo -->
@@ -140,6 +142,14 @@
                         <span class="barra-favoritismo__visita {{ 'barra-favoritismo--fav' if fav.visitante > fav.local }}" style="width: {{ fav.visitante }}%;"></span>
                     </div>
                 </div>
+
+                <!-- Por qué mirar este partido (partidos_interes_service): hasta 3 motivos, el resto en el detalle -->
+                {% if mot.chips %}
+                <ul class="partido-card__motivos">
+                    {% for c in mot.chips[:3] %}<li class="motivo motivo--{{ c.tipo }}"><i class="bi {{ c.icono }}"></i><span>{{ c.texto }}</span></li>{% endfor %}
+                    {% if mot.chips | length > 3 %}<li class="motivo motivo--mas"><i class="bi bi-plus-circle"></i><span>{{ mot.chips | length - 3 }} motivo{{ 's' if mot.chips | length - 3 > 1 }} más en el detalle</span></li>{% endif %}
+                </ul>
+                {% endif %}
 
                 <!-- Sede: ilustración del estadio -->
                 {% if juego.ubicacion %}

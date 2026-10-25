@@ -5,143 +5,242 @@
 
 {% block content %}
 {#
-  Perfil de un director técnico: encabezado (avatar de traje, selección, estilo), rasgos, números del Mundial en curso,
-  su cargo (presión y riesgo de cese), historial de cargos y la bitácora de partidos. Datos: tecnicos_service.perfil_tecnico.
+  Perfil de un director técnico (tecnicos_service.perfil_tecnico): encabezado con su arquetipo y la presión del cargo,
+  radar de rasgos contra el promedio, números del Mundial, puntos reales vs. lo que esperaba la federación, lo que hizo
+  desde el banco, sus cargos con fechas y la bitácora de partidos.
 #}
 <a href="{{ url_for('tecnicos') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 mb-3"><i class="bi bi-arrow-left me-1"></i>Volver a técnicos</a>
 
 {% if not t %}
 <div class="text-center text-muted py-5"><i class="bi bi-person-workspace fs-1 d-block mb-2"></i>No existe ese técnico.</div>
 {% else %}
-{% set s = t.stats %}{% set k = t.carrera %}
-<div class="card card-logo-fondo card-logo-fondo--sin-brillo perfil-jugador-header mb-4" style="--logo-color: #a78bfa;">
+{% set s = t.stats %}{% set k = t.carrera %}{% set aq = t.arquetipo %}
+{% set riesgo = t.prob_cese if t.prob_cese is not none else 0 %}
+{% set color_riesgo = '#ef4444' if riesgo >= 25 else ('#f59e0b' if riesgo >= 8 else '#22c55e') %}
+<div class="tc js-animar">
+
+<!-- Encabezado -->
+<div class="card tc-hero mb-4" {% if img_pais(t.pais_id, 'plana') %}style="--tc-bandera: url('{{ img_pais(t.pais_id, 'plana') }}');"{% endif %}>
+    <div class="tc-hero__fondo" aria-hidden="true"></div>
     {% set escudo = img_pais(t.pais_id, 'escudo') %}
-    {% if escudo %}<img src="{{ escudo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo perfil-jugador-header__escudo" onerror="this.remove()">{% endif %}
-    <div class="card-body p-3 p-md-4">
-        <div class="row align-items-center g-3">
-            <div class="col-12 col-md-auto text-center">{{ m.avatar_tecnico(t.id, t.pais_id, 'lg', t.nombre) }}</div>
-            <div class="col-12 col-md min-w-0 text-center text-md-start">
-                <div class="d-flex justify-content-center justify-content-md-start flex-wrap gap-2 mb-1">
-                    <span class="resumen-chip"><i class="bi bi-clipboard-check"></i>Director técnico</span>
-                    <span class="resumen-chip">{{ t.estilo_nombre }}</span>
-                    {% if t.en_funciones %}<span class="arbitro-rigor arbitro-rigor--permisivo m-0">📋 Dirige a {{ t.pais.nombre }}</span>
-                    {% else %}<span class="arbitro-rigor arbitro-rigor--neutro m-0">En el banco de la federación</span>{% endif %}
-                    {% if t.ficticio %}<span class="arbitro-rigor m-0" title="Inventado: su selección no tiene suficientes técnicos registrados">Ficticio</span>{% endif %}
+    {% if escudo %}<img src="{{ escudo }}" alt="" aria-hidden="true" class="tc-hero__escudo" onerror="this.remove()">{% endif %}
+    <div class="card-body p-3 p-md-4 position-relative">
+        <div class="tc-hero__grid">
+            <span class="ct-dt__halo tc-hero__avatar">{{ m.avatar_tecnico(t.id, t.pais_id, 'lg', t.nombre) }}<span class="ct-dt__sello">DT</span></span>
+            <div class="min-w-0">
+                <div class="d-flex flex-wrap gap-1 mb-1">
+                    {% if t.en_funciones %}<span class="tc-chip tc-chip--ok"><i class="bi bi-broadcast"></i>Dirige a {{ t.pais.nombre }}</span>
+                    {% else %}<span class="tc-chip"><i class="bi bi-hourglass-split"></i>En el banco de la federación</span>{% endif %}
+                    <span class="tc-chip"><i class="bi bi-diagram-3"></i>{{ t.estilo_nombre }}</span>
+                    {% if t.ficticio %}<span class="tc-chip" title="Inventado: su selección no tiene suficientes técnicos registrados">Ficticio</span>{% endif %}
                 </div>
-                <h1 class="display-6 fw-bold text-white mb-2">{{ t.nombre }}</h1>
-                <div class="perfil-jugador-datos justify-content-center justify-content-md-start">
-                    <span class="perfil-dato">{{ m.bandera(t.pais.bandera, pais_id=t.pais_id) }}<span><small>Selección</small><a href="/paises/{{ t.pais_id }}">{{ t.pais.nombre }}</a></span></span>
-                    <span class="perfil-dato"><i class="bi bi-calendar3 text-info"></i><span><small>Edad</small>{{ t.edad }} años</span></span>
-                    {% if t.pais.federacion %}<span class="perfil-dato"><i class="bi bi-bank text-warning"></i><span><small>Federación</small>{{ t.pais.federacion }}</span></span>{% endif %}
-                    {% if t.enlace %}<span class="perfil-dato"><i class="bi bi-wikipedia text-secondary"></i><span><small>Wikipedia</small><a href="https://en.wikipedia.org/wiki/{{ t.enlace | urlencode }}" target="_blank" rel="noopener">ver artículo</a></span></span>{% endif %}
+                <h1 class="tc-hero__nombre">{{ t.nombre }}</h1>
+                <div class="tc-arquetipo"><i class="bi {{ aq.icono }}"></i><span>{{ aq.titulo }}</span></div>
+                <p class="tc-hero__desc">{{ aq.descripcion }}</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="/paises/{{ t.pais_id }}" class="tc-dato">{{ m.bandera(t.pais.bandera, pais_id=t.pais_id) }}<span><small>Selección</small>{{ t.pais.nombre }}</span></a>
+                    <span class="tc-dato"><i class="bi bi-calendar3 text-info"></i><span><small>Edad</small>{{ t.edad }} años</span></span>
+                    {% if t.pais.federacion %}<span class="tc-dato"><i class="bi bi-bank text-warning"></i><span><small>Federación</small>{{ t.pais.federacion }}</span></span>{% endif %}
+                    {% if t.enlace %}<a class="tc-dato" href="https://en.wikipedia.org/wiki/{{ t.enlace | urlencode }}" target="_blank" rel="noopener"><i class="bi bi-wikipedia"></i><span><small>Wikipedia</small>Ver artículo</span></a>{% endif %}
                 </div>
             </div>
+            {% if t.en_funciones %}
+            <div class="tc-presion" style="--logo-color: {{ color_riesgo }};">
+                <div class="anillo-kpi tc-presion__anillo" style="--pct: {{ [riesgo * 1.6, 100] | min }};"><span>{{ riesgo }}%</span></div>
+                <small class="tc-rotulo">Riesgo de cese</small>
+                <strong style="color: {{ color_riesgo }};">{{ 'Cuerda floja' if riesgo >= 25 else ('Bajo la lupa' if riesgo >= 8 else 'Firme en el cargo') }}</strong>
+                <small class="text-muted">{% if t.cargo_vigente.partidos < 3 %}Tiene asegurados sus primeros 3 partidos{% else %}tras el próximo partido{% endif %}</small>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
-<div class="row g-3 mb-4 js-animar">
+<div class="row g-3 mb-3">
+    <!-- Rasgos -->
     <div class="col-12 col-lg-5">
-        <div class="card h-100">
+        <div class="card h-100 tc-panel">
             <div class="card-body">
-                <h2 class="h6 text-white mb-3"><i class="bi bi-sliders me-2 text-accent"></i>Cómo dirige</h2>
-                <div class="grupo-atributos" style="--grupo-color: #a78bfa;">
+                <h2 class="tc-subtitulo"><i class="bi bi-bullseye text-accent"></i>Cómo dirige</h2>
+                <div class="tc-radar"><canvas id="radarDT" role="img" aria-label="Rasgos de {{ t.nombre }} comparados con el promedio de los técnicos"></canvas></div>
+                <ul class="tc-rasgos">
                     {% for r in t.rasgos %}
-                    <div class="barra-atributo" title="{{ r.nombre }}: {{ r.etiqueta }}">
-                        <span class="barra-atributo__nombre"><i class="bi {{ r.icono }} me-1"></i>{{ r.nombre }}</span>
-                        <span class="barra-atributo__pista"><span style="width: {{ r.valor }}%;"></span></span>
-                        <span class="barra-atributo__valor">{{ r.valor }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-                <p class="small text-muted mb-0 mt-3">
-                    <strong>Estilo {{ t.estilo_nombre | lower }}</strong>: {{ {'ofensivo': 'prefiere el 4-3-3', 'defensivo': 'prefiere el 4-4-2', 'equilibrado': 'prefiere el 3-5-2'}[t.estilo] }}.
-                    La <strong>lectura</strong> decide cuándo y con qué acierto hace los ajustes tácticos; la <strong>motivación</strong>, cuánto empuja a su equipo; el <strong>temperamento</strong>, cuánto reclama.
-                </p>
-            </div>
-        </div>
-    </div>
-    <div class="col-12 col-lg-7">
-        <div class="row row-cols-2 row-cols-md-4 g-3 mb-3">
-            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">Partidos</small><strong class="fs-3 text-white" data-contar>{{ s.partidos or 0 }}</strong></div></div></div>
-            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">G-E-P</small><strong class="fs-4 text-white">{{ s.ganados or 0 }}-{{ s.empatados or 0 }}-{{ s.perdidos or 0 }}</strong></div></div></div>
-            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">% de puntos</small><strong class="fs-3 text-accent" data-contar>{{ s.puntos_pct or 0 }}%</strong>{% if t.media_pct is not none %}<small class="d-block text-muted">media {{ t.media_pct }}%</small>{% endif %}</div></div></div>
-            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">Goles</small><strong class="fs-4 text-white">{{ s.gf or 0 }}:{{ s.gc or 0 }}</strong></div></div></div>
-        </div>
-        <div class="row row-cols-2 row-cols-md-4 g-3">
-            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">📋 Ajustes</small><strong class="fs-4 text-white">{{ s.ajustes or 0 }}</strong>{% if s.ajustes %}<small class="d-block text-muted">{{ s.ajustes_con_gol }} con gol</small>{% endif %}</div></div></div>
-            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">🗣️ Reclamos</small><strong class="fs-4 text-white">{{ s.reclamos or 0 }}</strong></div></div></div>
-            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">🟨 Amonestado</small><strong class="fs-4 text-warning">{{ s.amonestado or 0 }}</strong></div></div></div>
-            <div class="col"><div class="card h-100"><div class="card-body text-center"><small class="text-muted d-block">🟥 Expulsado</small><strong class="fs-4 text-danger">{{ s.expulsado or 0 }}</strong></div></div></div>
-        </div>
-        {% if t.en_funciones and t.prob_cese is not none %}
-        <div class="card mt-3">
-            <div class="card-body">
-                <div class="d-flex justify-content-between small mb-1"><span class="text-white"><i class="bi bi-thermometer-half me-1"></i>Presión del cargo</span>
-                    <span class="{{ 'text-danger' if t.prob_cese >= 25 else 'text-warning' if t.prob_cese >= 8 else 'text-success' }}">{{ t.prob_cese }}% de chance de cese tras el próximo partido</span></div>
-                <div class="ficha-arbitro__termometro" style="--puesto-color: {{ '#ef4444' if t.prob_cese >= 25 else '#f59e0b' if t.prob_cese >= 8 else '#22c55e' }};"><span style="width: {{ [t.prob_cese * 1.8, 100] | min }}%;"></span></div>
-                <small class="text-muted">Sale de los puntos que sumó comparados con lo que la federación esperaba de cada rival, y de la paciencia de la federación. Lleva {{ t.cargo_vigente.partidos }} partido{{ 's' if t.cargo_vigente.partidos != 1 }} en el cargo.</small>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-<div class="row g-3 mb-4">
-    <div class="col-12 col-lg-5">
-        <div class="card h-100">
-            <div class="card-body">
-                <h2 class="h6 text-white mb-3"><i class="bi bi-briefcase me-2 text-accent"></i>Cargos</h2>
-                {% if t.cargos %}
-                <ul class="list-unstyled mb-0 small">
-                    {% for c in t.cargos | reverse %}
-                    <li class="d-flex justify-content-between gap-2 py-2 border-bottom border-secondary-subtle">
-                        <span>{{ m.bandera(t.pais.bandera, pais_id=c.pais_id) }} {{ 'Asumió al inicio' if c.motivo_inicio == 'INICIO' else ('Volvió' if c.regreso else 'Asumió como reemplazo') }}
-                            {% if c.motivo_fin == 'CESE' %}<span class="text-danger">· cesado{{ ' tras la eliminación' if c.cese_por_eliminacion }}</span>{% elif not c.hasta_juego %}<span class="text-success">· en el cargo</span>{% endif %}</span>
-                        <span class="text-nowrap">{{ c.partidos }} PJ · {{ c.ganados }}-{{ c.empatados }}-{{ c.perdidos }}</span>
+                    <li title="{{ r.nombre }}: {{ r.valor }} ({{ r.etiqueta }}); promedio {{ r.promedio }}">
+                        <i class="bi {{ r.icono }}"></i><span class="tc-rasgos__nombre">{{ r.nombre }}</span>
+                        <strong>{{ r.valor }}</strong>
+                        <span class="tc-percentil {{ 'tc-percentil--alto' if r.percentil >= 70 else ('tc-percentil--bajo' if r.percentil <= 30 else '') }}">supera al {{ r.percentil }}%</span>
                     </li>
                     {% endfor %}
                 </ul>
-                <p class="small text-muted mb-0 mt-2">Carrera: {{ k.partidos or 0 }} partidos, {{ k.ceses or 0 }} cese{{ 's' if k.ceses != 1 }}{% if k.partidos %}, {{ '%+.2f' | format(k.sobre_esperado) }} puntos por partido sobre lo esperado{% endif %}.</p>
-                {% else %}
-                <p class="small text-muted mb-0">Todavía no dirigió a su selección: espera en el banco de la federación.</p>
-                {% endif %}
-                {% if t.banco %}
-                <h3 class="h6 text-white mt-3 mb-2">Los otros técnicos de la federación</h3>
-                <div class="d-flex flex-wrap gap-2">
-                    {% for b in t.banco %}<a href="{{ url_for('tecnico_perfil', tecnico_id=b.id) }}" class="d-flex align-items-center gap-2 text-decoration-none small">{{ m.avatar_tecnico(b.id, t.pais_id, 'sm', b.nombre) }}<span>{{ b.nombre }}</span></a>{% endfor %}
-                </div>
-                {% endif %}
+                <p class="small text-muted mb-0">Estilo {{ t.estilo_nombre | lower }}: {{ {'ofensivo': 'prefiere el 4-3-3', 'defensivo': 'prefiere el 4-4-2', 'equilibrado': 'prefiere el 3-5-2'}[t.estilo] }}.</p>
             </div>
         </div>
     </div>
+    <!-- Números del Mundial -->
     <div class="col-12 col-lg-7">
-        <div class="card h-100">
+        <div class="card h-100 tc-panel">
             <div class="card-body">
-                <h2 class="h6 text-white mb-3"><i class="bi bi-journal-text me-2 text-accent"></i>Partidos dirigidos en este Mundial</h2>
-                {% if t.partidos_mundial %}
-                <div class="table-responsive">
-                    <table class="table table-sm table-dark align-middle mb-0 small">
-                        <thead><tr><th>Rival</th><th class="text-center">Resultado</th><th>Desde el banco</th></tr></thead>
-                        <tbody>
-                            {% for p in t.partidos_mundial %}
-                            <tr>
-                                <td>{{ m.bandera(None, pais_id=p.rival_id) }} <a href="/juegos/{{ p.id }}">{{ p.rival }}</a> <small class="text-muted d-block">{{ p.jornada or '' }}</small></td>
-                                <td class="text-center"><span class="badge {{ 'bg-success' if p.resultado == 'G' else 'bg-secondary' if p.resultado == 'E' else 'bg-danger' }}">{{ p.gf }}-{{ p.gc }}</span></td>
-                                <td>{% if p.ajustes %}📋×{{ p.ajustes }} {% endif %}{% if p.reclamos %}🗣️×{{ p.reclamos }} {% endif %}{% if p.amonestado %}🟨 {% endif %}{% if p.expulsado %}🟥 expulsado{% endif %}{% if not (p.ajustes or p.reclamos or p.amonestado or p.expulsado) %}<span class="text-muted">—</span>{% endif %}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <h2 class="tc-subtitulo"><i class="bi bi-trophy text-warning"></i>En este Mundial</h2>
+                {% if s.partidos %}
+                <div class="tc-kpis">
+                    <div class="tc-kpi"><span>Partidos</span><strong data-contar>{{ s.partidos }}</strong></div>
+                    <div class="tc-kpi"><span>% de puntos</span><strong class="text-accent" data-contar>{{ s.puntos_pct }}%</strong>{% if t.media_pct is not none %}<small>media {{ t.media_pct }}%</small>{% endif %}</div>
+                    <div class="tc-kpi"><span>Goles</span><strong>{{ s.gf }}<small>:</small>{{ s.gc }}</strong><small>{{ '%+d' | format(s.gf - s.gc) }} de diferencia</small></div>
+                    <div class="tc-kpi" title="Puntos por partido por encima (o debajo) de lo que la federación esperaba de cada rival"><span>vs. lo esperado</span>
+                        <strong class="{{ 'text-success' if (t.sobre_esperado_mundial or 0) > 0 else 'text-danger' }}">{{ '%+.2f' | format(t.sobre_esperado_mundial or 0) }}</strong><small>pts por partido</small></div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center small mt-3 mb-1">
+                    <span><strong class="text-success">{{ s.ganados }}G</strong> · <strong class="text-white">{{ s.empatados }}E</strong> · <strong class="text-danger">{{ s.perdidos }}P</strong></span>
+                    <span class="ct-racha" title="Últimos partidos (el más reciente a la derecha)">{% for r in t.racha %}<span class="ct-racha__punto ct-racha__punto--{{ r | lower }}">{{ r }}</span>{% endfor %}</span>
+                </div>
+                <div class="barra-wdl">
+                    {% if s.ganados %}<span class="bg-success" style="flex: {{ s.ganados }};"></span>{% endif %}
+                    {% if s.empatados %}<span class="bg-secondary" style="flex: {{ s.empatados }};"></span>{% endif %}
+                    {% if s.perdidos %}<span class="bg-danger" style="flex: {{ s.perdidos }};"></span>{% endif %}
+                </div>
+                <h3 class="tc-rotulo mt-3 mb-2">Desde el banco</h3>
+                <div class="tc-banco-stats">
+                    <div><span class="tc-banco-stats__ico">📋</span><strong>{{ s.ajustes or 0 }}</strong><small>ajustes tácticos{% if s.ajustes %} · {{ s.ajustes_con_gol }} con gol{% endif %}</small></div>
+                    <div><span class="tc-banco-stats__ico">🗣️</span><strong>{{ s.reclamos or 0 }}</strong><small>reclamos</small></div>
+                    <div><span class="tc-banco-stats__ico">🟨</span><strong>{{ s.amonestado or 0 }}</strong><small>amonestaciones</small></div>
+                    <div class="{{ 'tc-banco-stats--rojo' if s.expulsado }}"><span class="tc-banco-stats__ico">🟥</span><strong>{{ s.expulsado or 0 }}</strong><small>expulsiones</small></div>
                 </div>
                 {% else %}
-                <p class="small text-muted mb-0">No dirigió partidos en este Mundial.</p>
+                <div class="tc-vacio"><i class="bi bi-hourglass-split"></i><span>{{ 'Todavía no dirigió en este Mundial.' if t.en_funciones else 'No dirigió en este Mundial: espera su oportunidad en el banco de la federación.' }}</span></div>
                 {% endif %}
             </div>
         </div>
     </div>
+</div>
+
+{% if t.serie | length >= 2 %}
+<div class="card tc-panel mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <h2 class="tc-subtitulo mb-0"><i class="bi bi-graph-up text-info"></i>Puntos reales vs. lo que esperaba la federación</h2>
+            <small class="text-muted">Lo esperado sale del prestigio de cada rival: si la línea verde queda abajo, crece la presión.</small>
+        </div>
+        <div style="height: 240px;"><canvas id="graficoPuntosDT" role="img" aria-label="Puntos acumulados reales y esperados"></canvas></div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+    <!-- Cargos y banco -->
+    <div class="col-12 col-lg-5">
+        <div class="card h-100 tc-panel">
+            <div class="card-body">
+                <h2 class="tc-subtitulo"><i class="bi bi-briefcase text-accent"></i>Cargos</h2>
+                {% if t.cargos %}
+                <ol class="ct-linea">
+                    {% for c in t.cargos | reverse %}
+                    {% set vig = not c.hasta_juego %}
+                    <li class="ct-linea__item {{ 'ct-linea__item--vigente' if vig else ('ct-linea__item--cese' if c.motivo_fin == 'CESE' else '') }}" style="--i: {{ loop.index0 }};">
+                        <span class="ct-linea__avatar tc-linea__bandera">{{ m.bandera(t.pais.bandera, pais_id=c.pais_id) }}</span>
+                        <div class="min-w-0 flex-grow-1">
+                            <div class="d-flex flex-wrap align-items-center gap-1">
+                                <strong class="text-white">{{ 'Asumió al inicio' if c.motivo_inicio == 'INICIO' else ('Volvió' if c.regreso else 'Reemplazo') }}</strong>
+                                {% if vig %}<span class="ct-chip ct-chip--ok">En el cargo</span>
+                                {% elif c.motivo_fin == 'CESE' %}<span class="ct-chip ct-chip--cese">{{ 'Cesado tras la eliminación' if c.cese_por_eliminacion else 'Cesado' }}</span>{% endif %}
+                            </div>
+                            <div class="ct-linea__fechas"><i class="bi bi-calendar3"></i>{{ c.desde_txt or '—' }} <i class="bi bi-arrow-right"></i> {{ 'hoy' if vig else (c.hasta_txt or '—') }}</div>
+                        </div>
+                        <div class="ct-linea__record text-end"><strong>{{ c.partidos }} PJ</strong>
+                            <small><span class="text-success">{{ c.ganados }}</span>-{{ c.empatados }}-<span class="text-danger">{{ c.perdidos }}</span></small></div>
+                    </li>
+                    {% endfor %}
+                </ol>
+                <p class="small text-muted mb-0">Carrera: {{ k.partidos or 0 }} partidos · {{ k.ceses or 0 }} cese{{ 's' if k.ceses != 1 }}{% if k.partidos %} · {{ '%+.2f' | format(k.sobre_esperado) }} pts por partido sobre lo esperado{% endif %}.</p>
+                {% else %}
+                <div class="tc-vacio"><i class="bi bi-person-workspace"></i><span>Todavía no dirigió a su selección.</span></div>
+                {% endif %}
+
+                {% if t.banco %}
+                <h3 class="tc-rotulo mt-3 mb-2">Los otros técnicos de la federación</h3>
+                <div class="tc-colegas">
+                    {% for b in t.banco %}
+                    <a href="{{ url_for('tecnico_perfil', tecnico_id=b.id) }}" class="tc-colega" style="--i: {{ loop.index0 }};">
+                        {{ m.avatar_tecnico(b.id, t.pais_id, 'sm', b.nombre) }}<span class="min-w-0"><strong class="text-truncate d-block">{{ b.nombre }}</strong><small>{{ b.edad }} años</small></span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <!-- Bitácora -->
+    <div class="col-12 col-lg-7">
+        <div class="card h-100 tc-panel">
+            <div class="card-body">
+                <h2 class="tc-subtitulo"><i class="bi bi-journal-text text-accent"></i>Partidos dirigidos en este Mundial</h2>
+                {% if t.partidos_mundial %}
+                <div class="tc-bitacora">
+                    {% for p in t.partidos_mundial %}
+                    <a href="/juegos/{{ p.id }}" class="tc-partido tc-partido--{{ p.resultado | lower }}" style="--i: {{ loop.index0 }};">
+                        <span class="tc-partido__res">{{ p.resultado }}</span>
+                        <span class="tc-partido__rival min-w-0">{{ m.bandera(None, pais_id=p.rival_id) }}<span class="min-w-0"><strong class="text-truncate d-block">vs {{ p.rival }}</strong><small>{{ p.jornada or '' }}{% if p.fecha_txt %} · {{ p.fecha_txt }}{% endif %}</small></span></span>
+                        <span class="tc-partido__marcador">{{ p.gf }}-{{ p.gc }}</span>
+                        <span class="tc-partido__banco">
+                            {% if p.ajustes %}<span title="Ajustes tácticos">📋{{ '×' ~ p.ajustes if p.ajustes > 1 }}</span>{% endif %}
+                            {% if p.reclamos %}<span title="Reclamos">🗣️{{ '×' ~ p.reclamos if p.reclamos > 1 }}</span>{% endif %}
+                            {% if p.expulsado %}<span title="Expulsado">🟥</span>{% elif p.amonestado %}<span title="Amonestado">🟨</span>{% endif %}
+                        </span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="tc-vacio"><i class="bi bi-calendar-x"></i><span>No dirigió partidos en este Mundial.</span></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 </div>
 {% endif %}
 {% endblock %}
 
-{% block extra_scripts %}<script src="/static/js/graficos_fifav.js"></script>{% endblock %}
+{% block extra_scripts %}
+{% if t %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="/static/js/graficos_fifav.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const G = window.GraficosFIFAV;
+    const rasgos = {{ t.rasgos | tojson }};
+    const etiquetas = { lectura: 'Lectura', motivacion: 'Motivación', temperamento: 'Temperamento', confianza_leyendas: 'Leyendas' };
+    G.crearAlVer(document.getElementById('radarDT'), {
+        type: 'radar',
+        data: { labels: rasgos.map(r => etiquetas[r.clave] || r.nombre), datasets: [
+            { label: {{ t.nombre | tojson }}, data: rasgos.map(r => r.valor), borderColor: '#a78bfa', backgroundColor: 'rgba(167, 139, 250, 0.28)',
+              borderWidth: 2.5, pointBackgroundColor: '#a78bfa', pointRadius: 4, brillo: '#a78bfa' },
+            { label: 'Promedio de los técnicos', data: rasgos.map(r => r.promedio), borderColor: 'rgba(148, 163, 184, 0.8)', backgroundColor: 'rgba(148, 163, 184, 0.08)',
+              borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0 },
+        ] },
+        options: { maintainAspectRatio: false, animation: { duration: 1200, easing: 'easeOutQuart' },
+                   scales: { r: { min: 0, max: 100, ticks: { display: false, stepSize: 25 }, grid: { color: 'rgba(255,255,255,.08)' },
+                                  angleLines: { color: 'rgba(255,255,255,.08)' }, pointLabels: { color: '#cbd5e1', font: { size: 12, weight: '600' } } } },
+                   plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, color: '#cbd5e1' } } } },
+        plugins: [G.brillo],
+    });
+
+    const serie = {{ t.serie | tojson }};
+    const lienzo = document.getElementById('graficoPuntosDT');
+    if (lienzo) {
+        G.crearAlVer(lienzo, {
+            type: 'line',
+            data: { labels: serie.map(p => `vs ${p.rival} (${p.marcador})`), datasets: [
+                { label: 'Puntos reales', data: serie.map(p => p.real), borderColor: '#22c55e', backgroundColor: G.degradado('#22c55e', 0.3), fill: true,
+                  borderWidth: 2.5, tension: 0.2, pointRadius: 4, pointBackgroundColor: '#22c55e', brillo: '#22c55e' },
+                { label: 'Lo que esperaba la federación', data: serie.map(p => p.esperado), borderColor: '#f59e0b', borderDash: [6, 5],
+                  borderWidth: 2, tension: 0.2, pointRadius: 0, fill: false },
+            ] },
+            options: { maintainAspectRatio: false, animation: { duration: 1100, easing: 'easeOutCubic' }, interaction: { mode: 'index', intersect: false },
+                       plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, color: '#cbd5e1' } } },
+                       scales: { x: { ticks: { display: false }, grid: { display: false } }, y: { beginAtZero: true } } },
+            plugins: [G.brillo],
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

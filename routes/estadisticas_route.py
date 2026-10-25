@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from services.estadisticas_service import obtener_estadisticas_generales, obtener_detalle_estadistica
 from services.graficos_service import obtener_graficos
+from services.calendario_service import obtener_calendario
 from services.auth_service import context_usuario_actual
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
@@ -29,6 +30,12 @@ async def inicio(request: Request):
             "stats": estadisticas,
         }
     )
+
+@route.get("/calendario", response_class=HTMLResponse, name="estadisticas_calendario")
+def calendario(request: Request):
+    """"El calendario del Mundial" (services/calendario_service.py): estadísticas por fecha y efemérides."""
+    return templates.TemplateResponse(request=request, name="estadisticas_calendario.html", context={"c": obtener_calendario()})
+
 
 @route.get("/graficos", response_class=HTMLResponse, name="estadisticas_graficos")
 def graficos(request: Request):

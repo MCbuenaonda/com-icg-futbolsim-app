@@ -3,7 +3,7 @@ Lógica PURA del Juego en Vivo (sin acceso a Mongo): cuotas, reglas de puntos po
 multiplicador de riesgo vigente, tope de saldo en 0, cooldown y resumen final.
 
 services/juego_en_vivo_service.py es el que lee/escribe Mongo y orquesta; todo lo que decide
-"cuántos puntos vale qué" vive acá para poder probarlo aislado.
+"cuántos puntos vale qué" vive aquí para poder probarlo aislado.
 """
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple

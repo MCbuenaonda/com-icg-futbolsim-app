@@ -417,6 +417,11 @@ def recalcular_en_segundo_plano() -> bool:
     (también entre varios workers). Nunca lanza; devuelve si arrancó uno.
     """
     try:
+        # En Cloud Run un proceso lanzado después de la respuesta se queda sin CPU: allí lo hace el pulso del Scheduler
+        # dentro de su propio pedido (services/pulso_service.pulsar, paso 3).
+        from config.settings import EN_CLOUD_RUN
+        if EN_CLOUD_RUN:
+            return False
         mundial_id = _mundial_activo_id()
         clave = _clave_estado(mundial_id)
         if db["probabilidades_mundial"].find_one({"mundial_id": mundial_id, "clave": clave}, {"_id": 1}):

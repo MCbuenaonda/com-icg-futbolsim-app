@@ -66,8 +66,8 @@
         <div class="album-repetidas mt-3" id="albumRepetidas" data-total="{{ rp.total }}">
             <div class="album-repetidas__pila"><i class="bi bi-layers-fill"></i><strong id="repTotal">{{ rp.total }}</strong><span>repetidas</span></div>
             <div class="album-repetidas__texto min-w-0">
-                <strong class="d-block text-white">Canjeá tus repetidas</strong>
-                <small class="text-muted">Tocá un casillero vacío y cambialo por repetidas:
+                <strong class="d-block text-white">Canjea tus repetidas</strong>
+                <small class="text-muted">Toca un casillero vacío y cámbialo por repetidas:
                     {% for cat in album.categorias %}<span class="album-repetidas__costo" style="--cat-color: {{ cat.color }};">{{ cat.nombre }} {{ cat.costo_canje }}</span>{% endfor %}</small>
             </div>
             <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" id="btnVenderRepetidas" {{ 'disabled' if not rp.total }}>
@@ -89,8 +89,8 @@
     </button>
     <a class="album-hojeo__flecha" id="albumSiguiente" href="?pagina={{ h.siguiente or album.total_paginas }}" data-ir-pagina="{{ h.siguiente or '' }}" aria-label="Página siguiente" {{ 'aria-disabled=true' if not h.siguiente }}><i class="bi bi-chevron-right"></i></a>
 </nav>
-<p class="text-muted small mb-3 d-none d-md-block"><i class="bi bi-arrow-repeat me-1"></i>Pasá el cursor sobre una estampa para ver el reverso · usá ← → del teclado para cambiar de página.</p>
-<p class="text-muted small mb-3 d-md-none"><i class="bi bi-hand-index me-1"></i>Tocá una estampa para ver el reverso · deslizá para cambiar de página.</p>
+<p class="text-muted small mb-3 d-none d-md-block"><i class="bi bi-arrow-repeat me-1"></i>Pasa el cursor sobre una estampa para ver el reverso · usa ← → del teclado para cambiar de página.</p>
+<p class="text-muted small mb-3 d-md-none"><i class="bi bi-hand-index me-1"></i>Toca una estampa para ver el reverso · desliza para cambiar de página.</p>
 
 <!-- La hoja actual -->
 <div class="album-libro" id="albumLibro" aria-live="polite">
@@ -119,7 +119,7 @@
             <h3 class="album-indice__conf">{% if lc %}<img src="{{ lc.url }}" alt="" class="{{ 'estampa__conf--claro' if lc.claro }}">{% endif %}{{ conf }} <span>{{ 'pág. ' ~ hojas[0].numero if hojas | length == 1 else 'págs. ' ~ hojas[0].numero ~ '–' ~ hojas[-1].numero }}</span></h3>
             {%- for x in hojas %}
             {%- set estado = 'completa' if x.obtenidas == x.total else ('empezada' if x.obtenidas else 'vacia') %}
-            <a href="?pagina={{ x.numero }}" class="album-indice__item album-indice__item--{{ estado }}{{ ' activo' if x.numero == h.numero }}" data-ir-pagina="{{ x.numero }}" data-estado="{{ estado }}" data-nombre="{{ x.nombre | lower }}"><span class="album-indice__num">{{ x.numero }}</span>{% if x.tipo == 'arbitros' %}<i class="bi bi-star-fill album-indice__dorado"></i>{% elif x.tipo == 'mundiales' %}<i class="bi bi-palette-fill album-indice__dorado" style="color:#f472b6"></i>{% else %}{{ m.bandera(x.bandera, pais_id=x.pais_id) }}{% endif %}<span class="album-indice__nombre">{{ x.nombre }}</span>{% if x.escudo %}<i class="bi bi-shield-fill-check text-warning" title="Tenés el escudo"></i>{% endif %}<span class="album-indice__avance" title="{{ x.obtenidas }}/{{ x.total }} estampas"><span style="width: {{ x.porcentaje }}%;"></span></span><small>{{ x.obtenidas }}/{{ x.total }}</small></a>
+            <a href="?pagina={{ x.numero }}" class="album-indice__item album-indice__item--{{ estado }}{{ ' activo' if x.numero == h.numero }}" data-ir-pagina="{{ x.numero }}" data-estado="{{ estado }}" data-nombre="{{ x.nombre | lower }}"><span class="album-indice__num">{{ x.numero }}</span>{% if x.tipo == 'arbitros' %}<i class="bi bi-star-fill album-indice__dorado"></i>{% elif x.tipo == 'mundiales' %}<i class="bi bi-palette-fill album-indice__dorado" style="color:#f472b6"></i>{% else %}{{ m.bandera(x.bandera, pais_id=x.pais_id) }}{% endif %}<span class="album-indice__nombre">{{ x.nombre }}</span>{% if x.escudo %}<i class="bi bi-shield-fill-check text-warning" title="Tienes el escudo"></i>{% endif %}<span class="album-indice__avance" title="{{ x.obtenidas }}/{{ x.total }} estampas"><span style="width: {{ x.porcentaje }}%;"></span></span><small>{{ x.obtenidas }}/{{ x.total }}</small></a>
             {%- endfor %}
         </div>
         {% endfor %}
@@ -228,10 +228,10 @@
             const tipo = casillero.dataset.canjeTipo, id = Number(casillero.dataset.canjeId), nombre = casillero.dataset.canjeNombre;
             const costo = COSTOS[tipo], tengo = Number(panelRep.dataset.total);
             if (tengo < costo) {
-                UI.toast(`Te faltan repetidas: el canje de ${NOMBRE_TIPO[tipo] || 'esta estampa'} cuesta ${costo} y tenés ${tengo}.`, { icono: 'bi-layers', tipo: 'aviso' });
+                UI.toast(`Te faltan repetidas: el canje de ${NOMBRE_TIPO[tipo] || 'esta estampa'} cuesta ${costo} y tienes ${tengo}.`, { icono: 'bi-layers', tipo: 'aviso' });
                 return;
             }
-            const ok = await UI.confirmar({ titulo: 'Canjear estampa', mensaje: `¿Cambiás ${costo} repetidas por la estampa de ${nombre} (${NOMBRE_TIPO[tipo] || tipo})? Se usan primero las de menor valor.`, textoConfirmar: `Canjear (${costo})` });
+            const ok = await UI.confirmar({ titulo: 'Canjear estampa', mensaje: `¿Cambias ${costo} repetidas por la estampa de ${nombre} (${NOMBRE_TIPO[tipo] || tipo})? Se usan primero las de menor valor.`, textoConfirmar: `Canjear (${costo})` });
             if (!ok) return;
             try {
                 const resp = await fetch('{{ url_for("album_canje") }}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo, id }) });
@@ -247,7 +247,7 @@
         }
         document.getElementById('btnVenderRepetidas').addEventListener('click', async () => {
             const total = Number(panelRep.dataset.total);
-            const ok = await UI.confirmar({ titulo: 'Vender repetidas', mensaje: `¿Vendés tus ${total} repetidas por ${document.getElementById('repValor').textContent} puntos? Ya no las vas a poder canjear.`, textoConfirmar: 'Vender todas', peligro: true });
+            const ok = await UI.confirmar({ titulo: 'Vender repetidas', mensaje: `¿Vendes tus ${total} repetidas por ${document.getElementById('repValor').textContent} puntos? Ya no las vas a poder canjear.`, textoConfirmar: 'Vender todas', peligro: true });
             if (!ok) return;
             try {
                 const resp = await fetch('{{ url_for("album_vender_repetidas") }}', { method: 'POST' });

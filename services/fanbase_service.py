@@ -44,8 +44,8 @@ AFICIONADOS_INICIAL = 100_000
 # (ya no puntos fijos: sobre una base de 100,000, +100/-30 puntos fijos eran imperceptibles).
 # Cada categoría define un rango [mínimo, máximo] de variación porcentual; se sortea un valor
 # dentro del rango para que el impacto no sea siempre idéntico ante resultados similares.
-FASE_MUNDIAL_GRUPOS = 7  # a partir de acá el partido "vale más" (fase de grupos del Mundial en adelante)
-FASES_ELIMINACION_DIRECTA = {8, 9, 10, 11, 12, 13}  # perder acá = quedar eliminado del Mundial
+FASE_MUNDIAL_GRUPOS = 7  # a partir de aquí el partido "vale más" (fase de grupos del Mundial en adelante)
+FASES_ELIMINACION_DIRECTA = {8, 9, 10, 11, 12, 13}  # perder aquí = quedar eliminado del Mundial
 DIFERENCIA_GOLES_GOLEADA = 3  # diferencia de goles a partir de la cual una victoria/derrota es "por goleada"
 
 RANGO_PCT_VICTORIA_GOLEADA = (0.05, 0.10)      # +5% a +10%
@@ -166,7 +166,7 @@ def calculate_match_fanbase_delta(match_data: Dict[str, Any], player_events: Dic
         aplicar este partido) -- es la base sobre la que se calcula el porcentaje. Esta función
         sigue siendo pura (no consulta Mongo); quien la llama es responsable de leer este valor.
     :return: delta de aficionados (puede ser negativo). NO aplica el piso de AFICIONADOS_MINIMO
-        acá -- eso lo hace la capa de persistencia (ver _aplicar_delta_aficionados), porque el
+        aquí -- eso lo hace la capa de persistencia (ver _aplicar_delta_aficionados), porque el
         piso depende del valor ACTUAL en la base al momento de escribir, no al momento de leer.
     """
     return _calcular_delta_detallado(match_data, player_events, team_id, aficionados_actual)["delta"]

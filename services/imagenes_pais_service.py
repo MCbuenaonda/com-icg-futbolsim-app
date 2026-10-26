@@ -34,7 +34,7 @@ db = client.get_database('mundial')
 
 TIPOS_IMAGEN = ("bandera", "plana", "jersey", "icono", "escudo")
 CARPETA_TIPO = {"plana": "bandera_plana"}               # el resto: carpeta = tipo
-VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 2, "tecnico": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
+VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 2, "tecnico": 1, "corporativo": 2, "marca": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
 
 # {id: nombre} y {emoji: id} de 'paises' (se cargan una vez: nombres y banderas no cambian en runtime)
 _nombre_por_id: Optional[dict] = None
@@ -106,7 +106,13 @@ def logo_confederacion(sigla: Optional[str]) -> Optional[dict]:
 
 def url_logo_corporativo(sigla: Optional[str]) -> Optional[str]:
     """Logo SVG de un Corporativo Deportivo (bucket corporativos/, generar_logos_corporativos.py)."""
-    return f"{IMAGENES_PAISES_URL}/corporativos/{quote((sigla or '').upper())}.svg" if sigla else None
+    return (f"{IMAGENES_PAISES_URL}/corporativos/{quote((sigla or '').upper())}.svg?v={VERSION_IMAGENES['corporativo']}"
+            if sigla else None)
+
+
+def url_logo_marca(slug: Optional[str]) -> Optional[str]:
+    """Logo SVG de una marca patrocinadora (bucket marcas/, generar_marcas.py)."""
+    return f"{IMAGENES_PAISES_URL}/marcas/{quote(slug)}.svg?v={VERSION_IMAGENES['marca']}" if slug else None
 
 
 # {ciudad_id: "estadios/dNN-cMM.svg"} (ciudades.estadio_imagen, asignado una vez por generar_estadios.py)
@@ -214,11 +220,20 @@ def _arte_mundial(anio=None):
         return None
 
 
+def _patrocinadores(usuario, tipo, ref_id):
+    """Marcas que patrocinan a una selección o jugador en el universo del usuario (fichas; nunca rompe la vista)."""
+    try:
+        from services.corporativo_marcas_service import patrocinadores_de
+        return patrocinadores_de(usuario, tipo, ref_id)
+    except Exception:
+        return []
+
+
 GLOBALES_JINJA = {
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,
     "imagen_inicio": imagen_inicio, "img_estadio": url_estadio, "img_avatar": url_avatar,
-    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo,
+    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo, "logo_marca": url_logo_marca, "patrocinadores": _patrocinadores,
     "corp_representantes": _corp_representantes, "img_foto_equipo": url_foto_equipo, "arte_mundial": _arte_mundial,
     "img_tecnico": url_avatar_tecnico, "dt_de_pais": _dt_de_pais,
 }

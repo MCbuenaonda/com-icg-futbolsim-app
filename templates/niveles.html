@@ -44,7 +44,7 @@
         {% if p.sobres_gratis or p.sobres_platino %}
         <a href="/album-estampas/sobres" class="nivel-sobres-aviso mt-3">
             <i class="bi bi-gift-fill"></i>
-            <span>Tenés {% if p.sobres_gratis %}<strong>{{ p.sobres_gratis }} sobre{{ 's' if p.sobres_gratis != 1 }} gratis</strong>{% endif %}{% if p.sobres_gratis and p.sobres_platino %} y {% endif %}{% if p.sobres_platino %}<strong>{{ p.sobres_platino }} sobre{{ 's' if p.sobres_platino != 1 }} Platino</strong>{% endif %} para abrir</span>
+            <span>Tienes {% if p.sobres_gratis %}<strong>{{ p.sobres_gratis }} sobre{{ 's' if p.sobres_gratis != 1 }} gratis</strong>{% endif %}{% if p.sobres_gratis and p.sobres_platino %} y {% endif %}{% if p.sobres_platino %}<strong>{{ p.sobres_platino }} sobre{{ 's' if p.sobres_platino != 1 }} Platino</strong>{% endif %} para abrir</span>
             <i class="bi bi-arrow-right ms-auto"></i>
         </a>
         {% endif %}
@@ -145,7 +145,7 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-muted small mb-0">Todavía no ganaste XP. Empezá por el <a href="/misiones/">check-in diario</a> o abrí un <a href="/album-estampas/sobres">sobre</a>.</p>
+                <p class="text-muted small mb-0">Todavía no ganaste XP. Empieza por el <a href="/misiones/">check-in diario</a> o abre un <a href="/album-estampas/sobres">sobre</a>.</p>
                 {% endif %}
             </div>
         </div>

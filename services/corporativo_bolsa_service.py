@@ -70,7 +70,7 @@ def consolidar_acciones(universo: dict, ciclo: int) -> None:
     universo["acciones_bloqueadas"] = resto
     _db()["corp_universos"].update_one({"_id": uid}, {"$set": {"acciones_bloqueadas": resto}})
     U.avisar(uid, ciclo, "ACCIONES", "Acciones consolidadas",
-             f"Consolidaron {sum(a['cantidad'] for a in listas):,.0f} acciones de tu bono: ya podés venderlas en la bolsa.",
+             f"Consolidaron {sum(a['cantidad'] for a in listas):,.0f} acciones de tu bono: ya puedes venderlas en la bolsa.",
              "bi-unlock-fill", clave=f"consolida:{ciclo}")
 
 
@@ -128,14 +128,14 @@ def comprar(user_id, sigla: str, cantidad: int) -> dict:
     with U.candado(user_id):
         universo = U.obtener_universo(user_id)
         if not universo:
-            raise ValueError("Primero activá el módulo de Corporativos")
+            raise ValueError("Primero activa el módulo de Corporativos")
         if _bloqueo_insider(universo, sigla):
-            raise ValueError(f"Información privilegiada: mientras dirigís {sigla} no podés comprar sus acciones")
+            raise ValueError(f"Información privilegiada: mientras diriges {sigla} no puedes comprar sus acciones")
         corp = _precio(user_id, sigla)
         tenencia = _db()["corp_tenencias"].find_one({"universo_id": user_id, "sigla": sigla}) or {}
         tope = C.ACCIONES_POR_CORPORATIVO * C.TOPE_TENENCIA
         if (tenencia.get("cantidad") or 0) + cantidad > tope:
-            raise ValueError(f"Tope: no podés tener más de {tope:,.0f} acciones de un corporativo ({C.TOPE_TENENCIA:.0%})")
+            raise ValueError(f"Tope: no puedes tener más de {tope:,.0f} acciones de un corporativo ({C.TOPE_TENENCIA:.0%})")
         bruto = cantidad * corp["precio"]
         comision = max(1, round(bruto * C.COMISION_BOLSA))
         total = int(round(bruto + comision))
@@ -158,12 +158,12 @@ def vender(user_id, sigla: str, cantidad: float) -> dict:
     with U.candado(user_id):
         universo = U.obtener_universo(user_id)
         if not universo:
-            raise ValueError("Primero activá el módulo de Corporativos")
+            raise ValueError("Primero activa el módulo de Corporativos")
         tenencia = _db()["corp_tenencias"].find_one_and_update(
             {"universo_id": user_id, "sigla": sigla, "cantidad": {"$gte": cantidad}},
             {"$inc": {"cantidad": -cantidad}}, return_document=ReturnDocument.BEFORE)
         if not tenencia:
-            raise ValueError("No tenés esa cantidad de acciones")
+            raise ValueError("No tienes esa cantidad de acciones")
         corp = _precio(user_id, sigla)
         # el costo promedio sale en proporción a lo vendido
         costo_salida = tenencia["costo_total"] * cantidad / tenencia["cantidad"]
@@ -228,6 +228,21 @@ def obtener_bolsa(user_id) -> Optional[dict]:
     indice = [round(mean(v for v in col if v is not None), 1) if any(v is not None for v in col) else None
               for col in zip(*series.values())] if ciclos else []
 
+    # Qué hay detrás de cada acción: exposición por confederación, partidos próximos de su cartera y ROI de la ventana
+    from services.corporativo_mercado_service import valores, partidos_en_ciclos
+    from services.corporativo_service import exposicion
+    v = valores()
+    por_sigla = {}
+    for ct in U.contratos_activos(user_id):
+        fila = por_sigla.setdefault(ct["sigla"], {"selecciones": [], "jugadores": [], "paises": set()})
+        if ct["tipo"] == "seleccion":
+            fila["selecciones"].append({"ref_id": ct["ref_id"], "valor": v["selecciones"].get(ct["ref_id"], 0)})
+            fila["paises"].add(ct["ref_id"])
+        else:
+            pais = v["info_jugadores"].get(ct["ref_id"], {}).get("pais_id")
+            fila["jugadores"].append({"pais_id": pais, "valor": v["jugadores"].get(ct["ref_id"], 0)})
+            fila["paises"].add(pais)
+
     filas, cartera_valor, cartera_costo = [], 0, 0
     for c in sorted(corps, key=lambda c: -c["precio"] * C.ACCIONES_POR_CORPORATIVO):
         info = C.CORPORATIVO_POR_SIGLA[c["sigla"]]
@@ -246,6 +261,10 @@ def obtener_bolsa(user_id) -> Optional[dict]:
             "participacion": round(cantidad / C.ACCIONES_POR_CORPORATIVO * 100, 2),
             "disponible": max(0, int(tope - cantidad)), "bloqueo_compra": _bloqueo_insider(universo, c["sigla"]),
             "es_del_usuario": c.get("es_del_usuario"), "serie": series.get(c["sigla"], []),
+            "exposicion": exposicion(por_sigla.get(c["sigla"], {}).get("selecciones", []), por_sigla.get(c["sigla"], {}).get("jugadores", [])),
+            "partidos_proximos": sum(partidos_en_ciclos(p, 2) for p in por_sigla.get(c["sigla"], {}).get("paises", set()) if p is not None),
+            "roi_ventana": round(sum(h.get("roi", 0) for h in (c.get("historial") or [])[-C.CICLOS_VENTANA_ROI:]) * 100, 2),
+            "saneamiento": (c.get("saneamiento") or {}).get("estado") == "ACTIVO",
         })
     bloqueadas = [{**a, "logo": url_logo_corporativo(a["sigla"]), "valor_hoy": int(a["cantidad"] * next((c["precio"] for c in corps if c["sigla"] == a["sigla"]), 0))}
                   for a in (universo.get("acciones_bloqueadas") or [])]

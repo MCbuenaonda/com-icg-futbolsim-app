@@ -51,6 +51,9 @@ REGLAS_XP = {
     "CORP_CICLO_UTILIDAD": {"xp": 10,   "tope_diario": 5,    "titulo": "Cerrar un ciclo con utilidad como CEO", "icono": "bi-graph-up-arrow", "modulo": "corporativos"},
     "ASISTENTE":           {"xp": 10,   "tope_diario": 1,    "titulo": "Consultar al Profe (asistente)",    "icono": "bi-clipboard-data-fill", "modulo": "asistente"},
     "CORP_ACCIONES":       {"xp": 5,    "tope_diario": 3,    "titulo": "Comprar acciones en la bolsa FIFAV 10", "icono": "bi-bar-chart-line-fill", "modulo": "corporativos"},
+    "CORP_ACUERDO":        {"xp": 8,    "tope_diario": 2,    "titulo": "Firmar un acuerdo publicitario para un representado", "icono": "bi-badge-ad-fill", "modulo": "corporativos"},
+    "CORP_PATROCINIO":     {"xp": 8,    "tope_diario": 3,    "titulo": "Conseguir un patrocinio de marca para un representado", "icono": "bi-badge-ad-fill", "modulo": "corporativos"},
+    "CORP_GIRA":           {"xp": 8,    "tope_diario": 2,    "titulo": "Organizar una gira de exhibición", "icono": "bi-airplane-fill", "modulo": "corporativos"},
 }
 XP_TRIVIA_BASE = 5
 XP_TRIVIA_POR_ACIERTO = 5

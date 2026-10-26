@@ -62,72 +62,92 @@ document.addEventListener('DOMContentLoaded', function () {
     const onceListaLocal = document.getElementById('onceListaLocal');
     const onceListaVisitante = document.getElementById('onceListaVisitante');
 
-    // Reproducción automática: encadena "Simular siguiente partido" solo, con una pausa entre
-    // partido y partido para poder leer el resultado -- el toggle se puede prender/apagar en
-    // cualquier momento, y tiene efecto inmediato durante esa pausa (la cancela si se apaga a
-    // mitad de la cuenta regresiva, o arranca una si se prende mientras ya se está esperando).
-    // La preferencia se guarda en localStorage (misma clave que templates/base.html) para que
-    // el encadenado siga funcionando -- vía el badge flotante -- aunque el usuario se salga de
-    // esta página, y para que el toggle recuerde su estado real al volver acá.
-    const AUTOPLAY_STORAGE_KEY = 'futbolsim_autoplay_live';
-    const AUTO_PLAY_DELAY_MS = 10000;
+    // Reproducción automática EN EL SERVIDOR (services/pulso_service.py): Cloud Scheduler da un "pulso" por minuto que
+    // cierra la transmisión terminada y arranca la siguiente a su hora, aunque nadie tenga la página abierta. Aquí solo
+    // se muestra y se configura (interruptor + ritmo, para quien puede simular) y se cuenta la espera hasta el próximo
+    // partido. El navegador de un admin da además un pulso de respaldo cuando llega la hora (POST /matches/pulso/tick):
+    // el servidor decide igual que siempre, así que nunca adelanta ni duplica un partido.
     const toggleAutoPlay = document.getElementById('toggleAutoPlay');
+    const selectRitmo = document.getElementById('selectRitmo');
     const autoPlayEstado = document.getElementById('autoPlayEstado');
-    let autoPlayTimeoutId = null;
-    let autoPlayIntervalId = null;
+    const textoEsperaEspectador = document.getElementById('textoEsperaEspectador');
+    let autoPlayActivo = false;
+    let pulso = null;                 // último GET /matches/pulso
+    let autoPlayIntervalId = null;    // cuenta regresiva en pantalla
+    let respaldoEnviado = 0;          // último pulso de respaldo (ms)
+    try { localStorage.removeItem('futbolsim_autoplay_live'); } catch (e) {}   // el interruptor viejo vivía en el navegador
 
-    function leerAutoPlayGuardado() {
-        try {
-            return localStorage.getItem(AUTOPLAY_STORAGE_KEY) === '1';
-        } catch (e) {
-            return false;
+    const horaLocal = iso => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const faltaTexto = ms => {
+        const s = Math.max(0, Math.round(ms / 1000)), m = Math.floor(s / 60);
+        return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m}:${String(s % 60).padStart(2, '0')}`;
+    };
+
+    function aplicarPulso(datos) {
+        pulso = datos || pulso;
+        if (!pulso) return;
+        autoPlayActivo = !!pulso.activo;
+        if (toggleAutoPlay) { toggleAutoPlay.checked = autoPlayActivo; toggleAutoPlay.disabled = false; }
+        if (selectRitmo) { selectRitmo.value = String(pulso.intervalo_min); selectRitmo.disabled = false; }
+        if (textoEsperaEspectador) {
+            textoEsperaEspectador.textContent = autoPlayActivo
+                ? `Los partidos arrancan solos: uno cada ${pulso.intervalo_min} minutos. Esta página se actualiza sola.`
+                : 'El próximo partido empieza cuando un administrador lo ponga en marcha. Esta página se actualiza sola.';
         }
+        actualizarVisibilidadBotonSimular();
     }
 
-    function guardarAutoPlay(activo) {
+    async function cargarPulso() {
         try {
-            if (activo) localStorage.setItem(AUTOPLAY_STORAGE_KEY, '1');
-            else localStorage.removeItem(AUTOPLAY_STORAGE_KEY);
-        } catch (e) {
-            // localStorage no disponible (modo privado, etc.) -- la preferencia no persiste
-            // entre páginas/recargas, pero la reproducción automática sigue andando acá.
-        }
+            const r = await fetch('/matches/pulso');
+            if (r.ok) aplicarPulso(await r.json());
+        } catch (e) { /* sin red: se reintenta en la próxima espera */ }
+        return pulso;
     }
 
-    // Solo quien puede simular partidos tiene reproducción automática (ver base.html)
-    let autoPlayActivo = window.LIVE_CONFIG.puedeSimular && leerAutoPlayGuardado();
-    if (toggleAutoPlay) toggleAutoPlay.checked = autoPlayActivo;
+    async function guardarPulso(cambios) {
+        const r = await fetch('/matches/pulso/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cambios) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.detail || 'No se pudo guardar la reproducción automática.');
+        aplicarPulso(d);
+    }
 
-    // Con la reproducción automática prendida, "Simular siguiente partido" es redundante (se
-    // dispara solo) -- se oculta en vez de dejarlo ahí sin uso.
+    // Con la reproducción automática prendida, "Simular siguiente partido" sobra (arranca solo a su hora)
     function actualizarVisibilidadBotonSimular() {
         if (btnSimular) btnSimular.classList.toggle('d-none', autoPlayActivo);
         if (btnSimularOtro) btnSimularOtro.classList.toggle('d-none', autoPlayActivo);
     }
-    actualizarVisibilidadBotonSimular();
 
     function cancelarAutoPlayProgramado() {
-        if (autoPlayTimeoutId) { clearTimeout(autoPlayTimeoutId); autoPlayTimeoutId = null; }
         if (autoPlayIntervalId) { clearInterval(autoPlayIntervalId); autoPlayIntervalId = null; }
         if (autoPlayEstado) autoPlayEstado.classList.add('d-none');
     }
 
-    function programarAutoPlay(boton) {
-        if (!autoPlayActivo || autoPlayTimeoutId || !autoPlayEstado) return;
-        let restante = AUTO_PLAY_DELAY_MS / 1000;
-        const actualizarTexto = () => {
-            autoPlayEstado.textContent = `🔁 Reproducción automática: el próximo partido arranca en ${restante}s...`;
+    // Entre partidos: cuenta regresiva hasta la hora del próximo (para todos). Al llegar, el admin da un pulso de
+    // respaldo y todos vuelven a consultar la transmisión.
+    async function programarAutoPlay() {
+        if (autoPlayIntervalId || !autoPlayEstado) return;
+        await cargarPulso();
+        if (!pulso || !pulso.activo || !pulso.proximo_inicio) { cancelarAutoPlayProgramado(); return; }
+        const objetivo = new Date(pulso.proximo_inicio).getTime();
+        const pintar = () => {
+            const falta = objetivo - Date.now();
+            autoPlayEstado.innerHTML = falta > 0
+                ? `<i class="bi bi-clock-history"></i><span>Próximo partido a las <b>${horaLocal(pulso.proximo_inicio)}</b> · faltan <b>${faltaTexto(falta)}</b></span><small>Un partido cada ${pulso.intervalo_min} min · el torneo sigue aunque cierres el navegador</small>`
+                : `<i class="bi bi-broadcast"></i><span>Arrancando el próximo partido…</span><small>Un partido cada ${pulso.intervalo_min} min</small>`;
+            return falta;
         };
-        actualizarTexto();
+        pintar();
         autoPlayEstado.classList.remove('d-none');
-        autoPlayIntervalId = setInterval(() => {
-            restante -= 1;
-            if (restante > 0) actualizarTexto();
+        autoPlayIntervalId = setInterval(async () => {
+            if (pintar() > 0) return;
+            // Llegó la hora: el pulso del servidor lo arranca en menos de un minuto; el admin además da uno de respaldo
+            if (window.LIVE_CONFIG.puedeSimular && Date.now() - respaldoEnviado > 20000) {
+                respaldoEnviado = Date.now();
+                try { aplicarPulso(await (await fetch('/matches/pulso/tick', { method: 'POST' })).json()); } catch (e) {}
+            }
+            if (Date.now() % 10000 < 1000) consultarEstado();   // cada ~10 s: ¿ya arrancó?
         }, 1000);
-        autoPlayTimeoutId = setTimeout(() => {
-            cancelarAutoPlayProgramado();
-            if (autoPlayActivo) simularSiguiente(boton);
-        }, AUTO_PLAY_DELAY_MS);
     }
 
     function detenerPolling() {
@@ -148,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function () {
         panelEnVivo.classList.add('d-none');
         panelInactivo.classList.remove('d-none');
         mensajeInactivo.textContent = mensaje || 'No hay ningún partido en transmisión en este momento.';
-        if (btnSimular) programarAutoPlay(btnSimular);
+        programarAutoPlay();
         mostrarJuegoEnVivoInactivo();
         // Sin permiso para simular no hay botón: se sigue consultando (más espaciado) para que
         // la transmisión aparezca sola cuando un administrador arranque el próximo partido.
@@ -471,7 +491,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 'posicion_balon.x' del backend es simétrico: siempre representa qué tan metido está en
     // SU PROPIO ataque quien tiene la pelota (0=su defensa, 100=su ataque), sin importar de qué
-    // equipo se trate -- no hay un "lado" físico fijo de cancha en el motor de simulación. Acá
+    // equipo se trate -- no hay un "lado" físico fijo de cancha en el motor de simulación. Aquí
     // se espeja para el equipo visitante (xVisual = 100 - x) para que, en la vista, el local
     // SIEMPRE ataque hacia la derecha y el visitante SIEMPRE hacia la izquierda durante todo el
     // partido, como en una transmisión real -- sin tocar el backend.
@@ -484,7 +504,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // relativo a la zona del equipo que ATACABA en ese momento (ver services/simular_service.py,
     // 'zona_balon' siempre es relativo a quien tiene el balón) -- así que para saber a qué lado
     // corresponde la coordenada hay que mirar al equipo CONTRARIO al que figura en 'equipo'.
-    // '🧤 ATAJADA ESPECTACULAR' / '🖐️ DESVÍO A CÓRNER' / '❌ PENAL FALLADO' entraron acá porque
+    // '🧤 ATAJADA ESPECTACULAR' / '🖐️ DESVÍO A CÓRNER' / '❌ PENAL FALLADO' entraron aquí porque
     // el backend ahora atribuye esos eventos al equipo del propio arquero (antes al del
     // rematador, un bug -- ver services/simular_service.py), pero la posición sigue calculada
     // en el frame del equipo atacante, mismo caso que el resto de este set.
@@ -1141,6 +1161,52 @@ document.addEventListener('DOMContentLoaded', function () {
     const bloqueCanchaVivo = document.getElementById('bloqueCanchaVivo');
     const canchaVisible = () => !bloqueCanchaVivo || bloqueCanchaVivo.offsetParent !== null;
 
+    // ---------------------------------------------------------------------------------------------
+    // Cola de animación de la cancha: cada poll (3 s) puede traer varios eventos nuevos y antes se
+    // animaba solo el último (los anteriores se saltaban). Ahora cada evento con jugada en la cancha
+    // (posicion_balon) o aviso se anima por separado y en orden, repartidos en el tiempo hasta el
+    // próximo poll: balón, trazo, etiqueta del jugador, fichas y avisos. renderCancha y
+    // renderJugadoresCancha siguen igual: se les pasa el partido "cortado" hasta ese evento.
+    // ---------------------------------------------------------------------------------------------
+    const COLA_PASO_MIN_MS = 1200;     // ningún evento dura menos que esto en pantalla
+    const COLA_PASO_MAX_MS = 2600;
+    const COLA_MAX_PENDIENTES = 8;     // si se acumulan (pestaña en segundo plano), se saltan los más viejos
+    let colaCancha = [], colaDatos = null, colaPartido = null, colaAnimados = 0, colaTimer = null;
+
+    function encolarCancha(data) {
+        const eventos = data.eventos || [];
+        if (data.match_id !== colaPartido) {   // partido nuevo (o primera carga): arranca desde lo ya revelado
+            clearTimeout(colaTimer); colaTimer = null;
+            colaCancha = [];
+            colaPartido = data.match_id;
+            colaAnimados = Math.max(0, eventos.length - 1);   // al entrar a mitad del partido no se repite la historia
+            reiniciarJugadoresCanchaSiCambioPartido(data.match_id);
+        }
+        colaDatos = data;
+        for (let k = colaAnimados + 1; k <= eventos.length; k++) {
+            const ev = eventos[k - 1];
+            if (ev.posicion_balon || esEventoAviso(ev) || k === eventos.length) colaCancha.push(k);
+        }
+        colaAnimados = Math.max(colaAnimados, eventos.length);
+        if (colaCancha.length > COLA_MAX_PENDIENTES) colaCancha = colaCancha.slice(-COLA_MAX_PENDIENTES);
+        if (!colaTimer) pasoCola();
+    }
+
+    function pasoCola() {
+        colaTimer = null;
+        if (!colaCancha.length || !colaDatos) return;
+        const k = colaCancha.shift();
+        const parcial = { ...colaDatos, eventos: (colaDatos.eventos || []).slice(0, k) };
+        try {
+            renderCancha(parcial);
+            renderJugadoresCancha(parcial);
+        } catch (e) { console.error(e); }
+        if (!colaCancha.length) return;
+        // repartir lo que queda en el tiempo hasta el próximo poll
+        const paso = Math.max(COLA_PASO_MIN_MS, Math.min(COLA_PASO_MAX_MS, (POLL_MS - 200) / colaCancha.length));
+        colaTimer = setTimeout(pasoCola, paso);
+    }
+
     function renderCancha(data) {
         if (!canchaBalon) return;
         const eventos = data.eventos || [];
@@ -1405,7 +1471,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Momentum del Partido: no existe un stat de "presión" real en el motor de simulación,
-    // así que se estima acá con un heurístico simple a partir de los eventos ya revelados
+    // así que se estima aquí con un heurístico simple a partir de los eventos ya revelados
     // (mismos 'tipo' que ya usa badgeMinuto/renderEventos): cada tipo de evento suma o resta
     // presión al equipo que lo protagoniza (ver services/simular_service.py para a qué equipo
     // le queda atribuido 'equipo' en cada evento -- ej. en un tiro/atajada/córner es el equipo
@@ -1684,7 +1750,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // se reconstruyen enteras en cada poll de 3s (mismo criterio que el resto de esta vista), así
     // que sin este estado persistente cualquier fila abierta se volvería a cerrar sola en el
     // siguiente render. Los eventos de Bootstrap burbujean hasta 'document', así que un solo par
-    // de listeners (registrados una sola vez acá) alcanza para todas las filas, presentes y
+    // de listeners (registrados una sola vez aquí) alcanza para todas las filas, presentes y
     // futuras, sin tener que instanciar bootstrap.Collapse a mano.
     const jugadoresExpandidos = new Set();
     document.addEventListener('shown.bs.collapse', e => {
@@ -2006,11 +2072,7 @@ document.addEventListener('DOMContentLoaded', function () {
         actualizarDestacadosSiCorresponde(data.match_id);   // sin await: la primera vez puede tardar, se ve en el próximo poll
         actualizarInteresSiCorresponde(data.match_id).then(() => renderInteresVivo(data));
         // La cancha virtual no se dibuja si está oculta (celular): ahorra el trabajo más pesado de cada poll
-        if (canchaVisible()) {
-            renderCancha(data);
-            reiniciarJugadoresCanchaSiCambioPartido(data.match_id);
-            renderJugadoresCancha(data);
-        }
+        if (canchaVisible()) encolarCancha(data);   // cada evento nuevo se anima por separado (ver "Cola de animación")
         renderJugadoresEnCancha(data);
         actualizarInfoPartido(data);
         await actualizarTablaGrupoSiCorresponde(data);
@@ -2037,9 +2099,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 jevMostrarProximo(document.getElementById('jevProximoFinal'), document.getElementById('jevProximoFinalTitulo'), document.getElementById('jevProximoFinalSelector'));
             }
             detenerPolling();
-            if (btnSimularOtro) programarAutoPlay(btnSimularOtro);
-            else programarReconsultaInactivo(); // sin permiso de simular: esperar el próximo partido
+            programarAutoPlay();
+            if (!btnSimularOtro) programarReconsultaInactivo(); // sin permiso de simular: esperar el próximo partido
         } else {
+            cancelarAutoPlayProgramado();   // ya arrancó (lo arrancó el pulso o un admin): fuera la cuenta regresiva
             badgeEstado.innerHTML = '<i class="bi bi-circle-fill me-1 blink-dot"></i>EN VIVO';
             badgeEstado.classList.remove('bg-secondary');
             badgeEstado.classList.add('bg-danger');
@@ -2052,7 +2115,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ---------------------------------------------------------------------------------------
     // Juego en Vivo (services/juego_en_vivo_service.py vía /live-game): el backend calcula todo
-    // (puntos, multiplicador vigente, cooldown); acá solo se muestra. Se consulta en el mismo
+    // (puntos, multiplicador vigente, cooldown); aquí solo se muestra. Se consulta en el mismo
     // ciclo de polling que la transmisión, en su propio try/catch para no romperla.
     // ---------------------------------------------------------------------------------------
     const JEV_HABILITADO = window.LIVE_CONFIG.juegoEnVivoHabilitado;
@@ -2472,22 +2535,8 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             const resp = await fetch('/matches/simulate-next-auto', { method: 'POST' });
             const data = await resp.json();
-            if (!resp.ok) {
-                if (resp.status === 401 && autoPlayActivo) {
-                    autoPlayActivo = false;
-                    if (toggleAutoPlay) toggleAutoPlay.checked = false;
-                    guardarAutoPlay(false);
-                }
-                throw new Error(data.detail || 'No se pudo iniciar la simulación.');
-            }
+            if (!resp.ok) throw new Error(data.detail || 'No se pudo iniciar la simulación.');
             if (!data.encontrado) {
-                // Torneo terminado -- no queda nada para encadenar, se apaga la reproducción
-                // automática para no reintentar cada 10s indefinidamente sin sentido.
-                if (autoPlayActivo) {
-                    autoPlayActivo = false;
-                    if (toggleAutoPlay) toggleAutoPlay.checked = false;
-                    guardarAutoPlay(false);
-                }
                 mostrarInactivo(data.mensaje || 'No hay partidos pendientes por simular.');
                 return;
             }
@@ -2495,8 +2544,6 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (e) {
             errorSimular.textContent = e.message;
             errorSimular.classList.remove('d-none');
-            // Reintento automático tras la misma pausa, si la reproducción automática sigue activa.
-            if (autoPlayActivo) programarAutoPlay(boton);
         } finally {
             boton.disabled = false;
         }
@@ -2509,25 +2556,39 @@ document.addEventListener('DOMContentLoaded', function () {
         btnSimularOtro.addEventListener('click', () => simularSiguiente(btnSimularOtro));
     }
 
+    // Interruptor y ritmo: se guardan en el servidor (aplican para todos y siguen con el navegador cerrado)
     if (toggleAutoPlay) {
-        toggleAutoPlay.addEventListener('change', function () {
-            autoPlayActivo = toggleAutoPlay.checked;
-            guardarAutoPlay(autoPlayActivo);
-            actualizarVisibilidadBotonSimular();
-            if (!autoPlayActivo) {
+        toggleAutoPlay.addEventListener('change', async () => {
+            const pedido = toggleAutoPlay.checked;
+            toggleAutoPlay.disabled = true;
+            try {
+                await guardarPulso({ activo: pedido });
+                UI.toast(pedido ? `Reproducción automática prendida: un partido cada ${pulso.intervalo_min} min` : 'Reproducción automática apagada',
+                         { icono: pedido ? 'bi-play-circle-fill' : 'bi-pause-circle-fill' });
                 cancelarAutoPlayProgramado();
-                return;
-            }
-            // Si se prende mientras ya se está en la pausa entre partidos (inactivo o recién
-            // finalizado), arranca la cuenta regresiva ahora mismo; si el partido sigue en vivo,
-            // no hay nada que programar todavía -- se hace solo cuando termine.
-            if (!panelInactivo.classList.contains('d-none') && btnSimular) {
-                programarAutoPlay(btnSimular);
-            } else if (!panelFinalizado.classList.contains('d-none') && btnSimularOtro) {
-                programarAutoPlay(btnSimularOtro);
+                if (!panelInactivo.classList.contains('d-none') || !panelFinalizado.classList.contains('d-none')) programarAutoPlay();
+            } catch (e) {
+                toggleAutoPlay.checked = !pedido;
+                UI.toast(e.message, { icono: 'bi-exclamation-triangle-fill' });
+            } finally {
+                toggleAutoPlay.disabled = false;
             }
         });
     }
+    if (selectRitmo) {
+        selectRitmo.addEventListener('change', async () => {
+            try {
+                await guardarPulso({ intervalo_min: Number(selectRitmo.value) });
+                UI.toast(`Ritmo: un partido cada ${selectRitmo.value} min`, { icono: 'bi-clock-history' });
+                cancelarAutoPlayProgramado();
+                if (!panelInactivo.classList.contains('d-none') || !panelFinalizado.classList.contains('d-none')) programarAutoPlay();
+            } catch (e) {
+                UI.toast(e.message, { icono: 'bi-exclamation-triangle-fill' });
+                if (pulso) selectRitmo.value = String(pulso.intervalo_min);
+            }
+        });
+    }
+    cargarPulso();
 
     // Al cargar la página: si ya hay un partido en curso (arrancado por otra pestaña/usuario),
     // lo detecta solo y empieza a pollear sin que haga falta tocar el botón.
@@ -2536,4 +2597,45 @@ document.addEventListener('DOMContentLoaded', function () {
             pollHandle = setInterval(consultarEstado, POLL_MS);
         }
     });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Accesos rápidos flotantes (#vivoAtajos en live_match.html): llevan a cada sección con
+// desplazamiento suave, marcan la sección que se está viendo y muestran la Tabla solo si el
+// partido tiene tabla de grupo (#panelTablaGrupo deja de estar oculto).
+// ---------------------------------------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', function () {
+    const barra = document.getElementById('vivoAtajos');
+    if (!barra) return;
+    const reducido = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const botones = [...barra.querySelectorAll('.vivo-atajos__btn')];
+    const destino = btn => document.querySelector(btn.getAttribute('href'));
+
+    botones.forEach(btn => btn.addEventListener('click', e => {
+        const el = destino(btn);
+        if (!el) return;
+        e.preventDefault();
+        el.scrollIntoView({ behavior: reducido ? 'auto' : 'smooth', block: 'start' });
+        marcar(btn);
+    }));
+
+    function marcar(activo) {
+        botones.forEach(b => b.classList.toggle('activo', b === activo));
+    }
+
+    // La Tabla de posiciones solo existe en fase de grupos: el botón sigue al panel
+    const tabla = document.getElementById('panelTablaGrupo');
+    const btnTabla = botones.find(b => b.hasAttribute('data-opcional'));
+    const sincronizarTabla = () => { if (tabla && btnTabla) btnTabla.classList.toggle('d-none', tabla.classList.contains('d-none')); };
+    sincronizarTabla();
+    if (tabla) new MutationObserver(sincronizarTabla).observe(tabla, { attributes: true, attributeFilter: ['class'] });
+
+    // Sección a la vista -> botón activo
+    if ('IntersectionObserver' in window) {
+        const porId = new Map(botones.map(b => [b.getAttribute('href').slice(1), b]));
+        const espia = new IntersectionObserver(entradas => entradas.forEach(en => {
+            if (en.isIntersecting && porId.has(en.target.id)) marcar(porId.get(en.target.id));
+        }), { rootMargin: '-30% 0px -60% 0px' });
+        botones.forEach(b => { const el = destino(b); if (el) espia.observe(el); });
+    }
 });

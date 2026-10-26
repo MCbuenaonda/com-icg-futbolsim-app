@@ -56,7 +56,7 @@
                 <a href="/paises/{{ inv.pais_id }}" class="text-white fw-bold fs-5 text-truncate d-block text-decoration-none">{{ inv.pais_nombre }}</a>
                 <span class="msel-estado msel-estado--{{ inv.estado.codigo }}">{{ inv.estado.texto }}</span>
               </div>
-              {% if inv.sinergia %}<span class="msel-sinergia" title="Tenés su estampa: dividendos ×{{ reglas.sinergia }}"><i class="bi bi-collection-fill"></i>×{{ reglas.sinergia }}</span>{% endif %}
+              {% if inv.sinergia %}<span class="msel-sinergia" title="Tienes su estampa: dividendos ×{{ reglas.sinergia }}"><i class="bi bi-collection-fill"></i>×{{ reglas.sinergia }}</span>{% endif %}
             </div>
 
             <div class="mport-valor">
@@ -82,7 +82,7 @@
             <div class="msel-proximo">
               {% if inv.proximo %}<i class="bi bi-calendar-event"></i> Próximo: {{ 'vs' if inv.proximo.local else 'en' }} {{ m.bandera(inv.proximo.rival_bandera, pais_id=inv.proximo.rival_id) }} <span class="text-truncate">{{ inv.proximo.rival }}</span>
                 {% if puede('scouter') %}<a href="/scouter/{{ inv.proximo.id }}" class="ms-auto small">Scouter <i class="bi bi-chevron-right"></i></a>{% endif %}
-              {% elif fuera %}<i class="bi bi-slash-circle"></i> Ya no cobra dividendos este Mundial: considerá venderla
+              {% elif fuera %}<i class="bi bi-slash-circle"></i> Ya no cobra dividendos este Mundial: considera venderla
               {% else %}<i class="bi bi-hourglass"></i> Sin partido programado{% endif %}
             </div>
 
@@ -119,8 +119,8 @@
 {% else %}
 <div class="card card-seccion"><div class="card-body p-5 text-center">
   <i class="bi bi-graph-up-arrow fs-1 text-success d-block mb-2"></i>
-  <h2 class="h5 text-white fw-bold">Todavía no tenés ninguna selección</h2>
-  <p class="text-muted small mb-3">Comprá una en el mercado: cobrás +{{ reglas.dividendo }} pts por cada victoria y +{{ reglas.bono_fase }} si avanza de fase.</p>
+  <h2 class="h5 text-white fw-bold">Todavía no tienes ninguna selección</h2>
+  <p class="text-muted small mb-3">Compra una en el mercado: cobras +{{ reglas.dividendo }} pts por cada victoria y +{{ reglas.bono_fase }} si avanza de fase.</p>
   <a href="{{ url_for('ownership_mercado_vista') }}" class="btn btn-success fw-bold rounded-pill px-4"><i class="bi bi-shop me-1"></i>Ir al mercado</a>
 </div></div>
 {% endif %}
@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const plus = Number(btn.dataset.plusvalia || 0);
             const ok = await UI.confirmar({
                 titulo: `Vender ${btn.dataset.nombrePais}`,
-                mensaje: `Se vende al valor de mercado actual (${valor} pts, ${plus >= 0 ? '+' : ''}${plus.toLocaleString('en-US')} respecto de la compra) y dejás de cobrar sus dividendos.`,
+                mensaje: `Se vende al valor de mercado actual (${valor} pts, ${plus >= 0 ? '+' : ''}${plus.toLocaleString('en-US')} respecto de la compra) y dejas de cobrar sus dividendos.`,
                 textoConfirmar: 'Vender', peligro: true,
             });
             if (!ok) return;

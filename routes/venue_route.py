@@ -41,7 +41,7 @@ async def buy(request: Request, ciudad_id: int):
     """Compra/patrocina la ciudad `ciudad_id` para el usuario logueado (vía cookie de sesión)."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión para comprar una sede")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión para comprar una sede")
 
     try:
         return buy_city_venue(usuario["_id"], ciudad_id)
@@ -59,7 +59,7 @@ async def sell(request: Request, ciudad_id: int):
     """Vende la sede `ciudad_id` del usuario logueado, reembolsando el 80% de su costo de compra."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión para vender una sede")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión para vender una sede")
 
     try:
         return sell_city_venue(usuario["_id"], ciudad_id)
@@ -89,7 +89,7 @@ async def buscar(request: Request, response: Response, q: str = Query("", descri
     """
     Endpoint adicional (no pedido explícitamente) que alimenta el buscador de la
     vista de Directorio: con >4000 ciudades no es viable mandarlas todas al
-    template de una sola vez, así que el filtrado por texto se resuelve acá
+    template de una sola vez, así que el filtrado por texto se resuelve aquí
     (mismo patrón que /fantasy/jugadores/buscar).
     """
     usuario = obtener_usuario_actual(request)

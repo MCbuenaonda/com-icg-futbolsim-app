@@ -1,6 +1,7 @@
 """
-Corporativos Deportivos — economía de los representados (fase 2): renta por partido, honorarios, avance o
-eliminación de fase, satisfacción, vencimientos y renovación de la IA, cotización.
+Corporativos Deportivos — economía de los representados: renta y honorario por partido jugado, mantenimiento y
+patrocinio por ciclo, acuerdos publicitarios y giras (corporativo_acciones_service), avance o eliminación de fase,
+satisfacción, vencimientos y renovación de la IA, cotización.
 
 poner_al_dia (corporativo_universo_service) arma un `Estado` en memoria con los corporativos y los contratos del
 universo, le aplica los partidos y cierres de ciclo pendientes y lo guarda con bulk_write junto con el cursor.
@@ -20,10 +21,11 @@ from services.corporativo_mercado_service import valores
 from services.corporativo_universo_service import db
 
 # Campos que escribe el procesamiento (no se pisan los que cambian las acciones del usuario, como es_del_usuario)
-CAMPOS_CORP = ("capital", "sentimiento", "precio", "variacion_ciclo", "patrimonio", "historial", "ciclo_actual", "confianza")
+CAMPOS_CORP = ("capital", "sentimiento", "precio", "variacion_ciclo", "patrimonio", "historial", "ciclo_actual", "confianza",
+               "saneamiento")
 CAMPOS_CONTRATO = ("renta_total", "renta_ciclo", "honorarios_total", "satisfaccion", "jugo_en_ciclo", "ciclos_sin_jugar",
                    "partidos", "foto_fase", "valor_actual", "activo", "fin_ciclo", "motivo_fin", "desde_ciclo", "hasta_ciclo",
-                   "prima", "origen", "pidio_salida_ciclo")
+                   "prima", "origen", "pidio_salida_ciclo", "eventos_ciclo")
 
 _cache_aportes: "OrderedDict[str, dict]" = OrderedDict()
 MAX_CACHE_APORTES = 3000
@@ -66,8 +68,9 @@ class Estado:
         self.sucios = set()
         self._indexar()
         for c in self.corps.values():
-            c.setdefault("ciclo_actual", {"renta": 0, "honorarios": 0, "amortizacion": 0, "sueldo": 0, "impago": False,
-                                          "fichajes": 0})
+            c.setdefault("ciclo_actual", ciclo_vacio())
+            for k, v0 in ciclo_vacio().items():
+                c["ciclo_actual"].setdefault(k, v0)
 
     def _indexar(self):
         self.por_seleccion = {c["ref_id"]: c for c in self.contratos if c["tipo"] == "seleccion" and c["activo"]}
@@ -116,6 +119,13 @@ class Estado:
         self.sucios.clear()
 
 
+def ciclo_vacio() -> dict:
+    """Acumulados del ciclo en curso de un corporativo. 'extra' = patrocinios de marcas, acuerdos y giras (ingresos);
+    'gastos_extra' = costos de las giras; 'comision_ceo' = comisión de las marcas que cobra el CEO con el sueldo."""
+    return {"renta": 0, "honorarios": 0, "amortizacion": 0, "sueldo": 0, "impago": False, "fichajes": 0,
+            "patrocinio": 0, "extra": 0, "gastos_extra": 0, "fama": {}, "comision_ceo": 0}
+
+
 # --- Partido -------------------------------------------------------------------------------------
 def procesar_partido(estado: Estado, aporte: dict, ciclo: int, juego_id: str) -> None:
     v = valores()
@@ -126,7 +136,10 @@ def procesar_partido(estado: Estado, aporte: dict, ciclo: int, juego_id: str) ->
         valor = v["selecciones"].get(pais_id, 0)
         renta = R.renta_seleccion(valor, resultado)
         _acreditar(estado, c, renta, ciclo)
+        _cobrar_honorario(estado, c, R.honorario_partido("seleccion", valor))   # honorario ligado a la actividad
         c["jugo_en_ciclo"] = True
+        if (aporte.get("diferencia") or {}).get(pais_id, 0) <= -3:   # goleada en contra: la marca de un acuerdo puede cortar
+            c.setdefault("eventos_ciclo", {})["goleada"] = True
         if resultado == "victoria":
             c["satisfaccion"] = min(100, c["satisfaccion"] + C.SATISFACCION["victoria_seleccion"])
         nombre = v["info_paises"].get(pais_id, {}).get("nombre", "?")
@@ -135,15 +148,41 @@ def procesar_partido(estado: Estado, aporte: dict, ciclo: int, juego_id: str) ->
         c = estado.por_jugador.get(jugador_id)
         if not c:
             continue
-        renta = R.renta_jugador(v["jugadores"].get(jugador_id, 0), ap)
+        valor_j = v["jugadores"].get(jugador_id, 0)
+        renta = R.renta_jugador(valor_j, ap)
         _acreditar(estado, c, renta, ciclo)
+        _cobrar_honorario(estado, c, R.honorario_partido("jugador", valor_j))
         c["jugo_en_ciclo"] = True
         c["partidos"] = c.get("partidos", 0) + 1
+        if ap.get("roja"):
+            c.setdefault("eventos_ciclo", {})["roja"] = True
+        # Fama del CEO por una actuación destacada de su representado (hat-trick, gol + asistencia, valla invicta ganando)
+        pais_j = v["info_jugadores"].get(jugador_id, {}).get("pais_id")
+        destacada = ap.get("gol", 0) >= 3 or (ap.get("gol") and ap.get("asistencia")) or \
+            (ap.get("valla_invicta") and aporte["selecciones"].get(pais_j) == "victoria")
+        if destacada and estado.corps[c["sigla"]].get("es_del_usuario"):
+            estado.corps[c["sigla"]]["ciclo_actual"].setdefault("fama", {})["actuacion"] = v["info_jugadores"].get(jugador_id, {}).get("nombre")
         c["satisfaccion"] = min(100, c["satisfaccion"] + C.SATISFACCION["partido_jugado"])
         hechos = [t for t, k in (("gol", "gol"), ("asist.", "asistencia"), ("valla invicta", "valla_invicta"), ("roja", "roja")) if ap.get(k)]
         nombre = v["info_jugadores"].get(jugador_id, {}).get("nombre", "?")
         estado.mover(c["sigla"], ciclo, "RENTA_PARTIDO", renta, f"{nombre}: jugó" + (f" ({', '.join(hechos)})" if hechos else ""),
                      {"juego_id": juego_id, "ref_id": jugador_id, "tipo_ref": "jugador"})
+
+
+def _cobrar_honorario(estado: Estado, contrato: dict, h: int) -> None:
+    """Honorario por partido jugado: se descuenta junto con la renta (el ciclo lo suma al asiento HONORARIOS)."""
+    corp = estado.corps[contrato["sigla"]]
+    corp["capital"] -= h
+    corp["ciclo_actual"]["honorarios"] += h
+    contrato["honorarios_total"] = contrato.get("honorarios_total", 0) + h
+    estado.tocar(contrato)
+
+
+def popularidad(tipo: str, ref_id: int, valor: int) -> float:
+    """Popularidad para el patrocinio: selecciones por sus aficionados, jugadores por su valor."""
+    if tipo == "seleccion":
+        return R.popularidad_seleccion(valores()["info_paises"].get(ref_id, {}).get("aficionados"))
+    return R.popularidad_jugador(valor)
 
 
 def _acreditar(estado: Estado, contrato: dict, renta: int, ciclo: int) -> None:
@@ -175,6 +214,10 @@ def cerrar_ciclo_economia(estado: Estado, ciclo: int) -> None:
             if previa and foto != previa:
                 eliminado = str(foto[1] or "").startswith("ELIMINADO") and not str(previa[1] or "").startswith("ELIMINADO")
                 avanzo = (foto[0] or 0) > (previa[0] or 0) or ("CALIFICADO" in str(foto[1] or "") and "CALIFICADO" not in str(previa[1] or ""))
+                if eliminado:
+                    c.setdefault("eventos_ciclo", {})["eliminada"] = True
+                elif avanzo and corp.get("es_del_usuario"):
+                    corp["ciclo_actual"].setdefault("fama", {})["avance"] = v["info_paises"].get(c["ref_id"], {}).get("nombre")
                 if eliminado or avanzo:
                     renta = R.renta_fase(valor, avanzo and not eliminado)
                     _acreditar(estado, c, renta, ciclo)
@@ -182,8 +225,14 @@ def cerrar_ciclo_economia(estado: Estado, ciclo: int) -> None:
                     estado.mover(c["sigla"], ciclo, "FASE", renta, f"{nombre}: {'eliminada' if eliminado else 'avanzó de fase'}",
                                  {"ref_id": c["ref_id"], "tipo_ref": "seleccion"})
             c["foto_fase"] = list(foto)
-        # Honorario del ciclo (juegue o no) + amortización de la prima
-        h = R.honorario(c["tipo"], valor)
+        # Patrocinio del ciclo (juegue o no; la campaña de marketing vigente lo multiplica)
+        mult = C.MARKETING_BONO_PATROCINIO if (corp.get("marketing_hasta_ciclo") or 0) >= ciclo else 1.0
+        pat = R.patrocinio(c["tipo"], valor, popularidad(c["tipo"], c["ref_id"], valor), mult)
+        corp["capital"] += pat
+        corp["ciclo_actual"]["patrocinio"] += pat
+        c["renta_total"] = c.get("renta_total", 0) + pat
+        # Mantenimiento del ciclo (juegue o no: el resto del honorario se cobró por partido jugado) + amortización de la prima
+        h = R.honorario_mantenimiento(c["tipo"], valor)
         if corp["capital"] >= h:
             corp["capital"] -= h
             corp["ciclo_actual"]["honorarios"] += h
@@ -210,12 +259,19 @@ def cerrar_ciclo_economia(estado: Estado, ciclo: int) -> None:
         c["valor_actual"] = valor
         estado.tocar(c)
 
+    # Acuerdos publicitarios, giras y aporte de aficionados de las giras (corporativo_acciones_service)
+    from services import corporativo_acciones_service as acciones   # import diferido: acciones importa este módulo
+    acciones.cerrar_ciclo_acciones(estado, ciclo)
+
     for sigla, corp in estado.corps.items():
         honor = sum(1 for x in estado.contratos if x["activo"] and x["sigla"] == sigla)
         ca = corp["ciclo_actual"]
         if ca["honorarios"]:
-            estado.mover(sigla, ciclo, "HONORARIOS", -ca["honorarios"], f"Honorarios de {honor} representados")
-        utilidad = ca["renta"] - ca["honorarios"] - ca["amortizacion"] - ca["sueldo"]
+            estado.mover(sigla, ciclo, "HONORARIOS", -ca["honorarios"], f"Honorarios de {honor} representados (mantenimiento y partidos jugados)")
+        if ca["patrocinio"]:
+            estado.mover(sigla, ciclo, "PATROCINIO", ca["patrocinio"], f"Patrocinios de {honor} representados (juegue o no)")
+        utilidad = (ca["renta"] + ca["patrocinio"] + ca["extra"] - ca["honorarios"] - ca["amortizacion"] - ca["sueldo"]
+                    - ca["gastos_extra"])
         if utilidad < 0:
             for x in estado.contratos:
                 if x["activo"] and x["sigla"] == sigla:
@@ -236,7 +292,7 @@ def _vencimientos(estado: Estado, ciclo: int) -> None:
         nombre = (v["info_paises"].get(c["ref_id"], {}) if c["tipo"] == "seleccion" else v["info_jugadores"].get(c["ref_id"], {})).get("nombre", "?")
         rindio = c.get("renta_total", 0) >= 0.8 * c.get("honorarios_total", 0)
         valor = (v["selecciones"] if c["tipo"] == "seleccion" else v["jugadores"]).get(c["ref_id"], 0)
-        prima = R.prima_referencia(valor)
+        prima = R.prima_renovacion(valor, c.get("satisfaccion", C.SATISFACCION_INICIAL))
         if not corp.get("es_del_usuario") and rindio and corp["capital"] >= prima:
             corp["capital"] -= prima
             duracion = R.semilla(estado.uid, "renueva", c["sigla"], c["ref_id"], ciclo).randint(*C.DURACION_CONTRATO)
@@ -265,8 +321,12 @@ def cerrar_cuentas(estado: Estado, ciclo: int) -> None:
         roi = utilidad / max(patrimonio_inicio, 1)
         rng = R.semilla(estado.uid, "cotiza", sigla, ciclo)
         noticias = -0.15 if corp["ciclo_actual"]["impago"] else 0
-        corp["sentimiento"] = R.nuevo_sentimiento(corp.get("sentimiento", 1.0), roi, noticias, rng)
-        nuevo = R.precio_accion(corp["capital"], cartera, corp["sentimiento"])
+        # El sentimiento sigue el ROI MEDIO de la ventana (un ciclo suelto sin partidos no hunde la acción)
+        rois = [h.get("roi", 0) for h in (corp.get("historial") or [])[-(C.CICLOS_VENTANA_ROI - 1):]] + [roi]
+        corp["sentimiento"] = R.nuevo_sentimiento(corp.get("sentimiento", 1.0), sum(rois) / len(rois), noticias, rng)
+        # El precio suma la renta esperada de los partidos YA programados de su cartera en los próximos ciclos
+        esperada = renta_esperada(activos)
+        nuevo = R.precio_accion(corp["capital"] + esperada, cartera, corp["sentimiento"])
         anterior = corp.get("precio") or nuevo
         corp["precio"] = R.limitar_banda(nuevo, anterior)
         corp["variacion_ciclo"] = round(corp["precio"] / anterior - 1, 4) if anterior else 0
@@ -274,6 +334,24 @@ def cerrar_cuentas(estado: Estado, ciclo: int) -> None:
         hist = corp.get("historial", [])
         hist.append({"ciclo": ciclo, "capital": int(corp["capital"]), "cartera": cartera, "utilidad": int(utilidad), "utilidad_op": int(utilidad_op),
                      "roi": round(roi, 5), "precio": corp["precio"], "renta": corp["ciclo_actual"]["renta"],
-                     "honorarios": corp["ciclo_actual"]["honorarios"], "impago": corp["ciclo_actual"]["impago"]})
+                     "honorarios": corp["ciclo_actual"]["honorarios"], "impago": corp["ciclo_actual"]["impago"],
+                     "patrocinio": corp["ciclo_actual"]["patrocinio"], "extra": corp["ciclo_actual"]["extra"],
+                     "gastos_extra": corp["ciclo_actual"]["gastos_extra"], "renta_esperada": esperada,
+                     "fama": corp["ciclo_actual"].get("fama") or {}})
         corp["historial"] = hist[-60:]
-        corp["ciclo_actual"] = {"renta": 0, "honorarios": 0, "amortizacion": 0, "sueldo": 0, "impago": False, "fichajes": 0}
+        corp["ciclo_actual"] = ciclo_vacio()
+
+
+def renta_esperada(contratos: list) -> int:
+    """Renta neta esperada de los partidos ya programados de estos contratos en los próximos CICLOS_RENTA_ESPERADA
+    ciclos (los jugadores cuentan al 60%: no siempre entran). La usa la cotización y las vistas."""
+    from services.corporativo_mercado_service import partidos_en_ciclos
+    v = valores()
+    total = 0
+    for c in contratos:
+        if c["tipo"] == "seleccion":
+            total += partidos_en_ciclos(c["ref_id"], C.CICLOS_RENTA_ESPERADA) * R.renta_esperada_partido("seleccion", v["selecciones"].get(c["ref_id"], 0))
+        else:
+            pais = v["info_jugadores"].get(c["ref_id"], {}).get("pais_id")
+            total += 0.6 * partidos_en_ciclos(pais, C.CICLOS_RENTA_ESPERADA) * R.renta_esperada_partido("jugador", v["jugadores"].get(c["ref_id"], 0))
+    return int(total)

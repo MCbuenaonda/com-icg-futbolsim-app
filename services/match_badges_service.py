@@ -47,7 +47,7 @@ def obtener_marcas_partido(
         "visita": {"quiniela": bool, "fantasy": bool, "dueno_pais": bool},
         "dueno_sede": bool
     }
-    Todas las consultas son defensivas (try/except) para que un error acá
+    Todas las consultas son defensivas (try/except) para que un error aquí
     nunca tumbe la vista del partido — es información puramente informativa.
     """
     usuario_oid = ObjectId(usuario_id)

@@ -54,7 +54,7 @@ def _obtener_reglas_clasificacion_grupo(fase_id: int, cantidad_equipos: int) -> 
     100% directo y cuáles son "con posibilidades". Se asumió 1º directo y 2º/3º con
     posibilidades, siguiendo el mismo patrón "1 directo + resto en zona de posibilidad" que
     tienen el resto de los tramos. Si la intención real era otra (ej. los 3 puestos sujetos a
-    comparación entre grupos, ninguno 100% directo), ajustar acá.
+    comparación entre grupos, ninguno 100% directo), ajustar aquí.
     """
     if fase_id == FASE_MUNDIAL_GRUPOS:
         if cantidad_equipos == 4:

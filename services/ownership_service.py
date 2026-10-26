@@ -151,7 +151,7 @@ def buy_team(user_id: str, pais_id: int) -> dict:
         "status": ESTADO_INVERSION_ACTIVO
     })
     if ya_tiene_de_la_confederacion:
-        raise ValueError("Ya tenés una selección activa de esta confederación (máximo 1 por confederación)")
+        raise ValueError("Ya tienes una selección activa de esta confederación (máximo 1 por confederación)")
 
     costo = pais.get("valor", VALOR_INICIAL_PAIS)
     if usuario.get("monto", 0) < costo:
@@ -234,7 +234,7 @@ def sell_team(user_id: str, pais_id: int) -> dict:
             juego_activo.get("equipo_visitante", {}).get("id")
         }
         if pais_id in ids_en_juego:
-            raise ValueError("No podés vender una selección que está por jugar en este momento")
+            raise ValueError("No puedes vender una selección que está por jugar en este momento")
 
     pais = db['paises'].find_one({"id": pais_id})
     valor_actual = pais.get("valor", inversion["current_value"]) if pais else inversion["current_value"]

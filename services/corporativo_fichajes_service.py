@@ -102,7 +102,7 @@ def resolver_pendientes(estado, universo: dict, seq: int, ciclo: int) -> None:
                                       "resolver_seq": {"$lte": seq}}):
         comprador = estado.corps.get(o["sigla"])
         if not comprador or not comprador.get("es_del_usuario"):
-            _cerrar_oferta(o, "CANCELADA", "Ya no dirigís ese corporativo")
+            _cerrar_oferta(o, "CANCELADA", "Ya no diriges ese corporativo")
             continue
         nombre = nombre_ref(o["ref_tipo"], o["ref_id"])
         actual = (estado.por_seleccion if o["ref_tipo"] == "seleccion" else estado.por_jugador).get(o["ref_id"])
@@ -155,8 +155,17 @@ def _cerrar_oferta(o: dict, estado: str, resultado: str) -> None:
 def _firmar(estado, corp: dict, o: dict, ciclo: int, origen: str) -> None:
     corp["capital"] -= o["prima"]
     corp["ciclo_actual"]["fichajes"] = corp["ciclo_actual"].get("fichajes", 0) + 1
+    if corp.get("es_del_usuario") and o["ref_tipo"] == "jugador" and _es_top50(o["ref_id"]):   # fama: fichaje de un top 50
+        corp["ciclo_actual"].setdefault("fama", {})["top50"] = nombre_ref("jugador", o["ref_id"])
     estado.agregar_contrato(nuevo_contrato(estado.uid, corp["sigla"], o["ref_tipo"], o["ref_id"], o["prima"], o["duracion"], ciclo, origen))
     estado.mover(corp["sigla"], ciclo, "FICHAJE", -o["prima"], f"Prima de firma de {nombre_ref(o['ref_tipo'], o['ref_id'])}")
+
+
+def _es_top50(jugador_id: int) -> bool:
+    v = valores()["jugadores"]
+    if jugador_id not in v:
+        return False
+    return sum(1 for x in v.values() if x > v[jugador_id]) < 50
 
 
 def _traspasar(estado, comprador: dict, vendedor: dict, contrato: dict, o: dict, ciclo: int) -> None:
@@ -307,16 +316,16 @@ def _ofertas_ia_por_figuras(estado, uid, sigla: str, ciclo: int, rng) -> None:
                          "monto": monto, "ciclo": ciclo, "vence_ciclo": ciclo + C.CICLOS_VENCE_PROPUESTA, "estado": "PENDIENTE",
                          "creada_en": datetime.utcnow()}):
         U.avisar(uid, ciclo, "OFERTA_IA", f"{comprador} ofrece {monto:,} por {nombre}",
-                 "Podés aceptar la venta (el monto entra al capital) o rechazarla.", "bi-cash-stack", clave=f"oia:{ciclo}:{c['_id']}")
+                 "Puedes aceptar la venta (el monto entra al capital) o rechazarla.", "bi-cash-stack", clave=f"oia:{ciclo}:{c['_id']}")
 
 
 # --- Acciones del CEO ----------------------------------------------------------------------------
 def _cargo(user_id) -> tuple:
     universo = U.obtener_universo(user_id)
     if universo and universo["estado"] == "PREAVISO":
-        raise ValueError("Durante el preaviso no podés operar en el mercado")
+        raise ValueError("Durante el preaviso no puedes operar en el mercado")
     if not universo or universo["estado"] != "EN_CARGO":
-        raise ValueError("Necesitás un cargo de CEO para operar en el mercado")
+        raise ValueError("Necesitas un cargo de CEO para operar en el mercado")
     sigla = universo["cargo"]["sigla"]
     return universo, sigla, db["corp_corporativos"].find_one({"universo_id": user_id, "sigla": sigla})
 
@@ -339,21 +348,21 @@ def ofertar(user_id, tipo: str, ref_id: int, prima: int, duracion: int, monto: i
         if not (C.DURACION_CONTRATO[0] <= duracion <= C.DURACION_CONTRATO[1]):
             raise ValueError("Duración inválida")
         if db["corp_ofertas"].count_documents({"universo_id": user_id, "estado": "PENDIENTE", "tipo": {"$in": ["FICHAJE", "TRASPASO"]}}) >= C.TOPE_OFERTAS_PENDIENTES:
-            raise ValueError(f"Ya tenés {C.TOPE_OFERTAS_PENDIENTES} ofertas abiertas: esperá las respuestas")
+            raise ValueError(f"Ya tienes {C.TOPE_OFERTAS_PENDIENTES} ofertas abiertas: espera las respuestas")
         if db["corp_ofertas"].find_one({"universo_id": user_id, "estado": "PENDIENTE", "ref_tipo": tipo, "ref_id": ref_id,
                                         "tipo": {"$in": ["FICHAJE", "TRASPASO"]}}):
-            raise ValueError("Ya tenés una oferta abierta por él")
+            raise ValueError("Ya tienes una oferta abierta por él")
         actual = db["corp_contratos"].find_one({"universo_id": user_id, "tipo": tipo, "ref_id": ref_id, "activo": True})
         doc = {"_id": f"{user_id}:fich:{tipo}:{ref_id}:{U.seq_actual()}", "universo_id": user_id, "sigla": sigla, "ref_tipo": tipo,
                "ref_id": ref_id, "prima": int(prima), "duracion": int(duracion), "ciclo": ciclo,
                "resolver_seq": U.seq_actual() + C.PARTIDOS_RESPUESTA_FICHAJE, "estado": "PENDIENTE", "creada_en": datetime.utcnow()}
         if actual:
             if actual["sigla"] == sigla:
-                raise ValueError("Ya lo representás")
+                raise ValueError("Ya lo representas")
             if not U.ventana_traspasos(ciclo)["abierta"]:
-                raise ValueError("La ventana de traspasos está cerrada: solo podés ofertar por libres")
+                raise ValueError("La ventana de traspasos está cerrada: solo puedes ofertar por libres")
             if monto <= 0:
-                raise ValueError("Indicá el monto del traspaso para el corporativo rival")
+                raise ValueError("Indica el monto del traspaso para el corporativo rival")
             doc.update(tipo="TRASPASO", sigla_vendedor=actual["sigla"], monto=int(monto))
         else:
             doc["tipo"] = "FICHAJE"
@@ -400,7 +409,7 @@ def responder(user_id, oferta_id: str, aceptar: bool) -> dict:
                 raise ValueError(f"{nombre} ya no está en {o['sigla_vendedor']}")
             pago = db["corp_corporativos"].find_one_and_update({"_id": corp["_id"], "capital": {"$gte": costo}}, {"$inc": {"capital": -costo}})
             if not pago:
-                raise ValueError(f"Capital insuficiente: necesitás {costo:,}")
+                raise ValueError(f"Capital insuficiente: necesitas {costo:,}")
             if o["tipo"] == "CONTRAOFERTA":
                 db["corp_contratos"].update_one({"_id": ocupado["_id"]}, {"$set": {"activo": False, "fin_ciclo": ciclo, "motivo_fin": f"TRASPASO:{sigla}"}})
                 db["corp_corporativos"].update_one({"universo_id": user_id, "sigla": o["sigla_vendedor"]}, {"$inc": {"capital": o["monto"]}})
@@ -476,10 +485,12 @@ def marketing(user_id) -> dict:
         pago = db["corp_corporativos"].find_one_and_update(
             {"_id": corp["_id"], "capital": {"$gte": C.COSTO_MARKETING}},
             {"$inc": {"capital": -C.COSTO_MARKETING}, "$set": {"marketing_ciclo": ciclo,
+                                                              "marketing_hasta_ciclo": ciclo + C.MARKETING_CICLOS - 1,
                                                               "reputacion": min(100, corp["reputacion"] + C.MARKETING_REPUTACION)}})
         if not pago:
             raise ValueError(f"La campaña cuesta {C.COSTO_MARKETING:,} de capital")
-        _mov(None, user_id, sigla, ciclo, "MARKETING", -C.COSTO_MARKETING, f"Campaña de marketing (+{C.MARKETING_REPUTACION} reputación)")
+        _mov(None, user_id, sigla, ciclo, "MARKETING", -C.COSTO_MARKETING,
+             f"Campaña de marketing (+{C.MARKETING_REPUTACION} reputación, patrocinios x{C.MARKETING_BONO_PATROCINIO} por {C.MARKETING_CICLOS} ciclos)")
     return {"ok": True}
 
 

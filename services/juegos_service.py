@@ -589,7 +589,7 @@ def simular_y_registrar_resultado(juego_id: str, id_local: int, id_visita: int, 
     juego_doc = db["juegos"].find_one({"_id": ObjectId(juego_id)})
     clima = juego_doc.get("clima") if juego_doc else None
     # Antes el clima y el aforo solo se generaban al abrir el detalle previo (/simulador/?id=): los partidos simulados sin
-    # pasar por ahí (en vivo, en lote) se jugaban sin clima y quedaban sin aforo. Ahora se generan acá si faltan.
+    # pasar por ahí (en vivo, en lote) se jugaban sin clima y quedaban sin aforo. Ahora se generan aquí si faltan.
     if juego_doc and (not clima or not juego_doc.get("aforo")):
         try:
             if not clima:
@@ -663,7 +663,7 @@ def simular_y_registrar_resultado(juego_id: str, id_local: int, id_visita: int, 
     # Feed estilo X del dashboard (ver templates/home.html), publicado por la cuenta de la
     # FIFAV: texto narrativo del post + hilo de respuestas con comentarios de 2-3 jugadores
     # (acorde a su estado de ánimo) y, en ocasiones, de la cuenta oficial de alguna selección.
-    # Se generan ACÁ (antes de registrar el resultado) para que queden guardados en el mismo
+    # Se generan AQUÍ (antes de registrar el resultado) para que queden guardados en el mismo
     # 'objeto_resultado' del partido -- el estado de ánimo de cada jugador se recalcula después,
     # dentro de actualizar_jugadores_post_partido, con la misma función pura, así que ambos coinciden siempre.
     partido["texto_narrativo"] = generar_texto_narrativo(
@@ -711,7 +711,7 @@ def aplicar_efectos_secundarios(
     :param estadisticas: el campo 'estadisticas' del partido (mismo valor ya persistido en 'juegos').
     :param stats_jugadores: dict {jugador_id: stats} del motor de simulación.
     :param juego_doc: doc de 'juegos' -- puede ser el snapshot pre-simulación o una relectura
-        posterior, son equivalentes acá (ningún campo que se usa de este doc lo toca
+        posterior, son equivalentes aquí (ningún campo que se usa de este doc lo toca
         registrar_resultado_juego).
     """
     goles_local = resp["resultado"]["goles_local"]
@@ -791,7 +791,7 @@ def aplicar_efectos_secundarios(
     actualizar_poder_y_rankin("V", id_visita, resp["resultado"], resp["resultado"])
 
     # Imports diferidos: clasificacion_service y mundial_service YA importan de este mismo
-    # módulo (juegos_service) a nivel de archivo -- importarlos acá arriba crearía un import
+    # módulo (juegos_service) a nivel de archivo -- importarlos aquí arriba crearía un import
     # circular. Mismo patrón que ya usa ownership_service.sell_team para el mismo problema.
     from services.clasificacion_service import validar_fase_confederacion_completada
     from services.mundial_service import crear_siguiente_fase
@@ -1549,7 +1549,11 @@ def get_data_dashboard_last_games():
         juegos_coll.find({"estado": "finalizado", "transmision.estado": {"$ne": "in_progress"}})
         .sort([("fecha", -1), ("hora", -1)]).limit(5)
     )
+    return formatear_posts_partidos(juegos)
 
+
+def formatear_posts_partidos(juegos: list) -> list:
+    """Cada partido terminado como post de la cuenta oficial de la FIFAV (inicio y red social /red-social)."""
     if not juegos:
         return []
 

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi import Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from services.juegos_service import obtener_juegos_programados, enriquecer_juegos_programados, armar_detalle_partido, obtener_juego_activo, obtener_juegos_calendario, armar_eventos_calendario, resaltar_jugadores_en_descripcion, resaltar_cronica
 from services.cronica_service import asegurar_cronica
-from services.auth_service import context_usuario_actual, obtener_usuario_actual, tiene_permiso
+from services.auth_service import context_usuario_actual, obtener_usuario_actual, requiere_permiso, tiene_permiso
+from services import foto_partido_service as FOTO
 from services.imagenes_pais_service import GLOBALES_JINJA
 from services.juego_en_vivo_service import sesiones_pendientes_usuario
 from config.settings import PREFIX_JUEGOS_PATH
@@ -130,7 +131,7 @@ async def calendario(request: Request):
         # 4. Determinar la fecha inicial a mostrar: la del próximo partido pendiente
         #    (los juegos ya vienen ordenados por fecha/hora ascendente); si no hay
         #    ninguno pendiente, se usa la fecha del primer partido disponible. Un partido "en
-        #    vivo" (estado == "finalizado" pero todavía en transmisión) cuenta como pendiente acá.
+        #    vivo" (estado == "finalizado" pero todavía en transmisión) cuenta como pendiente aquí.
         proximo_partido = next(
             (j for j in juegos if j.get("estado") != "finalizado" or (j.get("transmision") or {}).get("estado") == "in_progress"),
             None
@@ -163,7 +164,7 @@ async def juego(request: Request, id: str):
 
         if juego and (juego.get("transmision") or {}).get("estado") == "in_progress":
             # El partido ya está simulado y persistido, pero todavía se está "revelando" en
-            # vivo -- no mostrar el resultado crudo acá, mandar a la vista de transmisión.
+            # vivo -- no mostrar el resultado crudo aquí, mandar a la vista de transmisión.
             return RedirectResponse(url=request.url_for("live_match_view"), status_code=303)
 
         detalle = armar_detalle_partido(juego) if juego and juego.get("resultado") else None
@@ -176,12 +177,49 @@ async def juego(request: Request, id: str):
         except Exception as e:
             print(f"Ceses del partido: {e}")
             ceses_dt = []
+        # La foto del partido (Vertex AI): las ya generadas y, para quien puede generarlas, el cupo de hoy
+        fotos, cupo_fotos = [], None
+        if juego and juego.get("resultado"):
+            try:
+                fotos = FOTO.fotos_del_partido(str(juego["_id"]))
+                if tiene_permiso(obtener_usuario_actual(request), "generar_fotos"):
+                    cupo_fotos = FOTO.cupo_restante()
+            except Exception as e:
+                print(f"Fotos del partido: {e}")
         return templates.TemplateResponse(
             request=request,
             name="resumen.html",
-            context={"partido": juego, "detalle": detalle, "cronica": cronica, "ceses_dt": ceses_dt}
+            context={"partido": juego, "detalle": detalle, "cronica": cronica, "ceses_dt": ceses_dt,
+                     "fotos": fotos, "cupo_fotos": cupo_fotos, "fotos_por_dia": FOTO.FOTOS_POR_DIA}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")
     except json.JSONDecodeError:
         print("Error: El archivo no tiene un formato JSON válido.")
+
+
+# --- La foto del partido (services/foto_partido_service.py) -----------------------------------------------------
+# 'def' y no 'async def': la llamada a Vertex AI + la subida al bucket tardan varios segundos y son bloqueantes.
+@route.post("/{id}/foto", dependencies=[Depends(requiere_permiso("generar_fotos"))])
+def generar_foto_partido(request: Request, id: str):
+    juego, _ = obtener_juego_activo(id)
+    if not juego:
+        return JSONResponse({"ok": False, "error": "No existe el partido."}, status_code=404)
+    try:
+        foto = FOTO.generar_foto(juego, obtener_usuario_actual(request) or {})
+    except FOTO.ErrorFoto as e:
+        return JSONResponse({"ok": False, "error": str(e), "restantes": FOTO.cupo_restante()}, status_code=400)
+    logger.info(f"Foto del partido {juego.get('tag')} generada: {foto['ruta']}")
+    return {"ok": True, **foto}
+
+
+@route.get("/{id}/foto/prompt", dependencies=[Depends(requiere_permiso("generar_fotos"))])
+def ver_prompt_foto(id: str):
+    """El prompt que se mandaría (sin generar nada ni gastar cupo), para revisarlo."""
+    juego, _ = obtener_juego_activo(id)
+    if not juego or not juego.get("resultado"):
+        return JSONResponse({"ok": False, "error": "El partido todavía no se jugó."}, status_code=404)
+    from services.foto_partido_service import armar_prompt
+    from services.juegos_service import db as _db
+    p = armar_prompt(juego, _db["fotos_partido"].count_documents({"juego_id": str(juego["_id"])}))
+    return {"ok": True, "momento": p["momento"], "prompt": p["prompt"], "restantes": FOTO.cupo_restante()}

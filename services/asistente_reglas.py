@@ -145,7 +145,7 @@ def frase_profe(resumen: dict, nombre: str = "") -> str:
     if g:
         partes.append(f"{g} {'regalo' if g == 1 else 'regalos'} sin cobrar")
     texto = ", ".join(partes[:-1]) + (" y " if len(partes) > 1 else "") + partes[-1]
-    arranque = "Empezá por lo urgente." if u else ("Arrancá por lo gratis." if g and not o else "Te dejo lo que yo haría.")
+    arranque = "Empieza por lo urgente." if u else ("Arranca por lo gratis." if g and not o else "Te dejo lo que yo haría.")
     return f"{quien}encontré {texto}. {arranque}"
 
 
@@ -153,4 +153,4 @@ def frase_bienvenida(vistazo_gratis: bool, nombre: str = "") -> str:
     quien = f"Hola {nombre}. " if nombre else "Hola. "
     if vistazo_gratis:
         return quien + "Hoy el Vistazo corre por mi cuenta: reviso tus carteras y te digo qué hacer."
-    return quien + "Decime qué tan a fondo querés que mire y me pongo a revisar."
+    return quien + "Dime qué tan a fondo quieres que mire y me pongo a revisar."

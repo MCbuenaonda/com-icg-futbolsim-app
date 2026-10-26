@@ -6,7 +6,7 @@ from config.settings import PREFIX_HOME_PATH
 from services.mundial_service import crear_nuevo_mundial, restart_mundial, get_data_dashboard_stats, obtener_ordinal_mundial_actual, formatear_ordinal_torneo
 from services.juegos_service import get_data_dashboard_last_games, get_data_fase_actual_dashboard, get_data_clasificados_mundial, formatear_numero_compacto, ICONO_ESTADO_ANIMO
 from services.confederacion_service import get_data_confederaciones_dashboard
-from services.auth_service import context_usuario_actual, requiere_permiso
+from services.auth_service import context_usuario_actual, requiere_permiso, obtener_usuario_actual
 from services.arte_mundial_service import tema_sede
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
@@ -35,7 +35,15 @@ async def inicio(request: Request):
 
     # Datos simulados para alimentar el Dashboard
     stats = get_data_dashboard_stats(mundial)
-    ultimos_partidos = get_data_dashboard_last_games()
+    # Red social: los últimos partidos + las publicaciones de las marcas del universo del usuario (red_social_service)
+    try:
+        from services import red_social_service as RS
+        usuario = obtener_usuario_actual(request)
+        RS.poner_al_dia_en_segundo_plano(str(usuario["_id"]) if usuario else None)
+        feed_items = RS.para_inicio(usuario)
+    except Exception as e:
+        logger.error(f"Red social del inicio: {e}")
+        feed_items = [{**p, "clase": "partido", "reacciones": []} for p in get_data_dashboard_last_games()]
     fase_actual = get_data_fase_actual_dashboard()
     confederaciones = get_data_confederaciones_dashboard(mundial)
 
@@ -64,7 +72,7 @@ async def inicio(request: Request):
             "stats": stats,
             "fase_actual": fase_actual,
             "confederaciones": confederaciones,
-            "ultimos_partidos": ultimos_partidos,
+            "feed_items": feed_items,
             "clasificados": clasificados
         }
     )

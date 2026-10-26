@@ -98,7 +98,7 @@
         return modalEl;
     }
 
-    function confirmar({ titulo = '¿Confirmás?', mensaje = '', textoConfirmar = 'Confirmar', peligro = false } = {}) {
+    function confirmar({ titulo = '¿Confirmas?', mensaje = '', textoConfirmar = 'Confirmar', peligro = false } = {}) {
         const el = asegurarModal();
         el.querySelector('#uiConfirmarTitulo').textContent = titulo;
         el.querySelector('#uiConfirmarMensaje').textContent = mensaje;
@@ -155,7 +155,7 @@
         globo.classList.toggle('d-none', !pendientes);
         if (!Number.isNaN(xpAnterior) && xp > xpAnterior) toast(`+${xp - xpAnterior} XP`, { icono: 'bi-stars', enlace: '/niveles/' });
         if (!Number.isNaN(nivelAnterior) && nivel > nivelAnterior) {
-            toast(`¡Subiste a nivel ${nivel} · ${titulo}!${pendientes ? ' Tenés una recompensa esperando' : ''}`,
+            toast(`¡Subiste a nivel ${nivel} · ${titulo}!${pendientes ? ' Tienes una recompensa esperando' : ''}`,
                   { icono: 'bi-trophy-fill', tipo: 'nivel', enlace: '/niveles/', duracion: 7000 });
         }
     }
@@ -256,7 +256,7 @@
     //  la muestra mientras dure cualquier otra espera.
     // ---------------------------------------------------------------------------------------------
     const RETARDO_FETCH = 400, RETARDO_AVISO = 700;
-    const SIN_CARGADOR = [/\/matches\/live/, /\/live-game\//, /\/cuenta\/saldo/, /\/niveles\/visto/, /\/seguimiento$/];
+    const SIN_CARGADOR = [/\/matches\/live/, /\/matches\/pulso/, /\/live-game\//, /\/cuenta\/saldo/, /\/niveles\/visto/, /\/seguimiento$/];
     let barra = null, aviso = null, activos = 0, timerAviso = null;
 
     function asegurarNodos() {
@@ -286,7 +286,7 @@
         iniciarBarra();
         clearTimeout(timerAviso);
         clearTimeout(timerSeguridad);
-        // Si la navegación se cancela (descarga, 204, error de red) la página sigue acá: no dejar la barra colgada
+        // Si la navegación se cancela (descarga, 204, error de red) la página sigue aquí: no dejar la barra colgada
         timerSeguridad = setTimeout(limpiarNavegacion, 20000);
         timerAviso = setTimeout(() => {
             aviso.querySelector('.ui-aviso-carga__texto').textContent = texto ? `Abriendo ${texto}…` : 'Cargando…';

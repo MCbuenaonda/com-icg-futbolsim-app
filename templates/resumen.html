@@ -114,6 +114,47 @@
     </div>
     {% endfor %}
 
+    <!-- LA FOTO DEL PARTIDO (services/foto_partido_service.py): imagen del mejor momento generada con Vertex AI,
+         guardada en el bucket (fotos_juego/AAAA/MM/DD/TAG/). La ven todos; generarla solo quien tiene 'generar_fotos' -->
+    {% if fotos or cupo_fotos is not none %}
+    <div class="card card-seccion foto-partido mb-4" id="fotoPartido" data-juego="{{ partido._id }}">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <h2 class="vivo-titulo mb-0"><i class="bi bi-camera-fill foto-partido__icono"></i>La foto del partido</h2>
+                {% if fotos %}<span class="foto-partido__ia" title="Imagen generada con inteligencia artificial a partir de la crónica: no es una foto real"><i class="bi bi-stars"></i>Generada con IA</span>{% endif %}
+            </div>
+            {# Animación gratis, solo CSS: acercamiento lento enfocado según el tipo de momento, destello de luz de estadio
+               y papel picado si es un festejo (data-tipo = remate/festejo/atajada/drama de foto_partido_service) #}
+            <figure class="foto-partido__marco {{ 'foto-partido__marco--vacio' if not fotos }}" id="fotoMarco" data-tipo="{{ fotos[0].tipo if fotos else '' }}">
+                {% if fotos %}
+                <img src="{{ fotos[0].url }}" alt="{{ fotos[0].momento }}" id="fotoPrincipal" loading="lazy" decoding="async">
+                <figcaption id="fotoPie"><i class="bi bi-camera"></i><span>{{ fotos[0].momento }}</span></figcaption>
+                {% endif %}
+                <span class="foto-fx__brillo" aria-hidden="true"></span>
+                <span class="foto-fx__confeti" aria-hidden="true">{% for i in range(22) %}<i style="--x: {{ (i * 37) % 100 }}%; --d: {{ ((i * 0.53) % 4) | round(2) }}s; --t: {{ 3.2 + (i % 5) * 0.45 }}s; --c: {{ ['#fde68a', '#f59e0b', '#ffffff', '#22c55e', '#38bdf8', '#f472b6'][i % 6] }}; --r: {{ (i * 47) % 360 }}deg;"></i>{% endfor %}</span>
+                {% if not fotos %}
+                <div class="foto-partido__vacia"><i class="bi bi-camera"></i><span>Este partido todavía no tiene foto.</span>
+                    <small>Se arma con el momento clave de la crónica: la jugada, los colores de cada camiseta, la hora, el clima y el público.</small></div>
+                {% endif %}
+                <div class="foto-partido__revelado" aria-hidden="true"><span class="foto-partido__obturador"></span><strong>Revelando la foto…</strong><small>Suele tardar entre 10 y 30 segundos</small></div>
+            </figure>
+            <div class="foto-partido__tiras {{ 'd-none' if fotos | length < 2 }}" id="fotoTiras">
+                {% for f in fotos %}<button type="button" class="foto-partido__tira {{ 'activa' if loop.first }}" data-url="{{ f.url }}" data-momento="{{ f.momento }}" data-tipo="{{ f.tipo or '' }}" title="{{ f.momento }}"><img src="{{ f.url }}" alt="" loading="lazy"></button>{% endfor %}
+            </div>
+            {% if cupo_fotos is not none %}
+            <div class="foto-partido__admin">
+                <button type="button" class="btn btn-sm btn-accent-foto rounded-pill px-3" id="btnGenerarFoto" {{ 'disabled' if cupo_fotos <= 0 }}>
+                    <i class="bi bi-magic me-1"></i>{{ 'Generar otra toma' if fotos else 'Generar la foto del mejor momento' }}</button>
+                <span class="foto-partido__cupo" id="fotoCupo"><i class="bi bi-hourglass-split"></i>Quedan <b>{{ cupo_fotos }}</b> de {{ fotos_por_dia }} hoy</span>
+                <button type="button" class="btn btn-link btn-sm p-0 ms-auto foto-partido__ver-prompt" id="btnVerPrompt"><i class="bi bi-code-slash me-1"></i>Ver el prompt</button>
+                <p class="foto-partido__error d-none" id="fotoError" role="alert"></p>
+                <pre class="foto-partido__prompt d-none" id="fotoPrompt"></pre>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- CRÓNICA + FIGURA DEL PARTIDO -->
     {% if cronica or res.opinion or (detalle and detalle.figura) %}
     <div class="row g-4 mb-4">
@@ -337,5 +378,69 @@
             }
         });
     });
+</script>
+<script>
+// La foto del partido: hojear las tomas y (admin) generar una nueva
+document.addEventListener('DOMContentLoaded', () => {
+    const caja = document.getElementById('fotoPartido');
+    if (!caja) return;
+    const marco = document.getElementById('fotoMarco'), tiras = document.getElementById('fotoTiras');
+    const mostrar = (url, momento, tipo) => {
+        marco.classList.remove('foto-partido__marco--vacio');
+        marco.dataset.tipo = tipo || '';
+        marco.querySelector('.foto-partido__vacia')?.remove();
+        let img = document.getElementById('fotoPrincipal'), pie = document.getElementById('fotoPie');
+        if (!img) {
+            img = Object.assign(document.createElement('img'), { id: 'fotoPrincipal' });
+            pie = Object.assign(document.createElement('figcaption'), { id: 'fotoPie' });
+            pie.innerHTML = '<i class="bi bi-camera"></i><span></span>';
+            marco.prepend(img, pie);
+        }
+        img.classList.remove('foto-partido__nueva'); void img.offsetWidth; img.classList.add('foto-partido__nueva');
+        img.src = url; img.alt = momento; pie.querySelector('span').textContent = momento;
+        tiras.querySelectorAll('.foto-partido__tira').forEach(t => t.classList.toggle('activa', t.dataset.url === url));
+    };
+    tiras.addEventListener('click', e => { const t = e.target.closest('.foto-partido__tira'); if (t) mostrar(t.dataset.url, t.dataset.momento, t.dataset.tipo); });
+
+    const btn = document.getElementById('btnGenerarFoto');
+    if (!btn) return;
+    const id = caja.dataset.juego, error = document.getElementById('fotoError'), cupo = document.getElementById('fotoCupo');
+    const ponerCupo = n => { if (n == null) return; cupo.querySelector('b').textContent = n; btn.disabled = n <= 0; };
+    btn.addEventListener('click', async () => {
+        const ok = await UI.confirmar({ titulo: 'Generar la foto del partido', textoConfirmar: 'Generar',
+            mensaje: 'Se pide a Vertex AI una imagen del mejor momento de este partido. Usa 1 del cupo diario (solo se descuenta si sale bien).' });
+        if (!ok) return;
+        error.classList.add('d-none'); btn.disabled = true; caja.classList.add('foto-partido--revelando');
+        try {
+            const r = await UI.cargando(fetch(`/juegos/${id}/foto`, { method: 'POST' }));
+            const d = await r.json().catch(() => ({ ok: false, error: 'Respuesta inválida del servidor.' }));
+            if (!d.ok) throw Object.assign(new Error(d.error || 'No se pudo generar la foto.'), { restantes: d.restantes });
+            const t = document.createElement('button');
+            Object.assign(t, { type: 'button', className: 'foto-partido__tira', title: d.momento });
+            t.dataset.url = d.url; t.dataset.momento = d.momento; t.dataset.tipo = d.tipo || ''; t.innerHTML = `<img src="${UI.escapar(d.url)}" alt="">`;
+            tiras.prepend(t); tiras.classList.toggle('d-none', tiras.children.length < 2);
+            await new Promise(res => { const pre = new Image(); pre.onload = pre.onerror = res; pre.src = d.url; });
+            mostrar(d.url, d.momento, d.tipo);
+            btn.innerHTML = '<i class="bi bi-magic me-1"></i>Generar otra toma';
+            if (!caja.querySelector('.foto-partido__ia')) caja.querySelector('.vivo-titulo').insertAdjacentHTML('afterend', '<span class="foto-partido__ia"><i class="bi bi-stars"></i>Generada con IA</span>');
+            ponerCupo(d.restantes);
+            UI.toast('¡Foto lista!', { icono: 'bi-camera-fill' });
+        } catch (e) {
+            error.textContent = e.message; error.classList.remove('d-none');
+            ponerCupo(e.restantes);
+            if (e.restantes == null) btn.disabled = false;
+        } finally {
+            caja.classList.remove('foto-partido--revelando');
+        }
+    });
+
+    const verPrompt = document.getElementById('btnVerPrompt'), pre = document.getElementById('fotoPrompt');
+    verPrompt.addEventListener('click', async () => {
+        if (!pre.classList.contains('d-none')) { pre.classList.add('d-none'); return; }
+        const d = await UI.cargando(fetch(`/juegos/${id}/foto/prompt`).then(r => r.json()));
+        pre.textContent = d.ok ? `Momento: ${d.momento}\n\n${d.prompt}` : d.error;
+        pre.classList.remove('d-none');
+    });
+});
 </script>
 {% endblock %}

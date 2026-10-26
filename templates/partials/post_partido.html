@@ -1,0 +1,124 @@
+{# Post de un partido terminado (cuenta oficial de la FIFAV). Lo usan el inicio y la red social (/red-social).
+   Variables: partido (juegos_service.formatear_posts_partidos + 'reacciones' de las marcas), pid (id único en la página),
+   abierto (arranca expandido). #}
+{% import "partials/macros.html" as m %}
+{% set lc_post = logo_confederacion(partido.competicion) %}
+{% set gana = 'local' if partido.goles_local > partido.goles_visitante else ('visitante' if partido.goles_visitante > partido.goles_local else 'empate') %}
+<div class="x-post" style="--conf-color: {{ lc_post.color if lc_post else '#1d9bf0' }};">
+    <!-- Header: cuenta que publica (FIFAV) + fecha -- también actúa como toggle
+         para colapsar/expandir el post (solo el más reciente arranca expandido,
+         para ahorrar espacio en el resto del feed) -->
+    <div class="d-flex x-post-toggle" role="button" tabindex="0"
+         data-bs-toggle="collapse" data-bs-target="#xpost-body-{{ pid }}"
+         aria-expanded="{{ 'true' if abierto else 'false' }}" aria-controls="xpost-body-{{ pid }}">
+        <div class="x-post-avatar x-post-avatar--img me-2"><img src="{{ imagen_inicio('copa') }}" alt="" loading="lazy" decoding="async" data-emoji="{{ partido.autor_avatar }}" onerror="this.replaceWith(document.createTextNode(this.dataset.emoji))"></div>
+        <div class="flex-grow-1 min-w-0">
+            <div class="d-flex align-items-center gap-1 flex-wrap">
+                <span class="fw-bold text-body-emphasis">{{ partido.autor_nombre }}</span>
+                <i class="bi bi-patch-check-fill text-primary fs-8" title="Cuenta Oficial Verificada"></i>
+                <span class="text-muted fs-8">{{ partido.autor_handle }}</span>
+                <span class="text-muted fs-8">·</span>
+                <span class="text-muted fs-8">{{ partido.fecha }}</span>
+                <span class="x-post-competicion ms-auto">{{ partido.competicion }}</span>
+                <i class="bi bi-chevron-down text-muted x-post-chevron"></i>
+            </div>
+            <div class="x-post-resumen fs-7 text-body-emphasis mt-1">
+                <span class="fw-semibold">{{ m.bandera(partido.local.bandera) }} {{ partido.local.nombre }}</span>
+                <i class="bi bi-patch-check-fill text-primary fs-8" title="Selección Verificada"></i>
+                <span class="fw-bold">{{ partido.goles_local }} - {{ partido.goles_visitante }}</span>
+                <span class="fw-semibold">{{ partido.visitante.nombre }} {{ m.bandera(partido.visitante.bandera) }}</span>
+                <i class="bi bi-patch-check-fill text-primary fs-8" title="Selección Verificada"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="collapse {% if abierto %}show{% endif %}" id="xpost-body-{{ pid }}">
+        <a href="/juegos/{{ partido.match_id }}" class="d-block text-decoration-none text-reset mt-2">
+            <!-- Texto narrativo del post -->
+            {% if partido.texto_narrativo %}
+            <div class="text-body-emphasis fs-7 mb-2">{{ partido.texto_narrativo }}</div>
+            {% endif %}
+            {% for r in partido.relevos_dt %}
+            <div class="feed-relevo-dt fs-7 mb-2"><i class="bi bi-clipboard-x me-1"></i><strong>{{ r.federacion }}</strong> destituye a {{ r.sale }}; {{ 'vuelve' if r.regreso else 'asume' }} <strong>{{ r.entra }}</strong> en el banco de {{ r.pais }}.</div>
+            {% endfor %}
+
+            <!-- Marcador destacado: tablero con la bandera de cada equipo; el ganador resaltado -->
+            <div class="x-marcador mb-2">
+                <span class="x-marcador__equipo {{ 'x-marcador__equipo--gana' if gana == 'local' }}">{{ m.bandera(partido.local.bandera) }}<span>{{ partido.local.nombre }}</span></span>
+                <span class="x-marcador__goles">{{ partido.goles_local }}<small>{{ '🤝' if gana == 'empate' else '-' }}</small>{{ partido.goles_visitante }}</span>
+                <span class="x-marcador__equipo {{ 'x-marcador__equipo--gana' if gana == 'visitante' }}">{{ m.bandera(partido.visitante.bandera) }}<span>{{ partido.visitante.nombre }}</span></span>
+            </div>
+
+            <!-- Resumen de eventos, en viñetas breves -->
+            {% if partido.resumen_eventos %}
+            <div class="d-flex flex-wrap gap-1 mb-2">
+                {% for linea in partido.resumen_eventos %}
+                    <span class="x-evento">{{ linea }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if partido.tag %}
+                <div class="mb-2">
+                    <span class="text-primary fw-semibold fs-7">{{ partido.tag }}</span>
+                </div>
+            {% endif %}
+
+            <!-- Footer de interacción -->
+            <div class="x-acciones">
+                <span class="x-accion x-accion--comentar"><i class="bi bi-chat"></i>{{ partido.comentarios | numero_compacto }}</span>
+                <span class="x-accion x-accion--repost"><i class="bi bi-arrow-repeat"></i>{{ partido.retweets | numero_compacto }}</span>
+                <span class="x-accion x-accion--like"><i class="bi bi-heart-fill"></i>{{ partido.likes | numero_compacto }}</span>
+                <span class="x-accion"><i class="bi bi-bar-chart-line"></i>{{ partido.visualizaciones | numero_compacto }}</span>
+            </div>
+        </a>
+
+        <!-- Comentarios de jugadores y, en ocasiones, de la cuenta oficial de
+             alguna selección, como hilo de respuestas del post -->
+        {% if partido.comentarios_jugadores or partido.reacciones %}
+        <div class="x-post-replies mt-3">
+            {% for r in partido.reacciones or [] %}{% include "partials/respuesta_marca.html" %}{% endfor %}
+            {% for comentario in partido.comentarios_jugadores %}
+            <div class="x-respuesta d-flex align-items-start gap-2">
+                {# Bandera del país que comenta: la de la selección, o la del equipo del jugador (local/visitante de este partido) #}
+                {% set bandera_comentario = comentario.bandera if comentario.es_seleccion else (partido.local.bandera if comentario.equipo == partido.local.nombre else (partido.visitante.bandera if comentario.equipo == partido.visitante.nombre else None)) %}
+                {% set icono_comentario = img_pais(pais_id_por_bandera(bandera_comentario), 'icono') if bandera_comentario else None %}
+                {% if not comentario.es_seleccion and img_avatar(comentario.jugador_id) %}
+                {# Cara del jugador que comenta, sobre la bandera de su selección; lleva a su perfil #}
+                <a href="/jugadores/{{ comentario.jugador_id }}" class="x-post-avatar-jugador" title="{{ comentario.nombre }} · {{ comentario.equipo }}">
+                    {{ m.avatar(comentario.jugador_id, pais_id_por_bandera(bandera_comentario) if bandera_comentario else None) }}
+                </a>
+                {% else %}
+                <div class="x-post-avatar x-post-avatar-sm {{ 'x-post-avatar--img' if icono_comentario }}" {% if comentario.equipo %}title="{{ comentario.equipo }}"{% endif %}>
+                    {% if icono_comentario %}
+                        <img src="{{ icono_comentario }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">
+                    {% elif comentario.es_seleccion %}
+                        🛡️
+                    {% else %}
+                        <i class="bi bi-person-fill"></i>
+                    {% endif %}
+                </div>
+                {% endif %}
+                <div class="flex-grow-1 min-w-0">
+                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                        <span class="fw-semibold text-body-emphasis fs-8">{{ comentario.nombre }}</span>
+                        {% if comentario.es_seleccion %}
+                            <i class="bi bi-patch-check-fill text-primary fs-8" title="Cuenta Oficial Verificada"></i>
+                        {% else %}
+                            <span class="text-muted fs-8">· {{ comentario.equipo }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-secondary fs-8">
+                        {% if comentario.es_seleccion %}
+                            {{ comentario.comentario }}
+                        {% else %}
+                            {{ icono_estado_animo.get(comentario.estado_animo, '💬') }} {{ comentario.estado_animo }}, {{ comentario.comentario }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>

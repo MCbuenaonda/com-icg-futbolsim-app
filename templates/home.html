@@ -23,7 +23,7 @@
                 </div>
                 <div class="modal-body">
                     <p class="mb-2">Esta acción va a <strong class="text-danger">borrar de forma permanente</strong> todos los datos generados hasta ahora del Mundial actual: países clasificados, grupos, partidos, estadísticas y resultados.</p>
-                    <p class="mb-0">Se va a generar un Mundial nuevo desde cero. <strong>Esta operación no se puede deshacer.</strong> ¿Querés continuar?</p>
+                    <p class="mb-0">Se va a generar un Mundial nuevo desde cero. <strong>Esta operación no se puede deshacer.</strong> ¿Quieres continuar?</p>
                 </div>
                 <div class="modal-footer border-secondary border-opacity-25">
                     <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancelar</button>
@@ -394,135 +394,25 @@
                         <span class="feed-fifav__logo"><img src="{{ imagen_inicio('copa') }}" alt="" loading="lazy" decoding="async"></span>
                         <div class="min-w-0">
                             <h5 class="fw-bold text-white mb-0 d-flex align-items-center gap-2">Últimos Partidos <span class="feed-fifav__vivo" title="Se actualiza con cada partido simulado"></span></h5>
-                            <small class="text-muted">Feed oficial · @FIFAV_Oficial</small>
+                            <small class="text-muted">@FIFAV_Oficial · partidos{% if feed_items | selectattr("clase", "equalto", "marca") | list %} y marcas de tu universo{% endif %}</small>
                         </div>
                     </div>
-                    <a href="/juegos" class="btn btn-sm btn-outline-info rounded-pill px-3 flex-shrink-0" title="Ver partidos"><i class="bi bi-calendar3"></i><span class="d-none d-sm-inline ms-1">Ver partidos</span></a>
+                    <a href="/red-social/" class="btn btn-sm btn-info rounded-pill px-3 flex-shrink-0 fw-semibold" title="Abrir la red social"><i class="bi bi-chat-square-heart-fill"></i><span class="d-none d-sm-inline ms-1">Red social</span></a>
                 </div>
                 <div class="card-body pt-2 px-3 px-md-4 feed-fifav__lista">
-                    {% for partido in ultimos_partidos %}
-                    {% set lc_post = logo_confederacion(partido.competicion) %}
-                    {% set gana = 'local' if partido.goles_local > partido.goles_visitante else ('visitante' if partido.goles_visitante > partido.goles_local else 'empate') %}
-                    <div class="x-post" style="--conf-color: {{ lc_post.color if lc_post else '#1d9bf0' }};">
-                        <!-- Header: cuenta que publica (FIFAV) + fecha -- también actúa como toggle
-                             para colapsar/expandir el post (solo el más reciente arranca expandido,
-                             para ahorrar espacio en el resto del feed) -->
-                        <div class="d-flex x-post-toggle" role="button" tabindex="0"
-                             data-bs-toggle="collapse" data-bs-target="#xpost-body-{{ loop.index }}"
-                             aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="xpost-body-{{ loop.index }}">
-                            <div class="x-post-avatar x-post-avatar--img me-2"><img src="{{ imagen_inicio('copa') }}" alt="" loading="lazy" decoding="async" data-emoji="{{ partido.autor_avatar }}" onerror="this.replaceWith(document.createTextNode(this.dataset.emoji))"></div>
-                            <div class="flex-grow-1 min-w-0">
-                                <div class="d-flex align-items-center gap-1 flex-wrap">
-                                    <span class="fw-bold text-body-emphasis">{{ partido.autor_nombre }}</span>
-                                    <i class="bi bi-patch-check-fill text-primary fs-8" title="Cuenta Oficial Verificada"></i>
-                                    <span class="text-muted fs-8">{{ partido.autor_handle }}</span>
-                                    <span class="text-muted fs-8">·</span>
-                                    <span class="text-muted fs-8">{{ partido.fecha }}</span>
-                                    <span class="x-post-competicion ms-auto">{{ partido.competicion }}</span>
-                                    <i class="bi bi-chevron-down text-muted x-post-chevron"></i>
-                                </div>
-                                <div class="x-post-resumen fs-7 text-body-emphasis mt-1">
-                                    <span class="fw-semibold">{{ m.bandera(partido.local.bandera) }} {{ partido.local.nombre }}</span>
-                                    <i class="bi bi-patch-check-fill text-primary fs-8" title="Selección Verificada"></i>
-                                    <span class="fw-bold">{{ partido.goles_local }} - {{ partido.goles_visitante }}</span>
-                                    <span class="fw-semibold">{{ partido.visitante.nombre }} {{ m.bandera(partido.visitante.bandera) }}</span>
-                                    <i class="bi bi-patch-check-fill text-primary fs-8" title="Selección Verificada"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="collapse {% if loop.first %}show{% endif %}" id="xpost-body-{{ loop.index }}">
-                            <a href="/juegos/{{ partido.match_id }}" class="d-block text-decoration-none text-reset mt-2">
-                                <!-- Texto narrativo del post -->
-                                {% if partido.texto_narrativo %}
-                                <div class="text-body-emphasis fs-7 mb-2">{{ partido.texto_narrativo }}</div>
-                                {% endif %}
-                                {% for r in partido.relevos_dt %}
-                                <div class="feed-relevo-dt fs-7 mb-2"><i class="bi bi-clipboard-x me-1"></i><strong>{{ r.federacion }}</strong> destituye a {{ r.sale }}; {{ 'vuelve' if r.regreso else 'asume' }} <strong>{{ r.entra }}</strong> en el banco de {{ r.pais }}.</div>
-                                {% endfor %}
-
-                                <!-- Marcador destacado: tablero con la bandera de cada equipo; el ganador resaltado -->
-                                <div class="x-marcador mb-2">
-                                    <span class="x-marcador__equipo {{ 'x-marcador__equipo--gana' if gana == 'local' }}">{{ m.bandera(partido.local.bandera) }}<span>{{ partido.local.nombre }}</span></span>
-                                    <span class="x-marcador__goles">{{ partido.goles_local }}<small>{{ '🤝' if gana == 'empate' else '-' }}</small>{{ partido.goles_visitante }}</span>
-                                    <span class="x-marcador__equipo {{ 'x-marcador__equipo--gana' if gana == 'visitante' }}">{{ m.bandera(partido.visitante.bandera) }}<span>{{ partido.visitante.nombre }}</span></span>
-                                </div>
-
-                                <!-- Resumen de eventos, en viñetas breves -->
-                                {% if partido.resumen_eventos %}
-                                <div class="d-flex flex-wrap gap-1 mb-2">
-                                    {% for linea in partido.resumen_eventos %}
-                                        <span class="x-evento">{{ linea }}</span>
-                                    {% endfor %}
-                                </div>
-                                {% endif %}
-
-                                {% if partido.tag %}
-                                    <div class="mb-2">
-                                        <span class="text-primary fw-semibold fs-7">{{ partido.tag }}</span>
-                                    </div>
-                                {% endif %}
-
-                                <!-- Footer de interacción -->
-                                <div class="x-acciones">
-                                    <span class="x-accion x-accion--comentar"><i class="bi bi-chat"></i>{{ partido.comentarios | numero_compacto }}</span>
-                                    <span class="x-accion x-accion--repost"><i class="bi bi-arrow-repeat"></i>{{ partido.retweets | numero_compacto }}</span>
-                                    <span class="x-accion x-accion--like"><i class="bi bi-heart-fill"></i>{{ partido.likes | numero_compacto }}</span>
-                                    <span class="x-accion"><i class="bi bi-bar-chart-line"></i>{{ partido.visualizaciones | numero_compacto }}</span>
-                                </div>
-                            </a>
-
-                            <!-- Comentarios de jugadores y, en ocasiones, de la cuenta oficial de
-                                 alguna selección, como hilo de respuestas del post -->
-                            {% if partido.comentarios_jugadores %}
-                            <div class="x-post-replies mt-3">
-                                {% for comentario in partido.comentarios_jugadores %}
-                                <div class="x-respuesta d-flex align-items-start gap-2">
-                                    {# Bandera del país que comenta: la de la selección, o la del equipo del jugador (local/visitante de este partido) #}
-                                    {% set bandera_comentario = comentario.bandera if comentario.es_seleccion else (partido.local.bandera if comentario.equipo == partido.local.nombre else (partido.visitante.bandera if comentario.equipo == partido.visitante.nombre else None)) %}
-                                    {% set icono_comentario = img_pais(pais_id_por_bandera(bandera_comentario), 'icono') if bandera_comentario else None %}
-                                    {% if not comentario.es_seleccion and img_avatar(comentario.jugador_id) %}
-                                    {# Cara del jugador que comenta, sobre la bandera de su selección; lleva a su perfil #}
-                                    <a href="/jugadores/{{ comentario.jugador_id }}" class="x-post-avatar-jugador" title="{{ comentario.nombre }} · {{ comentario.equipo }}">
-                                        {{ m.avatar(comentario.jugador_id, pais_id_por_bandera(bandera_comentario) if bandera_comentario else None) }}
-                                    </a>
-                                    {% else %}
-                                    <div class="x-post-avatar x-post-avatar-sm {{ 'x-post-avatar--img' if icono_comentario }}" {% if comentario.equipo %}title="{{ comentario.equipo }}"{% endif %}>
-                                        {% if icono_comentario %}
-                                            <img src="{{ icono_comentario }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">
-                                        {% elif comentario.es_seleccion %}
-                                            🛡️
-                                        {% else %}
-                                            <i class="bi bi-person-fill"></i>
-                                        {% endif %}
-                                    </div>
-                                    {% endif %}
-                                    <div class="flex-grow-1 min-w-0">
-                                        <div class="d-flex align-items-center gap-1 flex-wrap">
-                                            <span class="fw-semibold text-body-emphasis fs-8">{{ comentario.nombre }}</span>
-                                            {% if comentario.es_seleccion %}
-                                                <i class="bi bi-patch-check-fill text-primary fs-8" title="Cuenta Oficial Verificada"></i>
-                                            {% else %}
-                                                <span class="text-muted fs-8">· {{ comentario.equipo }}</span>
-                                            {% endif %}
-                                        </div>
-                                        <div class="text-secondary fs-8">
-                                            {% if comentario.es_seleccion %}
-                                                {{ comentario.comentario }}
-                                            {% else %}
-                                                {{ icono_estado_animo.get(comentario.estado_animo, '💬') }} {{ comentario.estado_animo }}, {{ comentario.comentario }}
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
+                    {% for item in feed_items %}
+                    {% if item.clase == 'partido' %}
+                    {% set partido = item %}{% set pid = 'i' ~ loop.index %}{% set abierto = loop.first %}
+                    {% include "partials/post_partido.html" %}
+                    {% else %}
+                    {% set post = item %}{% include "partials/post_marca.html" %}
+                    {% endif %}
                     {% else %}
                     <p class="text-muted text-center py-4 mb-0">Todavía no se simuló ningún partido.</p>
                     {% endfor %}
+                    {% if feed_items %}
+                    <a href="/red-social/" class="feed-fifav__mas"><i class="bi bi-chat-square-heart-fill"></i>Ver toda la red social: busca publicaciones anteriores, rumores y patrocinios <i class="bi bi-arrow-right"></i></a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -597,7 +487,7 @@
                 <img src="{{ imagen_inicio('copa') }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">
                 <div>
                     <div class="fw-bold text-white mb-1">Todavía nadie tiene su boleto</div>
-                    <div class="text-muted fs-7">Las {{ cupos }} plazas se reparten en las eliminatorias de cada confederación. ¡Simulá partidos para ver quién llega a la Copa!</div>
+                    <div class="text-muted fs-7">Las {{ cupos }} plazas se reparten en las eliminatorias de cada confederación. ¡Simula partidos para ver quién llega a la Copa!</div>
                 </div>
             </div>
             {% endif %}

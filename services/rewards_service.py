@@ -139,14 +139,14 @@ def claim_bankruptcy_rescue(user_id: str) -> dict:
     usuario = _obtener_usuario_activo(user_id)
 
     if usuario.get("monto", 0) != 0:
-        raise ValueError("Solo podés reclamar la Beca de Emergencia si tu saldo es 0")
+        raise ValueError("Solo puedes reclamar la Beca de Emergencia si tu saldo es 0")
 
     tiene_selecciones = db['team_ownerships'].count_documents({"user_id": usuario_oid, "status": "ACTIVO"}) > 0
     tiene_sedes = db['city_ownerships'].count_documents({"user_id": usuario_oid, "status": "ACTIVO"}) > 0
     tiene_quinielas = db['quiniela_usuario'].count_documents({"usuario_id": usuario_oid, "estado": "PENDIENTE"}) > 0
 
     if tiene_selecciones or tiene_sedes or tiene_quinielas:
-        raise ValueError("No podés reclamar la Beca de Emergencia mientras tengas inversiones o quinielas activas")
+        raise ValueError("No puedes reclamar la Beca de Emergencia mientras tengas inversiones o quinielas activas")
 
     fase_actual = _fase_actual()
     registro = db['user_daily_rewards'].find_one({"user_id": usuario_oid}) or {}

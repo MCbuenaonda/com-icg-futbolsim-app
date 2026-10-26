@@ -10,7 +10,7 @@
   /trivia/daily-quiz/{user_id} y /trivia/submit.
 #}
 {% if not v %}
-<div class="alert alert-danger">No se pudo cargar tu estado diario. Refrescá la página.</div>
+<div class="alert alert-danger">No se pudo cargar tu estado diario. Refresca la página.</div>
 {% else %}
 {% set total_mis = v.misiones | length %}
 {% set pct = (v.completas * 100 / total_mis) | round | int if total_mis else 0 %}
@@ -24,7 +24,7 @@
     <div class="min-w-0 flex-grow-1">
       <span class="mis-sobretitulo" id="misFecha">Hoy</span>
       <h1 class="h2 fw-bold text-white mb-1">Misiones Diarias</h1>
-      <p class="text-muted small mb-2">Volvé cada día: check-in, trivia y las acciones del juego suman puntos y XP.</p>
+      <p class="text-muted small mb-2">Vuelve cada día: check-in, trivia y las acciones del juego suman puntos y XP.</p>
       <span class="mis-reinicio"><i class="bi bi-hourglass-split"></i>Se renuevan en <strong id="misCuenta" data-segundos="{{ v.segundos_reinicio }}">--:--:--</strong></span>
     </div>
     <div class="d-flex gap-2 flex-wrap">
@@ -78,9 +78,9 @@
         </div>
         <p class="text-center small text-muted my-3">
           {% if v.checkin.cerro_hoy %}<i class="bi bi-stars text-warning me-1"></i>¡Cerraste la racha hoy! Mañana empieza una nueva.
-          {% elif estado.ya_reclamo_checkin_hoy %}Racha de <strong class="text-white">{{ v.checkin.racha }}</strong> {{ 'día' if v.checkin.racha == 1 else 'días' }}: volvé mañana para no cortarla.
-          {% elif v.checkin.racha == 0 %}Empezá tu racha hoy: si faltás un día, vuelve a cero.
-          {% else %}Llevás <strong class="text-white">{{ v.checkin.racha }}</strong> {{ 'día' if v.checkin.racha == 1 else 'días' }} seguidos.{% endif %}
+          {% elif estado.ya_reclamo_checkin_hoy %}Racha de <strong class="text-white">{{ v.checkin.racha }}</strong> {{ 'día' if v.checkin.racha == 1 else 'días' }}: vuelve mañana para no cortarla.
+          {% elif v.checkin.racha == 0 %}Empieza tu racha hoy: si faltas un día, vuelve a cero.
+          {% else %}Llevas <strong class="text-white">{{ v.checkin.racha }}</strong> {{ 'día' if v.checkin.racha == 1 else 'días' }} seguidos.{% endif %}
         </p>
         <button type="button" id="btnCheckin" class="btn mis-btn mis-btn--verde w-100 fw-bold rounded-pill mt-auto" {{ 'disabled' if estado.ya_reclamo_checkin_hoy }}>
           {% if estado.ya_reclamo_checkin_hoy %}<i class="bi bi-check2-circle me-1"></i>Ya reclamaste hoy
@@ -113,7 +113,7 @@
         </div>
         <button type="button" id="btnIniciarTrivia" class="btn mis-btn mis-btn--celeste w-100 fw-bold rounded-pill mt-auto" {{ 'disabled' if not estado.puede_jugar_trivia }}>
           {% if estado.puede_jugar_trivia %}<i class="bi bi-play-fill me-1"></i>Jugar trivia ({{ t.restantes }} de {{ t.maximo }})
-          {% else %}<i class="bi bi-moon-stars me-1"></i>Volvé mañana por más{% endif %}
+          {% else %}<i class="bi bi-moon-stars me-1"></i>Vuelve mañana por más{% endif %}
         </button>
       </div>
     </div>
@@ -131,7 +131,7 @@
           {% endfor %}
         </ul>
         <button type="button" id="btnBeca" class="btn mis-btn mis-btn--ambar w-100 fw-bold rounded-pill" {{ 'disabled' if not v.beca.disponible }}>
-          {% if v.beca.disponible %}<i class="bi bi-cash-coin me-1"></i>Pedir beca (+{{ v.beca.monto }} pts){% else %}<i class="bi bi-shield-check me-1"></i>No la necesitás por ahora{% endif %}
+          {% if v.beca.disponible %}<i class="bi bi-cash-coin me-1"></i>Pedir beca (+{{ v.beca.monto }} pts){% else %}<i class="bi bi-shield-check me-1"></i>No la necesitas por ahora{% endif %}
         </button>
       </div>
     </div>
@@ -152,7 +152,7 @@
           <strong class="{{ 'text-success' if p.monto > 0 else 'text-muted' }}">+{{ p.monto }}</strong>
         </div>
         {% else %}
-        <p class="text-muted small text-center my-4">Todavía no cobraste premios: empezá por el check-in de hoy.</p>
+        <p class="text-muted small text-center my-4">Todavía no cobraste premios: empieza por el check-in de hoy.</p>
         {% endfor %}
       </div>
     </div>

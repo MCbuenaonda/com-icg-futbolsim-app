@@ -27,7 +27,7 @@ TIPOS_ESTAMPA = ["JUGADOR", "LEYENDA", "EQUIPO", "CIUDAD", "PAIS", "ARBITRO", "M
 
 # Categorías de rareza (de la más común a la más rara): cada estampa del sobre sale de una categoría con
 # esta probabilidad, y la repetida se "vende" sola por 'bonus_repetida'. Es la ÚNICA fuente de verdad: los
-# pesos, los bonus, la XP por categoría (config/niveles.py) y los marcos del frontend salen de acá.
+# pesos, los bonus, la XP por categoría (config/niveles.py) y los marcos del frontend salen de aquí.
 # Por sobre de 5: ~3,3 normales y 1 especial; una leyenda cada ~4 sobres, una dorada cada ~3 y una
 # platino cada ~7. Las LEYENDAS (jugadores.leyenda, agregar_leyendas.py) son jugadores: se guardan en
 # el mismo owned_jugadores (así la sinergia de fantasy/regalías las cubre sola), pero tienen su propia
@@ -120,7 +120,7 @@ def buy_and_open_pack(usuario_id: str, origen: str = "COMPRA") -> dict:
     if campo_regalo:
         descuento = db['usuarios'].update_one({"_id": usuario_oid, campo_regalo: {"$gte": 1}}, {"$inc": {campo_regalo: -1}})
         if descuento.modified_count == 0:
-            raise ValueError("No tenés sobres de regalo de ese tipo")
+            raise ValueError("No tienes sobres de regalo de ese tipo")
     else:
         if usuario.get("monto", 0) < COSTO_SOBRE:
             raise ValueError("Saldo insuficiente para comprar un sobre")
@@ -228,15 +228,15 @@ def canjear_estampa(usuario_id: str, tipo: str, estampa_id: int) -> dict:
     campo = CAMPO_ALBUM_POR_TIPO[tipo]
     album = db['user_albums'].find_one({"user_id": usuario_oid}) or {}
     if estampa_id in (album.get(campo) or []):
-        raise ValueError("Ya tenés esa estampa")
+        raise ValueError("Ya tienes esa estampa")
     costo = COSTO_CANJE[tipo]
     gastar = _a_consumir({t: int(n) for t, n in (album.get("repetidas") or {}).items() if n}, costo)
     if not gastar:
-        raise ValueError(f"Necesitás {costo} repetidas para canjear esta estampa")
+        raise ValueError(f"Necesitas {costo} repetidas para canjear esta estampa")
     filtro = {"user_id": usuario_oid, campo: {"$ne": estampa_id}, **{f"repetidas.{t}": {"$gte": n} for t, n in gastar.items()}}
     ok = db['user_albums'].update_one(filtro, {"$inc": {f"repetidas.{t}": -n for t, n in gastar.items()}, "$addToSet": {campo: estampa_id}})
     if not ok.modified_count:
-        raise ValueError("No se pudo canjear: tus repetidas cambiaron, probá de nuevo")
+        raise ValueError("No se pudo canjear: tus repetidas cambiaron, prueba de nuevo")
     canje = {"user_id": usuario_oid, "tipo": "CANJE", "estampa_tipo": tipo, "estampa_id": estampa_id, "nombre": doc.get("nombre"),
              "repetidas_usadas": gastar, "costo": costo, "monto": 0, "created_at": datetime.now()}
     canje["_id"] = db['album_canjes'].insert_one(canje).inserted_id
@@ -259,7 +259,7 @@ def vender_repetidas(usuario_id: str) -> dict:
             vendidas[t] = n
             total_pts += n * BONUS_DUPLICADA_POR_TIPO.get(t, BONUS_ESTAMPA_DUPLICADA)
     if not total_pts:
-        raise ValueError("No tenés repetidas para vender")
+        raise ValueError("No tienes repetidas para vender")
     db['usuarios'].update_one({"_id": usuario_oid}, {"$inc": {"monto": total_pts}})
     db['album_canjes'].insert_one({"user_id": usuario_oid, "tipo": "VENTA", "repetidas_usadas": vendidas, "monto": total_pts,
                                    "created_at": datetime.now()})
@@ -476,7 +476,7 @@ def obtener_coleccion_usuario(usuario_id: str) -> dict:
     """
     Estampas poseídas por el usuario y el % de llenado de jugadores por país (estilo
     álbum Panini). Además del resumen numérico, arma el DETALLE navegable de cada tipo
-    de estampa (qué países/ciudades exactos tenés, y qué jugadores exactos por país),
+    de estampa (qué países/ciudades exactos tienes, y qué jugadores exactos por país),
     para la vista de "Mi Colección" (templates/album_coleccion.html) -- incluyendo, por
     estampa, si ya le dio alguna regalía/sinergia al usuario (ver funciones
     _paises_con_regalia / _ciudades_con_regalia / _jugadores_con_regalia).

@@ -10,6 +10,7 @@ from config.secciones import pagina_inicial
 from services.auth_service import context_usuario_actual, es_request_html, obtener_usuario_actual, requiere_permiso
 from routes.simular_route import route as simular_route
 from routes.home_route import route as home_route
+from routes.red_social_route import route as red_social_route
 from routes.paises_route import route as paises_route
 from routes.jugadores_route import route as jugadores_route
 from routes.confederacion_route import route as confederacion_route
@@ -32,6 +33,8 @@ from routes.juego_en_vivo_route import route as juego_en_vivo_route
 from routes.admin_route import route as admin_route
 from routes.torneo_route import route_arbitros, route_cara_a_cara, route_cuadro, route_palmares, route_ranking, route_tecnicos
 from routes.arte_mundial_route import route_admin as arte_admin_route, route_imagenes as arte_imagenes_route, route_vistas as arte_vistas_route
+from routes.tareas_route import route as tareas_route
+from config.settings import PULSO_LOCAL
 
 
 app = FastAPI(title="Simulador de Fútbol")
@@ -68,6 +71,7 @@ def _permiso(*codigos):
 
 app.include_router(auth_route)
 app.include_router(home_route, dependencies=_permiso("inicio"))
+app.include_router(red_social_route, dependencies=_permiso("inicio"))
 app.include_router(simular_route, dependencies=_permiso("partidos"))
 app.include_router(juegos_route, dependencies=_permiso("partidos"))
 app.include_router(paises_route, dependencies=_permiso("paises"))
@@ -108,6 +112,16 @@ app.include_router(corporativo_route, dependencies=_permiso("corporativos"))
 app.include_router(corporativo_vistas_route, dependencies=_permiso("corporativos"))
 app.include_router(asistente_route, dependencies=_permiso("asistente"))
 app.include_router(admin_route, dependencies=_permiso("gestion_usuarios"))
+# Tareas de Cloud Scheduler (el pulso): sin sesión, se autentican con la cabecera X-Pulso-Clave (ver routes/tareas_route.py)
+app.include_router(tareas_route)
+
+
+@app.on_event("startup")
+def _pulso_local():
+    """PULSO_LOCAL=1 (desarrollo): la app da el pulso por su cuenta cada 30 s (services/pulso_service.py)."""
+    if PULSO_LOCAL:
+        from services.pulso_service import iniciar_pulso_local
+        iniciar_pulso_local()
 
 
 _templates_errores = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])

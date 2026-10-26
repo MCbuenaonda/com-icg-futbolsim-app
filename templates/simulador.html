@@ -186,8 +186,8 @@
                     {% if puede('corporativos') %}{{ m.insignia_corp(corp_representantes(usuario_actual), 'seleccion', pid, enlace=False) }}{% endif %}
                     {% if marcas and (marcas.quiniela or marcas.fantasy or marcas.dueno_pais) %}
                     <span class="d-flex gap-1 justify-content-center mt-1">
-                        {% if marcas.quiniela %}<span class="previa-marca text-info" title="Tenés un pronóstico de quiniela por {{ nombre }}"><i class="bi bi-ticket-perforated-fill"></i></span>{% endif %}
-                        {% if marcas.fantasy %}<span class="previa-marca text-accent" title="Tenés jugadores de {{ nombre }} en tu Once Ideal"><i class="bi bi-stars"></i></span>{% endif %}
+                        {% if marcas.quiniela %}<span class="previa-marca text-info" title="Tienes un pronóstico de quiniela por {{ nombre }}"><i class="bi bi-ticket-perforated-fill"></i></span>{% endif %}
+                        {% if marcas.fantasy %}<span class="previa-marca text-accent" title="Tienes jugadores de {{ nombre }} en tu Once Ideal"><i class="bi bi-stars"></i></span>{% endif %}
                         {% if marcas.dueno_pais %}<span class="previa-marca text-success" title="Sos dueño de la selección de {{ nombre }}"><i class="bi bi-briefcase-fill"></i></span>{% endif %}
                     </span>
                     {% endif %}
@@ -272,7 +272,7 @@
                         <span class="previa-ficha__label">Quiniela activa</span>
                         {% if partidos_restantes_quiniela > 0 %}
                         <strong class="d-block">{{ partidos_restantes_quiniela }} partido{{ 's' if partidos_restantes_quiniela != 1 }} por resolver</strong>
-                        <small class="text-muted">Comprás otra cuando se resuelvan</small>
+                        <small class="text-muted">Compras otra cuando se resuelvan</small>
                         {% else %}
                         <strong class="d-block text-success">¡Sin pendientes!</strong>
                         <a href="{{ url_for('quinielas_home') }}" class="small link-success">Comprar una quiniela <i class="bi bi-arrow-right"></i></a>

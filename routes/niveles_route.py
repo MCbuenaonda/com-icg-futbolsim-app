@@ -32,7 +32,7 @@ async def reclamar(nivel: int, request: Request):
     """Reclama la recompensa PENDIENTE de un nivel (siempre el usuario de la sesión)."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
     try:
         resultado = reclamar_recompensa(usuario["_id"], nivel)
     except ValueError as e:
@@ -48,6 +48,6 @@ async def visto(request: Request):
     """Cierra el aviso de "¡Subiste de nivel!" de base.html."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
     marcar_nivel_visto(usuario["_id"])
     return {"ok": True}

@@ -84,20 +84,20 @@ def analizar_misiones(ctx: Contexto) -> List[dict]:
         cierra_racha = estado["dias_para_bono_especial"] == 1
         bono = rewards_service.BONO_CHECKIN_DIARIO + (rewards_service.BONO_RACHA_ESPECIAL if cierra_racha else 0)
         salida.append(consejo(
-            "misiones", "GRATIS", "Hacé el check-in de hoy",
-            "Son puntos regalados: un clic y entran al saldo." + (" Hoy además cerrás la racha de 5 días." if cierra_racha else ""),
+            "misiones", "GRATIS", "Haz el check-in de hoy",
+            "Son puntos regalados: un clic y entran al saldo." + (" Hoy además cierras la racha de 5 días." if cierra_racha else ""),
             "/misiones/", "Hacer check-in", porque=[f"Racha actual: {estado['racha_actual']} días"],
             numeros=[f"+{bono} pts"], valor=bono, urgencia=60, clave="misiones:checkin"))
     if estado["trivia_sesiones_restantes"] > 0:
         maximo = estado["trivia_sesiones_restantes"] * trivia_service.PUNTOS_MAXIMOS_SESION
         salida.append(consejo(
-            "misiones", "GRATIS", f"Jugá la trivia ({_plural(estado['trivia_sesiones_restantes'], 'sesión', 'sesiones')} hoy)",
+            "misiones", "GRATIS", f"Juega la trivia ({_plural(estado['trivia_sesiones_restantes'], 'sesión', 'sesiones')} hoy)",
             "Tres preguntas sobre el torneo; cada acierto suma.", "/misiones/", "Jugar trivia",
             porque=["Las preguntas salen de datos reales del Mundial"], numeros=[f"Hasta +{maximo} pts"], valor=maximo,
             confianza="media", urgencia=30, clave="misiones:trivia"))
     if estado["puede_reclamar_beca_emergencia"]:
         salida.append(consejo(
-            "misiones", "GRATIS", "Pedí la beca de emergencia",
+            "misiones", "GRATIS", "Pide la beca de emergencia",
             "Estás sin saldo y sin inversiones: te corresponde la beca para volver a jugar.", "/misiones/", "Pedir beca",
             numeros=[f"+{rewards_service.MONTO_BECA_EMERGENCIA} pts"], valor=rewards_service.MONTO_BECA_EMERGENCIA,
             urgencia=90, clave="misiones:beca"))
@@ -112,7 +112,7 @@ def analizar_niveles(ctx: Contexto) -> List[dict]:
     pendientes = int(ctx.usuario.get("recompensas_pendientes") or 0)
     if pendientes > 0:
         salida.append(consejo(
-            "niveles", "GRATIS", f"Reclamá {_plural(pendientes, 'recompensa', 'recompensas')} de nivel",
+            "niveles", "GRATIS", f"Reclama {_plural(pendientes, 'recompensa', 'recompensas')} de nivel",
             "Subiste de nivel y el premio sigue esperando.", "/niveles/", "Reclamar",
             porque=["Las recompensas no vencen, pero el saldo te sirve ahora"], urgencia=70, clave="niveles:recompensas"))
     sobres = int(ctx.usuario.get("sobres_gratis") or 0)
@@ -121,7 +121,7 @@ def analizar_niveles(ctx: Contexto) -> List[dict]:
         partes = ([_plural(sobres, "sobre gratis", "sobres gratis")] if sobres else []) + \
                  ([_plural(platino, "sobre Platino", "sobres Platino")] if platino else [])
         salida.append(consejo(
-            "album", "GRATIS", f"Abrí tus {' y '.join(partes)}",
+            "album", "GRATIS", f"Abre tus {' y '.join(partes)}",
             "Ya son tuyos: cada estampa nueva puede activar una sinergia ×1,5 en tus inversiones.", "/album-estampas/sobres",
             "Abrir sobres", porque=["Los sobres regalados no se cobran"] + (["El Platino trae un escudo garantizado"] if platino else []),
             urgencia=50, clave="album:sobres_regalo"))
@@ -150,8 +150,8 @@ def analizar_selecciones(ctx: Contexto) -> List[dict]:
         plus = valor - int(inv.get("purchase_price") or 0)
         motivo = "Quedó eliminada del Mundial" if estado["codigo"] == "eliminado" else "No juega este Mundial"
         salida.append(consejo(
-            "selecciones", "URGENTE", f"Vendé {p.get('nombre', 'tu selección')}",
-            "Ya no gana partidos ni avanza de fase: es saldo parado que podés poner a trabajar en otra.",
+            "selecciones", "URGENTE", f"Vende {p.get('nombre', 'tu selección')}",
+            "Ya no gana partidos ni avanza de fase: es saldo parado que puedes poner a trabajar en otra.",
             "/selecciones/portafolio", "Ver en mi portafolio", porque=[motivo, "No vuelve a cobrar dividendos este Mundial"],
             numeros=[f"Venta hoy: {valor:,} pts", f"{plus:+,} vs. la compra"], valor=valor, urgencia=80,
             clave=f"selecciones:vender:{pid}", pais_id=pid, bandera=p.get("bandera")))
@@ -170,9 +170,9 @@ def analizar_once_ideal(ctx: Contexto) -> List[dict]:
         equipo = db['fantasy_teams'].find_one({"user_id": ctx.uid, "mundial_id": {"$exists": False}}, sort=[("fase_id", -1)])
     if not equipo:
         return [consejo(
-            "once_ideal", "OPORTUNIDAD", "Armá tu Once Ideal",
+            "once_ideal", "OPORTUNIDAD", "Arma tu Once Ideal",
             "Armarlo es gratis y suma puntos en todos los partidos del Mundial que quedan.", "/once-ideal/", "Armar equipo",
-            porque=["Cada partido que pasa sin equipo son puntos que no sumás"], confianza="alta", urgencia=35,
+            porque=["Cada partido que pasa sin equipo son puntos que no sumas"], confianza="alta", urgencia=35,
             clave="once_ideal:armar")]
 
     salida = []
@@ -182,7 +182,7 @@ def analizar_once_ideal(ctx: Contexto) -> List[dict]:
     if fuera:
         nombres = ", ".join(j.get("nombre", "?") for j in fuera[:4]) + ("…" if len(fuera) > 4 else "")
         salida.append(consejo(
-            "once_ideal", "URGENTE", f"Cambiá {_plural(len(fuera), 'jugador eliminado', 'jugadores eliminados')} de tu Once",
+            "once_ideal", "URGENTE", f"Cambia {_plural(len(fuera), 'jugador eliminado', 'jugadores eliminados')} de tu Once",
             "Sus selecciones ya no juegan: no suman más puntos. Reemplazarlos no te cuesta cambios ni saldo.",
             "/once-ideal/", "Ir al Once Ideal", porque=[nombres], numeros=[f"{len(fuera)} de 11 sin sumar"],
             urgencia=85, clave="once_ideal:eliminados", jugador_id=fuera[0]["id"], pais_id=fuera[0].get("pais_id")))
@@ -195,9 +195,9 @@ def analizar_once_ideal(ctx: Contexto) -> List[dict]:
     if cambios >= TOPE_CAMBIOS_AVISO:
         al_tope = cambios >= FS.TOPE_CAMBIOS_GRATIS
         salida.append(consejo(
-            "once_ideal", "OPORTUNIDAD", f"Usá tus {cambios} cambios gratis",
+            "once_ideal", "OPORTUNIDAD", f"Usa tus {cambios} cambios gratis",
             ("Llegaste al tope: los de la próxima jornada se pierden." if al_tope else "Estás cerca del tope y los que lo pasen se pierden.")
-            + " Cambiá a los que menos suman.", "/once-ideal/", "Hacer cambios",
+            + " Cambia a los que menos suman.", "/once-ideal/", "Hacer cambios",
             porque=[f"Faltan {jornada['faltan']} partidos para la jornada {jornada['numero'] + 1}"],
             numeros=[f"{cambios}/{FS.TOPE_CAMBIOS_GRATIS} cambios gratis", f"Cada cambio extra cuesta {FS.COSTO_CAMBIO_EXTRA} pts"],
             valor=FS.COSTO_CAMBIO_EXTRA * FS.CAMBIOS_GRATIS_POR_JORNADA if al_tope else None,
@@ -214,7 +214,7 @@ def analizar_corporativo(ctx: Contexto) -> List[dict]:
     universo = U.obtener_universo(ctx.uid_str)
     if not universo:
         return [consejo(
-            "corporativo", "OPORTUNIDAD", "Empezá tu carrera de CEO",
+            "corporativo", "OPORTUNIDAD", "Empieza tu carrera de CEO",
             "Dirigir un corporativo te paga un sueldo por ciclo, además de lo que ganes en el resto del juego.",
             "/corporativo/", "Buscar empleo", porque=["Las primeras ofertas llegan a los pocos partidos"],
             confianza="media", urgencia=10, clave="corporativo:empezar")]
@@ -228,9 +228,9 @@ def analizar_corporativo(ctx: Contexto) -> List[dict]:
         buscando = universo.get("estado") == "BUSCANDO"
         salida.append(consejo(
             "corporativo", "URGENTE" if buscando else "OPORTUNIDAD",
-            f"Respondé {_plural(len(ofertas_empleo), 'oferta de empleo', 'ofertas de empleo')}",
+            f"Responde {_plural(len(ofertas_empleo), 'oferta de empleo', 'ofertas de empleo')}",
             ("Estás sin cargo: aceptar una oferta te pone a cobrar sueldo." if buscando
-             else "Otros corporativos te quieren: compará antes de que venzan."),
+             else "Otros corporativos te quieren: compara antes de que venzan."),
             "/corporativo/", "Ver ofertas", porque=[", ".join(sorted({o["sigla"] for o in ofertas_empleo}))],
             numeros=[f"La primera vence en {_plural(max(vence, 0), 'ciclo', 'ciclos')}"],
             urgencia=75 if buscando else 40, clave="corporativo:ofertas_empleo"))
@@ -244,17 +244,36 @@ def analizar_corporativo(ctx: Contexto) -> List[dict]:
     if confianza is not None and confianza < CC.CONFIANZA_ULTIMATUM:
         salida.append(consejo(
             "corporativo", "URGENTE", f"El directorio de {sigla} está por despedirte",
-            "La confianza está en zona de ultimátum: cumplí los objetivos y cuidá el ROI este ciclo.", "/corporativo/",
+            "La confianza está en zona de ultimátum: cumple los objetivos y cuida el ROI este ciclo.", "/corporativo/",
             "Ver objetivos", porque=["Si baja del mínimo, te despiden al cierre del ciclo"],
             numeros=[f"Confianza {confianza}/100 (despido < {CC.CONFIANZA_DESPIDO})"], urgencia=95, clave="corporativo:ultimatum"))
 
     por_vencer = [c for c in U.contratos_activos(ctx.uid_str, sigla) if c["hasta_ciclo"] - ciclo + 1 <= CC.CICLOS_AVISO_RENOVACION]
     if por_vencer:
-        salida.append(consejo(
-            "corporativo", "OPORTUNIDAD", f"Renová {_plural(len(por_vencer), 'contrato que vence', 'contratos que vencen')}",
-            "Si no los renovás, se van libres y perdés su renta.", "/corporativo/", "Ver cartera",
-            porque=[", ".join(nombre_ref(c["tipo"], c["ref_id"]) for c in por_vencer[:4])],
-            urgencia=45, clave="corporativo:renovar"))
+        # la misma recomendación que la cartera (corporativo_reglas._senal_cartera): renovar / esperar / no renovar
+        from services import corporativo_service as CS
+        from services.corporativo_mercado_service import valores as _valores
+        v, ctxp = _valores(), CS._contexto_partidos()
+        decision = {}
+        for c in por_vencer:
+            valor = (v["selecciones"] if c["tipo"] == "seleccion" else v["jugadores"]).get(c["ref_id"], 0)
+            sn = CS.senal_de(c["tipo"], c["ref_id"], valor, CS.juego_de(c["tipo"], c["ref_id"], ctxp), ctxp, c, ciclo)
+            decision.setdefault((sn.get("renovacion") or {}).get("decision", "renovar"), []).append(c)
+        renovar, esperar = decision.get("renovar", []), decision.get("esperar", [])
+        if renovar:
+            salida.append(consejo(
+                "corporativo", "OPORTUNIDAD", f"Renueva {_plural(len(renovar), 'contrato que conviene', 'contratos que convienen')}",
+                "Vienen rindiendo bien y su contrato está por vencer: si no los renuevas, se van libres y pierdes su renta.",
+                "/corporativo/", "Ver cartera", porque=[", ".join(nombre_ref(c["tipo"], c["ref_id"]) for c in renovar[:4])],
+                urgencia=45, clave="corporativo:renovar"))
+        if esperar:
+            salida.append(consejo(
+                "corporativo", "GRATIS", f"Espera antes de renovar a {_plural(len(esperar), 'representado', 'representados')}",
+                "Sus resultados son mixtos y todavía juegan antes de que venza el contrato: velos jugar y decide después.",
+                "/corporativo/", "Ver cartera", porque=[", ".join(nombre_ref(c["tipo"], c["ref_id"]) for c in esperar[:4])],
+                urgencia=20, clave="corporativo:esperar_renovar"))
+
+    salida += _consejos_corporativo_v2(ctx, sigla, ciclo, nombre_ref)
 
     for o in db['corp_ofertas'].find({"universo_id": ctx.uid_str, "sigla": sigla, "estado": "PENDIENTE",
                                       "tipo": {"$in": ["SALIDA", "OFERTA_IA", "CONTRAOFERTA", "PROPUESTA"]}}):
@@ -262,27 +281,97 @@ def analizar_corporativo(ctx: Contexto) -> List[dict]:
         vence = o.get("vence_ciclo", ciclo) - ciclo + 1
         if o["tipo"] == "SALIDA":
             salida.append(consejo(
-                "corporativo", "URGENTE", f"{nombre} quiere irse", "Si lo retenés sin resolver, su satisfacción sigue cayendo.",
+                "corporativo", "URGENTE", f"{nombre} quiere irse", "Si lo retienes sin resolver, su satisfacción sigue cayendo.",
                 "/corporativo/mercado", "Ir al mercado", numeros=[f"Vence en {_plural(max(vence, 0), 'ciclo', 'ciclos')}"],
                 urgencia=60, clave=f"corporativo:salida:{o['_id']}"))
         elif o["tipo"] == "OFERTA_IA":
             salida.append(consejo(
                 "corporativo", "OPORTUNIDAD", f"{o.get('sigla_comprador')} ofrece {o.get('monto', 0):,} por {nombre}",
-                "Una venta entra directo al capital: comparala con la renta que te deja.", "/corporativo/mercado", "Ver oferta",
+                "Una venta entra directo al capital: compárala con la renta que te deja.", "/corporativo/mercado", "Ver oferta",
                 numeros=[f"Vence en {_plural(max(vence, 0), 'ciclo', 'ciclos')}"], confianza="media", riesgo="medio",
                 urgencia=35, nivel_minimo="ANALISIS", clave=f"corporativo:oia:{o['_id']}"))
         elif o["tipo"] == "CONTRAOFERTA":
             salida.append(consejo(
                 "corporativo", "OPORTUNIDAD", f"Contraoferta por {nombre}",
-                "El rival pide más por el traspaso; si lo aceptás se firma al instante.", "/corporativo/mercado", "Ver contraoferta",
+                "El rival pide más por el traspaso; si lo aceptas se firma al instante.", "/corporativo/mercado", "Ver contraoferta",
                 numeros=[f"Pide {o.get('monto', 0):,}"], confianza="media", riesgo="medio", urgencia=30,
                 nivel_minimo="ANALISIS", clave=f"corporativo:contra:{o['_id']}"))
         else:
             salida.append(consejo(
                 "corporativo", "OPORTUNIDAD", f"{nombre} quiere firmar con {sigla}",
-                "Un talento se ofrece solo: revisá si la prima vale su renta.", "/corporativo/mercado", "Ver propuesta",
+                "Un talento se ofrece solo: revisa si la prima vale su renta.", "/corporativo/mercado", "Ver propuesta",
                 numeros=[f"Prima {o.get('prima', 0):,}"], confianza="media", riesgo="medio", urgencia=20,
                 nivel_minimo="ANALISIS", clave=f"corporativo:prop:{o['_id']}"))
+    return salida
+
+
+def _consejos_corporativo_v2(ctx: Contexto, sigla: str, ciclo: int, nombre_ref) -> List[dict]:
+    """Saneamiento, señales de venta, acuerdos y giras: con las MISMAS funciones que la cartera (corporativo_service)."""
+    from services import corporativo_service as CS
+    from services import corporativo_universo_service as U
+    from services.corporativo_mercado_service import valores
+    salida = []
+    corp = db['corp_corporativos'].find_one({"universo_id": ctx.uid_str, "sigla": sigla}, {"saneamiento": 1}) or {}
+    san = corp.get("saneamiento") or {}
+    if san.get("estado") == "ACTIVO":
+        faltan = [CC.SANEAMIENTO_OBJETIVOS[k] for k in san.get("objetivos", []) if not (san.get("progreso", {}).get(k) or {}).get("ok")]
+        if faltan:
+            salida.append(consejo(
+                "corporativo", "URGENTE", f"Plan de saneamiento: te {'falta' if len(faltan) == 1 else 'faltan'} {len(faltan)} objetivo{'s' if len(faltan) > 1 else ''}",
+                f"Si lo cumples antes del cierre del ciclo {san['hasta_ciclo']}, los accionistas aportan {san.get('aporte', 0):,} de capital.",
+                "/corporativo/", "Ver el plan", porque=faltan[:3], urgencia=85, clave="corporativo:saneamiento"))
+    v = valores()
+    ctxp = CS._contexto_partidos()
+    activos = U.contratos_activos(ctx.uid_str, sigla)
+    vender = []
+    for c in activos:
+        valor = (v["selecciones"] if c["tipo"] == "seleccion" else v["jugadores"]).get(c["ref_id"], 0)
+        sn = CS.senal_de(c["tipo"], c["ref_id"], valor, CS.juego_de(c["tipo"], c["ref_id"], ctxp), ctxp, c, ciclo)
+        if sn["senal"] == "vender":
+            vender.append((c, sn))
+    for c, sn in vender[:2]:
+        nombre = nombre_ref(c["tipo"], c["ref_id"])
+        salida.append(consejo(
+            "corporativo", "OPORTUNIDAD", f"Piensa en soltar a {nombre}",
+            "Rinde mal y pide renovación: no lo renueves; véndelo si te ofrecen algo o rescinde antes de que te cueste más.", f"/corporativo/{sigla}", "Ver cartera",
+            porque=[m["texto"] for m in sn["motivos"] if m["tono"] == "neg"][:3], confianza="media", riesgo="medio", urgencia=30,
+            nivel_minimo="ANALISIS", clave=f"corporativo:vender:{c['_id']}"))
+    # Marcas y patrocinios (corporativo_marcas_service): ofertas sin responder, patrocinios en riesgo y a quién promover
+    try:
+        from services import corporativo_marcas_service as MK
+        res = MK.resumen(ctx.uid_str, sigla)
+        for o in res["ofertas"][:2]:
+            salida.append(consejo(
+                "corporativo", "URGENTE", f"{o['marca']['nombre']} quiere patrocinar a {o['nombre']}",
+                f"Firma {o['firma']:,} y {o['pago_ciclo']:,} por ciclo durante {o['ciclos']} ciclos; el {int(CC.MARCA_COMISION_CEO * 100)}% es tu comisión. "
+                "Si no respondes antes del cierre del ciclo siguiente, la oferta se pierde.", "/corporativo/marcas", "Responder",
+                numeros=[f"Encaje {o['encaje']}/100"], urgencia=70, clave=f"corporativo:patrocinio:{o['_id']}"))
+        if res["en_riesgo"]:
+            salida.append(consejo(
+                "corporativo", "URGENTE", f"{res['en_riesgo']} patrocinio{'s' if res['en_riesgo'] > 1 else ''} en riesgo",
+                "La marca está revisando el patrocinio: si el próximo ciclo sigue igual, corta. Que juegue, una gira o una campaña de marketing ayudan.",
+                "/corporativo/marcas", "Ver patrocinios", urgencia=55, nivel_minimo="ANALISIS", clave="corporativo:marca_riesgo"))
+        promos = db['corp_patrocinios'].count_documents({"universo_id": ctx.uid_str, "origen": "PROMOCION", "ciclo": ciclo})
+        if promos < CC.MARCA_PROMOCIONES_POR_CICLO:
+            vista = MK.vista_marcas(ctx.uid_str) or {}
+            mejores = sorted(((mk, c) for mk in vista.get("interesadas", []) for c in mk["candidatos"]), key=lambda x: -x[1]["encaje"])[:3]
+            if mejores:
+                salida.append(consejo(
+                    "corporativo", "GRATIS", "Promueve a tus representados con una marca",
+                    "Hay marcas con cupo que encajan con tu cartera: preséntaselos y responden al cierre del ciclo. Firma + pago por ciclo, juegue o no.",
+                    "/corporativo/marcas", "Ver marcas interesadas",
+                    porque=[f"{c['nombre']} → {mk['nombre']} ({round(c['prob'] * 100)}% acepta)" for mk, c in mejores],
+                    numeros=[f"{CC.MARCA_PROMOCIONES_POR_CICLO - promos} promociones disponibles este ciclo"], urgencia=25, clave="corporativo:promover"))
+    except Exception as e:
+        print(f"[asistente] marcas: {e}")
+    if not db['corp_giras'].find_one({"universo_id": ctx.uid_str, "sigla": sigla, "ciclo": ciclo}):
+        sin_partido = [c for c in activos if c["tipo"] == "seleccion" and not CS.juego_de("seleccion", c["ref_id"], ctxp).get("partidos_2")]
+        if sin_partido:
+            salida.append(consejo(
+                "corporativo", "OPORTUNIDAD", "Organiza una gira de exhibición",
+                "Tus selecciones sin partidos cercanos pueden salir de gira: recaudas y, si sos el primero en un tiempo, suman aficionados reales.",
+                f"/corporativo/{sigla}", "Organizar gira", porque=[", ".join(nombre_ref("seleccion", c["ref_id"]) for c in sin_partido[:3])],
+                confianza="media", urgencia=20, nivel_minimo="ANALISIS", clave="corporativo:gira"))
     return salida
 
 
@@ -366,8 +455,8 @@ def analizar_quinielas(ctx: Contexto) -> List[dict]:
               for p in mejor["elegidos"][:5]]
     cfg = mejor["cfg"]
     return [consejo(
-        "quinielas", "OPORTUNIDAD", f"Jugá la {cfg['nombre']}",
-        "Elegí los partidos más previsibles del calendario que viene: es la quiniela que mejor rinde con estos pronósticos.",
+        "quinielas", "OPORTUNIDAD", f"Juega la {cfg['nombre']}",
+        "Elige los partidos más previsibles del calendario que viene: es la quiniela que mejor rinde con estos pronósticos.",
         "/quinielas/", "Ir a quinielas", porque=porque,
         numeros=[f"Costo {cfg['costo_puntos']:,} pts", f"Cobrar algún premio: {_pct(mejor['cobra'])}"],
         valor=round(mejor["ev"]), confianza=confianza_por_prob(mejor["cobra"]), riesgo="medio", urgencia=15,
@@ -402,9 +491,9 @@ def analizar_mercado_selecciones(ctx: Contexto) -> List[dict]:
         partidos = por_pais[pid]
         porque = [f"Juega {_plural(len(partidos), 'partido', 'partidos')} en lo que viene; gana el {_pct(max(g for g, _, _ in partidos))} en el mejor"]
         if sinergia:
-            porque.append("Tenés su estampa: los dividendos te pagan ×1,5")
+            porque.append("Tienes su estampa: los dividendos te pagan ×1,5")
         salida.append(consejo(
-            "selecciones", "OPORTUNIDAD", f"Comprá {p.get('nombre')}",
+            "selecciones", "OPORTUNIDAD", f"Compra {p.get('nombre')}",
             "Está libre y le vienen partidos favorables: dividendos por ganar y su valor de mercado puede subir.",
             "/selecciones/mercado", "Ir al mercado", porque=porque,
             numeros=[f"Precio {valor:,} pts", f"Dividendos esperados {round(dividendos):,}", f"Plusvalía esperada {round(plusvalia):+,}"],
@@ -444,7 +533,7 @@ def analizar_cambio_once(ctx: Contexto) -> List[dict]:
         return []
     sin_partido = flojo.get("pais_id") not in por_pais
     return [consejo(
-        "once_ideal", "OPORTUNIDAD", f"Cambiá a {flojo.get('nombre')} por {reemplazo.get('nombre')}",
+        "once_ideal", "OPORTUNIDAD", f"Cambia a {flojo.get('nombre')} por {reemplazo.get('nombre')}",
         "Misma posición, mejor momento y con partido en lo que viene.", "/once-ideal/", "Ir al Once Ideal",
         porque=(["Su selección no juega en los próximos partidos"] if sin_partido else []) +
                [f"Rendimiento {reemplazo.get('rendimiento', 0):.1f} vs {flojo.get('rendimiento', 0):.1f}",
@@ -494,11 +583,11 @@ def analizar_sedes(ctx: Contexto) -> List[dict]:
     salida = []
     for neto, cid, c, sinergia in sorted(opciones, key=lambda t: -t[0])[:2]:
         salida.append(consejo(
-            "sedes", "OPORTUNIDAD", f"Patrociná {c['nombre']}",
-            "Está libre y aloja partidos en lo que viene: cobrás regalía por cada uno.", "/sedes/directorio", "Ir al directorio",
+            "sedes", "OPORTUNIDAD", f"Patrocina {c['nombre']}",
+            "Está libre y aloja partidos en lo que viene: cobras regalía por cada uno.", "/sedes/directorio", "Ir al directorio",
             porque=[f"Aloja {_plural(c['partidos'], 'partido', 'partidos')} del calendario próximo"] +
-                   (["Tenés su estampa: regalías ×1,5"] if sinergia else []),
-            numeros=[f"Costo {VS.COSTO_BASE_SEDE:,} pts (recuperás el {round(VS.PORCENTAJE_REEMBOLSO_VENTA * 100)}% al vender)",
+                   (["Tienes su estampa: regalías ×1,5"] if sinergia else []),
+            numeros=[f"Costo {VS.COSTO_BASE_SEDE:,} pts (recuperas el {round(VS.PORCENTAJE_REEMBOLSO_VENTA * 100)}% al vender)",
                      f"Regalías esperadas {round(c['regalias'] * (VS.MULTIPLICADOR_SINERGIA if sinergia else 1)):,}"],
             valor=round(neto), confianza="alta" if c["partidos"] >= 2 else "media", riesgo="bajo", urgencia=10,
             nivel_minimo="PROFUNDO", clave=f"sedes:{cid}", pais_id=c.get("pais_id")))
@@ -544,7 +633,7 @@ def analizar_juego_en_vivo(ctx: Contexto) -> List[dict]:
     if alto["cuota"] == bajo["cuota"]:
         return []
     return [consejo(
-        "juego_en_vivo", "OPORTUNIDAD", f"En el próximo partido, elegí a {alto['nombre']}",
+        "juego_en_vivo", "OPORTUNIDAD", f"En el próximo partido, elige a {alto['nombre']}",
         f"Arranca con {alto['cuota']:,} pts contra {bajo['cuota']:,} de {bajo['nombre']}, y en este Mundial el favorito no gana tan seguido como dice el papel.",
         "/juegos/", "Elegir país",
         porque=[f"{cuotas['local']['nombre']} vs {cuotas['visitante']['nombre']}",
@@ -573,8 +662,8 @@ def analizar_bolsa(ctx: Contexto) -> List[dict]:
         utilidad = ((mio or {}).get("historial") or [{}])[-1].get("utilidad", 0)
         if mio and utilidad > 0 and mio.get("dividendo_ciclo") != ciclo:
             salida.append(consejo(
-                "corporativo", "OPORTUNIDAD", f"Repartí dividendo en {cargo['sigla']}",
-                "Hubo utilidad el último ciclo: repartir sube el sentimiento de la acción y cobrás la parte de tus acciones.",
+                "corporativo", "OPORTUNIDAD", f"Reparte dividendo en {cargo['sigla']}",
+                "Hubo utilidad el último ciclo: repartir sube el sentimiento de la acción y cobras la parte de tus acciones.",
                 "/corporativo/bolsa", "Ir a la bolsa", numeros=[f"Utilidad del ciclo {utilidad:,}", f"Hasta el {round(CC.FRACCION_MAX_DIVIDENDO * 100)}%"],
                 confianza="media", riesgo="bajo", urgencia=20, nivel_minimo="PROFUNDO", clave="corporativo:dividendo"))
     # Acción "barata": mejor ROI del último ciclo entre las que bajaron (no se puede comprar la propia)
@@ -584,8 +673,8 @@ def analizar_bolsa(ctx: Contexto) -> List[dict]:
         mejor = max(candidatas, key=lambda c: (c.get("historial") or [{}])[-1].get("roi", 0))
         roi = (mejor.get("historial") or [{}])[-1].get("roi", 0)
         salida.append(consejo(
-            "corporativo", "OPORTUNIDAD", f"Mirá la acción de {mejor['sigla']}",
-            "Ganó plata el último ciclo pero su acción bajó: el precio se ajusta en el próximo cierre.",
+            "corporativo", "OPORTUNIDAD", f"Mira la acción de {mejor['sigla']}",
+            "Ganó dinero el último ciclo pero su acción bajó: el precio se ajusta en el próximo cierre.",
             "/corporativo/bolsa", "Ir a la bolsa",
             numeros=[f"Precio {mejor.get('precio', 0):.2f}", f"ROI del ciclo {roi * 100:+.2f}%",
                      f"Variación {(mejor.get('variacion_ciclo') or 0) * 100:+.1f}%"],
@@ -658,6 +747,23 @@ def verificar_hecho(uid: ObjectId, clave: str, desde: datetime) -> Optional[bool
             return False if oferta and oferta.get("estado") == "VENCIDA" else None
         if tipo == "dividendo":
             return db['corp_movimientos'].count_documents({"universo_id": uid_str, "tipo": "DIVIDENDO", "creado_en": {"$gte": desde_utc}}, limit=1) > 0 or None
+        if tipo == "saneamiento":
+            corp = db['corp_corporativos'].find_one({"universo_id": uid_str, "es_del_usuario": True}, {"saneamiento": 1}) or {}
+            return True if (corp.get("saneamiento") or {}).get("estado") == "CUMPLIDO" else None
+        if tipo == "vender" and len(partes) == 3 and ObjectId.is_valid(partes[2]):
+            c = db['corp_contratos'].find_one({"_id": ObjectId(partes[2])}, {"activo": 1, "fin_ciclo": 1})
+            return True if c and not c.get("activo") else None
+        if tipo == "acuerdo":
+            return db['corp_acuerdos'].count_documents({"universo_id": uid_str, "creado_en": {"$gte": desde_utc}}, limit=1) > 0 or None
+        if tipo == "promover":
+            return db['corp_patrocinios'].count_documents({"universo_id": uid_str, "origen": "PROMOCION", "creado_en": {"$gte": desde_utc}}, limit=1) > 0 or None
+        if tipo == "patrocinio" and len(partes) >= 3:
+            p = db['corp_patrocinios'].find_one({"_id": ":".join(partes[2:])}, {"estado": 1})
+            if p and p.get("estado") in ("ACTIVO", "RECHAZADA"):
+                return True
+            return False if p and p.get("estado") == "VENCIDA" else None
+        if tipo == "gira":
+            return db['corp_giras'].count_documents({"universo_id": uid_str, "es_usuario": True, "creado_en": {"$gte": desde_utc}}, limit=1) > 0 or None
         if tipo == "accion" and len(partes) == 3:
             return db['corp_operaciones_bolsa'].count_documents({"universo_id": uid_str, "sigla": partes[2], "tipo": "COMPRA", "creado_en": {"$gte": desde_utc}}, limit=1) > 0 or None
     return None

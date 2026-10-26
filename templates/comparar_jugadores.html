@@ -35,7 +35,7 @@
   {% endif %}
   <div class="position-relative w-100 mt-2">
     <input type="search" class="form-control form-control-sm buscador-jugador" id="buscar_{{ letra }}" data-lado="{{ letra }}" autocomplete="off"
-           placeholder="{{ 'Cambiar jugador…' if ficha else etiqueta ~ ': escribí 2 letras…' }}" role="combobox"
+           placeholder="{{ 'Cambiar jugador…' if ficha else etiqueta ~ ': escribe 2 letras…' }}" role="combobox"
            aria-expanded="false" aria-controls="sugerencias_{{ letra }}" aria-label="{{ etiqueta }}">
     <input type="hidden" name="{{ letra }}" id="id_{{ letra }}" value="{{ ficha.id if ficha else '' }}">
     <div class="cmp-sugerencias" id="sugerencias_{{ letra }}" role="listbox"></div>
@@ -122,11 +122,11 @@
 </div>
 
 {% elif a or b %}
-<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>Elegí los dos jugadores desde las sugerencias para compararlos.</div>
+<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>Elige los dos jugadores desde las sugerencias para compararlos.</div>
 {% else %}
 <div class="card card-seccion"><div class="card-body p-4 text-center">
   <i class="bi bi-people fs-1 text-info d-block mb-2"></i>
-  <p class="text-white fw-semibold mb-1">Buscá dos jugadores para enfrentarlos</p>
+  <p class="text-white fw-semibold mb-1">Busca dos jugadores para enfrentarlos</p>
   <p class="text-muted small mb-0">Vas a ver su radar de atributos, cuál gana en cada rubro, sus números en este Mundial y cómo vienen en los últimos partidos.</p>
 </div></div>
 {% endif %}

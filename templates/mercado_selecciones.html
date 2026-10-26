@@ -15,7 +15,7 @@
     <div class="min-w-0">
       <span class="msel-sobretitulo">Mi juego · inversiones</span>
       <h1 class="h2 fw-bold text-white mb-1">Mercado de Selecciones</h1>
-      <p class="text-muted small mb-0">Comprá una selección y cobrá dividendos por sus resultados. Su valor sube y baja con cada partido.</p>
+      <p class="text-muted small mb-0">Compra una selección y cobra dividendos por sus resultados. Su valor sube y baja con cada partido.</p>
     </div>
     <div class="d-flex gap-2 flex-wrap align-items-center">
       <div class="fixture-kpi"><span>Tu saldo</span><strong>{{ '{:,}'.format(saldo) }}</strong></div>
@@ -28,7 +28,7 @@
 <div class="msel-reglas mb-3">
   <span><i class="bi bi-trophy-fill text-warning"></i><strong>+{{ reglas.dividendo }} pts</strong> por cada victoria</span>
   <span><i class="bi bi-arrow-up-circle-fill text-success"></i><strong>+{{ reglas.bono_fase }} pts</strong> si avanza de fase</span>
-  <span><i class="bi bi-collection-fill text-info"></i><strong>×{{ reglas.sinergia }}</strong> si además tenés su estampa del álbum</span>
+  <span><i class="bi bi-collection-fill text-info"></i><strong>×{{ reglas.sinergia }}</strong> si además tienes su estampa del álbum</span>
   <span><i class="bi bi-graph-up text-accent"></i>Valor: sube al ganar, baja al perder (desde {{ '{:,}'.format(reglas.valor_inicial) }})</span>
 </div>
 
@@ -75,7 +75,7 @@
             <a href="/paises/{{ s.pais_id }}" class="text-white fw-bold text-truncate d-block text-decoration-none" title="{{ s.nombre }}">{{ s.nombre }}</a>
             <span class="msel-estado msel-estado--{{ s.estado.codigo }}">{{ s.estado.texto }}</span>
           </div>
-          {% if s.sinergia %}<span class="msel-sinergia" title="Tenés su estampa: dividendos ×{{ reglas.sinergia }}"><i class="bi bi-collection-fill"></i>×{{ reglas.sinergia }}</span>{% endif %}
+          {% if s.sinergia %}<span class="msel-sinergia" title="Tienes su estampa: dividendos ×{{ reglas.sinergia }}"><i class="bi bi-collection-fill"></i>×{{ reglas.sinergia }}</span>{% endif %}
         </div>
         <div class="msel-datos">
           <div><span>Ranking</span><strong>#{{ s.rankin or '—' }}</strong></div>
@@ -107,7 +107,7 @@
   <div class="col-12">{{ m.estado_vacio('bi-shop', 'No hay selecciones libres', 'Todas tienen dueño por ahora.') }}</div>
   {% endfor %}
 </div>
-<div id="sinResultados" class="d-none">{{ m.estado_vacio('bi-search', 'Sin resultados', 'Probá con otros filtros.') }}</div>
+<div id="sinResultados" class="d-none">{{ m.estado_vacio('bi-search', 'Sin resultados', 'Prueba con otros filtros.') }}</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

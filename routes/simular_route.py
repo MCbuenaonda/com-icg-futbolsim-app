@@ -67,7 +67,7 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
     partido_sel, juego_activo = obtener_juego_activo(id)
 
     # Un partido ya jugado tiene una sola vista: el resumen (/juegos/{id}). Antes este mismo
-    # partido se veía distinto según se entrara por acá o por el resumen. Esta vista queda para
+    # partido se veía distinto según se entrara por aquí o por el resumen. Esta vista queda para
     # "antes de jugar" y para el resultado recién simulado (/simulador/simular).
     if partido_sel and partido_sel.get("estado") == "finalizado":
         return RedirectResponse(url=f"/juegos/{id}", status_code=303)
@@ -161,7 +161,7 @@ async def simular(request: Request, id: str, id_local: int, id_visita: int, tiem
     # selecciones/ownership, fantasy, sedes, ranking, avance de fase) vive en
     # services.juegos_service.ejecutar_simulacion_completa -- la comparte con
     # routes/live_match_route.py para el modo automático, así ambos flujos corren EXACTAMENTE
-    # la misma lógica sin duplicarla. Acá solo queda lo específico de esta vista HTML.
+    # la misma lógica sin duplicarla. Aquí solo queda lo específico de esta vista HTML.
     resultado_simulacion = ejecutar_simulacion_completa(id, id_local, id_visita, tiempo_extra)
 
     juego_doc = resultado_simulacion["juego_doc"]
@@ -185,7 +185,7 @@ async def simular(request: Request, id: str, id_local: int, id_visita: int, tiem
         partido_doc = resultado_simulacion["partido"]
         if (partido_doc.get("transmision") or {}).get("estado") == "in_progress":
             # El partido ya está simulado y persistido, pero todavía se está "revelando" en
-            # vivo -- no mostrar el resultado crudo acá, mandar a la vista de transmisión.
+            # vivo -- no mostrar el resultado crudo aquí, mandar a la vista de transmisión.
             return RedirectResponse(url=request.url_for("live_match_view"), status_code=303)
         return templates.TemplateResponse(
             request=request,

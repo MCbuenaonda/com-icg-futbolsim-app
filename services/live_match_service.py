@@ -4,7 +4,7 @@ Servicio de "Simulación Automática en Vivo" (routes/live_match_route.py).
 Diseño: NO existe ningún mecanismo de background/async en este proyecto (sin BackgroundTasks,
 Celery, APScheduler ni threads) -- 'simular_partido_realista' ya es una función síncrona que
 calcula el partido COMPLETO (90/120 minutos de eventos) en una sola llamada bloqueante. Por eso
-la "transmisión en vivo" acá NO es un cómputo diferido real: el partido se simula y su resultado
+la "transmisión en vivo" aquí NO es un cómputo diferido real: el partido se simula y su resultado
 se persiste por completo al instante (reutilizando
 services.juegos_service.simular_y_registrar_resultado), y lo único que pasa con el correr del
 tiempo real es que se van "revelando" progresivamente los eventos que ya están calculados.
@@ -19,7 +19,7 @@ services.juegos_service.aplicar_efectos_secundarios) NO se aplican al arrancar l
 si se aplicaran al instante, la tabla de posiciones, los perfiles de jugadores y el dashboard de
 estadísticas revelarían el resultado del partido antes de que termine la "transmisión en vivo".
 En cambio quedan diferidos en el campo 'juegos.efectos_pendientes' (aditivo, se borra apenas se
-aplican) y se disparan recién cuando la ventana de 5 minutos termina, vía
+aplican) y se disparan recién cuando la ventana de 25 minutos termina, vía
 _disparar_efectos_pendientes -- reutilizando el mismo "auto-finalize-on-read" que ya hacía el
 flip de 'transmision.estado' a 'finished' dentro de obtener_estado_live.
 """
@@ -43,7 +43,7 @@ db = client.get_database('mundial')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-DURACION_TRANSMISION_SEGUNDOS = 600  # 5 minutos reales por partido "transmitido"
+DURACION_TRANSMISION_SEGUNDOS = 1500  # 25 minutos reales por partido "transmitido" (~310 eventos: uno cada ~4,8 s)
 
 TRANSMISION_EN_CURSO = "in_progress"
 TRANSMISION_FINALIZADA = "finished"
@@ -87,12 +87,12 @@ def iniciar_simulacion_automatica() -> Dict[str, Any]:
     id_local = primer_partido["equipo_local"]["id"]
     id_visita = primer_partido["equipo_visitante"]["id"]
 
-    # A propósito NO se llama a ejecutar_simulacion_completa acá -- esa función también aplica
+    # A propósito NO se llama a ejecutar_simulacion_completa aquí -- esa función también aplica
     # todos los efectos secundarios (país, jugadores, rankings, fantasy, quinielas, etc.) al
     # instante, lo que "spoilearía" el resultado en la tabla de posiciones/perfiles de jugadores
     # antes de que termine la revelación en vivo. Solo se simula y se persiste el resultado
     # (necesario para que GET /matches/live pueda ir revelando 'resultado.eventos'); los efectos
-    # secundarios quedan diferidos hasta que la ventana de 5 minutos termine (ver
+    # secundarios quedan diferidos hasta que la ventana de 25 minutos termine (ver
     # _disparar_efectos_pendientes, llamada desde obtener_estado_live).
     base = simular_y_registrar_resultado(juego_id, id_local, id_visita)
 
@@ -204,7 +204,7 @@ def _disparar_efectos_pendientes(juego: Dict[str, Any]) -> None:
     dispara exactamente una vez por partido.
 
     Limitación aceptada: si OTRO partido evalúa el avance de fase de su confederación mientras
-    estos efectos siguen pendientes (ventana <= 5 min), verá 'internacional' desactualizado para
+    estos efectos siguen pendientes (ventana <= 25 min), verá 'internacional' desactualizado para
     los equipos de ESTE partido. Aceptable dado el tamaño de la ventana.
     """
     juego_id = str(juego["_id"])

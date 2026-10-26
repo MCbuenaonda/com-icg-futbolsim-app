@@ -22,6 +22,118 @@ ESTADOS_CARRERA = {
 }
 
 
+CONF_SIGLA = {1: "UEFA", 2: "CONMEBOL", 3: "CONCACAF", 4: "CAF", 5: "OFC", 6: "AFC"}
+CONF_COLOR = {1: "#3b82f6", 2: "#22c55e", 3: "#ef4444", 4: "#f59e0b", 5: "#06b6d4", 6: "#a855f7"}
+CICLOS_CALENDARIO = 6
+
+
+# --- Cuándo juega cada representado y qué conviene hacer con él ----------------------------------
+def _contexto_partidos() -> dict:
+    """Lo que necesitan las vistas para ubicar cada representado en el calendario (una carga por request)."""
+    from services.corporativo_acciones_service import forma_selecciones
+    from services.corporativo_mercado_service import calendario_paises
+    eliminadas = {d["id"] for d in U.db["internacional"].find({"estado": {"$regex": "^ELIMINADO"}}, {"id": 1})}
+    vivas = {d["id"] for d in U.db["internacional"].find({}, {"id": 1})} - eliminadas
+    try:
+        from services import estadisticas_service as E
+        agregado, paises_ag = E._cache_vista.get("agregado") or {}, E._cache_vista.get("paises") or {}
+    except Exception:
+        agregado, paises_ag = {}, {}
+    return {"cal": calendario_paises(), "forma": forma_selecciones(), "eliminadas": eliminadas, "vivas": vivas,
+            "ciclo": U.estado_reloj()["ciclo"], "seq": U.seq_actual(), "agregado": agregado, "paises_ag": paises_ag}
+
+
+def juego_de(tipo: str, ref_id: int, ctx: dict) -> dict:
+    """{"estado": programado|eliminada|sin_partido, "faltan", "ciclo", "en_ciclos", "rival", "rival_bandera", "pais_id"}."""
+    v = valores()
+    pais = ref_id if tipo == "seleccion" else v["info_jugadores"].get(ref_id, {}).get("pais_id")
+    d = ctx["cal"].get(pais)
+    if d:
+        rival = v["info_paises"].get(d["rival_id"], {})
+        return {"estado": "programado", "pais_id": pais, "faltan": d["faltan"], "ciclo": d["ciclo"], "juego_id": d.get("juego_id"),
+                "en_ciclos": max(0, d["ciclo"] - ctx["ciclo"]), "rival": rival.get("nombre"), "rival_bandera": rival.get("bandera"),
+                "rival_id": d["rival_id"], "local": d["local"], "partidos_2": len([i for i in d["posiciones"] if i < 2 * C.PARTIDOS_POR_CICLO])}
+    if pais in ctx["eliminadas"] or pais not in ctx["vivas"]:
+        return {"estado": "eliminada", "pais_id": pais, "partidos_2": 0}
+    return {"estado": "sin_partido", "pais_id": pais, "partidos_2": 0}
+
+
+def _titular(jugador_id: int, pais_id, ctx: dict) -> Optional[float]:
+    a = ctx["agregado"].get(jugador_id)
+    p = ctx["paises_ag"].get(pais_id) or {}
+    pj = p.get("pj")
+    if not a or not pj:
+        return None
+    return min(1.0, (a["metricas"].get("partidos") or 0) / pj)
+
+
+def senal_de(tipo: str, ref_id: int, valor: int, juego: dict, ctx: dict, contrato: Optional[dict] = None, ciclo: int = 0) -> dict:
+    """Señal de comprar (mercado) o vender (cartera) con su '¿por qué?' (corporativo_reglas.senales)."""
+    from services.corporativo_ciclo_service import popularidad
+    datos = {"tipo": tipo, "valor": valor, "popularidad": popularidad(tipo, ref_id, valor), "partidos_2_ciclos": juego.get("partidos_2", 0),
+             "sin_partido": juego["estado"] == "sin_partido", "eliminada": juego["estado"] == "eliminada",
+             "forma": ctx["forma"].get(juego.get("pais_id")),
+             "titular": _titular(ref_id, juego.get("pais_id"), ctx) if tipo == "jugador" else None}
+    if contrato:
+        datos.update(prima=contrato.get("prima", 0), satisfaccion=contrato.get("satisfaccion"), ciclos_sin_jugar=contrato.get("ciclos_sin_jugar", 0),
+                     renta_total=contrato.get("renta_total", 0),
+                     costos_total=contrato.get("honorarios_total", 0) + contrato.get("prima", 0),
+                     valor_firma=contrato.get("valor_firma"), ciclos_restantes=contrato["hasta_ciclo"] - ciclo + 1)
+        # partidos programados de su selección antes de que venza el contrato (y antes de su último ciclo)
+        ciclos_partidos = [R.ciclo_de_seq(ctx["seq"] + i + 1) for i in (ctx["cal"].get(juego.get("pais_id")) or {}).get("posiciones", [])] \
+            if "seq" in ctx else []
+        datos.update(partidos_antes_vencer=sum(1 for k in ciclos_partidos if k <= contrato["hasta_ciclo"]),
+                     partidos_antes_ultimo=sum(1 for k in ciclos_partidos if k < contrato["hasta_ciclo"]))
+    return R.senales(datos)
+
+
+def calendario_cartera(contratos: list, ctx: dict) -> dict:
+    """Grilla de los próximos CICLOS_CALENDARIO ciclos por selección involucrada (representada o país de un jugador
+    representado) y la lista de los próximos partidos de la cartera."""
+    v = valores()
+    ciclo0 = ctx["ciclo"]
+    filas = {}
+    for c in contratos:
+        pais = c["ref_id"] if c["tipo"] == "seleccion" else v["info_jugadores"].get(c["ref_id"], {}).get("pais_id")
+        if pais is None:
+            continue
+        fila = filas.setdefault(pais, {"pais_id": pais, "nombre": v["info_paises"].get(pais, {}).get("nombre"),
+                                        "bandera": v["info_paises"].get(pais, {}).get("bandera"), "seleccion": False, "jugadores": [],
+                                        "celdas": [0] * CICLOS_CALENDARIO, "eliminada": pais in ctx["eliminadas"]})
+        if c["tipo"] == "seleccion":
+            fila["seleccion"] = True
+        else:
+            fila["jugadores"].append(v["info_jugadores"].get(c["ref_id"], {}).get("nombre"))
+    seq = U.seq_actual()   # una sola lectura del reloj (antes se consultaba por cada partido programado)
+    for pais, fila in filas.items():
+        d = ctx["cal"].get(pais)
+        for i in (d or {}).get("posiciones", []):
+            k = R.ciclo_de_seq(seq + i + 1) - ciclo0
+            if 0 <= k < CICLOS_CALENDARIO:
+                fila["celdas"][k] += 1
+        fila["proximo"] = juego_de("seleccion", pais, ctx)
+    orden = sorted(filas.values(), key=lambda f: (f["proximo"].get("faltan", 10 ** 6), f["nombre"] or ""))
+    proximos, vistos = [], set()
+    for f in orden:   # un partido entre dos selecciones de la cartera aparece una sola vez
+        if f["proximo"]["estado"] == "programado" and f["proximo"].get("juego_id") not in vistos:
+            vistos.add(f["proximo"].get("juego_id"))
+            proximos.append(f)
+    proximos = proximos[:8]
+    return {"ciclos": [ciclo0 + k for k in range(CICLOS_CALENDARIO)], "filas": orden, "proximos": proximos,
+            "con_partido": sum(1 for f in orden if any(f["celdas"])), "total": len(orden)}
+
+
+def _saneamiento_vista(corp_doc: dict) -> Optional[dict]:
+    s = corp_doc.get("saneamiento") or {}
+    if not s:
+        return None
+    progreso = s.get("progreso") or {}
+    return {**s, "objetivos_vista": [{"codigo": k, "texto": C.SANEAMIENTO_OBJETIVOS[k], **(progreso.get(k) or {"ok": False, "detalle": "se evalúa al cierre del ciclo"})}
+                                     for k in s.get("objetivos", [])],
+            "cumplidos": sum(1 for k in s.get("objetivos", []) if (progreso.get(k) or {}).get("ok")),
+            "total": len(s.get("objetivos", []))}
+
+
 def _info_corp(sigla: str) -> dict:
     corp = C.CORPORATIVO_POR_SIGLA[sigla]
     return {**corp, "logo": url_logo_corporativo(sigla), "color": corp["colores"][0], "acento": corp["colores"][1],
@@ -77,7 +189,7 @@ def obtener_vista_inicio(user_id) -> dict:
     if cargo:
         mi_corp = next((c for c in corporativos if c["sigla"] == cargo["sigla"]), None)
         doc = U.db["corp_corporativos"].find_one({"universo_id": user_id, "sigla": cargo["sigla"]},
-                                                  {"historial": 1, "ciclo_actual": 1}) or {}
+                                                  {"historial": 1, "ciclo_actual": 1, "saneamiento": 1, "marketing_hasta_ciclo": 1}) or {}
         historial = doc.get("historial") or []
         ultimo = historial[-1] if historial else None
         ultimo_pago = U.db["corp_movimientos"].find_one({"universo_id": user_id, "tipo": "SUELDO_CEO"}, sort=[("ciclo", -1)])
@@ -97,6 +209,17 @@ def obtener_vista_inicio(user_id) -> dict:
                                      if c["hasta_ciclo"] - U.ciclo_en_curso(universo) + 1 <= C.CICLOS_AVISO_RENOVACION),
                    "movimientos": list(U.db["corp_movimientos"].find({"universo_id": user_id, "sigla": cargo["sigla"]})
                                        .sort("creado_en", -1).limit(12))}
+        # Economía v2: calendario de la cartera, saneamiento, acuerdos/giras y lo que se espera cobrar
+        from services import corporativo_acciones_service as A
+        from services.corporativo_ciclo_service import renta_esperada
+        ctx = _contexto_partidos()
+        activos = U.contratos_activos(user_id, cargo["sigla"])
+        nombrar = lambda d: {**d, "ref_nombre": A._nombre(d["tipo"], d["ref_id"])}
+        mi_corp.update(calendario=calendario_cartera(activos, ctx), saneamiento=_saneamiento_vista(doc),
+                       acuerdos=[nombrar(a) for a in A.acuerdos_de(user_id, cargo["sigla"]) if a["estado"] == "ACTIVO"],
+                       giras=[nombrar(g) for g in A.giras_de(user_id, cargo["sigla"])[:5]], renta_esperada=renta_esperada(activos),
+                       marketing_activo=(doc.get("marketing_hasta_ciclo") or 0) >= ciclo_ahora,
+                       marketing_hasta=doc.get("marketing_hasta_ciclo"))
     if mi_corp:
         mi_corp.update(_bandeja_mercado(user_id, universo, mi_corp))
     reloj = U.estado_reloj(universo)
@@ -107,7 +230,24 @@ def obtener_vista_inicio(user_id) -> dict:
         "corporativos": corporativos, "mi_corporativo": mi_corp, "reloj": reloj, "puesta_al_dia": resumen,
         "pausa_restante": (universo["pausa_hasta_ciclo"] - U.ciclo_en_curso(universo) + 1) if universo.get("pausa_hasta_ciclo") else None,
         "historial": list(reversed(universo.get("historial_cargos") or [])),
-        "ciclo": U.ciclo_en_curso(universo),
+        "ciclo": U.ciclo_en_curso(universo), "economia": reglas_economia(),
+    }
+
+
+def reglas_economia() -> dict:
+    """Números para el explicador «Cómo gana dinero tu corporativo» (en % del valor del representado)."""
+    pct = lambda x: round(x * 100, 2)
+    rs, rj = C.RENTA_SELECCION, C.RENTA_JUGADOR
+    return {
+        "seleccion": {"victoria": pct(rs["jugar"] + rs["victoria"]), "empate": pct(rs["jugar"] + rs["empate"]), "derrota": pct(rs["jugar"] + rs["derrota"]),
+                      "avance": pct(rs["avance_fase"]), "eliminacion": pct(rs["eliminacion"])},
+        "jugador": {"jugar": pct(rj["jugar"]), "gol": pct(rj["gol"]), "asistencia": pct(rj["asistencia"]), "valla": pct(rj["valla_invicta"]), "roja": pct(rj["roja"])},
+        "honorario_partido": {k: pct(v) for k, v in C.HONORARIO_POR_PARTIDO.items()},
+        "mantenimiento": {k: pct(v) for k, v in C.HONORARIO_MANTENIMIENTO.items()},
+        "patrocinio": {k: pct(v) for k, v in C.PATROCINIO_POR_CICLO.items()}, "popularidad": C.POPULARIDAD_RANGO,
+        "partidos_por_ciclo": C.PARTIDOS_ESPERADOS_POR_CICLO, "ciclo_partidos": C.PARTIDOS_POR_CICLO,
+        "marketing": {"costo": C.COSTO_MARKETING, "bono": C.MARKETING_BONO_PATROCINIO, "ciclos": C.MARKETING_CICLOS},
+        "acuerdos_max": C.ACUERDOS_MAX_ACTIVOS, "gira_ciclos": C.GIRA_CICLOS_SIN_PARTIDO, "renovacion": int(C.PRIMA_RENOVACION * 100),
     }
 
 
@@ -122,6 +262,14 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
     v = valores()
     region = afines(sigla)
     ciclo = U.ciclo_en_curso(U.obtener_universo(user_id))
+    ctx = _contexto_partidos()
+    from services import corporativo_acciones_service as A
+    from services.corporativo_ciclo_service import popularidad
+    acuerdos = {a["contrato_id"]: a for a in A.acuerdos_de(user_id, sigla) if a["estado"] == "ACTIVO"}
+    giras_recientes = {(g["tipo"], g["ref_id"]): g for g in A.giras_de(user_id, sigla)}
+    gira_este_ciclo = any(g["ciclo"] == ciclo for g in giras_recientes.values())
+    from services import corporativo_marcas_service as M
+    marcas_contrato = M.patrocinios_por_contrato(user_id, sigla) if doc.get("es_del_usuario") else {}
     selecciones, jugadores = [], []
     for c in U.contratos_activos(user_id, sigla):
         valor_c = (v["selecciones"] if c["tipo"] == "seleccion" else v["jugadores"]).get(c["ref_id"], 0)
@@ -130,8 +278,19 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
                 "satisfaccion": c["satisfaccion"], "origen": c.get("origen"), "renta_total": c.get("renta_total", 0),
                 "honorarios_total": c.get("honorarios_total", 0), "neto": c.get("renta_total", 0) - c.get("honorarios_total", 0),
                 "partidos": c.get("partidos", 0), "honorario": R.honorario(c["tipo"], valor_c),
-                "costo_renovar": R.prima_referencia(valor_c), "puede_renovar": restantes <= C.CICLOS_AVISO_RENOVACION,
+                "costo_renovar": R.prima_renovacion(valor_c, c["satisfaccion"]), "puede_renovar": restantes <= C.CICLOS_AVISO_RENOVACION,
                 "costo_rescindir": _costo_rescision(c, valor_c, ciclo)}
+        juego = juego_de(c["tipo"], c["ref_id"], ctx)
+        gira_prev = giras_recientes.get((c["tipo"], c["ref_id"]))
+        enfriamiento = C.GIRA_ENFRIAMIENTO if c["tipo"] == "seleccion" else C.GIRA_JUGADOR_ENFRIAMIENTO
+        base.update(juego=juego, senal=senal_de(c["tipo"], c["ref_id"], valor_c, juego, ctx, c, ciclo),
+                    patrocinio=R.patrocinio(c["tipo"], valor_c, popularidad(c["tipo"], c["ref_id"], valor_c)),
+                    acuerdo=acuerdos.get(str(c["_id"])), marcas=marcas_contrato.get(str(c["_id"]), []), ciclos_sin_jugar=c.get("ciclos_sin_jugar", 0),
+                    gira_ok=not gira_este_ciclo and not (gira_prev and gira_prev["ciclo"] > ciclo - enfriamiento)
+                    and (c["tipo"] == "jugador" or juego.get("partidos_2", 0) == 0),
+                    gira_motivo=("Ya organizaste una gira este ciclo" if gira_este_ciclo else
+                                 f"Hizo una gira hace poco (cada {enfriamiento} ciclos)" if gira_prev and gira_prev["ciclo"] > ciclo - enfriamiento else
+                                 "Tiene partidos en los próximos ciclos" if c["tipo"] == "seleccion" and juego.get("partidos_2") else None))
         if c["tipo"] == "seleccion":
             p = v["info_paises"].get(c["ref_id"], {})
             selecciones.append({**base, **p, "valor": v["selecciones"].get(c["ref_id"], 0), "de_region": c["ref_id"] in region})
@@ -153,7 +312,28 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
         "universo": U.obtener_universo(user_id), "ciclo": ciclo,
         "honorarios_ciclo": sum(x["honorario"] for x in selecciones + jugadores),
         "neto_total": sum(x["neto"] for x in selecciones + jugadores),
+        "patrocinio_ciclo": sum(x["patrocinio"] for x in selecciones + jugadores),
+        "saneamiento": _saneamiento_vista(doc), "exposicion": exposicion(selecciones, jugadores),
+        "acuerdos_activos": len(acuerdos), "acuerdos_max": C.ACUERDOS_MAX_ACTIVOS, "gira_este_ciclo": gira_este_ciclo,
+        "marcas_resumen": M.resumen(user_id, sigla) if doc.get("es_del_usuario") else None,
+        "senales": {"vender": sum(1 for x in selecciones + jugadores if x["senal"]["senal"] == "vender"),
+                    "renovacion": sum(1 for x in selecciones + jugadores if x["senal"].get("renovacion"))},
     }
+
+
+def exposicion(selecciones: list, jugadores: list) -> list:
+    """Valor de la cartera por confederación (para la dona del perfil y de la bolsa)."""
+    v = valores()
+    tot = {}
+    for x in selecciones:
+        conf = v["info_paises"].get(x["ref_id"], {}).get("confederacion_id")
+        tot[conf] = tot.get(conf, 0) + x["valor"]
+    for x in jugadores:
+        conf = v["info_paises"].get(x.get("pais_id"), {}).get("confederacion_id")
+        tot[conf] = tot.get(conf, 0) + x["valor"]
+    total = sum(tot.values()) or 1
+    return sorted(({"conf": CONF_SIGLA.get(k, "?"), "color": CONF_COLOR.get(k, "#64748b"), "valor": val,
+                    "pct": round(val * 100 / total)} for k, val in tot.items() if k), key=lambda e: -e["valor"])
 
 
 PERFILES_IA = {
@@ -182,9 +362,9 @@ def _costo_rescision(contrato: dict, valor: int, ciclo: int) -> int:
 def _contrato_propio(user_id, contrato_id: str):
     universo = U.obtener_universo(user_id)
     if universo and universo["estado"] == "PREAVISO":
-        raise ValueError("Durante el preaviso no podés tocar la cartera")
+        raise ValueError("Durante el preaviso no puedes tocar la cartera")
     if not universo or universo["estado"] != "EN_CARGO":
-        raise ValueError("Necesitás un cargo de CEO para manejar la cartera")
+        raise ValueError("Necesitas un cargo de CEO para manejar la cartera")
     if not ObjectId.is_valid(contrato_id):
         raise ValueError("Contrato inválido")
     contrato = U.db["corp_contratos"].find_one({"_id": ObjectId(contrato_id), "universo_id": user_id, "activo": True})
@@ -199,7 +379,8 @@ def _nombre_ref(tipo: str, ref_id: int) -> str:
 
 
 def renovar_contrato(user_id, contrato_id: str) -> dict:
-    """Renueva un contrato a punto de vencer pagando la prima de referencia (5% del valor); +10 de satisfacción."""
+    """Renueva un contrato a punto de vencer pagando la prima de RENOVACIÓN (60% de la de referencia, menos si está
+    contento: R.prima_renovacion); +10 de satisfacción. Arranca un período nuevo: los totales de rendimiento vuelven a 0."""
     U.poner_al_dia(user_id)
     with U.candado(user_id):
         universo, c = _contrato_propio(user_id, contrato_id)
@@ -207,7 +388,7 @@ def renovar_contrato(user_id, contrato_id: str) -> dict:
         if c["hasta_ciclo"] - ciclo + 1 > C.CICLOS_AVISO_RENOVACION:
             raise ValueError(f"Solo se renueva en los últimos {C.CICLOS_AVISO_RENOVACION} ciclos del contrato")
         valor = U.valor_cartera([c])
-        prima = R.prima_referencia(valor)
+        prima = R.prima_renovacion(valor, c.get("satisfaccion", C.SATISFACCION_INICIAL))
         corp = U.db["corp_corporativos"].find_one_and_update(
             {"universo_id": user_id, "sigla": c["sigla"], "capital": {"$gte": prima}}, {"$inc": {"capital": -prima}})
         if not corp:
@@ -215,7 +396,7 @@ def renovar_contrato(user_id, contrato_id: str) -> dict:
         duracion = R.semilla(user_id, "renovar", c["_id"], ciclo).randint(*C.DURACION_CONTRATO)
         nuevo_hasta = c["hasta_ciclo"] + duracion
         U.db["corp_contratos"].update_one({"_id": c["_id"]}, {"$set": {
-            "desde_ciclo": ciclo, "hasta_ciclo": nuevo_hasta, "prima": prima, "origen": "RENOVACION",
+            "desde_ciclo": ciclo, "hasta_ciclo": nuevo_hasta, "prima": prima, "origen": "RENOVACION", "renta_total": 0, "honorarios_total": 0,
             "satisfaccion": min(100, c["satisfaccion"] + C.SATISFACCION_RENOVACION)}})
         nombre = _nombre_ref(c["tipo"], c["ref_id"])
         U.db["corp_movimientos"].insert_one({"universo_id": user_id, "sigla": c["sigla"], "ciclo": ciclo, "tipo": "RENOVACION",
@@ -246,19 +427,19 @@ def rescindir_contrato(user_id, contrato_id: str) -> dict:
 # Textos de los botones de cada oferta de empleo según (tipo, estado)
 BOTONES_OFERTA = {
     ("EMPLEO", "PENDIENTE"): {"etiqueta": "Oferta de trabajo", "si": "Aceptar", "no": "Rechazar",
-                              "si_msg": "Asumís la dirección general. Las demás ofertas abiertas se declinan.",
+                              "si_msg": "Asumes la dirección general. Las demás ofertas abiertas se declinan.",
                               "no_msg": "En el próximo cierre de ciclo no recibirás ofertas. Rechazar muchas seguidas te resta fama."},
     ("HEADHUNTING", "PENDIENTE"): {"etiqueta": "Te buscan (confidencial)", "si": "Me interesa", "no": "Rechazar",
-                                   "si_msg": "Si tu directorio confía en vos, va a intentar retenerte; si no, empezás el preaviso.",
-                                   "no_msg": "Nadie se entera: seguís en tu cargo."},
+                                   "si_msg": "Si tu directorio confía en ti, va a intentar retenerte; si no, empiezas el preaviso.",
+                                   "no_msg": "Nadie se entera: sigues en tu cargo."},
     ("HEADHUNTING", "EN_ESPERA"): {"etiqueta": "Esperando tu decisión", "si": "Irme igual", "no": None,
-                                   "si_msg": "Presentás la renuncia: un ciclo de preaviso y perdés las acciones no consolidadas.",
-                                   "no_msg": "Rechazás la oferta y seguís en tu cargo con el sueldo actual."},
+                                   "si_msg": "Presentas la renuncia: un ciclo de preaviso y pierdes las acciones no consolidadas.",
+                                   "no_msg": "Rechazas la oferta y sigues en tu cargo con el sueldo actual."},
     ("RETENCION", "PENDIENTE"): {"etiqueta": "Contraoferta de retención", "si": "Quedarme con aumento", "no": "Irme igual",
-                                 "si_msg": "Te quedás y cobrás el sueldo nuevo.", "no_msg": "Presentás la renuncia y empezás el preaviso."},
+                                 "si_msg": "Te quedas y cobras el sueldo nuevo.", "no_msg": "Presentas la renuncia y empiezas el preaviso."},
     ("RENOVACION", "PENDIENTE"): {"etiqueta": "Renovación", "si": "Renovar", "no": "No renovar",
                                   "si_msg": "Arranca una temporada nueva con objetivos nuevos.",
-                                  "no_msg": "Tu contrato termina y volvés a buscar empleo (sin pausa)."},
+                                  "no_msg": "Tu contrato termina y vuelves a buscar empleo (sin pausa)."},
 }
 
 TIPOS_PROPUESTA = {
@@ -286,7 +467,13 @@ def _bandeja_mercado(user_id, universo: dict, mi_corp: dict) -> dict:
         informe["jugadores"] = [{**x, "nombre": F.nombre_ref("jugador", x["ref_id"]), "pais_id": F._pais_de("jugador", x["ref_id"]),
                                  "valor": F._valor("jugador", x["ref_id"])} for x in informe["jugadores"]]
     corp = U.db["corp_corporativos"].find_one({"universo_id": user_id, "sigla": mi_corp["sigla"]}, {"marketing_ciclo": 1})
-    return {"propuestas": propuestas, "mis_ofertas": mis_ofertas, "scouting": informe,
+    from services import corporativo_marcas_service as M
+    try:
+        marcas = M.resumen(user_id, mi_corp["sigla"])
+    except Exception as e:
+        print(f"[corporativos] resumen de marcas: {e}")
+        marcas = None
+    return {"propuestas": propuestas, "mis_ofertas": mis_ofertas, "scouting": informe, "marcas": marcas,
             "scouting_disponible": not informe or informe["ciclo"] != ciclo,
             "marketing_disponible": (corp or {}).get("marketing_ciclo") != ciclo,
             "costo_scouting": C.COSTO_SCOUTING, "costo_marketing": C.COSTO_MARKETING,
@@ -299,7 +486,7 @@ POR_PAGINA_MERCADO = 30
 
 def obtener_mercado(user_id, tipo: str = "jugador", vista: str = "libres", q: str = "", conf: Optional[int] = None,
                     region: bool = False, edad_max: Optional[int] = None, orden: str = "valor", pagina: int = 1,
-                    leyendas: bool = False) -> Optional[dict]:
+                    leyendas: bool = False, pronto: bool = False) -> Optional[dict]:
     universo = U.obtener_universo(user_id)
     if not universo:
         return None
@@ -321,6 +508,7 @@ def obtener_mercado(user_id, tipo: str = "jugador", vista: str = "libres", q: st
         {"universo_id": user_id, "estado": "PENDIENTE", "tipo": {"$in": ["FICHAJE", "TRASPASO"]}}, {"ref_tipo": 1, "ref_id": 1})}
 
     fuente = v["selecciones"] if tipo == "seleccion" else v["jugadores"]
+    ctx = _contexto_partidos()
     q = (q or "").strip().lower()
     filas = []
     for ref_id, valor in fuente.items():
@@ -344,8 +532,18 @@ def obtener_mercado(user_id, tipo: str = "jugador", vista: str = "libres", q: st
             continue
         if region and pais_id not in region_ids:
             continue
-        filas.append({"ref_id": ref_id, "valor": valor, "pais_id": pais_id, "info": info, "pinfo": pinfo, "contrato": c})
-    filas.sort(key=lambda f: f["valor"], reverse=orden != "valor_asc")
+        juego = juego_de(tipo, ref_id, ctx)
+        if pronto and not juego.get("partidos_2"):
+            continue
+        filas.append({"ref_id": ref_id, "valor": valor, "pais_id": pais_id, "info": info, "pinfo": pinfo, "contrato": c, "juego": juego})
+    if orden == "pronto":
+        filas.sort(key=lambda f: (f["juego"].get("faltan", 10 ** 6), -f["valor"]))
+    elif orden == "senal":   # primero las mejores señales de compra (más motivos a favor, recuperación más rápida)
+        for f in filas:
+            f["senal"] = senal_de(tipo, f["ref_id"], f["valor"], f["juego"], ctx)
+        filas.sort(key=lambda f: (f["senal"]["senal"] != "comprar", f["senal"]["recupera_ciclos"] or 99, -f["valor"]))
+    else:
+        filas.sort(key=lambda f: f["valor"], reverse=orden != "valor_asc")
     total = len(filas)
     pagina = max(1, pagina)
     filas = filas[(pagina - 1) * POR_PAGINA_MERCADO: pagina * POR_PAGINA_MERCADO]
@@ -357,7 +555,8 @@ def obtener_mercado(user_id, tipo: str = "jugador", vista: str = "libres", q: st
                 "pais": f["pinfo"].get("nombre"), "bandera": f["pinfo"].get("bandera"), "rankin": f["pinfo"].get("rankin"),
                 "edad": f["info"].get("edad"), "posicion": posiciones.get(f["info"].get("posicion_id")),
                 "prima_ref": ref_prima, "de_region": f["pais_id"] in region_ids, "scouting": f["ref_id"] in scout and tipo == "jugador",
-                "pendiente": (tipo, f["ref_id"]) in pendientes, "leyenda": bool(f["info"].get("leyenda"))}
+                "pendiente": (tipo, f["ref_id"]) in pendientes, "leyenda": bool(f["info"].get("leyenda")),
+                "juego": f["juego"], "senal": f.get("senal") or senal_de(tipo, f["ref_id"], f["valor"], f["juego"], ctx)}
         if corp:
             fila["base"] = round(F.base_atractivo(corp, universo["fama"], tipo, f["ref_id"], cartera), 2)
             fila["prob"] = round(F.probabilidad(corp, universo["fama"], tipo, f["ref_id"], ref_prima, cartera) * 100)
@@ -374,7 +573,8 @@ def obtener_mercado(user_id, tipo: str = "jugador", vista: str = "libres", q: st
     return {
         "universo": universo, "sigla": sigla, "corp": corp, "filas": salida, "total": total, "pagina": pagina,
         "paginas": max(1, -(-total // POR_PAGINA_MERCADO)), "ventana": U.ventana_traspasos(ciclo), "ciclo": ciclo,
-        "filtros": {"tipo": tipo, "vista": vista, "q": q, "conf": conf, "region": region, "edad_max": edad_max, "orden": orden, "leyendas": leyendas},
+        "filtros": {"tipo": tipo, "vista": vista, "q": q, "conf": conf, "region": region, "edad_max": edad_max, "orden": orden, "leyendas": leyendas,
+                    "pronto": pronto},
         "confederaciones": confederaciones, "reglas": {
             "peso_oferta": C.PESOS_ATRACTIVO["oferta"], "ideal": C.OFERTA_IDEAL_MULTIPLO, "rango": C.PRIMA_RANGO_OFERTA,
             "min": C.PROBABILIDAD_ACEPTA[0], "max": C.PROBABILIDAD_ACEPTA[1], "duracion": C.DURACION_CONTRATO,

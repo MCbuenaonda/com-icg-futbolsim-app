@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 def _requerir_sesion(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
     return usuario
 
 
@@ -40,13 +40,13 @@ def _requerir_sesion_propia(request: Request, user_id: str):
     """
     Igual que _requerir_sesion, pero además valida que el user_id del path
     coincida con el de la sesión — a diferencia de otros endpoints de solo
-    lectura tipo 'my-portfolio/{user_id}' de este sistema, acá el GET tiene
+    lectura tipo 'my-portfolio/{user_id}' de este sistema, aquí el GET tiene
     efecto secundario (genera una sesión de trivia, consume un cupo diario),
     así que no alcanza con solo advertir el riesgo de IDOR: se bloquea.
     """
     usuario = _requerir_sesion(request)
     if str(usuario["_id"]) != str(user_id):
-        raise HTTPException(status_code=403, detail="No podés operar sobre otro usuario")
+        raise HTTPException(status_code=403, detail="No puedes operar sobre otro usuario")
     return usuario
 
 

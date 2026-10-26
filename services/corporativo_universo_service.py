@@ -228,6 +228,7 @@ def poner_al_dia(user_id) -> dict:
     from services import corporativo_ciclo_service as economia
     from services import corporativo_fichajes_service as fichajes
     from services import corporativo_bolsa_service as bolsa
+    from services import corporativo_marcas_service as marcas
 
     ahora = datetime.utcnow()
     universo = db["corp_universos"].find_one_and_update(
@@ -247,6 +248,7 @@ def poner_al_dia(user_id) -> dict:
             seq = entrada["seq"]
             if entrada["juego_id"] in aportes:
                 economia.procesar_partido(estado, aportes[entrada["juego_id"]], universo["ultimo_ciclo"] + 1, entrada["juego_id"])
+                marcas.reacciones_partido(estado, aportes[entrada["juego_id"]], universo["ultimo_ciclo"] + 1, entrada["juego_id"])
             fichajes.resolver_pendientes(estado, universo, seq, universo["ultimo_ciclo"] + 1)
             if not universo.get("primeras_ofertas") and seq >= universo["primeras_ofertas_seq"]:
                 carrera.ofertas_iniciales(universo)
@@ -273,6 +275,10 @@ def poner_al_dia(user_id) -> dict:
         estado.guardar()
         _guardar_avance(universo)
     finally:
+        try:
+            marcas.vaciar_lote()   # reacciones de los últimos partidos (si no hubo cierre de ciclo)
+        except Exception as e:
+            print(f"[corporativos] publicaciones de marcas: {e}")
         db["corp_universos"].update_one({"_id": user_id}, {"$set": {"candado_hasta": None}})
     return resumen
 
@@ -285,7 +291,7 @@ def candado(user_id):
         {"_id": user_id, "$or": [{"candado_hasta": None}, {"candado_hasta": {"$lt": ahora}}]},
         {"$set": {"candado_hasta": ahora + timedelta(seconds=SEGUNDOS_CANDADO)}})
     if not tomado:
-        raise ValueError("Tu universo se está actualizando con los últimos partidos; intentá de nuevo en unos segundos")
+        raise ValueError("Tu universo se está actualizando con los últimos partidos; intenta de nuevo en unos segundos")
     try:
         yield tomado
     finally:
@@ -315,7 +321,7 @@ def valor_cartera(contratos: list) -> int:
 
 
 def refrescar_precios(universo_id) -> None:
-    """(fase 5 mueve el sentimiento; acá solo se recalcula el precio con la cartera valuada hoy)."""
+    """(fase 5 mueve el sentimiento; aquí solo se recalcula el precio con la cartera valuada hoy)."""
     ops = []
     for corp in db["corp_corporativos"].find({"universo_id": universo_id}):
         precio = R.precio_accion(corp["capital"], valor_cartera(contratos_activos(universo_id, corp["sigla"])), corp["sentimiento"])

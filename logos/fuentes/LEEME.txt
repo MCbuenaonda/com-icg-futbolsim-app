@@ -1,0 +1,6 @@
+Fuentes de los logos (marcas y corporativos). Todas con licencia SIL Open Font License 1.1 (OFL), de Google Fonts
+(https://github.com/google/fonts/tree/main/ofl): Archivo Black, Righteous, Bungee, Saira Stencil One, Russo One,
+Black Ops One, Kanit, Playfair Display, Montserrat, Oswald, Rubik, Teko, Exo 2, Comfortaa, Michroma, Cinzel, Pacifico,
+Anton y Bebas Neue. Texto completo de la licencia: services/arte_mundial/fuentes/OFL.txt.
+Solo las usan los scripts que generan los SVG (generar_marcas.py, generar_logos_corporativos.py): el texto se
+convierte a trazos, así los logos publicados no dependen de ninguna fuente.

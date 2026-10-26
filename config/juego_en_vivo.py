@@ -1,7 +1,7 @@
 """
 Valores por defecto del "Juego en Vivo" (services/juego_en_vivo_service.py).
 
-Todo lo ajustable del juego vive acá, no en la lógica: la entrada, las cuotas por favoritismo,
+Todo lo ajustable del juego vive aquí, no en la lógica: la entrada, las cuotas por favoritismo,
 los niveles de riesgo, el cooldown y las reglas de puntos por evento. Las reglas además se
 siembran en la colección 'event_point_rules' (ver configurar_juego_en_vivo.py) para poder
 ajustarlas en Mongo sin tocar código; si esa colección está vacía, el servicio usa

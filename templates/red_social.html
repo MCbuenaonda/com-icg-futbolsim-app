@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as m %}
+{% block title %}Red social FIFAV{% endblock %}
+{#
+  Red social de la FIFAV (routes/red_social_route.py + services/red_social_service.py): la línea de tiempo completa
+  con los posts de los partidos (todos los usuarios ven los mismos) y las publicaciones de las marcas de TU universo de
+  Corporativos (firmas, rumores, renovaciones, despedidas y respuestas en el hilo de cada partido). Búsqueda, filtros
+  y «Cargar más» (GET /red-social/mas, HTML suelto; el cursor llega en la cabecera X-Siguiente).
+#}
+{% block content %}
+<div class="container-fluid py-3 px-md-4 rs">
+  <div class="rs-portada mb-3">
+    <div class="rs-portada__fondo"></div>
+    <div class="rs-portada__cuerpo">
+      <span class="rs-portada__avatar"><img src="{{ imagen_inicio('copa') }}" alt=""></span>
+      <div class="min-w-0">
+        <h1 class="h4 fw-bold text-white mb-0 d-flex align-items-center gap-2">FIFAV Social <i class="bi bi-patch-check-fill text-primary fs-6"></i></h1>
+        <div class="text-muted small">@FIFAV_Oficial · Lo que pasa en el Mundial{% if lateral.con_universo %} y en tu universo de Corporativos{% endif %}</div>
+        <div class="rs-portada__cifras small mt-1">
+          <span><strong>{{ '{:,}'.format(lateral.total_partidos) }}</strong> partidos publicados</span>
+          {% if lateral.con_universo %}<span><strong>{{ '{:,}'.format(lateral.total_marcas) }}</strong> publicaciones de marcas</span>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <form class="rs-buscador mb-2" method="get" action="/red-social/" role="search">
+        <i class="bi bi-search"></i>
+        <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Busca una selección, jugador, #tag o marca" aria-label="Buscar publicaciones">
+        <input type="hidden" name="filtro" value="{{ filtro }}">
+        {% if q %}<a href="/red-social/?filtro={{ filtro }}" class="rs-buscador__limpiar" title="Limpiar búsqueda"><i class="bi bi-x-lg"></i></a>{% endif %}
+      </form>
+      <nav class="rs-pestanas mb-3" aria-label="Filtrar publicaciones">
+        {% for clave, nombre in filtros.items() %}
+        {% if clave in ('todo', 'partidos') or lateral.con_universo %}
+        <a href="/red-social/?filtro={{ clave }}{% if q %}&q={{ q | urlencode }}{% endif %}" class="rs-pestana {{ 'activa' if filtro == clave }}">{{ nombre }}</a>
+        {% endif %}
+        {% endfor %}
+      </nav>
+      {% if q %}<p class="small text-muted mb-2"><i class="bi bi-funnel me-1"></i>Resultados para «{{ q }}»</p>{% endif %}
+
+      <div id="rsLista" class="rs-lista feed-fifav">
+        {% include "partials/red_social_lista.html" %}
+      </div>
+      {% if not items %}
+        {{ m.estado_vacio('bi-chat-square-text', 'No hay publicaciones' ~ (' para «' ~ q ~ '»' if q else ''), 'Prueba con otra búsqueda o con otro filtro.') }}
+      {% endif %}
+      <div class="text-center my-3">
+        <button id="rsMas" class="btn btn-outline-info rounded-pill px-4 {{ 'd-none' if not siguiente }}" data-antes="{{ siguiente or '' }}">
+          <i class="bi bi-arrow-down-circle me-1"></i>Cargar más
+        </button>
+        <p id="rsFin" class="small text-muted {{ 'd-none' if siguiente or not items }}">Llegaste al principio de la historia ⚽</p>
+      </div>
+    </div>
+
+    <aside class="col-lg-4">
+      <div class="rs-lateral">
+        <div class="card rs-tarjeta mb-3">
+          <div class="card-body p-3">
+            <h2 class="h6 fw-bold text-white mb-2"><i class="bi bi-fire text-danger me-1"></i>Tendencias</h2>
+            {% for t in lateral.tendencias %}
+            <a class="rs-tendencia" href="/red-social/?q={{ t.nombre | urlencode }}">
+              <span class="text-muted fs-8">{{ loop.index }} · Tendencia en el Mundial</span>
+              <span class="fw-semibold text-body-emphasis">{{ m.bandera(t.bandera) }} #{{ t.nombre | replace(' ', '') }}</span>
+              <span class="text-muted fs-8">{{ t.menciones | numero_compacto }} publicaciones</span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% if lateral.con_universo %}
+        <div class="card rs-tarjeta mb-3">
+          <div class="card-body p-3">
+            <h2 class="h6 fw-bold text-white mb-2"><i class="bi bi-megaphone-fill text-warning me-1"></i>Marcas más activas</h2>
+            {% for mk in lateral.marcas %}
+            <a class="rs-marca" href="/red-social/?filtro=marcas&q={{ mk.nombre | urlencode }}" style="--marca: {{ mk.color }};">
+              <span class="marca-avatar marca-avatar--sm"><img src="{{ mk.logo }}" alt="" loading="lazy"></span>
+              <span class="min-w-0 flex-grow-1"><span class="d-block fw-semibold text-body-emphasis text-truncate">{{ mk.nombre }}</span>
+                <span class="d-block text-muted fs-8 text-truncate">{{ mk.handle }} · {{ mk.rubro_nombre }}</span></span>
+              <span class="badge rounded-pill text-bg-dark">{{ mk.publicaciones }}</span>
+            </a>
+            {% else %}
+            <p class="small text-muted mb-0">Las marcas todavía no publican en tu universo: aparecen a medida que se juegan partidos.</p>
+            {% endfor %}
+            {% if puede('corporativos') %}<a href="/corporativo/marcas" class="d-inline-flex align-items-center gap-1 fs-7 fw-bold text-decoration-none mt-2">Marcas y patrocinios <i class="bi bi-arrow-right"></i></a>{% endif %}
+          </div>
+        </div>
+        {% elif puede('corporativos') %}
+        <div class="card rs-tarjeta mb-3"><div class="card-body p-3 small text-muted">
+          <i class="bi bi-briefcase-fill text-info me-1"></i>Empieza tu carrera en <a href="/corporativo/">Corporativos</a> y aquí verás las firmas,
+          rumores y respuestas de las marcas que patrocinan a jugadores y selecciones.</div></div>
+        {% endif %}
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const boton = document.getElementById('rsMas');
+  const lista = document.getElementById('rsLista');
+  const fin = document.getElementById('rsFin');
+  if (!boton) return;
+  boton.addEventListener('click', async () => {
+    const params = new URLSearchParams({ antes: boton.dataset.antes, q: {{ q | tojson }}, filtro: {{ filtro | tojson }} });
+    boton.disabled = true;
+    try {
+      const resp = await fetch(`/red-social/mas?${params}`);
+      if (!resp.ok) throw new Error();
+      const html = await resp.text();
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      lista.append(...tmp.children);
+      const siguiente = resp.headers.get('X-Siguiente');
+      if (siguiente && siguiente !== boton.dataset.antes) { boton.dataset.antes = siguiente; }
+      else { boton.classList.add('d-none'); fin.classList.remove('d-none'); }
+    } catch (e) {
+      UI.toast ? UI.toast('No se pudieron cargar más publicaciones') : null;
+    } finally { boton.disabled = false; }
+  });
+})();
+</script>
+{% endblock %}

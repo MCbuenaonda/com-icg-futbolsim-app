@@ -105,3 +105,17 @@
 {%- if enlace %}</a>{% else %}</span>{% endif -%}
 {%- endif -%}
 {%- endmacro %}
+
+
+{# Franja «En tu universo lo patrocinan» de las fichas de país y jugador (corporativo_marcas_service.patrocinadores_de) #}
+{% macro franja_marcas(lista) -%}
+{% if lista %}
+<div class="franja-marcas mt-2">
+    <span class="small text-warning fw-bold"><i class="bi bi-badge-ad-fill me-1"></i>En tu universo lo patrocinan</span>
+    {% for mk in lista %}
+    <a href="/red-social/?filtro=marcas&q={{ mk.nombre | urlencode }}" class="franja-marcas__item" style="--marca: {{ mk.color }};" title="{{ mk.nombre }} · {{ mk.rubro_nombre }} · representado por {{ mk.sigla }}">
+        <img src="{{ mk.logo }}" alt="" loading="lazy">{{ mk.nombre }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+{%- endmacro %}

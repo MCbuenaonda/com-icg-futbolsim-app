@@ -323,7 +323,7 @@ def generate_dynamic_trivia(user_id: str) -> dict:
             preguntas.append(pregunta)
 
     if len(preguntas) < PREGUNTAS_POR_SESION:
-        raise ValueError("No hay suficientes datos en este momento para generar la trivia. Probá de nuevo más tarde.")
+        raise ValueError("No hay suficientes datos en este momento para generar la trivia. Prueba de nuevo más tarde.")
 
     sesion = {
         "user_id": usuario_oid,

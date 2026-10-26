@@ -7,7 +7,7 @@
 {#
   Directorio de sedes: encabezado con tus cupos y el mercado, las OPORTUNIDADES (sedes libres con más partidos
   programados, venue_service.resumen_directorio) y el buscador de las 4.000+ ciudades (filtrado y paginado en el
-  servidor, /venues/buscar). Cada tarjeta dice cuántos partidos se juegan ahí, el próximo y si tenés su estampa.
+  servidor, /venues/buscar). Cada tarjeta dice cuántos partidos se juegan ahí, el próximo y si tienes su estampa.
 #}
 {% set r = resumen %}
 <div class="sd js-animar">
@@ -18,7 +18,7 @@
             <div class="min-w-0">
                 <span class="sd-eyebrow"><i class="bi bi-geo-alt-fill me-1"></i>Mercado de sedes</span>
                 <h1 class="sd-hero__titulo">Directorio de Sedes</h1>
-                <p class="text-muted mb-0">Patrociná una ciudad por {{ r.reglas.costo }} pts y cobrá taquilla cada vez que se juegue un partido en su estadio.</p>
+                <p class="text-muted mb-0">Patrocina una ciudad por {{ r.reglas.costo }} pts y cobra taquilla cada vez que se juegue un partido en su estadio.</p>
             </div>
             <a href="{{ url_for('venues_portafolio_vista') }}" class="btn btn-outline-success fw-bold rounded-pill px-3"><i class="bi bi-buildings me-1"></i>Mi portafolio</a>
         </div>
@@ -43,7 +43,7 @@
             <span class="sd-chip">⚽ +{{ r.reglas.por_gol }} por gol</span>
             <span class="sd-chip">🏆 ×{{ r.reglas.fase_alta }} en la fase final</span>
             <span class="sd-chip sd-chip--oro">📒 ×{{ r.reglas.sinergia }} con la estampa</span>
-            <span class="sd-chip">↩️ Vendés cuando quieras ({{ r.reglas.reembolso }}%)</span>
+            <span class="sd-chip">↩️ Vendes cuando quieras ({{ r.reglas.reembolso }}%)</span>
         </div>
     </div>
 </div>
@@ -75,7 +75,7 @@
                 {% endif %}
                 <div class="d-flex justify-content-between align-items-center gap-2 mt-2">
                     <span class="sd-chip sd-chip--verde" title="Estimado con los goles promedio del torneo{{ ' y la sinergia de tu estampa' if o.tengo_estampa }}">≈ {{ o.regalia_estimada }} pts</span>
-                    {% if o.tengo_estampa %}<span class="sd-chip sd-chip--oro"><i class="bi bi-stars"></i> Tenés la estampa</span>{% endif %}
+                    {% if o.tengo_estampa %}<span class="sd-chip sd-chip--oro"><i class="bi bi-stars"></i> Tienes la estampa</span>{% endif %}
                 </div>
                 <button type="button" class="btn btn-success btn-sm w-100 fw-bold mt-2 btn-comprar" data-ciudad-id="{{ o.ciudad_id }}" data-nombre="{{ o.nombre }}" data-costo="{{ o.costo }}">
                     <i class="bi bi-bag-plus-fill me-1"></i>Patrocinar ({{ o.costo }} pts)
@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         ${c.estadio_img ? `<img src="${e(c.estadio_img)}" alt="Estadio de ${e(c.nombre)}" loading="lazy" decoding="async" onerror="this.remove()">` : ''}
                         <span class="sd-sede__pais">${UI.bandera('', { id: c.pais_id })} ${e(c.pais_nombre || '-')}</span>
                         ${estadoHtml}
-                        ${c.tengo_estampa ? `<span class="sd-sede__sinergia" title="Tenés su estampa: cobrarías ×${SINERGIA}"><i class="bi bi-stars"></i> ×${SINERGIA}</span>` : ''}
+                        ${c.tengo_estampa ? `<span class="sd-sede__sinergia" title="Tienes su estampa: cobrarías ×${SINERGIA}"><i class="bi bi-stars"></i> ×${SINERGIA}</span>` : ''}
                     </div>
                     <div class="sd-sede__cuerpo">
                         <h3 class="sd-sede__nombre">${e(c.nombre)}</h3>
@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!btn) return;
         const ok = await UI.confirmar({
             titulo: `Patrocinar ${btn.dataset.nombre}`,
-            mensaje: `Se descontarán ${btn.dataset.costo} pts de tu saldo. Cobrás regalías cada vez que se juegue un partido en esta sede.`,
+            mensaje: `Se descontarán ${btn.dataset.costo} pts de tu saldo. Cobras regalías cada vez que se juegue un partido en esta sede.`,
             textoConfirmar: `Patrocinar por ${btn.dataset.costo} pts`,
         });
         if (!ok) return;

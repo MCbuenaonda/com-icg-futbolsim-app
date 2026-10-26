@@ -20,7 +20,7 @@
             <div class="min-w-0">
                 <span class="album-tapa__edicion">Sobres oficiales · {{ costo_sobre }} pts</span>
                 <h1 class="h2 fw-bold text-white mb-0">Sobres de Estampas</h1>
-                <p class="text-muted small mb-2">{{ por_sobre }} estampas por sobre, cada una de una categoría de rareza. Las repetidas se guardan: canjealas por las que te faltan o vendelas, desde tu álbum.</p>
+                <p class="text-muted small mb-2">{{ por_sobre }} estampas por sobre, cada una de una categoría de rareza. Las repetidas se guardan: canjéalas por las que te faltan o véndelas, desde tu álbum.</p>
                 <div class="d-flex flex-wrap gap-1 sobre-rarezas">
                     {% for cat in categorias %}
                     <span class="sobre-rareza sobre-rareza--{{ cat.codigo | lower }}" style="--cat-color: {{ cat.color }};" title="Canje: {{ cat.costo_canje }} repetidas · venta de una repetida: +{{ cat.bonus_repetida }} pts">
@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function () {
             await esperar(rara ? 900 : (estampas.length > 6 ? 260 : 420));
         }
         const nuevas = estampas.filter(e => !e.duplicado).length;
-        const pila = repetidas ? ` · tenés <strong>${repetidas.total}</strong> para canjear` : '';
+        const pila = repetidas ? ` · tienes <strong>${repetidas.total}</strong> para canjear` : '';
         resumen.innerHTML = `<span class="sobre-resumen__dato"><strong>${nuevas}</strong> nueva${nuevas === 1 ? '' : 's'}</span>
             <span class="sobre-resumen__dato"><strong>${estampas.length - nuevas}</strong> repetida${estampas.length - nuevas === 1 ? '' : 's'}${pila}</span>
             <a class="btn btn-outline-warning btn-sm rounded-pill px-3" href="{{ url_for('album_coleccion_vista') }}"><i class="bi bi-book-half me-1"></i>Pegarlas en el álbum</a>`;

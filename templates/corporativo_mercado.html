@@ -11,7 +11,7 @@
 #}
 {% set f = filtros %}
 {% macro url() -%}
-{%- set p = dict(tipo=f.tipo, vista=f.vista, q=f.q, conf=f.conf or '', region='true' if f.region else '', edad_max=f.edad_max or '', orden=f.orden, leyendas='true' if f.leyendas else '', pagina=1) -%}
+{%- set p = dict(tipo=f.tipo, vista=f.vista, q=f.q, conf=f.conf or '', region='true' if f.region else '', edad_max=f.edad_max or '', orden=f.orden, leyendas='true' if f.leyendas else '', pronto='true' if f.pronto else '', pagina=1) -%}
 {%- set _ = p.update(kwargs) -%}
 /corporativo/mercado?{% for k, v in p.items() if v not in (none, '') %}{{ k }}={{ v | urlencode }}{{ '&' if not loop.last }}{% endfor %}
 {%- endmacro %}
@@ -42,7 +42,7 @@
     </div>
   </div>
   {% if not corp %}
-  <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>Podés mirar el mercado, pero para ofertar necesitás un cargo de CEO.</div>
+  <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>Puedes mirar el mercado, pero para ofertar necesitas un cargo de CEO.</div>
   {% endif %}
 
   <!-- Filtros -->
@@ -72,7 +72,11 @@
     <div><label class="form-label small text-muted mb-1">Orden</label>
       <select name="orden" class="form-select form-select-sm">
         <option value="valor" {{ 'selected' if f.orden == 'valor' }}>Mayor valor</option>
-        <option value="valor_asc" {{ 'selected' if f.orden == 'valor_asc' }}>Menor valor</option></select></div>
+        <option value="valor_asc" {{ 'selected' if f.orden == 'valor_asc' }}>Menor valor</option>
+        <option value="pronto" {{ 'selected' if f.orden == 'pronto' }}>Juega antes</option>
+        <option value="senal" {{ 'selected' if f.orden == 'senal' }}>Mejor señal de compra</option></select></div>
+    <div class="form-check mb-1"><input class="form-check-input" type="checkbox" name="pronto" value="true" id="fPronto" {{ 'checked' if f.pronto }}>
+      <label class="form-check-label small" for="fPronto"><i class="bi bi-lightning-charge-fill text-warning"></i> Juega en los próximos 2 ciclos</label></div>
     {% if sigla %}<div class="form-check mb-1"><input class="form-check-input" type="checkbox" name="region" value="true" id="fRegion" {{ 'checked' if f.region }}>
       <label class="form-check-label small" for="fRegion">Solo mi región</label></div>{% endif %}
     <button class="btn btn-sm btn-success rounded-pill px-3"><i class="bi bi-funnel me-1"></i>Filtrar</button>
@@ -99,6 +103,13 @@
             {% if x.sigla_actual %} · <img src="{{ x.logo_actual }}" class="corp-logo corp-logo--micro" alt=""> {{ x.sigla_actual }}
               <span title="Satisfacción con su corporativo" class="{{ 'text-danger' if x.satisfaccion < 30 else '' }}">({{ x.satisfaccion }})</span>{% endif %}
           </small>
+          {% set j = x.juego %}{% set sn = x.senal %}
+          <div class="d-flex flex-wrap gap-1 mt-1">
+            {% if j.estado == 'programado' %}<span class="corp-juego {{ 'corp-juego--ya' if j.en_ciclos == 0 else ('corp-juego--pronto' if j.en_ciclos <= 2 else '') }}" title="vs {{ j.rival }} · en ~{{ j.faltan }} partidos del torneo"><i class="bi bi-calendar-event"></i>{% if j.en_ciclos == 0 %}Juega este ciclo{% else %}Juega en {{ j.en_ciclos }} ciclo{{ 's' if j.en_ciclos > 1 }}{% endif %}</span>
+            {% elif j.estado == 'eliminada' %}<span class="corp-juego corp-juego--fuera"><i class="bi bi-x-octagon"></i>Eliminada</span>
+            {% else %}<span class="corp-juego corp-juego--nada"><i class="bi bi-hourglass"></i>Sin partido programado</span>{% endif %}
+            {% if sn.senal == 'comprar' %}<span class="corp-senal-chip" title="{{ sn.motivos | selectattr('tono', 'equalto', 'pos') | map(attribute='texto') | join(' · ') }}"><i class="bi bi-arrow-up-circle-fill"></i>Señal de compra</span>{% endif %}
+          </div>
         </div>
         <div class="text-end">
           <strong class="corp-valor d-block">{{ '{:,}'.format(x.valor) }}</strong>
@@ -111,7 +122,9 @@
           <button class="btn btn-sm btn-success rounded-pill" data-ofertar data-tipo="{{ x.tipo }}" data-ref="{{ x.ref_id }}" data-nombre="{{ x.nombre }}"
                   data-valor="{{ x.valor }}" data-ref-prima="{{ x.prima_ref }}" data-base="{{ x.base }}"
                   data-satisfaccion="{{ x.satisfaccion if x.sigla_actual else '' }}" data-rival="{{ x.sigla_actual or '' }}"
-                  data-clausula="{{ x.clausula or '' }}" data-pide="{{ x.pide or '' }}">Ofertar</button>
+                  data-clausula="{{ x.clausula or '' }}" data-pide="{{ x.pide or '' }}"
+                  data-renta="{{ x.senal.renta_ciclo }}" data-mezcla="{{ ((x.prima_ref / x.senal.recupera_ciclos) | round | int) if x.senal.recupera_ciclos else 0 }}"
+                  data-juego="{{ ('vs ' ~ x.juego.rival ~ ' en ' ~ x.juego.en_ciclos ~ ' ciclo(s)') if x.juego.estado == 'programado' else ('selección eliminada' if x.juego.estado == 'eliminada' else 'sin partido programado') }}">Ofertar</button>
           {% endif %}
         {% endif %}
       </div>
@@ -126,7 +139,7 @@
   </nav>
   {% endif %}
   {% else %}
-  {{ m.estado_vacio('bi-search', 'Sin resultados', 'Probá con otros filtros.') }}
+  {{ m.estado_vacio('bi-search', 'Sin resultados', 'Prueba con otros filtros.') }}
   {% endif %}
 </div>
 
@@ -152,6 +165,7 @@
         <strong class="fs-3" id="ofProb">—</strong>
       </div>
       <div class="small text-muted mt-2">Costo total: <strong class="text-white" id="ofCosto"></strong> del capital (se paga solo si acepta).</div>
+      <div class="corp-oferta-proyeccion mt-2" id="ofProyeccion"></div>
     </div>
     <div class="modal-footer border-0">
       <button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
@@ -180,12 +194,18 @@
             $('ofProb').textContent = `${p}%`;
             $('ofProb').className = `fs-3 ${p >= 60 ? 'text-success' : p >= 35 ? 'text-warning' : 'text-danger'}`;
             $('ofCosto').textContent = fmt(prima + monto);
+            // Proyección (mismas fórmulas que corporativo_reglas.senales): ingreso por ciclo y en cuántos ciclos recupera lo pagado
+            const rec = actual.mezcla > 0 ? (prima + monto) / actual.mezcla : null;
+            $('ofProyeccion').innerHTML = `<i class="bi bi-graph-up-arrow"></i><span>Próximo partido: <b>${UI.escapar(actual.juego || '')}</b> · ingreso estimado
+                <b>${fmt(actual.renta)}</b> por ciclo en los próximos 2 · ${rec ? `recuperas lo pagado en <b>~${Math.ceil(rec)} ciclos</b>` : 'sin partidos a la vista: se recupera solo con patrocinios'}</span>`;
+            $('ofProyeccion').classList.toggle('corp-oferta-proyeccion--lenta', !rec || rec > 10);
         };
         document.addEventListener('click', ev => {
             const b = ev.target.closest('[data-ofertar]');
             if (!b) return;
             const d = b.dataset;
-            actual = { tipo: d.tipo, ref: Number(d.ref), refPrima: Number(d.refPrima), base: Number(d.base), satisfaccion: d.satisfaccion, rival: d.rival };
+            actual = { tipo: d.tipo, ref: Number(d.ref), refPrima: Number(d.refPrima), base: Number(d.base), satisfaccion: d.satisfaccion, rival: d.rival,
+                       renta: Number(d.renta || 0), mezcla: Number(d.mezcla || 0), juego: d.juego };
             $('ofTitulo').textContent = `Oferta por ${d.nombre}`;
             $('ofSub').textContent = `Valor de mercado ${fmt(d.valor)}.` + (d.rival ? ` Hoy lo representa ${d.rival}.` : ' Está libre.');
             const r = $('ofPrima');

@@ -26,7 +26,7 @@
       <label class="cac-lado cac-lado--a">
         {{ escudo_lado(pa, 'a') }}
         <select class="form-select" id="paisA" name="a" required aria-label="Selección 1">
-          <option value="">Elegí un país…</option>
+          <option value="">Elige un país…</option>
           {% for p in paises %}<option value="{{ p.id }}" data-bandera="{{ p.bandera }}" {{ 'selected' if a == p.id }}>{{ p.nombre }}</option>{% endfor %}
         </select>
       </label>
@@ -37,7 +37,7 @@
       <label class="cac-lado cac-lado--b">
         {{ escudo_lado(pb, 'b') }}
         <select class="form-select" id="paisB" name="b" required aria-label="Selección 2">
-          <option value="">Elegí un país…</option>
+          <option value="">Elige un país…</option>
           {% for p in paises %}<option value="{{ p.id }}" data-bandera="{{ p.bandera }}" {{ 'selected' if b == p.id }}>{{ p.nombre }}</option>{% endfor %}
         </select>
       </label>
@@ -47,7 +47,7 @@
 </form>
 
 {% if a is not none and b is not none and not h2h %}
-<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>Elegí dos selecciones distintas.</div>
+<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>Elige dos selecciones distintas.</div>
 
 {% elif h2h and h2h.total == 0 %}
 <div class="card card-seccion mb-4"><div class="card-body p-4">
@@ -55,7 +55,7 @@
     {{ m.bandera(h2h.a.bandera, tipo='escudo', pais_id=h2h.a.id) }}
     <div class="text-center">
       <strong class="d-block text-white fs-5">Todavía no se enfrentaron</strong>
-      <small class="text-muted">{{ h2h.a.nombre }} y {{ h2h.b.nombre }} nunca se cruzaron: cuando jueguen, su historia va a aparecer acá.</small>
+      <small class="text-muted">{{ h2h.a.nombre }} y {{ h2h.b.nombre }} nunca se cruzaron: cuando jueguen, su historia va a aparecer aquí.</small>
     </div>
     {{ m.bandera(h2h.b.bandera, tipo='escudo', pais_id=h2h.b.id) }}
   </div>
@@ -177,7 +177,7 @@
   {% endfor %}
 </div>
 {% else %}
-{{ m.estado_vacio('bi-arrow-left-right', 'Todavía no hay partidos jugados', 'Cuando se jueguen, acá vas a ver los cruces más repetidos.') }}
+{{ m.estado_vacio('bi-arrow-left-right', 'Todavía no hay partidos jugados', 'Cuando se jueguen, aquí vas a ver los cruces más repetidos.') }}
 {% endif %}
 {% endif %}
 

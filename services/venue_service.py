@@ -16,7 +16,7 @@ Notas de diseño / decisiones sobre ambigüedades del pedido original:
   aparte a 'city_ownerships' en cada chequeo de disponibilidad — permite un
   "reclamo" atómico igual al de selecciones (ver buy_city_venue).
 - Venta "en cualquier momento": a diferencia de las selecciones (que no se
-  pueden vender mientras están jugando), acá la regla de negocio dice
+  pueden vender mientras están jugando), aquí la regla de negocio dice
   explícitamente "en cualquier momento", así que sell_city_venue NO bloquea
   la venta aunque la sede esté hosteando el partido activo.
 - Sinergia con el Álbum (regla 3): el dueño de la sede es UN usuario, pero la
@@ -295,7 +295,7 @@ def buy_city_venue(user_id: str, ciudad_id: int) -> dict:
         "user_id": usuario_oid, "pais_id": pais_id, "status": ESTADO_SEDE_ACTIVO
     })
     if sedes_del_pais >= MAX_CIUDADES_POR_PAIS:
-        raise ValueError(f"Ya tenés {MAX_CIUDADES_POR_PAIS} sedes activas de este país (máximo permitido)")
+        raise ValueError(f"Ya tienes {MAX_CIUDADES_POR_PAIS} sedes activas de este país (máximo permitido)")
 
     sedes_totales = db['city_ownerships'].count_documents({"user_id": usuario_oid, "status": ESTADO_SEDE_ACTIVO})
     if sedes_totales >= MAX_CIUDADES_TOTAL:

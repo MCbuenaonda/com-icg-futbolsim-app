@@ -140,7 +140,7 @@
        con su bandera al final de la línea; filtro por confederación, buscador y clic en una línea gris para destacarla -->
   <div class="col-12">
     <figure class="mg-card" id="card-gTrayectoria">
-      <figcaption><h3>Partido a partido</h3><p>Todas las selecciones arrancan en 0: suman +1 por cada victoria, 0 por empate y −1 por derrota. Las líneas se van separando partido a partido. Tocá una línea gris o buscá un país para destacarlo (hasta 8).</p></figcaption>
+      <figcaption><h3>Partido a partido</h3><p>Todas las selecciones arrancan en 0: suman +1 por cada victoria, 0 por empate y −1 por derrota. Las líneas se van separando partido a partido. Toca una línea gris o busca un país para destacarlo (hasta 8).</p></figcaption>
       <div class="mg-filtros">
         <select id="trayConf" class="form-select form-select-sm" aria-label="Confederación">
           <option value="">Todas las confederaciones</option>
@@ -531,7 +531,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (lugar.has(id) || !porId.has(id)) return true;
             const usados = new Set(lugar.values());
             const libre = [...Array(MAX).keys()].find(i => !usados.has(i));
-            if (libre === undefined) { UI.toast && UI.toast('Podés destacar hasta 8 selecciones: quitá una primero.', { icono: 'bi-info-circle' }); return false; }
+            if (libre === undefined) { UI.toast && UI.toast('Puedes destacar hasta 8 selecciones: quita una primero.', { icono: 'bi-info-circle' }); return false; }
             lugar.set(id, libre);
             return true;
         };

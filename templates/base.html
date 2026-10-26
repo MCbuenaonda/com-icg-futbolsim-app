@@ -177,7 +177,7 @@
                     <div class="nivel-modal__aro" style="--pct: 100;"><span>{{ nivel_actual.nivel }}</span></div>
                     <span class="nivel-modal__eyebrow">¡Subiste de nivel!</span>
                     <h2 class="h3 fw-bold text-white mb-1" id="modalSubidaNivelTitulo">Nivel {{ nivel_actual.nivel }} · {{ nivel_actual.titulo }}</h2>
-                    <p class="text-muted mb-3">{% if nivel_actual.pendientes %}Tenés {{ nivel_actual.pendientes }} recompensa{{ 's' if nivel_actual.pendientes != 1 }} esperando para reclamar.{% else %}Seguí jugando para llegar al próximo nivel.{% endif %}</p>
+                    <p class="text-muted mb-3">{% if nivel_actual.pendientes %}Tienes {{ nivel_actual.pendientes }} recompensa{{ 's' if nivel_actual.pendientes != 1 }} esperando para reclamar.{% else %}Sigue jugando para llegar al próximo nivel.{% endif %}</p>
                     <div class="d-flex justify-content-center gap-2 flex-wrap">
                         <a href="/niveles/" class="btn btn-warning fw-bold rounded-pill px-4" data-nivel-visto><i class="bi bi-gift-fill me-1"></i>{{ 'Reclamar' if nivel_actual.pendientes else 'Ver mi nivel' }}</a>
                         <button type="button" class="btn btn-outline-light rounded-pill px-3" data-bs-dismiss="modal">Después</button>
@@ -223,49 +223,28 @@
         const GOL_ANIM_MS = 1400;
         const GOL_LINE_MS = 2500;
 
-        // Reproducción automática (toggle en /en-vivo/, templates/live_match.html): la
-        // preferencia se guarda en localStorage porque esta página (el badge) corre en TODAS
-        // las vistas menos /en-vivo/ -- así el encadenado de partidos sigue solo aunque el
-        // usuario esté navegando por el resto del sitio, no solo mientras mira esa pantalla.
-        // La reproducción automática simula partidos: solo para quien tiene 'simular_partidos'
+        // Reproducción automática: vive en el SERVIDOR (services/pulso_service.py, Cloud Scheduler da un pulso por
+        // minuto). Aquí, si el usuario puede simular, su navegador da además un pulso de RESPALDO cada minuto mientras no
+        // hay transmisión: el servidor decide si toca arrancar (misma grilla de horario), así que nunca adelanta ni duplica.
         const PUEDE_SIMULAR = {{ 'true' if puede('simular_partidos') else 'false' }};
-        const AUTOPLAY_STORAGE_KEY = 'futbolsim_autoplay_live';
-        const AUTO_PLAY_DELAY_MS = 10000;
+        const PULSO_RESPALDO_MS = 60000;
         let autoPlayTimeoutId = null;
-
-        function autoPlayEstaActivo() {
-            try {
-                return localStorage.getItem(AUTOPLAY_STORAGE_KEY) === '1';
-            } catch (e) {
-                return false;
-            }
-        }
+        try { localStorage.removeItem('futbolsim_autoplay_live'); } catch (e) {}   // el interruptor viejo vivía en el navegador
 
         function cancelarAutoPlayProgramado() {
             if (autoPlayTimeoutId) { clearTimeout(autoPlayTimeoutId); autoPlayTimeoutId = null; }
         }
 
         function programarAutoPlaySiCorresponde() {
-            if (!PUEDE_SIMULAR || !autoPlayEstaActivo() || autoPlayTimeoutId) return;
+            if (!PUEDE_SIMULAR || autoPlayTimeoutId) return;
             autoPlayTimeoutId = setTimeout(async () => {
                 autoPlayTimeoutId = null;
-                if (!autoPlayEstaActivo()) return;
-                try {
-                    const resp = await fetch('/matches/simulate-next-auto', { method: 'POST' });
-                    if (resp.status === 401) {
-                        // Sesión cerrada en algún momento con la preferencia todavía prendida --
-                        // se apaga sola para no reintentar cada 10s sin sentido.
-                        try { localStorage.removeItem(AUTOPLAY_STORAGE_KEY); } catch (e) {}
-                    }
-                } catch (e) {
-                    // Error de red: el próximo poll de consultarLiveBadge, si sigue sin haber
-                    // partido en curso, vuelve a programar el intento.
-                }
-            }, AUTO_PLAY_DELAY_MS);
+                try { await fetch('/matches/pulso/tick', { method: 'POST' }); } catch (e) { /* lo reintenta el próximo poll */ }
+            }, PULSO_RESPALDO_MS);
         }
         // Prefijos de descripción que arma el motor de simulación para cada tipo de gol (ver
         // services/simular_service.py) -- no hay un campo estructurado de jugador en el evento,
-        // así que se extrae el nombre de acá. Si el texto no matchea ninguno (formato distinto),
+        // así que se extrae el nombre de aquí. Si el texto no matchea ninguno (formato distinto),
         // se degrada a mostrar "¡GOL!" sin nombre.
         const GOL_DESCRIPCION_PATRONES = [
             /¡Golazo de ([^!]+)!/,

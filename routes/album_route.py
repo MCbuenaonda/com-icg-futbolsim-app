@@ -38,7 +38,7 @@ async def open_pack(request: Request, origen: str = "COMPRA"):
     """
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión para abrir un sobre")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión para abrir un sobre")
 
     try:
         return buy_and_open_pack(usuario["_id"], origen=origen.upper())
@@ -56,7 +56,7 @@ def canje(request: Request, tipo: str = Body(...), id: int = Body(...)):
     """Canjea repetidas por una estampa que falta (la elige el usuario de la sesión). Ver album_service.COSTO_CANJE."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
     try:
         return canjear_estampa(str(usuario["_id"]), tipo.upper(), int(id))
     except ValueError as e:
@@ -68,7 +68,7 @@ def vender(request: Request):
     """Vende todas las repetidas guardadas por puntos (los mismos de antes: 10 a 50 según la rareza)."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
     try:
         return vender_repetidas(str(usuario["_id"]))
     except ValueError as e:

@@ -8,15 +8,50 @@
   Perfil de un corporativo EN TU UNIVERSO (services/corporativo_service.obtener_perfil_corporativo): cifras,
   perfil de la IA y su cartera de representados (selecciones y jugadores) con valor y vencimiento del contrato.
 #}
+{% macro chip_juego(j) -%}
+{% if j.estado == 'programado' %}
+<span class="corp-juego {{ 'corp-juego--ya' if j.en_ciclos == 0 else ('corp-juego--pronto' if j.en_ciclos <= 2 else '') }}" title="Próximo partido: vs {{ j.rival }} (en ~{{ j.faltan }} partidos del torneo)">
+  <i class="bi {{ 'bi-broadcast' if j.faltan == 0 else 'bi-calendar-event' }}"></i>{% if j.faltan == 0 %}Juega el próximo{% elif j.en_ciclos == 0 %}Juega este ciclo{% else %}Juega en {{ j.en_ciclos }} ciclo{{ 's' if j.en_ciclos > 1 }}{% endif %}
+  <small>vs {{ j.rival }}</small></span>
+{% elif j.estado == 'eliminada' %}<span class="corp-juego corp-juego--fuera"><i class="bi bi-x-octagon"></i>Selección eliminada</span>
+{% else %}<span class="corp-juego corp-juego--nada"><i class="bi bi-hourglass"></i>Sin partido programado</span>{% endif %}
+{%- endmacro %}
+
+{% macro chip_senal(sn) -%}
+{# en la cartera solo se muestra lo que pide actuar: la recomendación de renovación (últimos ciclos del contrato)
+   y «vender» cuando además rinde mal (corporativo_reglas._senal_cartera) #}
+{% set rv = sn.renovacion %}
+{% if rv %}
+<details class="corp-senal corp-senal--renov-{{ rv.decision }}">
+  <summary><i class="bi {{ {'renovar': 'bi-arrow-repeat', 'esperar': 'bi-hourglass-split', 'no_renovar': 'bi-door-open-fill'}[rv.decision] }}"></i>{{ {'renovar': 'Pide renovación · conviene renovar', 'esperar': 'Pide renovación · mejor esperar', 'no_renovar': 'Pide renovación · no conviene'}[rv.decision] }}</summary>
+  <p class="corp-senal__texto">{{ rv.texto }}</p>
+  <ul>{% for mo in sn.motivos %}<li class="corp-senal__{{ mo.tono }}">{{ mo.texto }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+{% if sn.senal == 'vender' %}
+<details class="corp-senal corp-senal--{{ sn.senal }}">
+  <summary><i class="bi {{ {'comprar': 'bi-arrow-up-circle-fill', 'vender': 'bi-arrow-down-circle-fill', 'mantener': 'bi-pause-circle-fill'}[sn.senal] }}"></i>{{ {'comprar': 'Conviene comprar', 'vender': 'Conviene vender', 'mantener': 'Mantener'}[sn.senal] }}</summary>
+  <ul>{% for mo in sn.motivos %}<li class="corp-senal__{{ mo.tono }}">{{ mo.texto }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+{%- endmacro %}
+
 {% macro detalle_contrato(x) -%}
 <div class="corp-contrato">
   <div class="corp-contrato__datos">
-    <span title="Renta acumulada menos honorarios pagados en este contrato">Neto <strong class="{{ 'text-success' if x.neto > 0 else ('text-danger' if x.neto < 0 else '') }}">{{ '{:+,}'.format(x.neto) }}</strong></span>
-    <span>Honorario <strong>{{ '{:,}'.format(x.honorario) }}</strong>/ciclo</span>
+    {{ chip_senal(x.senal) }}
+    <span title="Lo que rindió (partidos, patrocinios, acuerdos) menos honorarios en este contrato">Neto <strong class="{{ 'text-success' if x.neto > 0 else ('text-danger' if x.neto < 0 else '') }}">{{ '{:+,}'.format(x.neto) }}</strong></span>
+    <span title="Patrocinio por ciclo, juegue o no">Patrocinio <strong class="text-info">+{{ '{:,}'.format(x.patrocinio) }}</strong></span>
+    <span title="Honorario esperado por ciclo: mantenimiento + partidos jugados">Honorario <strong>{{ '{:,}'.format(x.honorario) }}</strong>/ciclo</span>
+    {% if x.marcas %}<span class="corp-marcas" title="Marcas que lo patrocinan">{% for mk in x.marcas %}<img src="{{ mk.logo }}" alt="{{ mk.nombre }}" style="--marca: {{ mk.color }};" class="corp-marca-logo {{ 'corp-marca-logo--riesgo' if mk.aviso }}" title="{{ mk.nombre }}: {{ '{:,}'.format(mk.pago_ciclo) }} por ciclo hasta el ciclo {{ mk.hasta_ciclo }}{{ ' · ¡revisando el patrocinio!' if mk.aviso }}">{% endfor %}</span>{% endif %}
+    {% if x.acuerdo %}<span class="corp-marca" style="--marca: {{ x.acuerdo.colores[0] }};" title="Acuerdo publicitario hasta el ciclo {{ x.acuerdo.hasta_ciclo }}"><i class="bi bi-badge-ad-fill"></i>{{ x.acuerdo.marca }} +{{ '{:,}'.format(x.acuerdo.pago_ciclo) }}</span>{% endif %}
     <span title="Satisfacción del representado: por debajo de 30 pide salir">
       <i class="bi bi-emoji-{{ 'smile' if x.satisfaccion >= 60 else ('neutral' if x.satisfaccion >= 30 else 'frown') }}-fill {{ 'text-success' if x.satisfaccion >= 60 else ('text-warning' if x.satisfaccion >= 30 else 'text-danger') }}"></i> {{ x.satisfaccion }}</span>
   </div>
-  <div class="d-flex gap-1">
+  <div class="d-flex gap-1 flex-wrap">
+    {% if x.marcas | length < 3 %}<button class="btn btn-sm btn-outline-warning rounded-pill" data-promover="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}" title="Presentarlo a una marca interesada"><i class="bi bi-megaphone"></i> Promover</button>{% endif %}
+    <button class="btn btn-sm btn-outline-info rounded-pill" data-contrato-accion="gira" data-contrato="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}"
+            {{ 'disabled' if not x.gira_ok }} title="{{ x.gira_motivo or 'Gira de exhibición' }}"><i class="bi bi-airplane"></i> Gira</button>
     {% if x.puede_renovar %}<button class="btn btn-sm btn-outline-success rounded-pill" data-contrato-accion="renovar" data-contrato="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}" data-costo="{{ x.costo_renovar }}"><i class="bi bi-arrow-repeat"></i> Renovar</button>{% endif %}
     <button class="btn btn-sm btn-outline-danger rounded-pill" data-contrato-accion="rescindir" data-contrato="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}" data-costo="{{ x.costo_rescindir }}" title="Rescindir"><i class="bi bi-x-lg"></i></button>
   </div>
@@ -38,6 +73,7 @@
           <span class="corp-tier corp-tier--{{ corp.tier | lower }}">Tier {{ corp.tier }}</span>
           {% if corp.es_del_usuario %}<span class="corp-mio"><i class="bi bi-person-badge-fill me-1"></i>Tu corporativo</span>
           {% else %}<span class="resumen-chip"><i class="bi bi-cpu"></i>IA · {{ perfil_ia }}</span>{% endif %}
+          {% if saneamiento and saneamiento.estado == 'ACTIVO' %}<span class="corp-sello-san"><i class="bi bi-shield-fill-exclamation"></i>En saneamiento hasta el ciclo {{ saneamiento.hasta_ciclo }}</span>{% endif %}
         </div>
       </div>
       <div class="d-flex gap-2 flex-wrap">
@@ -49,13 +85,29 @@
     </div>
   </div>
 
-  {% if corp.es_del_usuario %}
-  <div class="corp-panel mb-3 d-flex flex-wrap gap-3 small">
-    <span><i class="bi bi-cash-stack text-warning me-1"></i>Honorarios por ciclo: <strong class="text-white">{{ '{:,}'.format(honorarios_ciclo) }}</strong></span>
-    <span><i class="bi bi-graph-up text-success me-1"></i>Neto acumulado de la cartera: <strong class="{{ 'text-success' if neto_total > 0 else 'text-danger' }}">{{ '{:+,}'.format(neto_total) }}</strong></span>
-    <span class="text-muted">Renovar cuesta el 5% del valor (solo en los últimos 3 ciclos del contrato); rescindir, la mitad de los honorarios que faltan.</span>
+  <div class="corp-resumen-perfil mb-3">
+    {% if exposicion %}
+    {% set ns = namespace(a=0, partes=[]) %}{% for e in exposicion %}{% set ns.partes = ns.partes + [e.color ~ ' ' ~ ns.a ~ '% ' ~ (ns.a + e.pct) ~ '%'] %}{% set ns.a = ns.a + e.pct %}{% endfor %}
+    <div class="corp-dona" style="background: conic-gradient({{ ns.partes | join(', ') }}, #1e293b 0);" role="img" aria-label="Exposición por confederación"><span>{{ exposicion[0].conf }}<small>{{ exposicion[0].pct }}%</small></span></div>
+    <div class="corp-dona__leyenda">
+      <div class="corp-panel__titulo mb-1">Exposición por confederación</div>
+      {% for e in exposicion %}<span class="corp-conf-chip" style="--c: {{ e.color }};">{{ e.conf }} <b>{{ e.pct }}%</b></span>{% endfor %}
+      <small class="text-muted d-block mt-1">Las confederaciones juegan por bloques: una cartera concentrada pasa varios ciclos sin partidos.</small>
+    </div>
+    {% endif %}
+    {% if corp.es_del_usuario %}
+    <div class="corp-resumen-perfil__cifras small">
+      <span><i class="bi bi-cash-stack text-info me-1"></i>Patrocinios por ciclo: <strong class="text-info">+{{ '{:,}'.format(patrocinio_ciclo) }}</strong></span>
+      <span><i class="bi bi-receipt text-warning me-1"></i>Honorarios esperados por ciclo: <strong class="text-white">{{ '{:,}'.format(honorarios_ciclo) }}</strong></span>
+      <span><i class="bi bi-graph-up text-success me-1"></i>Neto acumulado de la cartera: <strong class="{{ 'text-success' if neto_total > 0 else 'text-danger' }}">{{ '{:+,}'.format(neto_total) }}</strong></span>
+      {% set mr = marcas_resumen %}
+      <span><i class="bi bi-badge-ad-fill text-warning me-1"></i>Marcas: <strong class="text-white">{{ mr.activos if mr else 0 }}</strong> patrocinios{% if mr and mr.pago_ciclo %} · <strong class="text-info">+{{ '{:,}'.format(mr.pago_ciclo) }}</strong> por ciclo (tu comisión +{{ '{:,}'.format(mr.comision_ciclo) }}){% endif %}{% if mr and mr.en_riesgo %} · <span class="text-danger">{{ mr.en_riesgo }} en riesgo</span>{% endif %} · <a href="/corporativo/marcas">ver marcas</a> · gira {{ 'ya organizada' if gira_este_ciclo else 'disponible' }} este ciclo</span>
+      {% if senales.vender %}<span class="text-danger"><i class="bi bi-arrow-down-circle-fill me-1"></i>{{ senales.vender }} representado{{ 's' if senales.vender > 1 }} con señal de venta</span>{% endif %}
+      {% if senales.renovacion %}<span class="text-warning"><i class="bi bi-arrow-repeat me-1"></i>{{ senales.renovacion }} representado{{ 's' if senales.renovacion > 1 }} pide{{ 'n' if senales.renovacion > 1 }} renovación: revisa la recomendación de cada uno</span>{% endif %}
+      <span class="text-muted">Renovar cuesta ~60% de la prima de un fichaje (solo en los últimos 3 ciclos del contrato); rescindir, la mitad de los honorarios que faltan.</span>
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
   <h2 class="vivo-titulo"><i class="bi bi-flag-fill text-success"></i>Selecciones representadas <span class="text-muted small fw-normal">({{ selecciones | length }})</span></h2>
   {% if selecciones %}
   <div class="row g-2 row-cols-1 row-cols-md-2 row-cols-xl-3 mb-4">
@@ -66,6 +118,7 @@
         <div class="min-w-0 flex-grow-1">
           <div class="text-white fw-semibold text-truncate">{{ s.nombre }}{% if s.de_region %} <i class="bi bi-geo-alt-fill text-success small" title="De su región de afinidad"></i>{% endif %}</div>
           <small class="text-muted">Ranking #{{ s.rankin or '—' }} · contrato {{ s.ciclos_restantes }} ciclo{{ 's' if s.ciclos_restantes != 1 }} más</small>
+          <div>{{ chip_juego(s.juego) }}</div>
         </div>
         <strong class="corp-valor">{{ '{:,}'.format(s.valor) }}</strong>
       </a>
@@ -85,6 +138,7 @@
         <div class="min-w-0 flex-grow-1">
           <div class="text-white fw-semibold text-truncate">{{ j.nombre }}{% if j.de_region %} <i class="bi bi-geo-alt-fill text-success small" title="De su región de afinidad"></i>{% endif %}</div>
           <small class="text-muted text-truncate d-block">{{ m.bandera(j.bandera, pais_id=j.pais_id) }} {{ j.pais }} · {{ j.edad }} años · {{ j.ciclos_restantes }} ciclo{{ 's' if j.ciclos_restantes != 1 }}</small>
+          <div>{{ chip_juego(j.juego) }}</div>
         </div>
         <strong class="corp-valor">{{ '{:,}'.format(j.valor) }}</strong>
       </a>
@@ -99,11 +153,33 @@
         const boton = ev.target.closest('[data-contrato-accion]');
         if (!boton) return;
         const { contratoAccion: accion, contrato, nombre, costo } = boton.dataset;
-        const monto = Number(costo).toLocaleString('en-US');
-        const ok = await UI.confirmar(accion === 'renovar'
-            ? { titulo: `¿Renovar a ${nombre}?`, mensaje: `La prima de renovación cuesta ${monto} del capital del corporativo.`, textoConfirmar: 'Renovar' }
-            : { titulo: `¿Rescindir a ${nombre}?`, mensaje: `Pagás ${monto} de indemnización y queda libre: cualquier corporativo puede ficharlo.`, textoConfirmar: 'Rescindir', peligro: true });
-        if (!ok) return;
+        const fmt = n => Number(n).toLocaleString('en-US');
+        const monto = fmt(costo);
+        let pregunta;
+        if (accion === 'acuerdo' || accion === 'gira') {
+            // primero la cotización (no cobra nada): cuánto paga la marca o cuánto cuesta y recauda la gira
+            try {
+                const r = await UI.cargando(fetch(`/corporativos/contratos/${encodeURIComponent(contrato)}/${accion}`, { headers: { accept: 'application/json' } }));
+                const q = await r.json();
+                if (!r.ok) throw new Error(q.detail || 'No se pudo cotizar');
+                if (accion === 'acuerdo') {
+                    pregunta = { titulo: `${q.marca} quiere a ${nombre}`, textoConfirmar: 'Firmar acuerdo',
+                                 mensaje: `Te paga ${fmt(q.adelanto)} ahora y ${fmt(q.pago_ciclo)} por ciclo durante ${q.ciclos} ciclos (${fmt(q.total)} en total). ${q.riesgo}.` };
+                } else if (!q.disponible) {
+                    UI.mostrarAlertaEn(document.getElementById('alertaPerfil'), q.motivo, 'warning'); return;
+                } else {
+                    pregunta = { titulo: `¿Gira de exhibición de ${nombre}?`, textoConfirmar: 'Organizar gira',
+                                 mensaje: `Cuesta ${fmt(q.costo)} ahora y recauda entre ${fmt(q.ingreso_min)} y ${fmt(q.ingreso_max)} ${q.cobra}.`
+                                   + (q.tipo === 'seleccion' ? (q.suma_aficionados ? ' Además suma aficionados reales a la selección (+1% a +3%).' : ' Esta vez no suma aficionados: otra gira con esta selección fue hace poco.')
+                                                             : ` Puede sumar hasta ${q.aficionados_max} aficionados a su selección (su selección hizo ${q.forma_seleccion} de 15 puntos en sus últimos 5).`) };
+                }
+            } catch (err) { UI.mostrarAlertaEn(document.getElementById('alertaPerfil'), err.message, 'danger'); return; }
+        } else {
+            pregunta = accion === 'renovar'
+                ? { titulo: `¿Renovar a ${nombre}?`, mensaje: `La prima de renovación cuesta ${monto} del capital del corporativo.`, textoConfirmar: 'Renovar' }
+                : { titulo: `¿Rescindir a ${nombre}?`, mensaje: `Pagas ${monto} de indemnización y queda libre: cualquier corporativo puede ficharlo.`, textoConfirmar: 'Rescindir', peligro: true };
+        }
+        if (!(await UI.confirmar(pregunta))) return;
         boton.disabled = true;
         try {
             const resp = await fetch(`/corporativos/contratos/${encodeURIComponent(contrato)}/${accion}`, { method: 'POST', headers: { accept: 'application/json' } });
@@ -116,4 +192,5 @@
         }
     });
 </script>
+<script src="/static/js/marcas.js?v=1"></script>
 {% endblock %}

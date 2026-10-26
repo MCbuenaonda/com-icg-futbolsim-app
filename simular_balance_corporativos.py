@@ -6,10 +6,15 @@ Reproduce los partidos ya jugados del Mundial activo en orden, con la plantilla 
 renta vs honorarios por representado, ROI por ciclo, confianza del directorio y pago del CEO con tres
 estrategias (bueno / malo / ia). Sirve para calibrar config/corporativos.py antes de tocar la app.
 
-    python simular_balance_corporativos.py [SIGLA_CEO] [corridas]
+    python simular_balance_corporativos.py [SIGLA_CEO] [corridas] [v1|v2]
+
+v1 = reglas viejas (honorario fijo por ciclo, juegue o no); v2 = economía actual (mantenimiento + honorario por
+partido jugado + patrocinio por ciclo + renovación más barata + sentimiento por la ROI media de la ventana).
 """
 import statistics
 import sys
+
+REGLAS = "v2"
 from collections import defaultdict
 
 from config import corporativos as C
@@ -74,6 +79,10 @@ def correr(datos, sigla_ceo, estrategia, corrida):
                 k = ("seleccion", pid)
                 if k in c.contratos:
                     r = R.renta_seleccion(c.contratos[k]["valor"], resultado)
+                    if REGLAS == "v2":
+                        h = R.honorario_partido("seleccion", c.contratos[k]["valor"])
+                        r -= h
+                        c.contratos[k]["hon_partidos"] = c.contratos[k].get("hon_partidos", 0) + h
                     c.contratos[k]["renta"] += r
                     c.capital += r
                     c.renta_ciclo += r
@@ -81,6 +90,10 @@ def correr(datos, sigla_ceo, estrategia, corrida):
                 k = ("jugador", jid)
                 if k in c.contratos:
                     r = R.renta_jugador(c.contratos[k]["valor"], aporte)
+                    if REGLAS == "v2":
+                        h = R.honorario_partido("jugador", c.contratos[k]["valor"])
+                        r -= h
+                        c.contratos[k]["hon_partidos"] = c.contratos[k].get("hon_partidos", 0) + h
                     c.contratos[k]["renta"] += r
                     c.capital += r
                     c.renta_ciclo += r
@@ -93,23 +106,26 @@ def correr(datos, sigla_ceo, estrategia, corrida):
         for c in corps.values():
             patrimonio = c.capital + c.valor_cartera()
             gasto = 0
+            c.renta_ciclo += sum(_patrocinio(k, ct, paises) for k, ct in c.contratos.items()) if REGLAS == "v2" else 0
             for k, ct in list(c.contratos.items()):
-                h = R.honorario(k[0], ct["valor"])
+                h = _honorario_ciclo(k, ct)
+                pat = _patrocinio(k, ct, paises) if REGLAS == "v2" else 0
                 gasto += h + ct["amort"]
-                resumen_renta[k[0]].append(ct["renta"] - h)
-                ct["renta_total"] += ct["renta"]
-                ct["honorarios_total"] += h
+                resumen_renta[k[0]].append(ct["renta"] + pat - h)
+                ct["renta_total"] += ct["renta"] + pat
+                ct["honorarios_total"] += h + ct.pop("hon_partidos", 0)
                 ct["renta"], ct["ciclos"], ct["restantes"] = 0, ct["ciclos"] + 1, ct["restantes"] - 1
                 if ct["restantes"] <= 0:
                     # vence: se renueva si rindió (renta >= 80% de lo que costó), pagando una prima nueva
                     if ct["renta_total"] >= 0.8 * ct["honorarios_total"]:
-                        prima = R.prima_referencia(ct["valor"])
+                        prima = R.prima_renovacion(ct["valor"], 70) if REGLAS == "v2" else R.prima_referencia(ct["valor"])
                         c.capital -= prima
                         c.contratos[k] = Corp._contrato(ct["valor"], rng, prima)
                     else:
                         del c.contratos[k]
                         ocupados.discard(k)
-            c.capital -= sum(R.honorario(k[0], ct["valor"]) for k, ct in c.contratos.items())
+            c.capital -= sum(_honorario_ciclo(k, ct) for k, ct in c.contratos.items())
+            c.capital += sum(_patrocinio(k, ct, paises) for k, ct in c.contratos.items()) if REGLAS == "v2" else 0
             utilidad = c.renta_ciclo - gasto
             es_ceo = c.sigla == sigla_ceo and despido is None
             if es_ceo:
@@ -124,8 +140,10 @@ def correr(datos, sigla_ceo, estrategia, corrida):
             nuevo = R.precio_accion(c.capital, c.valor_cartera(), c.sentimiento)
             c.variacion = nuevo / c.precio - 1 if c.precio else 0
             c.precio = nuevo if not c.precio else R.limitar_banda(nuevo, c.precio)
-            c.sentimiento = R.nuevo_sentimiento(c.sentimiento, roi, 0, rng)
             c.rois.append(roi)
+            roi_sent = statistics.mean(c.rois[-C.CICLOS_VENTANA_ROI:]) if REGLAS == "v2" else roi
+            c.sentimiento = R.nuevo_sentimiento(c.sentimiento, roi_sent, 0, rng)
+            c.utilidades_todas = getattr(c, "utilidades_todas", []) + [utilidad]
             c.historial.append((ciclo, round(roi * 100, 2), int(c.capital), c.confianza))
             c.renta_ciclo = 0
 
@@ -144,7 +162,7 @@ def correr(datos, sigla_ceo, estrategia, corrida):
                 multiplo = 1.1
                 for k, ct in list(c.contratos.items()):   # suelta lo que no rinde
                     if ct["ciclos"] >= 3 and k[0] == "jugador" and jugados[pais_de[k[1]]] and forma(pais_de[k[1]]) < 0.25:
-                        c.capital -= ct["valor"] * C.HONORARIO_POR_CICLO["jugador"] * ct["restantes"] * C.RESCISION_FRACCION_RESTANTE
+                        c.capital -= _honorario_ciclo(k, ct) * ct["restantes"] * C.RESCISION_FRACCION_RESTANTE
                         del c.contratos[k]
                         ocupados.discard(k)
             else:
@@ -163,6 +181,18 @@ def correr(datos, sigla_ceo, estrategia, corrida):
     return corps, pagos_ceo, despido, resumen_renta
 
 
+def _honorario_ciclo(k, ct):
+    """v1: honorario fijo por ciclo. v2: solo el mantenimiento (el resto se cobró por partido jugado)."""
+    if REGLAS == "v2":
+        return R.honorario_mantenimiento(k[0], ct["valor"])
+    return int(round(ct["valor"] * C.HONORARIO_POR_CICLO[k[0]]))
+
+
+def _patrocinio(k, ct, paises):
+    pop = R.popularidad_seleccion((paises.get(k[1]) or {}).get("aficionados")) if k[0] == "seleccion" else R.popularidad_jugador(ct["valor"])
+    return R.patrocinio(k[0], ct["valor"], pop)
+
+
 def evaluar_directorio(corps, sigla_ceo, ciclo):
     ventana = {s: sum(c.rois[-C.CICLOS_VENTANA_ROI:]) for s, c in corps.items()}
     orden = sorted(ventana, key=ventana.get, reverse=True)
@@ -175,10 +205,12 @@ def evaluar_directorio(corps, sigla_ceo, ciclo):
 
 
 def main():
+    global REGLAS
     sigla = sys.argv[1] if len(sys.argv) > 1 else "UIDR"
     corridas = int(sys.argv[2]) if len(sys.argv) > 2 else 5
+    REGLAS = sys.argv[3] if len(sys.argv) > 3 else "v2"
     datos = cargar()
-    print(f"{len(datos[0])} partidos -> {len(datos[0]) // C.PARTIDOS_POR_CICLO} ciclos. CEO en {sigla}.\n")
+    print(f"{len(datos[0])} partidos -> {len(datos[0]) // C.PARTIDOS_POR_CICLO} ciclos. CEO en {sigla}. Reglas {REGLAS}.\n")
     for estrategia in ("ia", "bueno", "malo"):
         pagos, despidos, rois, capitales, rentas = [], [], [], [], defaultdict(list)
         for i in range(corridas):
@@ -197,6 +229,16 @@ def main():
         for t, v in rentas.items():
             print(f"        neto por {t} y ciclo (todos los corporativos): media {statistics.mean(v):.1f}"
                   f"  positivos {sum(1 for x in v if x > 0) / len(v):.0%}")
+    todas_u, todas_roi, precios = [], [], []
+    for i in range(corridas):
+        corps_i, *_ = correr(datos, sigla, "ia", i)
+        for c in corps_i.values():
+            todas_u += c.utilidades_todas
+            todas_roi += c.rois
+            precios.append(c.precio)
+    neg = sum(1 for u in todas_u if u < 0) / len(todas_u)
+    print(f"\nTODOS los corporativos (IA): ciclos con utilidad negativa {neg:.0%} | ROI mediano por ciclo {statistics.median(todas_roi) * 100:.2f}%"
+          f" | ROI medio {statistics.mean(todas_roi) * 100:.2f}%")
     corps, *_ = correr(datos, sigla, "ia", 0)
     print("\nCapital final por corporativo (IA, corrida 0):")
     for c in corps.values():

@@ -6,7 +6,7 @@ la confederación que toca), así que todo se resuelve en dos niveles:
   1. ICONOS_POR_PAIS: lo propio del país (curado para las sedes más reconocibles), se prefiere siempre.
   2. REGIONES: fondos e íconos de su región (por confederación, con excepciones en REGION_POR_PAIS).
 Para sumar piezas a la biblioteca: dibujarlas en services/arte_mundial/poster.py (FONDOS / ICONOS / FUTBOL) y
-nombrarlas acá en las regiones o países donde tienen sentido.
+nombrarlas aquí en las regiones o países donde tienen sentido.
 """
 
 TITULO_TORNEO = "COPA MUNDIAL DE LA FIFAV"

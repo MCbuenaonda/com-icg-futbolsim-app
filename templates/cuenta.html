@@ -89,7 +89,7 @@
                     <span class="portafolio-fila__dato {{ 'text-success' if ganancia >= 0 else 'text-danger' }}">{{ '+' if ganancia > 0 }}{{ "{:,}".format(ganancia) }}<small>valor</small></span>
                     <span class="portafolio-fila__dato text-success">+{{ "{:,}".format(s.total_dividends_earned) }}<small>dividendos</small></span>
                 </a>
-                {% else %}<p class="text-muted small mb-0">No tenés selecciones. <a href="/selecciones/mercado">Ir al mercado</a></p>{% endfor %}
+                {% else %}<p class="text-muted small mb-0">No tienes selecciones. <a href="/selecciones/mercado">Ir al mercado</a></p>{% endfor %}
             </div>
         </div>
     </div>
@@ -104,7 +104,7 @@
                     <span class="min-w-0 flex-grow-1"><strong class="text-truncate d-block">{{ s.ciudad_nombre }}</strong><small>Compra {{ "{:,}".format(s.purchase_price) }} · {{ s.matches_hosted_count }} partido{{ 's' if s.matches_hosted_count != 1 }}</small></span>
                     <span class="portafolio-fila__dato text-success">+{{ "{:,}".format(s.total_revenue_earned) }}<small>regalías</small></span>
                 </div>
-                {% else %}<p class="text-muted small mb-0">No tenés sedes. <a href="/sedes/directorio">Ver sedes</a></p>{% endfor %}
+                {% else %}<p class="text-muted small mb-0">No tienes sedes. <a href="/sedes/directorio">Ver sedes</a></p>{% endfor %}
             </div>
         </div>
     </div>
@@ -114,8 +114,8 @@
 <!-- Gráficas -->
 <div class="row g-4 mb-4">
     {% for titulo, icono, color, canvas, datos, vacio in [
-        ('Gasto por categoría', 'bi-arrow-down-circle-fill', '#ef4444', 'chartGastos', r.graficas.gasto_por_categoria, 'Todavía no tenés gastos registrados.'),
-        ('Ingresos por categoría', 'bi-arrow-up-circle-fill', '#22c55e', 'chartIngresos', r.graficas.ingreso_por_categoria, 'Todavía no tenés ingresos registrados.'),
+        ('Gasto por categoría', 'bi-arrow-down-circle-fill', '#ef4444', 'chartGastos', r.graficas.gasto_por_categoria, 'Todavía no tienes gastos registrados.'),
+        ('Ingresos por categoría', 'bi-arrow-up-circle-fill', '#22c55e', 'chartIngresos', r.graficas.ingreso_por_categoria, 'Todavía no tienes ingresos registrados.'),
         ('Balance de actividad', 'bi-graph-up', '#38bdf8', 'chartEvolucion', r.graficas.evolucion_saldo, 'Todavía no hay actividad para graficar.')] %}
     <div class="col-12 col-lg-4">
         <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: {{ color }};">
@@ -158,7 +158,7 @@
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-muted text-center py-4 mb-0">Todavía no tenés ninguna transacción registrada.</p>
+        <p class="text-muted text-center py-4 mb-0">Todavía no tienes ninguna transacción registrada.</p>
         {% endif %}
     </div>
 </div>

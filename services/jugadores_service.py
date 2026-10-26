@@ -361,7 +361,7 @@ def actualizar_jugadores_post_partido(stats_jugadores: dict, goles_local: int = 
                     # Disparos totales (a puerta + desviados), para poder calcular la
                     # efectividad de gol por jugador (ver
                     # estadisticas_service._obtener_mejor_efectividad_gol) -- antes se
-                    # calculaban por partido en el motor de simulación pero se descartaban acá.
+                    # calculaban por partido en el motor de simulación pero se descartaban aquí.
                     "tiros_puerta": stats.get("tiros_puerta", 0),
                     "tiros_desviados": stats.get("tiros_desviados", 0),
                     # Faltas RECIBIDAS (jugador víctima), para "Jugador Más Infringido" (ver
@@ -370,7 +370,7 @@ def actualizar_jugadores_post_partido(stats_jugadores: dict, goles_local: int = 
                     "faltas_recibidas": stats.get("faltas_recibidas", 0),
                     # Robos de balón (recuperaciones) y atajadas de penal específicamente
                     # (distinto de 'atajadas', que mezcla juego abierto y penales) -- ambos ya
-                    # se calculaban por partido en el motor de simulación pero se descartaban acá.
+                    # se calculaban por partido en el motor de simulación pero se descartaban aquí.
                     "recuperaciones": stats.get("recuperaciones", 0),
                     "atajadas_penales": stats.get("atajadas_penales", 0),
                     "juegos_jugados": 1

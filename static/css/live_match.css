@@ -584,3 +584,48 @@
 .iv__motivos { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.4rem; }
 @media (max-width: 575.98px) { .iv-vivo { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .iv-equipo--alerta { animation: none; } }
+
+/* ---------- Accesos rápidos flotantes (#vivoAtajos) ----------
+   Escritorio: columna de botones redondos en el borde derecho, centrada; la etiqueta aparece a la izquierda al pasar el
+   mouse. Celular: barra compacta abajo al centro con ícono + texto chico. */
+.vivo-atajos { position: fixed; z-index: 1010; right: 14px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 0.45rem;
+    padding: 0.45rem; border-radius: 999px; background: rgba(2, 6, 23, 0.72); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45); animation: vivo-atajos-entra 0.4s ease both; }
+@keyframes vivo-atajos-entra { from { opacity: 0; transform: translate(12px, -50%); } }
+.vivo-atajos__btn { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #cbd5e1; text-decoration: none;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease; }
+.vivo-atajos__btn i { font-size: 1.05rem; }
+.vivo-atajos__btn span { display: none; }
+.vivo-atajos__btn:hover, .vivo-atajos__btn:focus-visible { color: #fff; background: rgba(239, 68, 68, 0.35); transform: scale(1.08); outline: none; }
+.vivo-atajos__btn.activo { color: #fff; background: linear-gradient(135deg, #ef4444, #b91c1c); border-color: transparent; box-shadow: 0 0 14px rgba(239, 68, 68, 0.55); }
+.vivo-atajos__btn::after { content: attr(data-etiqueta); position: absolute; right: calc(100% + 10px); top: 50%; transform: translate(6px, -50%); padding: 0.25rem 0.6rem;
+    border-radius: 8px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; color: #fff; background: rgba(2, 6, 23, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12); opacity: 0; pointer-events: none; transition: opacity 0.15s ease, transform 0.15s ease; }
+.vivo-atajos__btn:hover::after, .vivo-atajos__btn:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
+/* que el destino no quede tapado por el navbar fijo */
+#seccionMarcador, #bloqueCanchaVivo, #seccionJugadores, #seccionCronologia, #panelTablaGrupo { scroll-margin-top: 80px; }
+
+@media (max-width: 767.98px) {
+    .vivo-atajos { top: auto; bottom: 12px; right: 50%; transform: translateX(50%); flex-direction: row; gap: 0.25rem; padding: 0.3rem; animation-name: vivo-atajos-entra-celular; }
+    @keyframes vivo-atajos-entra-celular { from { opacity: 0; transform: translate(50%, 12px); } }
+    .vivo-atajos__btn { width: auto; height: auto; min-width: 54px; padding: 0.3rem 0.45rem; border-radius: 999px; gap: 0.05rem; }
+    .vivo-atajos__btn i { font-size: 0.95rem; }
+    .vivo-atajos__btn span { display: block; font-size: 0.6rem; font-weight: 700; line-height: 1; }
+    .vivo-atajos__btn::after { display: none; }
+    .vivo-atajos__btn--escritorio { display: none; }
+    /* espacio al final de la página para que la barra no tape lo último */
+    #panelEnVivo { padding-bottom: 64px; }
+}
+@media (prefers-reduced-motion: reduce) { .vivo-atajos { animation: none; } .vivo-atajos__btn { transition: none; } }
+/* Escritorio: el contenido deja libre la franja de la columna de accesos, así no tapa nada */
+@media (min-width: 768px) { #panelEnVivo { padding-right: 58px; } }
+
+/* ---------- Reproducción automática en el servidor (services/pulso_service.py) ----------
+   Selector de ritmo junto al interruptor y aviso "Próximo partido a las HH:MM · faltan mm:ss" (para todos). */
+.vivo-hero__ritmo { width: auto; min-width: 12rem; border-radius: 999px; background-color: rgba(2, 6, 23, 0.5); color: #e2e8f0; border-color: rgba(255, 255, 255, 0.15); }
+.vivo-pulso { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.75rem; padding: 0.6rem 1rem; border-radius: 14px; font-size: 0.9rem; color: #e2e8f0;
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.14), rgba(2, 6, 23, 0.4)); border: 1px solid rgba(239, 68, 68, 0.35); }
+.vivo-pulso i { color: #f87171; font-size: 1.1rem; }
+.vivo-pulso b { color: #fff; font-variant-numeric: tabular-nums; }
+.vivo-pulso small { flex-basis: 100%; margin-left: 1.85rem; font-size: 0.75rem; color: var(--bs-secondary-color); }
+@media (max-width: 575.98px) { .vivo-hero__ritmo { min-width: 0; width: 100%; } }

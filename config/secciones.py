@@ -6,7 +6,7 @@ códigos de este catálogo en 'permisos' ("*" = todos). services/auth_service.py
 permisos del usuario en cada request y main.py protege cada router con
 requiere_permiso("<codigo>"); base.html oculta del navbar lo que el rol no puede ver.
 
-Si agregás una vista nueva: sumá su código acá, protegé su router en main.py y su link en
+Si agregas una vista nueva: suma su código aquí, protege su router en main.py y su link en
 base.html con tiene_permiso(...). "Mi cuenta" y "Cambiar contraseña" no son secciones: cualquier
 usuario con sesión puede verlas.
 """
@@ -44,6 +44,7 @@ SECCIONES = [
     ("simular_partidos", "Simular partidos", "Administración", "Simular partidos y avanzar el torneo (incluye la reproducción automática)"),
     ("reiniciar_torneo", "Reiniciar torneo", "Administración", "Borrar el torneo actual y empezar de cero"),
     ("gestion_usuarios", "Gestión de usuarios y roles", "Administración", "Crear usuarios, restablecer contraseñas y definir roles"),
+    ("generar_fotos", "Generar fotos de partidos", "Administración", "Generar con IA (Vertex AI) la foto del mejor momento de un partido jugado; cupo diario"),
 ]
 
 CODIGOS_SECCIONES = [s[0] for s in SECCIONES]

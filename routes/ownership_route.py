@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Mismo catálogo ya usado en confederacion_service.get_data_confederaciones_dashboard,
 # solo para poblar el filtro del mercado (no depende de esa función porque esa
-# también agrega estadísticas de partidos que acá no hacen falta)
+# también agrega estadísticas de partidos que aquí no hacen falta)
 CONFEDERACIONES = [
     {"id": 1, "sigla": "UEFA", "nombre": "Europa"},
     {"id": 2, "sigla": "CONMEBOL", "nombre": "Sudamérica"},
@@ -50,7 +50,7 @@ async def buy(request: Request, pais_id: int):
     """Compra la selección `pais_id` para el usuario logueado (vía cookie de sesión)."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión para comprar una selección")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión para comprar una selección")
 
     try:
         return buy_team(usuario["_id"], pais_id)
@@ -68,7 +68,7 @@ async def sell(request: Request, pais_id: int):
     """Vende la selección `pais_id` del usuario logueado al valor de mercado actual."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión para vender una selección")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión para vender una selección")
 
     try:
         return sell_team(usuario["_id"], pais_id)

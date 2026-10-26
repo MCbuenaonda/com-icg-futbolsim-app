@@ -18,17 +18,21 @@
             <span class="vivo-hero__senal" aria-hidden="true"><i class="bi bi-broadcast"></i></span>
             <div class="min-w-0">
                 <h1 class="h3 fw-bold text-white mb-0">Simulación en Vivo</h1>
-                <p class="text-muted mb-0 small">El próximo partido pendiente se simula al instante y se revela en vivo durante 5 minutos.</p>
+                <p class="text-muted mb-0 small">El próximo partido pendiente se simula al instante y se revela en vivo durante 25 minutos.</p>
             </div>
         </div>
         <div class="d-flex align-items-center gap-3 flex-wrap">
             {% if puede('simular_partidos') %}
-                <div class="form-check form-switch mb-0 vivo-hero__switch">
-                    <input class="form-check-input" type="checkbox" role="switch" id="toggleAutoPlay" style="cursor: pointer;">
+                {# Reproducción automática EN EL SERVIDOR (services/pulso_service.py): sigue aunque se cierre el navegador #}
+                <div class="form-check form-switch mb-0 vivo-hero__switch" title="El torneo avanza solo en el servidor, aunque cierres el navegador">
+                    <input class="form-check-input" type="checkbox" role="switch" id="toggleAutoPlay" style="cursor: pointer;" disabled>
                     <label class="form-check-label text-white small" for="toggleAutoPlay" style="cursor: pointer;">
                         Reproducción automática
                     </label>
                 </div>
+                <select id="selectRitmo" class="form-select form-select-sm vivo-hero__ritmo" aria-label="Ritmo de la reproducción automática" disabled>
+                    {% for m in [30, 45, 60, 90, 120] %}<option value="{{ m }}">Un partido cada {{ m }} min</option>{% endfor %}
+                </select>
             {% endif %}
             <a href="/juegos" class="btn btn-outline-light btn-sm rounded-pill px-3">
                 <i class="bi bi-arrow-left me-1"></i>Volver a partidos
@@ -36,7 +40,7 @@
         </div>
     </div>
 </div>
-<div id="autoPlayEstado" class="alert alert-warning py-2 px-3 small mb-4 d-none"></div>
+<div id="autoPlayEstado" class="vivo-pulso mb-4 d-none" aria-live="polite"></div>
 
 <!-- Estado inactivo: sin ningún partido en transmisión -->
 <!-- Estado de carga hasta la primera respuesta de /matches/live (antes la página quedaba en blanco) -->
@@ -54,7 +58,7 @@
                 <i class="bi bi-play-fill me-1"></i>Simular siguiente partido
             </button>
         {% else %}
-            <p class="text-muted small mb-0">El próximo partido empieza cuando un administrador lo ponga en marcha. Esta página se actualiza sola.</p>
+            <p class="text-muted small mb-0" id="textoEsperaEspectador">El próximo partido empieza cuando un administrador lo ponga en marcha. Esta página se actualiza sola.</p>
         {% endif %}
         <div id="errorSimular" class="alert alert-danger mt-3 d-none"></div>
         {% if puede('juego_en_vivo') %}
@@ -73,7 +77,17 @@
 
 <!-- Estado en vivo / finalizado -->
 <div id="panelEnVivo" class="d-none">
-    <div class="card vivo-card mb-4">
+    <!-- Accesos rápidos flotantes a cada sección (live_match.js, "Accesos rápidos"): columna en el borde derecho en
+         escritorio, barra abajo al centro en celular. Están dentro de #panelEnVivo: se ven solo con un partido en pantalla.
+         La Cancha no tiene botón en celular (ahí está oculta) y la Tabla solo aparece si el partido tiene tabla de grupo. -->
+    <nav class="vivo-atajos" id="vivoAtajos" aria-label="Ir a una sección de la transmisión">
+        <a href="#seccionMarcador" class="vivo-atajos__btn" data-etiqueta="Marcador"><i class="bi bi-display"></i><span>Marcador</span></a>
+        <a href="#bloqueCanchaVivo" class="vivo-atajos__btn vivo-atajos__btn--escritorio" data-etiqueta="Cancha virtual"><i class="bi bi-dribbble"></i><span>Cancha</span></a>
+        <a href="#seccionJugadores" class="vivo-atajos__btn" data-etiqueta="Jugadores en cancha"><i class="bi bi-people-fill"></i><span>Jugadores</span></a>
+        <a href="#seccionCronologia" class="vivo-atajos__btn" data-etiqueta="Cronología"><i class="bi bi-list-columns-reverse"></i><span>Jugadas</span></a>
+        <a href="#panelTablaGrupo" class="vivo-atajos__btn d-none" data-etiqueta="Tabla de posiciones" data-opcional><i class="bi bi-trophy-fill"></i><span>Tabla</span></a>
+    </nav>
+    <div class="card vivo-card mb-4" id="seccionMarcador">
         <div class="card-body p-3 p-md-4">
             <!-- Marcador estilo transmisión de TV: escudo de cada equipo de marca de agua en su mitad,
                  la ilustración del estadio al centro (los src los pone renderMarcadorTv en live_match.js) -->
@@ -105,7 +119,7 @@
                         <div id="barraTiempo" class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
                     </div>
                     <p class="text-muted small text-center mt-2 mb-0">
-                        <i class="bi bi-stopwatch me-1"></i><span id="segundosRestantes">300</span>s restantes de transmisión
+                        <i class="bi bi-stopwatch me-1"></i><span id="segundosRestantes">1500</span>s restantes de transmisión
                     </p>
                 </div>
                 <div id="infoPartido" class="marcador-tv__info">
@@ -207,7 +221,7 @@
                  goles/asistencias/tarjetas/entró-salió y lo que cada jugador y cada selección ocupa en
                  /estadisticas (GET /matches/live/destacados) -- ver calcularEstadoJugadoresEnCancha()/
                  renderJugadoresEnCancha(). Se actualiza en cada poll. -->
-            <h6 class="vivo-subtitulo mt-4 mb-2"><i class="bi bi-people-fill"></i>Jugadores en Cancha</h6>
+            <h6 class="vivo-subtitulo mt-4 mb-2" id="seccionJugadores"><i class="bi bi-people-fill"></i>Jugadores en Cancha</h6>
             <div class="row g-2">
                 <div class="col-md-6">
                     <div class="card h-100 once-card once-card--local">
@@ -264,7 +278,7 @@
 
     <div class="row g-4">
         <div class="col-lg-7">
-            <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #38bdf8;">
+            <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #38bdf8;" id="seccionCronologia">
                 <img src="{{ imagen_perfil('bitacora') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
                 <div class="card-body p-3 p-md-4">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
@@ -339,7 +353,7 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="{{ url_for('static', path='/css/live_match.css') }}?v=20261025c">
+<link rel="stylesheet" href="{{ url_for('static', path='/css/live_match.css') }}?v=20261025e">
 
 <script>
     // Configuración que depende del usuario (permisos); el resto de la lógica vive en static/js/live_match.js
@@ -348,6 +362,6 @@
         juegoEnVivoHabilitado: {{ 'true' if puede('juego_en_vivo') else 'false' }},
     };
 </script>
-<script src="{{ url_for('static', path='/js/live_match.js') }}?v=20261025c"></script>
+<script src="{{ url_for('static', path='/js/live_match.js') }}?v=20261025g"></script>
 {% endblock %}
 

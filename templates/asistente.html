@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="asist-resumen__kpis">
               <div class="fixture-kpi"><span>Consejos</span><strong>${r.consejos || 0}</strong></div>
               <div class="fixture-kpi"><span>Urgentes</span><strong class="${r.urgentes ? 'text-danger' : ''}">${r.urgentes || 0}</strong></div>
-              <div class="fixture-kpi" title="Consejos que hiciste (detectados por el Profe o marcados por vos)"><span>Atendidos</span><strong class="${atendidos ? 'text-success' : ''}">${atendidos}/${consejos.length}</strong></div>
+              <div class="fixture-kpi" title="Consejos que hiciste (detectados por el Profe o marcados por ti)"><span>Atendidos</span><strong class="${atendidos ? 'text-success' : ''}">${atendidos}/${consejos.length}</strong></div>
               ${r.valor_potencial !== null && r.valor_potencial !== undefined ? `<div class="fixture-kpi"><span>Valor potencial</span><strong class="text-success">+${fmt(r.valor_potencial)}</strong></div>` : ''}
               ${estado}
             </div>

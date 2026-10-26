@@ -20,7 +20,7 @@ Notas de diseño / decisiones sobre ambigüedades del pedido original:
       NUEVA agregada junto con este resumen: services/rewards_service.py no
       registraba estos eventos individualmente, solo contadores acumulados
       en user_daily_rewards. Los check-ins/becas reclamados ANTES de este
-      cambio no van a aparecer en el feed histórico, solo los de acá en más).
+      cambio no van a aparecer en el feed histórico, solo los de aquí en más).
 - "Evolución del balance" (gráfica de línea): es el NETO acumulado de los
   eventos que sí están en el feed, no el saldo histórico real de
   'usuarios.monto' (que arranca en 1000 y pudo moverse por otras vías, ej. el
@@ -299,8 +299,8 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
         feed.append({
             "fecha": mv["creado_en"],
             "categoria": "Corporativo",
-            "descripcion": f"Sueldo de CEO en {mv['sigla']} (ciclo {mv['ciclo']})",
-            "monto": -mv.get("monto", 0),
+            "descripcion": f"Sueldo de CEO en {mv['sigla']} (ciclo {mv['ciclo']})" + (" + comisión de marcas" if mv.get("comision") else ""),
+            "monto": -mv.get("monto", 0) + (mv.get("comision") or 0),
         })
     for op in db['corp_operaciones_bolsa'].find({"universo_id": str(user_id), "tipo": {"$in": ["COMPRA", "VENTA", "DIVIDENDO"]}}):
         if not op.get("monto"):

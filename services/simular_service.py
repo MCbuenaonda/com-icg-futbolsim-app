@@ -100,7 +100,7 @@ def construir_evento(segundos_acumulados: float, equipo: str, tipo: str, descrip
     Arma un evento de 'eventos_visibles' con la forma completa (campos de siempre +
     'segundos_acumulados'/'zona'/'posicion_balon' nuevos). Reemplaza a los dict literales
     sueltos y a la vieja 'evento_preparacion' -- con 3 campos nuevos por evento que dependen de
-    estado compartido (reloj, zona actual), centralizarlo acá evita repetir esa lógica en los
+    estado compartido (reloj, zona actual), centralizarlo aquí evita repetir esa lógica en los
     ~40 sitios que arman eventos.
     """
     evento = {
@@ -115,7 +115,7 @@ def construir_evento(segundos_acumulados: float, equipo: str, tipo: str, descrip
     }
     if es_preparacion:
         evento["es_preparacion"] = True
-    # 'periodo'/'adicional' definitivos los pone arbitraje.aplicar_reloj al final del partido; acá solo los eventos
+    # 'periodo'/'adicional' definitivos los pone arbitraje.aplicar_reloj al final del partido; aquí solo los eventos
     # del cambio de periodo lo fijan (caen en el mismo segundo en que empieza el siguiente)
     if periodo:
         evento["periodo"] = periodo
@@ -442,7 +442,7 @@ def ejecutar_tiro_libre(equipo_atacante: dict, defensor_marcador: dict, portero_
     evento de atajada al equipo del propio arquero, no al del cobrador.
 
     :return: (resultado, cobrador, segundos_acumulados) donde resultado in
-        {"gol", "desviado", "bloqueado", "atajado"}. El costo (Ataque/Remate, 3-7s) se suma acá
+        {"gol", "desviado", "bloqueado", "atajado"}. El costo (Ataque/Remate, 3-7s) se suma aquí
         -- es adicional al costo de Falta ya cargado por la infracción que originó el tiro libre.
     """
     candidatos = [j for j in equipo_atacante["plantilla"] if j.get("linea_partido") != 1]
@@ -459,7 +459,7 @@ def ejecutar_tiro_libre(equipo_atacante: dict, defensor_marcador: dict, portero_
     nombre_equipo = equipo_atacante["nombre"]
 
     # Plus de precisión del cobrador: pie hábil ambidiestro + especialista de tiros libres (si
-    # corresponde), aplicado de forma consistente en los tres sub-duelos de acá abajo.
+    # corresponde), aplicado de forma consistente en los tres sub-duelos de aquí abajo.
     plus_cobrador = bonus_pie_habil(cobrador)
     if cobrador.get("especialista_tiros_libres"):
         plus_cobrador += BONUS_PRECISION_ESPECIALISTA_TIRO_LIBRE
@@ -730,7 +730,7 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
         "goles_penal": 0, "goles_tiro_libre": 0, "goles_corner": 0, "asistencias": 0,
         "faltas": 0, "faltas_recibidas": 0, "amarillas": 0, "rojas": 0,
         # Por si el suplente que entra es un arquero (poco común, pero posible):
-        # 'atajadas'/'atajadas_penales' no viven acá arriba como el resto de métricas de
+        # 'atajadas'/'atajadas_penales' no viven aquí arriba como el resto de métricas de
         # portero (mismo criterio que ya tenía este dict antes), pero sí se pre-siembra
         # 'atajadas_penales' para que un penal atajado por un arquero suplente no falle con
         # KeyError -- 'atajadas' (la general) queda con el mismo comportamiento previo.
@@ -1471,7 +1471,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
                 if hay_falta:
                     stats_jugadores[defensor_marcador["id"]]["faltas"] += 1
-                    # 'jugador_con_balon' acá todavía es el atacante que sufrió la falta -- la
+                    # 'jugador_con_balon' aquí todavía es el atacante que sufrió la falta -- la
                     # reasignación a 'defensor_marcador' pasa más abajo, después de este bloque.
                     stats_jugadores[jugador_con_balon["id"]]["faltas_recibidas"] += 1
 
@@ -1555,9 +1555,9 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     # Falta en el tercio de ataque: probabilidad de que sea un tiro libre
                     # directo en posición de disparo (ver PROB_TIRO_LIBRE_PELIGROSO y
                     # ejecutar_tiro_libre), en vez de solo continuar el juego con la pelota.
-                    # 'equipo_con_balon'/'jugador_con_balon' acá todavía son el equipo/atacante
+                    # 'equipo_con_balon'/'jugador_con_balon' aquí todavía son el equipo/atacante
                     # infringido -- el swap de posesión normal pasa recién más abajo. Se
-                    # resuelve la posesión acá mismo y se salta ese hand-off con 'continue',
+                    # resuelve la posesión aquí mismo y se salta ese hand-off con 'continue',
                     # mismo patrón que ya usan los cortes de VAR/offside en este archivo.
                     resultado_tl = None
                     if zona_balon == "ataque" and random.random() < PROB_PENAL_FALTA_ATAQUE:
@@ -1727,7 +1727,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
                     # Mismo caso que en la rama de "pase fallido": posibilidad de tiro libre
                     # directo si la falta fue en el tercio de ataque. Esta rama NO reasigna
-                    # 'zona_balon' en el hand-off normal de más abajo, así que acá todavía vale
+                    # 'zona_balon' en el hand-off normal de más abajo, así que aquí todavía vale
                     # el 'zona_balon' del momento de la falta.
                     resultado_tl = None
                     if zona_balon == "ataque" and random.random() < PROB_PENAL_FALTA_ATAQUE:
@@ -1763,7 +1763,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
                 else:
                     # Turnover "silencioso" tras un regate fallido sin falta -- a diferencia de
-                    # la rama de pase, acá no existe ningún sub-caso con evento propio: el 100%
+                    # la rama de pase, aquí no existe ningún sub-caso con evento propio: el 100%
                     # de estos casos caía sin narración antes de este cambio.
                     eventos_visibles.append(construir_evento(
                         segundos_acumulados, equipo_defensor["nombre"], "⚡ EN TRANSICIÓN",
@@ -1924,7 +1924,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                             f"El juez de línea ({arbitros[rol_linea]}) señala el tiro de esquina para {equipo_con_balon['nombre']}.",
                             [], zona_balon, arbitro_rol=rol_linea, arbitros=arbitros
                         ))
-                        # A diferencia de una atajada limpia, acá el equipo atacante CONSERVA
+                        # A diferencia de una atajada limpia, aquí el equipo atacante CONSERVA
                         # la pelota (el córner es suyo) -- no hay swap de posesión todavía, se
                         # resuelve dentro de ejecutar_corner.
                         resultado_corner, _, segundos_acumulados = ejecutar_corner(
@@ -2033,7 +2033,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
     # NOTA: la actualización de 'jugadores' (goles/asistencias/atajadas/rendimiento, etc.)
     # se hace desde routes/simular_route.py, DESPUÉS de confirmar que 'registrar_resultado_juego'
-    # dejó el partido marcado como 'finalizado'. Antes se hacía acá mismo, lo que significaba
+    # dejó el partido marcado como 'finalizado'. Antes se hacía aquí mismo, lo que significaba
     # que si el flujo fallaba justo después de simular (antes de persistir el resultado del
     # partido), las estadísticas de los jugadores ya habían quedado incrementadas para un
     # partido que seguía figurando como "creado" -- un reintento volvía a simularlo y

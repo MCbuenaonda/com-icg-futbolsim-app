@@ -20,7 +20,7 @@
             <span class="quiniela-sello"><i class="bi bi-ticket-perforated-fill"></i></span>
             <div class="min-w-0">
                 <h1 class="h2 fw-bold text-white mb-1">Quinielas</h1>
-                <p class="text-muted mb-0 small">Pronosticá resultados (local, empate o visita) y ganá puntos según tus aciertos.</p>
+                <p class="text-muted mb-0 small">Pronostica resultados (local, empate o visita) y gana puntos según tus aciertos.</p>
             </div>
         </div>
         <div class="d-flex gap-2 flex-wrap align-items-center">
@@ -32,7 +32,7 @@
 </div>
 
 <!-- 1. Formatos -->
-<h2 class="vivo-titulo"><span class="paso-num">1</span>Elegí un formato</h2>
+<h2 class="vivo-titulo"><span class="paso-num">1</span>Elige un formato</h2>
 <div class="row g-3 mb-4">
     {% for config in configs %}
         {% set alcanza = usuario_actual.monto >= config.costo_puntos %}
@@ -72,13 +72,13 @@
     <div class="row g-4">
         <div class="col-12 col-lg-8">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-                <h2 class="vivo-titulo mb-0"><span class="paso-num">2</span>Pronosticá: <span id="nombreConfigElegida" class="text-info ms-1"></span></h2>
+                <h2 class="vivo-titulo mb-0"><span class="paso-num">2</span>Pronostica: <span id="nombreConfigElegida" class="text-info ms-1"></span></h2>
                 <div class="input-group input-group-sm" style="max-width: 260px;">
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
                     <input type="text" id="buscarPartido" class="form-control" placeholder="Buscar equipo...">
                 </div>
             </div>
-            <p class="text-muted small mb-3">Tocá <strong>1</strong> (gana local), <strong>X</strong> (empate) o <strong>2</strong> (gana visita). Tocá de nuevo para quitar el partido.</p>
+            <p class="text-muted small mb-3">Toca <strong>1</strong> (gana local), <strong>X</strong> (empate) o <strong>2</strong> (gana visita). Toca de nuevo para quitar el partido.</p>
             <div class="d-flex flex-column gap-2" id="listaPartidos">
                 {% for partido in partidos %}
                 {% set l = partido.equipo_local %}{% set v = partido.equipo_visitante %}
@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', function () {
             selecciones.delete(id);
         } else {
             if (!selecciones.has(id) && selecciones.size >= configActual.cantidad) {
-                mostrarAlerta(`Esta quiniela requiere exactamente ${configActual.cantidad} partidos. Quitá uno para elegir otro.`, 'warning');
+                mostrarAlerta(`Esta quiniela requiere exactamente ${configActual.cantidad} partidos. Quita uno para elegir otro.`, 'warning');
                 return;
             }
             selecciones.set(id, boton.dataset.pronostico);

@@ -36,7 +36,7 @@
       <div class="corp-panel mb-4">
         {% if ciclos | length > 1 %}
         <div class="corp-grafico corp-grafico--bolsa"><canvas id="graficoBolsa"></canvas></div>
-        <small class="text-muted">Tocá un corporativo en la leyenda para mostrarlo u ocultarlo.</small>
+        <small class="text-muted">Toca un corporativo en la leyenda para mostrarlo u ocultarlo.</small>
         {% else %}
         <p class="text-muted small mb-0"><i class="bi bi-hourglass-split me-1"></i>El gráfico aparece después de dos cierres de ciclo.</p>
         {% endif %}
@@ -49,9 +49,19 @@
           <a href="/corporativo/{{ f.sigla }}" class="d-flex align-items-center gap-2 text-decoration-none min-w-0 corp-cotizacion__nombre">
             <img src="{{ f.logo }}" class="corp-logo" alt="{{ f.sigla }}">
             <div class="min-w-0"><div class="text-white fw-bold">{{ f.sigla }} <span class="corp-tier corp-tier--{{ f.tier | lower }}">{{ f.tier }}</span>
-              {% if f.es_del_usuario %}<span class="corp-mio">Tuyo</span>{% endif %}</div>
+              {% if f.es_del_usuario %}<span class="corp-mio">Tuyo</span>{% endif %}
+              {% if f.saneamiento %}<span class="corp-sello-san corp-sello-san--mini" title="En plan de saneamiento: viene en números rojos"><i class="bi bi-shield-fill-exclamation"></i></span>{% endif %}</div>
               <small class="text-muted text-truncate d-block">{{ f.nombre }}</small></div>
           </a>
+          <!-- Qué hay detrás de la acción: exposición por confederación y partidos próximos de su cartera -->
+          <div class="corp-cotizacion__fondo" title="Qué mueve su precio: capital + cartera + renta esperada de los partidos programados, por el sentimiento (sigue el ROI medio de 4 ciclos: {{ '%+.2f' | format(f.roi_ventana) }}%)">
+            <div class="corp-expo">{% for e in f.exposicion %}<i style="width: {{ e.pct }}%; background: {{ e.color }};" title="{{ e.conf }} {{ e.pct }}%"></i>{% endfor %}</div>
+            <small class="text-muted d-flex gap-2 flex-wrap">
+              <span>{% for e in f.exposicion[:2] %}<b style="color: {{ e.color }}">{{ e.conf }}</b> {{ e.pct }}%{{ ' · ' if not loop.last }}{% endfor %}</span>
+              <span class="{{ 'text-success' if f.partidos_proximos >= 3 else ('text-warning' if f.partidos_proximos else 'text-danger') }}"><i class="bi bi-calendar-event"></i> {{ f.partidos_proximos }} partido{{ 's' if f.partidos_proximos != 1 }} en 2 ciclos</span>
+              <span>ROI 4 ciclos <b class="{{ 'text-success' if f.roi_ventana > 0 else 'text-danger' }}">{{ '%+.2f' | format(f.roi_ventana) }}%</b></span>
+            </small>
+          </div>
           <div class="corp-cotizacion__dato"><span>Precio</span><strong>{{ '%.2f' | format(f.precio) }}</strong>
             <small class="{{ 'text-success' if f.variacion_ciclo > 0 else ('text-danger' if f.variacion_ciclo < 0 else 'text-muted') }}">{{ '%+.1f' | format(f.variacion_ciclo) }}% ciclo</small></div>
           <div class="corp-cotizacion__dato"><span>Desde el inicio</span><strong class="{{ 'text-success' if f.variacion_total > 0 else ('text-danger' if f.variacion_total < 0 else '') }}">{{ '%+.1f' | format(f.variacion_total) }}%</strong>
@@ -60,7 +70,7 @@
             {% if f.cantidad %}<small class="{{ 'text-success' if f.resultado > 0 else ('text-danger' if f.resultado < 0 else 'text-muted') }}">{{ '{:,}'.format(f.valor) }} ({{ '{:+,}'.format(f.resultado) }})</small>{% endif %}</div>
           <div class="d-flex gap-1 corp-cotizacion__botones">
             <button class="btn btn-sm btn-success rounded-pill" data-operar="comprar" data-sigla="{{ f.sigla }}" data-precio="{{ f.precio }}" data-max="{{ f.disponible }}"
-                    {% if f.bloqueo_compra %}disabled title="Información privilegiada: no podés comprar acciones del corporativo que dirigís"{% endif %}>Comprar</button>
+                    {% if f.bloqueo_compra %}disabled title="Información privilegiada: no puedes comprar acciones del corporativo que diriges"{% endif %}>Comprar</button>
             <button class="btn btn-sm btn-outline-light rounded-pill" data-operar="vender" data-sigla="{{ f.sigla }}" data-precio="{{ f.precio }}" data-max="{{ f.cantidad }}" {{ 'disabled' if not f.cantidad }}>Vender</button>
           </div>
         </div>
@@ -74,7 +84,7 @@
       <div class="corp-panel mb-4">
         {% if dividendo.disponible %}
         <p class="small text-muted mb-2">Utilidad del último ciclo: <strong class="text-white">{{ '{:,}'.format(dividendo.utilidad) }}</strong>. Repartir sube el sentimiento del mercado
-          (la acción) pero sale del capital del corporativo. Si tenés acciones de {{ dividendo.sigla }}, cobrás tu parte.</p>
+          (la acción) pero sale del capital del corporativo. Si tienes acciones de {{ dividendo.sigla }}, cobras tu parte.</p>
         <label class="form-label small fw-bold d-flex justify-content-between">Porcentaje de la utilidad <span id="divTxt" class="text-white"></span></label>
         <input type="range" class="form-range" id="divFraccion" min="1" max="{{ (reglas.max_dividendo * 100) | int }}" value="15" data-utilidad="{{ dividendo.utilidad }}">
         <button class="btn btn-success fw-bold rounded-pill w-100 mt-2" id="divRepartir"><i class="bi bi-cash-stack me-1"></i>Repartir dividendo</button>
@@ -177,8 +187,8 @@
             $('opTitulo').textContent = `${op.tipo === 'comprar' ? 'Comprar' : 'Vender'} ${op.sigla}`;
             $('opPrecio').textContent = precio.toFixed(2);
             $('opCantidad').max = max; $('opCantidad').value = Math.min(max, op.tipo === 'comprar' ? 100 : max);
-            $('opMax').textContent = op.tipo === 'comprar' ? `Podés comprar hasta ${fmt(max)} (saldo y tope)` : `Tenés ${fmt(max)}`;
-            $('opTotalTxt').textContent = op.tipo === 'comprar' ? 'Total a pagar' : 'Recibís';
+            $('opMax').textContent = op.tipo === 'comprar' ? `Puedes comprar hasta ${fmt(max)} (saldo y tope)` : `Tienes ${fmt(max)}`;
+            $('opTotalTxt').textContent = op.tipo === 'comprar' ? 'Total a pagar' : 'Recibes';
             $('opConfirmar').textContent = op.tipo === 'comprar' ? 'Comprar' : 'Vender';
             $('opConfirmar').className = `btn fw-bold rounded-pill px-4 w-100 ${op.tipo === 'comprar' ? 'btn-success' : 'btn-warning'}`;
             refrescar();

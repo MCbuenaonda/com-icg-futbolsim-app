@@ -1,0 +1,9 @@
+{# Una página de la red social (services/red_social_service.publicaciones): posts de partidos y de marcas. #}
+{% for item in items %}
+{% if item.clase == 'partido' %}
+{% set partido = item %}{% set pid = 'rs' ~ item.match_id %}{% set abierto = true %}
+{% include "partials/post_partido.html" %}
+{% else %}
+{% set post = item %}{% include "partials/post_marca.html" %}
+{% endif %}
+{% endfor %}

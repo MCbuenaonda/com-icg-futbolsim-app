@@ -18,7 +18,7 @@
             <div class="min-w-0">
                 <span class="sd-eyebrow"><i class="bi bi-buildings-fill me-1"></i>Inversión en sedes</span>
                 <h1 class="sd-hero__titulo">Mi imperio de estadios</h1>
-                <p class="text-muted mb-0">Cada partido que se juega en tus sedes te paga taquilla. Con la estampa de la ciudad, cobrás ×{{ p.reglas.sinergia }}.</p>
+                <p class="text-muted mb-0">Cada partido que se juega en tus sedes te paga taquilla. Con la estampa de la ciudad, cobras ×{{ p.reglas.sinergia }}.</p>
             </div>
             <div class="d-flex gap-2 flex-wrap">
                 <a href="{{ url_for('venues_directorio_vista') }}" class="btn btn-success fw-bold rounded-pill px-3"><i class="bi bi-plus-circle me-1"></i>Patrocinar sede</a>
@@ -41,7 +41,7 @@
                 <div class="sd-kpi"><span>Ganado</span><strong class="text-success" data-contar>{{ p.ganado }}</strong></div>
                 <div class="sd-kpi"><span>Partidos alojados</span><strong data-contar>{{ p.partidos }}</strong></div>
                 <div class="sd-kpi"><span>Por jugarse</span><strong class="text-info" data-contar>{{ p.programados }}</strong></div>
-                <div class="sd-kpi" title="Sedes cuya estampa tenés en el álbum: cobran ×{{ p.reglas.sinergia }}"><span>Con sinergia</span><strong class="text-warning"><span data-contar>{{ p.con_sinergia }}</span><small>/{{ sedes | length }}</small></strong></div>
+                <div class="sd-kpi" title="Sedes cuya estampa tienes en el álbum: cobran ×{{ p.reglas.sinergia }}"><span>Con sinergia</span><strong class="text-warning"><span data-contar>{{ p.con_sinergia }}</span><small>/{{ sedes | length }}</small></strong></div>
             </div>
         </div>
         {% endif %}
@@ -72,7 +72,7 @@
                     <li><span class="sd-regla__ico">🎟️</span><span><strong>{{ p.reglas.base }} pts</strong> por partido alojado</span></li>
                     <li><span class="sd-regla__ico">⚽</span><span><strong>+{{ p.reglas.por_gol }}</strong> por cada gol del partido</span></li>
                     <li><span class="sd-regla__ico">🏆</span><span><strong>×{{ p.reglas.fase_alta }}</strong> la base en semis, tercer puesto y final</span></li>
-                    <li><span class="sd-regla__ico">📒</span><span><strong>×{{ p.reglas.sinergia }}</strong> si tenés la estampa de la ciudad</span></li>
+                    <li><span class="sd-regla__ico">📒</span><span><strong>×{{ p.reglas.sinergia }}</strong> si tienes la estampa de la ciudad</span></li>
                 </ul>
                 <small class="text-muted">Máximo {{ p.max_por_pais }} sedes por país y {{ p.max_total }} en total.</small>
             </div>
@@ -89,7 +89,7 @@
                 {% if sede.estadio_img %}<img src="{{ sede.estadio_img }}" alt="Estadio de {{ sede.ciudad_nombre }}" loading="lazy" decoding="async" onerror="this.remove()">{% endif %}
                 <span class="sd-sede__pais">{{ m.bandera(None, pais_id=sede.pais_id) }} {{ sede.pais_nombre }}</span>
                 {% if loop.first and sede.total_revenue_earned %}<span class="sd-sede__top" title="Tu sede que más ganó"><i class="bi bi-trophy-fill"></i> Top</span>{% endif %}
-                {% if sede.tengo_estampa %}<span class="sd-sede__sinergia" title="Tenés su estampa: cobra ×{{ p.reglas.sinergia }}"><i class="bi bi-stars"></i> ×{{ p.reglas.sinergia }}</span>{% endif %}
+                {% if sede.tengo_estampa %}<span class="sd-sede__sinergia" title="Tienes su estampa: cobra ×{{ p.reglas.sinergia }}"><i class="bi bi-stars"></i> ×{{ p.reglas.sinergia }}</span>{% endif %}
             </div>
             <div class="sd-sede__cuerpo">
                 <h3 class="sd-sede__nombre">{{ sede.ciudad_nombre }}</h3>
@@ -140,8 +140,8 @@
 <div class="card sd-panel">
     <div class="card-body text-center py-5">
         <div class="sd-vacio__estadio">🏟️</div>
-        <h2 class="h4 text-white">Todavía no tenés ninguna sede</h2>
-        <p class="text-muted mb-3">Patrociná una ciudad por 500 pts y cobrá taquilla cada vez que se juegue un partido ahí.</p>
+        <h2 class="h4 text-white">Todavía no tienes ninguna sede</h2>
+        <p class="text-muted mb-3">Patrocina una ciudad por 500 pts y cobra taquilla cada vez que se juegue un partido ahí.</p>
         <a href="{{ url_for('venues_directorio_vista') }}" class="btn btn-success fw-bold rounded-pill px-4"><i class="bi bi-search me-1"></i>Buscar oportunidades</a>
     </div>
 </div>
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.addEventListener('click', async function () {
             const ok = await UI.confirmar({
                 titulo: `Vender ${btn.dataset.nombre}`,
-                mensaje: `Recibís ${btn.dataset.reembolso} pts (el 80% de lo que pagaste) y dejás de cobrar sus regalías.`,
+                mensaje: `Recibes ${btn.dataset.reembolso} pts (el 80% de lo que pagaste) y dejas de cobrar sus regalías.`,
                 textoConfirmar: `Vender por ${btn.dataset.reembolso} pts`, peligro: true,
             });
             if (!ok) return;

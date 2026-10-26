@@ -1,0 +1,13 @@
+{# Respuesta de una marca en el hilo del post de un partido (su patrocinado jugó). Variable: r (post de marca). #}
+<div class="x-respuesta x-respuesta--marca d-flex align-items-start gap-2" style="--marca: {{ r.marca.color }};">
+    <span class="marca-avatar marca-avatar--sm" title="{{ r.marca.nombre }}"><img src="{{ r.marca.logo }}" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>
+    <div class="flex-grow-1 min-w-0">
+        <div class="d-flex align-items-center gap-1 flex-wrap">
+            <span class="fw-semibold text-body-emphasis fs-8">{{ r.marca.nombre }}</span>
+            <i class="bi bi-patch-check-fill marca-verificada fs-8" title="Marca verificada"></i>
+            <span class="text-muted fs-8">{{ r.marca.handle }}</span>
+            <span class="x-respuesta-patrocina fs-8"><i class="bi bi-badge-ad-fill"></i>patrocina a {{ r.refs[0].nombre if r.refs else '' }}</span>
+        </div>
+        <div class="text-secondary fs-8">{{ r.texto }}</div>
+    </div>
+</div>

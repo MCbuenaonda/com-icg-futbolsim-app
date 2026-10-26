@@ -15,10 +15,10 @@
     <div class="login__luces"></div>
     <img src="{{ imagen_inicio('copa') }}" alt="" class="login__copa" onerror="this.remove()">
     <h2 class="login__marca">Futbol<span>Sim</span></h2>
-    <p class="login__lema">Simulá un Mundial completo y jugalo a tu manera.</p>
+    <p class="login__lema">Simula un Mundial completo y juégalo a tu manera.</p>
     <ul class="login__features">
       <li><i class="bi bi-trophy-fill"></i>Eliminatorias, grupos y llaves partido a partido</li>
-      <li><i class="bi bi-graph-up-arrow"></i>Invertí en selecciones, sedes y corporativos</li>
+      <li><i class="bi bi-graph-up-arrow"></i>Invierte en selecciones, sedes y corporativos</li>
       <li><i class="bi bi-stars"></i>Once Ideal, álbum, quinielas y niveles de socio</li>
     </ul>
   </section>
@@ -28,7 +28,7 @@
     <div class="login__card" id="loginCard">
       <div class="login__balon" aria-hidden="true"><i class="bi bi-dribbble"></i></div>
       <h1 class="h3 fw-bold text-white text-center mb-1">¡Bienvenido a la cancha!</h1>
-      <p class="text-muted small text-center mb-4">Entrá a tu cuenta de FutbolSim</p>
+      <p class="text-muted small text-center mb-4">Entra a tu cuenta de FutbolSim</p>
 
       <div id="loginError" class="login__error {{ '' if error else 'd-none' }}" role="alert">
         <i class="bi bi-exclamation-triangle-fill"></i><span>{{ error or '' }}</span>
@@ -51,7 +51,7 @@
           <span>Ingresar a la cancha</span><i class="bi bi-arrow-right-circle-fill"></i>
         </button>
       </form>
-      <p class="text-center text-muted small mt-4 mb-0">¿No tenés cuenta? Pedísela a un administrador.</p>
+      <p class="text-center text-muted small mt-4 mb-0">¿No tienes cuenta? Pídesela a un administrador.</p>
     </div>
   </section>
 </div>
@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     form.addEventListener('submit', async function (e) {
-        if (!form.username.value.trim() || !pwd.value) { e.preventDefault(); mostrarError('Completá usuario y contraseña.'); return; }
+        if (!form.username.value.trim() || !pwd.value) { e.preventDefault(); mostrarError('Completa usuario y contraseña.'); return; }
         e.preventDefault();
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span><span>Entrando…</span>';
@@ -173,9 +173,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const resp = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Login-Ajax': '1' }, credentials: 'same-origin' });
             datos = await resp.json().catch(() => ({}));
             ok = resp.ok && datos.ok;
-            if (!ok && resp.status !== 401) datos = { error: datos.detail || 'No se pudo iniciar sesión. Probá de nuevo.' };
+            if (!ok && resp.status !== 401) datos = { error: datos.detail || 'No se pudo iniciar sesión. Prueba de nuevo.' };
         } catch (err) {
-            datos = { error: 'Sin conexión con el servidor. Probá de nuevo.' };
+            datos = { error: 'Sin conexión con el servidor. Prueba de nuevo.' };
         }
         if (sinMovimiento) {
             if (ok) { window.location.href = datos.destino; return; }

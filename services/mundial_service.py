@@ -227,7 +227,7 @@ def restart_mundial():
     # NOTA: se removieron los campos '*_temp' (goles_temp, asistencias_temp, atajadas_temp,
     # faltas_temp, amarilla_temp, roja_temp) de este reset. Estaban documentados como un
     # posible "contador de la edición de mundial actual vs. acumulado histórico", pero
-    # ninguna función del proyecto los incrementa ni los lee -- solo se reseteaban a 0 acá,
+    # ninguna función del proyecto los incrementa ni los lee -- solo se reseteaban a 0 aquí,
     # sin ningún efecto. Los campos reales que sí se usan ('goles', 'asistencias', etc., vía
     # jugadores_service.actualizar_jugadores_post_partido) siguen reseteándose normalmente.
     # También se eliminaron las claves duplicadas que había en este mismo dict
@@ -251,7 +251,7 @@ def restart_mundial():
                 "concentracion": 60,
                 "control_balón": 60,
                 # 'especialista_penales'/'especialista_tiros_libres' (rasgo técnico) y
-                # 'pie_habil' (rasgo físico fijo) YA NO se resetean acá -- antes se reescribían
+                # 'pie_habil' (rasgo físico fijo) YA NO se resetean aquí -- antes se reescribían
                 # a False/"ambidiestro" para todos en cada mundial, lo que los volvía inútiles
                 # (nada los diferenciaba entre jugadores y el motor nunca podía usarlos de
                 # forma significativa). Se asignan UNA sola vez de forma realista con el script
@@ -259,7 +259,7 @@ def restart_mundial():
                 # igual que cualquier otro rasgo permanente del jugador. Ver
                 # services/simular_service.py::bonus_pie_habil/ejecutar_penal/ejecutar_tiro_libre.
                 # 'edad' (asignada una sola vez por asignar_edad_jugadores.py, ver
-                # services/jugadores_service.py::_multiplicador_edad) tampoco se resetea acá por
+                # services/jugadores_service.py::_multiplicador_edad) tampoco se resetea aquí por
                 # el mismo motivo -- es un rasgo de referencia permanente, no una edad
                 # cronológica que deba avanzar con cada mundial (no hay retiro/generación de
                 # jugadores nuevos en este proyecto).
@@ -287,7 +287,7 @@ def restart_mundial():
                 # 'tiros_puerta'/'tiros_desviados' se acumulan por partido en
                 # jugadores_service.actualizar_jugadores_post_partido (alimentan la efectividad
                 # de gol por jugador, ver estadisticas_service._obtener_mejor_efectividad_gol)
-                # pero faltaban acá -- sin este fix se colaban valores del mundial anterior.
+                # pero faltaban aquí -- sin este fix se colaban valores del mundial anterior.
                 "tiros_puerta": 0,
                 "tiros_desviados": 0,
                 "goles_tiro_libre": 0,

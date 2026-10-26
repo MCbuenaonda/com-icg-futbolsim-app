@@ -216,7 +216,7 @@ def actualizar_poder_y_rankin(lado, pais_id, resultado, partido):
     # quedaba resuelto casi al azar (por el orden en que Mongo devuelve los documentos) en vez
     # de reflejar quién viene peor. Dejarlo negativo conserva esa diferenciación real para el
     # ranking; si hace falta no mostrar números negativos, recortar a 0 en la capa de vista
-    # (ver templates/pais.html), no acá.
+    # (ver templates/pais.html), no aquí.
     poder_actualizado = round(poder_actual + cambio_poder, 2)
 
     paises_coll.update_one(

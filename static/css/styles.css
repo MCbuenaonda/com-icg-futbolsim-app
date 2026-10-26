@@ -4313,3 +4313,350 @@ a.cal-record:hover { color: var(--tinta-1); border-color: var(--c); }
 .fg-lider__valor small { color: var(--bs-secondary-color); }
 @media (prefers-reduced-motion: reduce) { .fg-bloque { animation: none; } }
 @media (max-width: 575.98px) { .fg-lideres { grid-template-columns: 1fr; } .fg-lider { flex-direction: row; align-items: center; justify-content: space-between; } .fg-lider__titulo { flex: 0 0 5.5rem; } }
+
+/* =============================================================================================
+   La foto del partido (/juegos/{id}, services/foto_partido_service.py): marco de foto con pie,
+   tiras de las otras tomas, animación de "revelado" mientras Vertex AI genera y la barra del admin
+   ============================================================================================= */
+.foto-partido { position: relative; overflow: hidden; border: 1px solid rgba(245, 158, 11, 0.3) !important;
+    background: radial-gradient(circle at 100% 0%, rgba(245, 158, 11, 0.12), transparent 50%), var(--bs-body-bg); }
+.foto-partido__icono { color: #f59e0b; }
+.foto-partido__ia { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.65rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
+    color: #e9d5ff; background: rgba(167, 139, 250, 0.15); border: 1px solid rgba(167, 139, 250, 0.4); }
+.foto-partido__marco { position: relative; margin: 0; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #0b1220;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), 0 0 0 6px rgba(255, 255, 255, 0.04); }
+.foto-partido__marco img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.foto-partido__nueva { animation: foto-revelar 1.6s ease-out both; }
+@keyframes foto-revelar { from { filter: brightness(2.2) saturate(0) blur(6px); opacity: 0.2; } to { filter: none; opacity: 1; } }
+.foto-partido__marco figcaption { position: absolute; inset: auto 0 0 0; display: flex; align-items: center; gap: 0.5rem; padding: 2rem 1rem 0.75rem;
+    font-size: 0.9rem; font-weight: 600; color: #fff; background: linear-gradient(transparent, rgba(0, 0, 0, 0.8)); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+.foto-partido__marco figcaption i { color: #fbbf24; }
+.foto-partido__marco--vacio { display: grid; place-items: center; border: 2px dashed rgba(255, 255, 255, 0.12); box-shadow: none;
+    background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0 12px, transparent 12px 24px), #0b1220; }
+.foto-partido__vacia { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; max-width: 420px; padding: 1rem; text-align: center; color: var(--bs-secondary-color); }
+.foto-partido__vacia i { font-size: 2.6rem; color: rgba(245, 158, 11, 0.6); }
+.foto-partido__vacia span { font-weight: 700; color: #e5e7eb; }
+.foto-partido__vacia small { font-size: 0.78rem; }
+.foto-partido__revelado { position: absolute; inset: 0; z-index: 3; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem;
+    color: #fde68a; background: radial-gradient(circle, rgba(127, 29, 29, 0.55), rgba(10, 5, 5, 0.92)); backdrop-filter: blur(3px); }
+.foto-partido--revelando .foto-partido__revelado { display: flex; }
+.foto-partido__revelado small { color: #fca5a5; }
+.foto-partido__obturador { width: 64px; height: 64px; border-radius: 50%; border: 4px solid rgba(253, 230, 138, 0.25); border-top-color: #fde68a;
+    animation: foto-girar 1s linear infinite; box-shadow: 0 0 30px rgba(253, 230, 138, 0.25); }
+@keyframes foto-girar { to { transform: rotate(360deg); } }
+.foto-partido__tiras { display: flex; gap: 0.5rem; margin-top: 0.75rem; overflow-x: auto; padding-bottom: 0.2rem; }
+.foto-partido__tira { flex: 0 0 auto; width: 112px; aspect-ratio: 16 / 9; padding: 0; border: 2px solid transparent; border-radius: 8px; overflow: hidden;
+    background: #0b1220; opacity: 0.6; transition: opacity 0.2s ease, border-color 0.2s ease; }
+.foto-partido__tira img { width: 100%; height: 100%; object-fit: cover; }
+.foto-partido__tira:hover, .foto-partido__tira.activa { opacity: 1; border-color: #f59e0b; }
+.foto-partido__admin { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1rem; margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255, 255, 255, 0.12); }
+.btn-accent-foto { font-weight: 700; color: #1b1203; background: linear-gradient(135deg, #fde68a, #f59e0b); border: 0; box-shadow: 0 6px 18px rgba(245, 158, 11, 0.3); }
+.btn-accent-foto:hover { color: #1b1203; filter: brightness(1.08); }
+.btn-accent-foto:disabled { color: #1b1203; opacity: 0.45; }
+.foto-partido__cupo { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--bs-secondary-color); }
+.foto-partido__cupo b { color: #fbbf24; }
+.foto-partido__ver-prompt { font-size: 0.8rem; color: #7dd3fc; text-decoration: none; }
+.foto-partido__error { width: 100%; margin: 0; padding: 0.5rem 0.8rem; border-radius: 10px; font-size: 0.82rem; color: #fecaca; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); }
+.foto-partido__prompt { width: 100%; max-height: 260px; margin: 0; padding: 0.75rem; border-radius: 10px; font-size: 0.74rem; white-space: pre-wrap; color: #cbd5e1;
+    background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08); }
+@media (max-width: 575.98px) { .foto-partido__ver-prompt { margin-left: 0 !important; } .foto-partido__marco figcaption { font-size: 0.78rem; } }
+@media (prefers-reduced-motion: reduce) { .foto-partido__nueva, .foto-partido__obturador { animation: none; } }
+.foto-partido__marco { max-width: 1040px; margin-inline: auto; }
+.foto-partido__marco--vacio { aspect-ratio: auto; min-height: 200px; }
+.foto-partido__marco--vacio .foto-partido__revelado { min-height: 200px; }
+.foto-partido__tiras, .foto-partido__admin { max-width: 1040px; margin-inline: auto; }
+
+/* La foto del partido, animación gratis (solo CSS): acercamiento lento tipo "Ken Burns" enfocado según el momento
+   (data-tipo del <figure>), destello de luz de estadio y papel picado en los festejos. Nada en el estado vacío. */
+.foto-partido__marco img { transform-origin: 50% 45%; animation: foto-kenburns 22s ease-in-out infinite alternate; will-change: transform; }
+.foto-partido__marco[data-tipo="remate"] img { transform-origin: 62% 50%; }
+.foto-partido__marco[data-tipo="atajada"] img { transform-origin: 38% 45%; }
+.foto-partido__marco[data-tipo="festejo"] img { transform-origin: 50% 38%; }
+.foto-partido__marco img.foto-partido__nueva { animation: foto-revelar 1.6s ease-out both, foto-kenburns 22s ease-in-out 1.6s infinite alternate; }
+@keyframes foto-kenburns { from { transform: scale(1.02) translate(0, 0); } to { transform: scale(1.14) translate(-1.5%, -1%); } }
+.foto-partido__marco figcaption { z-index: 2; }
+.foto-fx__brillo, .foto-fx__confeti { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.foto-fx__brillo { background: linear-gradient(110deg, transparent 38%, rgba(255, 244, 214, 0.22) 48%, rgba(255, 255, 255, 0.05) 52%, transparent 60%);
+    background-size: 260% 100%; mix-blend-mode: screen; animation: foto-destello 9s ease-in-out 2s infinite; }
+@keyframes foto-destello { 0% { background-position: 140% 0; } 30%, 100% { background-position: -140% 0; } }
+.foto-fx__confeti { display: none; }
+.foto-partido__marco[data-tipo="festejo"] .foto-fx__confeti { display: block; }
+.foto-fx__confeti i { position: absolute; top: -6%; left: var(--x); width: 7px; height: 12px; border-radius: 2px; background: var(--c); opacity: 0;
+    transform: rotate(var(--r)); animation: foto-confeti var(--t) linear var(--d) infinite; box-shadow: 0 0 6px rgba(0, 0, 0, 0.25); }
+.foto-fx__confeti i:nth-child(3n) { width: 5px; height: 5px; border-radius: 50%; }
+@keyframes foto-confeti {
+    0% { opacity: 0; transform: translate(0, 0) rotate(var(--r)); }
+    10% { opacity: 0.95; }
+    85% { opacity: 0.85; }
+    100% { opacity: 0; transform: translate(22px, 112vh) rotate(calc(var(--r) + 540deg)); }
+}
+.foto-partido__marco { container-type: inline-size; }
+@supports (height: 1cqh) { @keyframes foto-confeti {
+    0% { opacity: 0; transform: translate(0, 0) rotate(var(--r)); }
+    10% { opacity: 0.95; }
+    85% { opacity: 0.85; }
+    100% { opacity: 0; transform: translate(22px, 62cqw) rotate(calc(var(--r) + 540deg)); } } }
+.foto-partido__marco--vacio .foto-fx__brillo, .foto-partido__marco--vacio .foto-fx__confeti { display: none; }
+.foto-partido--revelando .foto-fx__confeti { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    .foto-partido__marco img, .foto-partido__marco img.foto-partido__nueva { animation: none; }
+    .foto-fx__brillo { animation: none; opacity: 0; }
+    .foto-fx__confeti { display: none !important; }
+}
+
+/* =============================================================================================
+   Corporativos v2: calendario de la cartera, plan de saneamiento, acuerdos y giras, señales de
+   comprar/vender, exposición por confederación y explicador (templates/corporativo*.html)
+   ============================================================================================= */
+.corp-grafico--alto { height: 230px; }
+
+/* Plan de saneamiento */
+.corp-san { position: relative; display: flex; gap: 0.9rem; padding: 0.9rem 1rem; border-radius: 16px; overflow: hidden;
+    background: linear-gradient(120deg, rgba(245, 158, 11, 0.16), rgba(2, 6, 23, 0.35) 60%); border: 1px solid rgba(245, 158, 11, 0.45); }
+.corp-san--cumplido { background: linear-gradient(120deg, rgba(34, 197, 94, 0.18), rgba(2, 6, 23, 0.35) 60%); border-color: rgba(34, 197, 94, 0.5); }
+.corp-san--fallido { background: linear-gradient(120deg, rgba(148, 163, 184, 0.14), rgba(2, 6, 23, 0.35) 60%); border-color: rgba(148, 163, 184, 0.35); }
+.corp-san__escudo { flex: 0 0 auto; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; font-size: 1.6rem;
+    color: #fbbf24; background: rgba(245, 158, 11, 0.15); animation: corp-respira 2.6s ease-in-out infinite; }
+.corp-san--cumplido .corp-san__escudo { color: #22c55e; background: rgba(34, 197, 94, 0.15); }
+.corp-san--fallido .corp-san__escudo { color: #94a3b8; background: rgba(148, 163, 184, 0.12); animation: none; }
+@keyframes corp-respira { 50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.12); transform: scale(1.04); } }
+.corp-san__tregua { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.72rem;
+    font-weight: 700; color: #bae6fd; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.4); }
+.corp-san__objetivos { display: grid; gap: 0.35rem; margin-bottom: 0.6rem; }
+.corp-san__obj { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.84rem; color: #e2e8f0; }
+.corp-san__obj i { color: #94a3b8; margin-top: 0.1rem; }
+.corp-san__obj small { display: block; font-size: 0.72rem; color: var(--bs-secondary-color); }
+.corp-san__obj--ok { color: #bbf7d0; }
+.corp-san__obj--ok i { color: #22c55e; }
+.corp-san__tiempo { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-bottom: 0.3rem; }
+.corp-san__tiempo i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f59e0b, #ef4444); }
+.corp-sello-san { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
+    color: #fde68a; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.45); }
+.corp-sello-san--mini { padding: 0 0.35rem; }
+
+/* Calendario de la cartera */
+.corp-cal__grilla { display: grid; grid-template-columns: minmax(9rem, 1.6fr) repeat(var(--cols), minmax(2.2rem, 1fr)); gap: 3px; overflow-x: auto; }
+.corp-cal__cab { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bs-secondary-color); text-align: center; padding: 0.15rem 0; }
+.corp-cal__cab--hoy { color: #fbbf24; }
+.corp-cal__pais { display: flex; align-items: center; gap: 0.35rem; min-width: 0; font-size: 0.8rem; color: #e2e8f0; padding-right: 0.3rem; }
+.corp-cal__pais img { width: 18px; flex: 0 0 auto; }
+.corp-cal__pais--fuera { opacity: 0.45; text-decoration: line-through; }
+.corp-cal__tipo { font-size: 0.65rem; color: #22c55e; }
+.corp-cal__n { margin-left: auto; flex: 0 0 auto; font-size: 0.66rem; color: #93c5fd; }
+.corp-cal__celda { display: grid; place-items: center; min-height: 1.8rem; border-radius: 8px; background: rgba(255, 255, 255, 0.03); font-size: 0.62rem; color: #64748b; }
+.corp-cal__celda--hoy { background: rgba(250, 204, 21, 0.06); box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.25); }
+.corp-cal__celda--juega { background: radial-gradient(circle, rgba(34, 197, 94, 0.35), rgba(34, 197, 94, 0.08) 70%); }
+.corp-cal__pelota { position: relative; font-size: 0.95rem; line-height: 1; }
+.corp-cal__celda--hoy .corp-cal__pelota { animation: corp-pelota 1.4s ease-in-out infinite; }
+@keyframes corp-pelota { 50% { transform: translateY(-3px) scale(1.12); filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.7)); } }
+.corp-cal__pelota b { position: absolute; top: -6px; right: -9px; font-size: 0.6rem; padding: 0 0.25rem; border-radius: 6px; color: #0b1220; background: #fbbf24; }
+.corp-proximos { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.4rem; }
+.corp-proximo { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; border-radius: 10px; font-size: 0.82rem; color: #e2e8f0;
+    background: rgba(0, 0, 0, 0.22); border: 1px solid rgba(255, 255, 255, 0.06); }
+.corp-proximo img { width: 18px; }
+.corp-proximo--ya { border-color: rgba(250, 204, 21, 0.45); background: linear-gradient(90deg, rgba(250, 204, 21, 0.12), rgba(0, 0, 0, 0.22)); }
+.corp-proximo__cuando { flex: 0 0 auto; display: flex; flex-direction: column; min-width: 5.4rem; font-size: 0.74rem; font-weight: 800; color: #fbbf24; }
+.corp-proximo__cuando small { font-weight: 500; font-size: 0.66rem; color: var(--bs-secondary-color); }
+
+/* Acuerdos publicitarios y giras */
+.corp-acuerdo { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0.6rem; border-radius: 12px; margin-bottom: 0.4rem;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--marca, #f59e0b) 16%, transparent), rgba(0, 0, 0, 0.2) 70%);
+    border: 1px solid color-mix(in srgb, var(--marca, #f59e0b) 40%, transparent); }
+.corp-acuerdo__logo { flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; font-weight: 900; font-size: 0.85rem;
+    letter-spacing: -0.02em; color: var(--marca, #f59e0b); background: var(--marca-fondo, #111827); box-shadow: 0 0 0 2px color-mix(in srgb, var(--marca, #f59e0b) 50%, transparent); }
+.corp-acuerdo--gira { --marca: #38bdf8; --marca-fondo: #0c4a6e; }
+.corp-marca { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
+    color: var(--marca); background: color-mix(in srgb, var(--marca) 14%, transparent); border: 1px solid color-mix(in srgb, var(--marca) 45%, transparent); }
+
+/* Próximo partido y señales */
+.corp-juego { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700;
+    color: #cbd5e1; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); margin-top: 0.2rem; }
+.corp-juego small { font-weight: 500; color: var(--bs-secondary-color); }
+.corp-juego--pronto { color: #bbf7d0; background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.4); }
+.corp-juego--ya { color: #fef08a; background: rgba(250, 204, 21, 0.14); border-color: rgba(250, 204, 21, 0.5); animation: corp-latido 2s ease-in-out infinite; }
+@keyframes corp-latido { 50% { box-shadow: 0 0 10px rgba(250, 204, 21, 0.4); } }
+.corp-juego--fuera { color: #fca5a5; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.35); }
+.corp-juego--nada { color: #94a3b8; }
+.corp-senal { font-size: 0.72rem; }
+.corp-senal summary { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.05rem 0.55rem; border-radius: 999px; font-weight: 800; cursor: pointer; list-style: none; }
+.corp-senal summary::-webkit-details-marker { display: none; }
+.corp-senal--vender summary { color: #fecaca; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.45); }
+.corp-senal--comprar summary { color: #bbf7d0; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.45); }
+.corp-senal--mantener summary { color: #bae6fd; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); }
+.corp-senal ul { margin: 0.35rem 0 0.2rem; padding-left: 1rem; color: #cbd5e1; }
+.corp-senal--renov-renovar summary { color: #bbf7d0; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.45); }
+.corp-senal--renov-esperar summary { color: #fde68a; background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(245, 158, 11, 0.45); }
+.corp-senal--renov-no_renovar summary { color: #fecaca; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); }
+.corp-senal__texto { margin: 0.35rem 0 0; color: #e2e8f0; max-width: 34rem; }
+.corp-senal__pos::marker { content: "▲ "; color: #22c55e; }
+.corp-senal__neg::marker { content: "▼ "; color: #ef4444; }
+.corp-senal-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800;
+    color: #bbf7d0; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.45); margin-top: 0.2rem; cursor: help; }
+.corp-oferta-proyeccion { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.55rem 0.7rem; border-radius: 10px; font-size: 0.8rem; color: #cbd5e1;
+    background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.35); }
+.corp-oferta-proyeccion i { color: #22c55e; }
+.corp-oferta-proyeccion b { color: #fff; }
+.corp-oferta-proyeccion--lenta { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.35); }
+.corp-oferta-proyeccion--lenta i { color: #f59e0b; }
+
+/* Exposición por confederación (perfil y bolsa) */
+.corp-resumen-perfil { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.5rem; padding: 0.9rem 1rem; border-radius: 16px;
+    background: rgba(0, 0, 0, 0.22); border: 1px solid rgba(255, 255, 255, 0.07); }
+.corp-dona { position: relative; flex: 0 0 auto; width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; }
+.corp-dona::before { content: ""; position: absolute; inset: 14px; border-radius: 50%; background: #0f172a; }
+.corp-dona span { position: relative; display: flex; flex-direction: column; align-items: center; font-size: 0.72rem; font-weight: 800; color: #fff; line-height: 1.1; }
+.corp-dona small { font-size: 0.7rem; color: var(--bs-secondary-color); }
+.corp-dona__leyenda { min-width: 12rem; flex: 1 1 14rem; }
+.corp-conf-chip { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0 0.25rem 0.25rem 0; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.72rem;
+    color: #e2e8f0; background: color-mix(in srgb, var(--c) 16%, transparent); border: 1px solid color-mix(in srgb, var(--c) 50%, transparent); }
+.corp-conf-chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.corp-resumen-perfil__cifras { display: flex; flex-direction: column; gap: 0.25rem; flex: 2 1 20rem; }
+.corp-cotizacion__fondo { grid-column: 1 / -1; order: 10; display: flex; flex-direction: column; gap: 0.25rem; padding-top: 0.35rem; border-top: 1px dashed rgba(255, 255, 255, 0.08); }
+.corp-expo { display: flex; height: 6px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
+.corp-expo i { display: block; height: 100%; }
+
+/* Explicador */
+.corp-explica { border-radius: 14px; background: rgba(0, 0, 0, 0.22); border: 1px solid rgba(250, 204, 21, 0.25); padding: 0.2rem 0.9rem; }
+.corp-explica summary { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; font-weight: 700; color: #fde68a; cursor: pointer; list-style: none; }
+.corp-explica summary::-webkit-details-marker { display: none; }
+.corp-explica[open] summary .bi-chevron-down { transform: rotate(180deg); }
+.corp-explica__grilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.6rem; padding-bottom: 0.6rem; }
+.corp-explica__item { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.7rem; border-radius: 12px; background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid var(--c, #22c55e); font-size: 0.8rem; color: #cbd5e1; }
+.corp-explica__item i { font-size: 1.15rem; color: var(--c, #22c55e); }
+.corp-explica__item strong { color: #fff; }
+.corp-explica__item b { color: #fff; }
+.corp-explica__item--partido { --c: #3987e5; } .corp-explica__item--fase { --c: #f59e0b; }
+.corp-explica__item--patrocinio { --c: #199e70; } .corp-explica__item--acciones { --c: #a78bfa; }
+@media (max-width: 575.98px) {
+    .corp-cal__grilla { grid-template-columns: minmax(7.5rem, 1.4fr) repeat(var(--cols), minmax(1.9rem, 1fr)); }
+    .corp-san { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .corp-san__escudo, .corp-cal__celda--hoy .corp-cal__pelota, .corp-juego--ya { animation: none; }
+}
+.corp-proximos { grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
+.corp-proximo__equipos { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.35rem; min-width: 0; font-size: 0.8rem; line-height: 1.2; }
+.corp-contrato .btn:disabled { opacity: 0.35; filter: grayscale(0.6); }
+
+/* ==========================================================
+   Red social: publicaciones de MARCAS (partials/post_marca.html, respuesta_marca.html) y la vista /red-social
+   (templates/red_social.html). Cada marca tiñe su post con su color (--marca); el logo va sobre una placa clara
+   para que se lea cualquier paleta.
+   ========================================================== */
+.marca-avatar { width: 44px; height: 44px; min-width: 44px; border-radius: 12px; display: grid; place-items: center; padding: 4px;
+    background: radial-gradient(circle at 30% 25%, #1b2740, #0d1424); border: 1px solid color-mix(in srgb, var(--marca, #1d9bf0) 55%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--marca, #1d9bf0) 12%, transparent); font-weight: 900; color: #fff; overflow: hidden; }
+.marca-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.marca-avatar--sm { width: 32px; height: 32px; min-width: 32px; border-radius: 9px; padding: 3px; }
+.marca-verificada { color: #f5b301; }
+.feed-fifav .x-post--marca { --conf-color: var(--marca); border-left-style: dashed; }
+.x-post-tipo { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0 0.5rem; border-radius: 999px; font-size: 0.68rem; font-weight: 800;
+    color: color-mix(in srgb, var(--marca) 50%, #fff); background: color-mix(in srgb, var(--marca) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--marca) 40%, transparent); }
+.x-post--rumor .x-post-tipo { color: #fde68a; background: rgba(245, 158, 11, 0.14); border-color: rgba(245, 158, 11, 0.45); }
+.x-post--despedida .x-post-tipo { color: #cbd5e1; background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.35); }
+.x-post-texto { line-height: 1.45; }
+.x-post-ref { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.12rem 0.55rem 0.12rem 0.2rem; border-radius: 999px; font-size: 0.75rem;
+    font-weight: 600; color: var(--text-main); text-decoration: none; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.09);
+    transition: border-color 0.15s ease, background-color 0.15s ease; }
+.x-post-ref:hover { border-color: color-mix(in srgb, var(--marca) 60%, transparent); background: color-mix(in srgb, var(--marca) 12%, transparent); color: #fff; }
+.x-post-ref .avatar-jugador { width: 1.45rem; height: 1.45rem; }
+.x-post-ref .img-pais { height: 0.95rem; }
+.x-post-ref .bi { color: #fbbf24; }
+.x-post--rumor .x-post-ref { border-style: dashed; }
+.x-post-pie { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+.x-post-rubro { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.7rem; color: var(--bs-secondary-color); }
+.x-respuesta--marca > .flex-grow-1 { border-color: color-mix(in srgb, var(--marca) 35%, transparent);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--marca) 10%, transparent), rgba(255, 255, 255, 0.03)); }
+.x-respuesta-patrocina { display: inline-flex; align-items: center; gap: 0.25rem; color: color-mix(in srgb, var(--marca) 55%, #fff); }
+.feed-fifav__mas { display: flex; align-items: center; justify-content: center; gap: 0.45rem; margin: 0.4rem 0 0.2rem; padding: 0.55rem; border-radius: 12px;
+    font-size: 0.8rem; font-weight: 700; color: #7dd3fc; text-decoration: none; border: 1px dashed rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.06); }
+.feed-fifav__mas:hover { background: rgba(56, 189, 248, 0.14); color: #e0f2fe; }
+
+/* vista /red-social */
+.rs-portada { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); }
+.rs-portada__fondo { height: 92px; background: radial-gradient(circle at 15% 30%, rgba(29, 155, 240, 0.55), transparent 55%),
+    radial-gradient(circle at 85% 20%, rgba(249, 24, 128, 0.35), transparent 50%), linear-gradient(120deg, #0f2a4a, #1a1035); }
+.rs-portada__cuerpo { display: flex; align-items: flex-end; gap: 0.9rem; padding: 0 1.1rem 0.9rem; margin-top: -34px; background: #111a2e; }
+.rs-portada__avatar { width: 76px; height: 76px; min-width: 76px; border-radius: 50%; display: grid; place-items: center; background: #0b1220;
+    border: 3px solid #111a2e; box-shadow: 0 0 0 2px rgba(29, 155, 240, 0.6); }
+.rs-portada__avatar img { width: 74%; }
+.rs-portada__cifras { display: flex; flex-wrap: wrap; gap: 0.9rem; color: var(--bs-secondary-color); }
+.rs-portada__cifras strong { color: #fff; }
+.rs-buscador { position: relative; }
+.rs-buscador > .bi-search { position: absolute; left: 0.95rem; top: 50%; transform: translateY(-50%); color: var(--bs-secondary-color); }
+.rs-buscador .form-control { padding-left: 2.5rem; padding-right: 2.4rem; border-radius: 999px; background: #0d1424; border-color: rgba(255, 255, 255, 0.12); }
+.rs-buscador .form-control:focus { border-color: #1d9bf0; box-shadow: 0 0 0 3px rgba(29, 155, 240, 0.2); }
+.rs-buscador__limpiar { position: absolute; right: 0.9rem; top: 50%; transform: translateY(-50%); color: var(--bs-secondary-color); }
+.rs-pestanas { display: flex; gap: 0.25rem; overflow-x: auto; border-bottom: 1px solid rgba(255, 255, 255, 0.08); scrollbar-width: none; }
+.rs-pestana { padding: 0.55rem 0.9rem; font-weight: 700; font-size: 0.85rem; color: var(--bs-secondary-color); text-decoration: none; white-space: nowrap;
+    border-bottom: 3px solid transparent; }
+.rs-pestana:hover { color: #fff; background: rgba(255, 255, 255, 0.03); }
+.rs-pestana.activa { color: #fff; border-bottom-color: #1d9bf0; }
+.rs-lateral { position: sticky; top: 4.5rem; }
+.rs-tarjeta { background: #111a2e; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 16px; }
+.rs-tendencia { display: flex; flex-direction: column; padding: 0.45rem 0.55rem; margin: 0 -0.55rem; border-radius: 10px; text-decoration: none; }
+.rs-tendencia:hover, .rs-marca:hover { background: rgba(255, 255, 255, 0.04); }
+.rs-tendencia .img-pais { height: 0.9rem; }
+.rs-marca { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.55rem; margin: 0 -0.55rem; border-radius: 10px; text-decoration: none; }
+@media (max-width: 991.98px) { .rs-lateral { position: static; } }
+
+/* --- Marcas y patrocinios (/corporativo/marcas, modal «Promover» de static/js/marcas.js, cartera) --- */
+.mk-logo-lg { width: 56px; height: 56px; min-width: 56px; border-radius: 14px; padding: 6px; }
+.mk-ofertas { display: grid; gap: 0.6rem; }
+.mk-oferta { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; padding: 0.8rem 1rem; border-radius: 14px;
+    background: linear-gradient(120deg, color-mix(in srgb, var(--marca) 16%, transparent), #111a2e 60%);
+    border: 1px solid color-mix(in srgb, var(--marca) 45%, transparent); animation: mk-brillo 2.6s ease-in-out infinite; }
+@keyframes mk-brillo { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--marca) 18%, transparent); } }
+.mk-pestanas .nav-link { color: var(--bs-secondary-color); font-weight: 700; border-radius: 999px; }
+.mk-pestanas .nav-link.active { background: #f5b301; color: #111827; }
+.mk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.8rem; }
+.mk-tarjeta { padding: 0.9rem; border-radius: 16px; background: #111a2e; border: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 3px solid var(--marca); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.mk-tarjeta:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35), 0 0 0 1px color-mix(in srgb, var(--marca) 35%, transparent); }
+.mk-candidato { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.mk-candidato .avatar-jugador { width: 1.4rem; height: 1.4rem; vertical-align: middle; }
+.mk-candidato .img-pais { height: 0.9rem; }
+.prom-encaje { height: 5px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-top: 0.25rem; max-width: 16rem; }
+.prom-encaje span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, color-mix(in srgb, var(--marca, #22c55e) 60%, #000), var(--marca, #22c55e)); }
+.mk-lista { display: grid; gap: 0.5rem; }
+.mk-fila { display: flex; align-items: center; gap: 0.75rem; padding: 0.65rem 0.85rem; border-radius: 12px; background: #111a2e;
+    border: 1px solid rgba(255, 255, 255, 0.07); border-left: 3px solid var(--marca); }
+.mk-fila .img-pais { height: 0.9rem; }
+.mk-salud { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+.mk-salud > span { width: 0.65rem; height: 0.65rem; border-radius: 50%; }
+.mk-salud--verde { color: #86efac; } .mk-salud--verde > span { background: #22c55e; }
+.mk-salud--ambar { color: #fde68a; } .mk-salud--ambar > span { background: #f59e0b; }
+.mk-salud--rojo { color: #fca5a5; } .mk-salud--rojo > span { background: #ef4444; animation: mk-latido 1.2s ease-in-out infinite; }
+@keyframes mk-latido { 50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.25); } }
+.mk-catalogo { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 0.6rem; }
+.mk-logo-celda { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; padding: 0.7rem 0.5rem; border-radius: 14px;
+    background: radial-gradient(circle at 50% 30%, #1b2740, #0d1424); border: 1px solid rgba(255, 255, 255, 0.07); color: var(--bs-secondary-color);
+    font-size: 0.72rem; transition: transform 0.2s ease, border-color 0.2s ease; }
+.mk-logo-celda img { width: 100%; height: 56px; object-fit: contain; }
+.mk-logo-celda:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--marca) 60%, transparent); color: #fff; }
+.mk-logo-celda__activa { position: absolute; top: 0.4rem; right: 0.45rem; color: #f5b301; }
+.mk-ficha { overflow: hidden; border-top: 4px solid var(--marca); }
+.mk-ficha__portada { display: grid; place-items: center; height: 150px; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--marca) 25%, #1b2740), #0b1220); }
+.mk-ficha__portada img { max-width: 70%; max-height: 110px; }
+.mk-ficha__datos { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.mk-ficha__datos span { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.75rem;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); }
+.mk-ficha__datos .img-pais { height: 0.8rem; }
+.prom-marca { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 0; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+.prom-marca--off { opacity: 0.55; }
+.prom-actual { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0.5rem 0.1rem 0.15rem; border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--marca) 45%, transparent); }
+.prom-actual img { width: 1.6rem; height: 1.1rem; object-fit: contain; }
+/* logos de las marcas de un representado (cartera) y franja «En tu universo lo patrocinan» (fichas) */
+.corp-marcas { display: inline-flex; align-items: center; gap: 0.25rem; }
+.corp-marca-logo { width: 2.1rem; height: 1.5rem; padding: 2px; border-radius: 6px; object-fit: contain; background: #0d1424;
+    border: 1px solid color-mix(in srgb, var(--marca) 50%, transparent); }
+.corp-marca-logo--riesgo { border-color: #ef4444; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3); animation: mk-latido 1.4s ease-in-out infinite; }
+.franja-marcas { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.55rem 0.85rem; border-radius: 12px;
+    background: linear-gradient(90deg, rgba(245, 179, 1, 0.1), rgba(255, 255, 255, 0.02)); border: 1px solid rgba(245, 179, 1, 0.25); }
+.franja-marcas__item { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 600; color: var(--text-main); text-decoration: none; }
+.franja-marcas__item img { width: 2.6rem; height: 1.8rem; object-fit: contain; padding: 2px; border-radius: 7px; background: #0d1424;
+    border: 1px solid color-mix(in srgb, var(--marca) 50%, transparent); }
+@media (prefers-reduced-motion: reduce) { .mk-oferta, .mk-salud--rojo > span, .corp-marca-logo--riesgo { animation: none; } }

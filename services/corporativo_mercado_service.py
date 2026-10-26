@@ -52,10 +52,57 @@ def valores() -> Dict[str, dict]:
         "info_jugadores": {j["id"]: {"nombre": j.get("nombre"), "pais_id": j.get("pais_id"), "posicion_id": j.get("posicion_id"),
                                      "edad": j.get("edad"), "leyenda": bool(j.get("leyenda"))} for j in jugadores},
         "info_paises": {pid: {"nombre": p.get("nombre"), "bandera": p.get("bandera"), "confederacion_id": p.get("confederacion_id"),
-                              "rankin": (p.get("estadisticas") or {}).get("rankin")} for pid, p in paises.items()},
+                              "rankin": (p.get("estadisticas") or {}).get("rankin"), "aficionados": p.get("aficionados")}
+                        for pid, p in paises.items()},
     }
     _cache_valores.update(clave=clave, datos=datos, hasta=ahora + 60)
     return datos
+
+
+_cache_calendario = {"clave": None, "datos": None, "hasta": 0.0}
+
+
+def calendario_paises() -> Dict[int, dict]:
+    """
+    Cuándo juega cada selección según los partidos YA programados (estado 'creado', en el orden en que se juegan:
+    fecha y hora, el mismo de juegos_service.obtener_juego_activo). Igual para todos los universos; se cachea por
+    (partidos registrados, pendientes).
+    -> {pais_id: {"faltan": partidos hasta el suyo (0 = es el próximo), "ciclo": ciclo global estimado,
+                  "rival_id", "local": bool, "juego_id", "posiciones": [índices de todos sus partidos pendientes]}}
+    Una selección que no aparece no tiene partido programado (todavía no se sorteó su fase, o fue eliminada).
+    """
+    if _cache_calendario["datos"] is not None and time.time() < _cache_calendario["hasta"]:
+        return _cache_calendario["datos"]
+    seq = int((db["corp_reloj"].find_one({"_id": "partidos"}) or {}).get("seq") or 0)
+    pendientes = list(db["juegos"].find({"estado": "creado"}, {"equipo_local.id": 1, "equipo_visitante.id": 1, "fecha": 1, "hora": 1})
+                      .sort([("fecha", 1), ("hora", 1)]))
+    clave = (seq, len(pendientes))
+    if _cache_calendario["clave"] == clave:
+        _cache_calendario["hasta"] = time.time() + 30
+        return _cache_calendario["datos"]
+    datos: Dict[int, dict] = {}
+    for i, j in enumerate(pendientes):
+        loc, vis = (j.get("equipo_local") or {}).get("id"), (j.get("equipo_visitante") or {}).get("id")
+        for pid, rival, local in ((loc, vis, True), (vis, loc, False)):
+            if pid is None:
+                continue
+            d = datos.get(pid)
+            if d is None:
+                datos[pid] = {"faltan": i, "ciclo": R.ciclo_de_seq(seq + i + 1), "rival_id": rival, "local": local,
+                              "juego_id": str(j["_id"]), "posiciones": [i]}
+            else:
+                d["posiciones"].append(i)
+    _cache_calendario.update(clave=clave, datos=datos, hasta=time.time() + 30)
+    return datos
+
+
+def partidos_en_ciclos(pais_id: int, ciclos: int) -> int:
+    """Cuántos partidos programados tiene la selección en los próximos 'ciclos' ciclos (contando el actual)."""
+    d = calendario_paises().get(pais_id)
+    if not d:
+        return 0
+    limite = ciclos * C.PARTIDOS_POR_CICLO - (_cache_calendario["clave"][0] % C.PARTIDOS_POR_CICLO)
+    return sum(1 for i in d["posiciones"] if i < limite)
 
 
 def afines(sigla: str) -> set:

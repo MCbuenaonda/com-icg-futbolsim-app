@@ -103,8 +103,26 @@ FACTOR_AFICIONADOS = 0.05
 RENTA_SELECCION = {"jugar": 0.025, "victoria": 0.080, "empate": 0.025, "derrota": -0.050,
                    "avance_fase": 0.15, "eliminacion": -0.08}
 RENTA_JUGADOR = {"jugar": 0.030, "gol": 0.080, "asistencia": 0.050, "valla_invicta": 0.060, "roja": -0.080}
-HONORARIO_POR_CICLO = {"seleccion": 0.005, "jugador": 0.004}   # costo fijo por ciclo, juegue o no
+HONORARIO_POR_CICLO = {"seleccion": 0.005, "jugador": 0.004}   # (reglas viejas: costo fijo por ciclo; lo usa el simulador "antes")
 POSICIONES_VALLA_INVICTA = {1, 2, 3, 4, 5}   # portero + defensas (posiciones granulares de `posiciones`)
+
+# --- Economía v2: honorarios ligados a la actividad + patrocinios ---------------------------------
+# Una selección juega ~1 vez cada 94 partidos (~4,7 ciclos): con el honorario fijo por ciclo, el 83% de los ciclos de
+# un representado eran pérdida. Ahora casi todo el honorario se cobra cuando el representado JUEGA (junto con la
+# renta) y queda un mantenimiento chico por ciclo; además cada contrato cobra un patrocinio por ciclo, juegue o no.
+# Calibrado con simular_balance_corporativos.py (ver CLAUDE.md, "Corporativos Deportivos").
+HONORARIO_MANTENIMIENTO = {"seleccion": 0.0010, "jugador": 0.0008}   # por ciclo, juegue o no
+HONORARIO_POR_PARTIDO = {"seleccion": 0.0120, "jugador": 0.0100}     # por partido jugado (la selección / el jugador que entra)
+PARTIDOS_ESPERADOS_POR_CICLO = 0.2                                     # para estimar el honorario "por ciclo" en vistas y rescisiones
+PATROCINIO_POR_CICLO = {"seleccion": 0.0012, "jugador": 0.0010}      # x popularidad (0,6 a 1,6)
+POPULARIDAD_RANGO = (0.6, 1.6)
+AFICIONADOS_POPULARIDAD = (60000, 160000)     # selección: aficionados que dan la popularidad mínima / máxima
+# Renovación: el representado ya es de la casa, la prima es menor que la de un fichaje (y menor aún si está contento)
+PRIMA_RENOVACION = 0.60                        # x prima de referencia
+DESCUENTO_RENOVACION_SATISFACCION = 0.25       # hasta -25% más con satisfacción 100 (lineal desde 60)
+# Cotización: el sentimiento sigue el ROI medio de la ventana (no el de un ciclo suelto, muy irregular) y el precio
+# suma la renta esperada de los partidos YA programados de la cartera en los próximos ciclos.
+CICLOS_RENTA_ESPERADA = 2
 
 # --- Contratos de representación -----------------------------------------------------------------
 DURACION_CONTRATO = (4, 12)       # ciclos
@@ -142,6 +160,65 @@ BONO_SATISFACCION_CAMBIO = 0.3    # un representado descontento acepta irse con 
 SCOUTING_INFORMES = 3
 EDAD_MAXIMA_SCOUTING = 23
 
+# --- Acciones del CEO entre partidos (services/corporativo_acciones_service.py) --------------------
+# Marketing: además de +reputación, multiplica los patrocinios de TODA la cartera durante unos ciclos.
+MARKETING_BONO_PATROCINIO = 1.5
+MARKETING_CICLOS = 3
+# Acuerdo publicitario con un representado: adelanto + un pago por ciclo durante 3-5 ciclos. Monto = valor x tasa
+# x popularidad x (0,7 + 0,6 x reputación/100). La marca puede cortar si al representado le va mal.
+ACUERDO_ADELANTO = 0.010          # x valor
+ACUERDO_PAGO_CICLO = 0.006        # x valor, por ciclo
+ACUERDO_CICLOS = (3, 5)
+ACUERDOS_MAX_ACTIVOS = 4          # por corporativo
+ACUERDO_PROB_CORTE = {"roja": 0.35, "goleada": 0.25, "eliminada": 0.60}   # al cierre del ciclo en que pasó
+MARCAS_ACUERDO = [   # sponsors ficticios (sin marcas reales): nombre, colores
+    ("Volta Energy", "#f59e0b", "#1e293b"), ("Nórdica Air", "#38bdf8", "#0f172a"), ("Kubo Telecom", "#a855f7", "#f8fafc"),
+    ("Sierra Motors", "#ef4444", "#111827"), ("Brisa Bebidas", "#22c55e", "#052e16"), ("Atlas Bank", "#eab308", "#1c1917"),
+    ("Pixel Play", "#ec4899", "#1e1b4b"), ("Ruta Viajes", "#14b8a6", "#042f2e"), ("Faro Seguros", "#3b82f6", "#f1f5f9"),
+    ("Cumbre Calzado", "#f97316", "#1c1917"),
+]
+# Gira de exhibición de una selección que no juega en los próximos ciclos: costo ahora, recaudación al cierre del
+# ciclo siguiente según sus aficionados (con varianza). Las del USUARIO suman aficionados reales (+1% a +3%).
+GIRA_CICLOS_SIN_PARTIDO = 2       # requisito: sin partido programado en los próximos 2 ciclos
+GIRA_COSTO = 0.010                # x valor de la selección
+GIRA_RECAUDACION = (0.010, 0.030) # x valor, según aficionados (popularidad) y azar
+GIRA_SATISFACCION = 8
+GIRA_ENFRIAMIENTO = 3             # ciclos entre giras de la misma selección (también tope GLOBAL de aficionados)
+GIRA_AFICIONADOS_PCT = (0.01, 0.03)
+# Gira de un jugador: ingreso por su popularidad y un aporte MÍNIMO de aficionados a su selección (0 a 10 por gira,
+# según su forma y la de su selección). La IA también las hace (el aporte es ínfimo); tope por selección y ciclo.
+GIRA_JUGADOR_COSTO = 0.004        # x valor del jugador
+GIRA_COSTO_MINIMO = 60            # organizar una gira nunca es gratis (un jugador poco conocido no la recupera)
+GIRA_JUGADOR_INGRESO = (0.006, 0.014)
+GIRA_JUGADOR_ENFRIAMIENTO = 3
+GIRA_JUGADOR_AFICIONADOS_MAX = 10
+TOPE_AFICIONADOS_GIRAS_JUGADOR = 50   # por selección y ciclo, entre todas las giras de todos los universos
+GIRAS_POR_CICLO = 1               # giras (de selección o de jugador) por corporativo y ciclo
+IA_PROB_ACUERDO = 0.25            # (acuerdos viejos: la IA ya no firma; las marcas los reemplazaron)
+IA_PROB_GIRA = 0.20               # por ciclo, que organice una gira
+
+# --- Plan de saneamiento -------------------------------------------------------------------------
+# Corporativo en rojo (capital < 70% del inicial, o 3 de los últimos 4 ciclos con pérdida): el directorio abre un
+# plan de 4 ciclos con 3 objetivos; mientras dura hay TREGUA (sin ultimátum ni despido por ranking; la quiebra sigue).
+SANEAMIENTO_CAPITAL = 0.70
+SANEAMIENTO_CICLOS_ROJO = (3, 4)  # 3 de los últimos 4
+SANEAMIENTO_DURACION = 4
+SANEAMIENTO_OBJETIVOS = {
+    "utilidad_2": "Cerrar 2 ciclos con utilidad positiva",
+    "acuerdo_1": "Firmar 1 acuerdo publicitario o patrocinio de marca",   # planes viejos (ya no se sortea)
+    "patrocinio_1": "Conseguir 1 patrocinio de marca para un representado",
+    "gira_1": "Organizar 1 gira de exhibición",
+    "honorarios": "Bajar los honorarios: soltar contratos que no juegan (rescindir o dejar vencer)",
+    "satisfaccion_50": "Mantener la satisfacción media de la cartera por encima de 50",
+}
+SANEAMIENTO_NO_SORTEAR = {"acuerdo_1"}
+SANEAMIENTO_SORTEADOS = 3
+APORTE_SANEAMIENTO = 0.15          # x capital inicial, al cumplir el plan
+SANEAMIENTO_CONFIANZA = 10
+SANEAMIENTO_FAMA = 4
+SANEAMIENTO_SENTIMIENTO = 0.05
+SANEAMIENTO_ESPERA = 4             # ciclos sin plan nuevo después de terminar uno
+
 # --- IA ------------------------------------------------------------------------------------------
 # fichajes por ciclo, multiplo de la prima que paga, filtro de percentil (min, max), edad máxima, peso de selecciones
 PERFILES_IA = {
@@ -163,8 +240,11 @@ IA_ROI_DIVIDENDO = 0.05
 
 # --- Carrera del CEO -----------------------------------------------------------------------------
 FAMA_INICIAL = 10
-FAMA = {"ciclo_utilidad": 2, "objetivo": 5, "fichaje_top50": 3, "titulo_temporada": 10,
-        "despido": -15, "rechazo_repetido": -1, "renuncia_temprana": -3}
+FAMA = {"ciclo_utilidad": 2, "objetivo": 5, "fichaje_top50": 2, "titulo_temporada": 10,
+        "despido": -15, "rechazo_repetido": -1, "renuncia_temprana": -3,
+        # fama por resultados de los representados (una vez por ciclo y motivo, con tope)
+        "avance_fase": 3, "actuacion": 2, "renta_mayor_honorarios": 1}
+FAMA_TOPE_RESULTADOS_CICLO = 6
 RECHAZOS_SIN_PENALIDAD = 2
 CICLOS_RENUNCIA_TEMPRANA = 3
 OFERTAS_INICIALES = 2             # ofertas garantizadas (tier C) en el primer cierre de ciclo
@@ -233,3 +313,31 @@ QUIEBRA_CAIDA_COTIZACION = 0.50
 FRACCION_MAX_DIVIDENDO = 0.30
 IA_FRACCION_DIVIDENDO = 0.20      # la IA reparte el 20% de la utilidad del ciclo si tuvo ROI >= 0,5% y capital sano
 SENTIMIENTO_DIVIDENDO = 0.03      # repartir dividendo mejora el sentimiento del mercado
+
+
+# --- Marcas y patrocinios (services/corporativo_marcas_service.py; catálogo en config/marcas.py) -----------------
+# Reemplazan al acuerdo publicitario. Las marcas (ficticias, colección `marcas`) se acercan solas a los representados
+# de cualquier corporativo del universo, el CEO puede PROMOVER a los suyos y las marcas cortan si les va mal.
+# Pago por ciclo = valor x MARCA_PAGO_CICLO x factor del alcance x (0,7 + 0,6 x encaje/100) x (0,85 + 0,3 x reputación/100);
+# firma = MARCA_FIRMA x pago. Del corporativo del usuario, MARCA_COMISION_CEO va a su nómina (con el sueldo).
+MARCA_PAGO_CICLO = 0.0040
+MARCA_FIRMA = 1.5
+MARCA_FACTOR_NIVEL = {3: 1.3, 2: 1.0, 1: 0.75}        # global, continental, local
+MARCA_CUPOS_NIVEL = {3: 2, 2: 1, 1: 1}                # patrocinios simultáneos por marca y universo
+MARCA_CICLOS = (4, 8)
+MARCAS_MAX_POR_REPRESENTADO = 3                       # y nunca dos del mismo rubro
+MARCA_COMISION_CEO = 0.05
+MARCA_ENCAJE_MINIMO = 45                              # debajo de esto la marca no se interesa
+MARCA_PROB_ACERCARSE = 0.20                           # por ciclo, que una marca con cupo libre salga a buscar
+MARCA_PROB_RUMOR = 0.30                               # antes de ofertar deja correr el rumor un ciclo (entre 3-4 candidatos)
+MARCA_IA_ACEPTA = 0.85
+MARCA_OFERTA_CICLOS = 1                               # la oferta al usuario vence al cierre del ciclo siguiente
+MARCA_PROMOCIONES_POR_CICLO = 3                       # «Promover» del CEO, se responden al cierre del ciclo
+MARCA_PROMOCION_BASE = 0.15                           # prob. = base + encaje + reputación + fama (corporativo_reglas.prob_promocion)
+# Riesgo de corte (0..100) al cierre de cada ciclo: lo que pasó en el ciclo x (1,3 - fidelidad de la marca)
+MARCA_RIESGO = {"roja": 30, "goleada": 22, "eliminada": 60, "sin_jugar": 12, "mala_forma": 14, "descontento": 8}
+MARCA_RIESGO_AVISO = 30                               # aviso previo («está revisando el patrocinio»)
+MARCA_RIESGO_CORTE = 55                               # corta (o corta si ya había aviso y el riesgo sigue >= aviso)
+MARCA_PROB_RENUEVA = 0.55                             # al vencer, si quedó conforme (riesgo bajo)
+MARCA_PROB_REACCION = 0.70                            # que la marca comente en la red social el partido de su patrocinado
+MARCA_PROB_POST_IA = 0.50                             # firmas/renovaciones/despedidas de la IA que llegan a la red (las tuyas, siempre)

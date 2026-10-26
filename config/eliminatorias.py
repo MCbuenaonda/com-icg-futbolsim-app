@@ -3,7 +3,7 @@ Textos del encabezado del inicio (juegos_service.get_data_fase_actual_dashboard)
 las eliminatorias SEGÚN la confederación: cada una tiene un formato propio (grupos, tabla única o
 llaves a ida y vuelta) y una cantidad distinta de rondas. Reflejan las reglas de
 services/clasificacion_service.py (procesar_clasificacion_fase_N): si cambia un formato allá,
-actualizar el texto acá. Si una combinación no está, se usa 'fases.descripcion' (texto genérico).
+actualizar el texto aquí. Si una combinación no está, se usa 'fases.descripcion' (texto genérico).
 
 Claves: (confederacion_id, fase_id). Confederaciones: 1 UEFA, 2 CONMEBOL, 3 CONCACAF, 4 CAF, 5 OFC,
 6 AFC, 7 REPECHAJE. Las fases del Mundial (confederación 8) usan la descripción de 'fases'.

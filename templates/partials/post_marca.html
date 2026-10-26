@@ -1,0 +1,36 @@
+{# Publicación de una MARCA en la red social (services/red_social_service._marca_post): firma, rumor, renovación o
+   despedida. Variable: post. El color de la marca tiñe el borde y el chip del tipo (--marca). #}
+{% import "partials/macros.html" as m %}
+<article class="x-post x-post--marca x-post--{{ post.tipo | lower }}" style="--marca: {{ post.marca.color }};">
+    <div class="d-flex gap-2">
+        <span class="marca-avatar" title="{{ post.marca.nombre }} · {{ post.marca.rubro_nombre }}"><img src="{{ post.marca.logo }}" alt="" loading="lazy" decoding="async" onerror="this.replaceWith(document.createTextNode('{{ post.marca.nombre[:1] }}'))"></span>
+        <div class="flex-grow-1 min-w-0">
+            <div class="d-flex align-items-center gap-1 flex-wrap">
+                <span class="fw-bold text-body-emphasis">{{ post.marca.nombre }}</span>
+                <i class="bi bi-patch-check-fill marca-verificada fs-8" title="Marca verificada"></i>
+                <span class="text-muted fs-8">{{ post.marca.handle }}</span>
+                <span class="text-muted fs-8">·</span>
+                <span class="text-muted fs-8">{{ post.fecha }}</span>
+                <span class="x-post-tipo ms-auto"><i class="bi {{ post.icono }}"></i>{{ post.etiqueta }}</span>
+            </div>
+            <div class="fs-7 text-body-emphasis mt-1 x-post-texto">{{ post.texto }}</div>
+            {% if post.refs %}
+            <div class="d-flex flex-wrap gap-1 mt-2">
+                {% for r in post.refs %}
+                <a href="{{ r.url }}" class="x-post-ref">{% if r.tipo == 'jugador' %}{{ m.avatar(r.ref_id, r.pais_id) }}{% else %}{{ m.bandera(r.bandera) }}{% endif %}<span>{{ r.nombre }}</span>{% if post.tipo == 'RUMOR' %}<i class="bi bi-question-circle-fill"></i>{% endif %}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="x-post-pie">
+                <span class="x-post-rubro"><i class="bi {{ post.marca.rubro_icono }}"></i>{{ post.marca.rubro_nombre }}{% if post.marca.region %} · {{ post.marca.region }}{% endif %}</span>
+                {% if post.sigla %}<span class="x-post-rubro" title="Corporativo que lo representa"><img src="{{ logo_corporativo(post.sigla) }}" alt="" class="corp-logo corp-logo--micro">{{ post.sigla }}</span>{% endif %}
+            </div>
+            <div class="x-acciones mt-2">
+                <span class="x-accion x-accion--comentar"><i class="bi bi-chat"></i>{{ post.comentarios | numero_compacto }}</span>
+                <span class="x-accion x-accion--repost"><i class="bi bi-arrow-repeat"></i>{{ post.reposts | numero_compacto }}</span>
+                <span class="x-accion x-accion--like"><i class="bi bi-heart-fill"></i>{{ post.likes | numero_compacto }}</span>
+                <span class="x-accion"><i class="bi bi-bar-chart-line"></i>{{ post.visualizaciones | numero_compacto }}</span>
+            </div>
+        </div>
+    </div>
+</article>

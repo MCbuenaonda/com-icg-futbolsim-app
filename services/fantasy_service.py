@@ -287,7 +287,7 @@ def _validar_alineacion(lineup: List[int]) -> None:
         raise ValueError("Uno o más jugadores de la alineación no existen")
 
     if sum(1 for j in jugadores if j.get("leyenda")) > MAX_LEYENDAS_FANTASY:
-        raise ValueError(f"Solo podés tener {MAX_LEYENDAS_FANTASY} leyenda en tu Once Ideal")
+        raise ValueError(f"Solo puedes tener {MAX_LEYENDAS_FANTASY} leyenda en tu Once Ideal")
 
     # Máximo 2 jugadores por selección
     conteo_por_pais: Dict[int, int] = {}
@@ -308,7 +308,7 @@ def _validar_alineacion(lineup: List[int]) -> None:
     if len(set(ids_lineup)) != len(ids_lineup):
         repetidas = {pid for pid in ids_lineup if ids_lineup.count(pid) > 1}
         siglas_repetidas = ", ".join(sorted(mapa_posiciones.get(pid, {}).get("siglas", "?") for pid in repetidas))
-        raise ValueError(f"No podés tener más de un jugador en la misma posición: {siglas_repetidas}")
+        raise ValueError(f"No puedes tener más de un jugador en la misma posición: {siglas_repetidas}")
 
     if set(ids_lineup) != ids_requeridos:
         faltantes = ids_requeridos - set(ids_lineup)
@@ -362,7 +362,7 @@ def set_fantasy_lineup(usuario_id: str, lineup: List[int], formacion: str = FORM
     if entrantes:
         bloqueados = [j for j in db['jugadores'].find({"id": {"$in": entrantes}}, {"nombre": 1, "pais_id": 1}) if j.get("pais_id") in eliminados]
         if bloqueados:
-            raise ValueError("No podés sumar jugadores de selecciones que ya no juegan el Mundial: "
+            raise ValueError("No puedes sumar jugadores de selecciones que ya no juegan el Mundial: "
                              + ", ".join(f"{j.get('nombre')} ({eliminados[j['pais_id']].lower()})" for j in bloqueados))
 
     if not equipo:

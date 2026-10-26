@@ -21,7 +21,7 @@ COSTO_ACCION = {
 }
 RESISTENCIA_REFERENCIA = 60.0      # la media del mundo: gasta el 100%
 SENSIBILIDAD_RESISTENCIA = 0.012   # cada punto de resistencia sobre/bajo la referencia: -/+1.2% de gasto
-UMBRAL_FATIGA = 70.0               # desde acá para abajo se nota el cansancio
+UMBRAL_FATIGA = 70.0               # desde aquí para abajo se nota el cansancio
 PERDIDA_MAXIMA = 0.10              # con 0 de energía, los atributos rinden un 10% menos...
 PERDIDA_DEFENSIVA = 0.38           # ...y los defensivos más: el cansado llega tarde a cerrar (más goles al final)
 ATRIBUTOS_DEFENSIVOS = {"anticipacion", "concentracion", "fuerza_fisica", "agresividad"}

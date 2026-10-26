@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 def _usuario_api(request: Request) -> dict:
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
     return usuario
 
 
@@ -42,7 +42,7 @@ def _accion(funcion, *args):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Corporativos: error en {funcion.__name__}: {e}")
-        raise HTTPException(status_code=500, detail="Error interno, intentá de nuevo")
+        raise HTTPException(status_code=500, detail="Error interno, intenta de nuevo")
 
 
 @route_vistas.get("/", response_class=HTMLResponse, name="corporativo_inicio")
@@ -53,14 +53,27 @@ def corporativo_inicio(request: Request):
     return templates.TemplateResponse(request=request, name="corporativo.html", context=obtener_vista_inicio(usuario["_id"]))
 
 
+def _entero(valor: Optional[str], defecto: Optional[int] = None) -> Optional[int]:
+    """Los filtros llegan del formulario como texto: vacío o inválido = sin filtro (antes daba error 422)."""
+    try:
+        return int(str(valor).strip()) if valor not in (None, "") else defecto
+    except (TypeError, ValueError):
+        return defecto
+
+
+def _bandera(valor: Optional[str]) -> bool:
+    return str(valor or "").strip().lower() in ("1", "true", "on", "si", "sí", "yes")
+
+
 @route_vistas.get("/mercado", response_class=HTMLResponse, name="corporativo_mercado")
-def corporativo_mercado(request: Request, tipo: str = "jugador", vista: str = "libres", q: str = "", conf: Optional[int] = None,
-                              region: bool = False, edad_max: Optional[int] = None, orden: str = "valor", pagina: int = 1,
-                              leyendas: bool = False):
+def corporativo_mercado(request: Request, tipo: str = "jugador", vista: str = "libres", q: str = "", conf: Optional[str] = None,
+                        region: Optional[str] = None, edad_max: Optional[str] = None, orden: str = "valor", pagina: Optional[str] = None,
+                        leyendas: Optional[str] = None, pronto: Optional[str] = None):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
-    datos = obtener_mercado(usuario["_id"], tipo, vista, q, conf, region, edad_max, orden, pagina, leyendas)
+    datos = obtener_mercado(usuario["_id"], tipo, vista, (q or "").strip(), _entero(conf), _bandera(region), _entero(edad_max),
+                            orden or "valor", max(1, _entero(pagina, 1)), _bandera(leyendas), _bandera(pronto))
     if not datos:
         return RedirectResponse(url=request.url_for("corporativo_inicio"), status_code=303)
     return templates.TemplateResponse(request=request, name="corporativo_mercado.html", context=datos)
@@ -84,6 +97,18 @@ def corporativo_ranking(request: Request):
         return RedirectResponse(url=request.url_for("login"), status_code=303)
     return templates.TemplateResponse(request=request, name="corporativo_ranking.html",
                                       context={"filas": obtener_ranking_ceos(usuario["_id"])})
+
+
+@route_vistas.get("/marcas", response_class=HTMLResponse, name="corporativo_marcas")
+def corporativo_marcas(request: Request):
+    from services import corporativo_marcas_service as marcas
+    usuario = obtener_usuario_actual(request)
+    if not usuario:
+        return RedirectResponse(url=request.url_for("login"), status_code=303)
+    datos = marcas.vista_marcas(usuario["_id"])
+    if not datos:
+        return RedirectResponse(url=request.url_for("corporativo_inicio"), status_code=303)
+    return templates.TemplateResponse(request=request, name="corporativo_marcas.html", context=datos)
 
 
 @route_vistas.get("/{sigla}", response_class=HTMLResponse, name="corporativo_perfil")
@@ -159,6 +184,44 @@ def responder(oferta_id: str, respuesta: str, request: Request):
 @route.post("/scouting", name="corporativos_scouting")
 def scouting(request: Request):
     return _accion(fichajes.scouting, _usuario_api(request)["_id"])
+
+
+# --- Marcas y patrocinios (services/corporativo_marcas_service.py; reemplazan al acuerdo publicitario) ---
+class PromoverIn(BaseModel):
+    marca_id: int
+
+
+@route.get("/contratos/{contrato_id}/marcas", name="corporativos_marcas_interesadas")
+def marcas_interesadas(contrato_id: str, request: Request):
+    from services import corporativo_marcas_service as marcas
+    return _accion(marcas.interesadas, _usuario_api(request)["_id"], contrato_id)
+
+
+@route.post("/contratos/{contrato_id}/promover", name="corporativos_promover")
+def promover(contrato_id: str, datos: PromoverIn, request: Request):
+    from services import corporativo_marcas_service as marcas
+    return _accion(marcas.promover, _usuario_api(request)["_id"], contrato_id, datos.marca_id)
+
+
+@route.post("/patrocinios/{pat_id}/{respuesta}", name="corporativos_responder_patrocinio")
+def responder_patrocinio(pat_id: str, respuesta: str, request: Request):
+    from services import corporativo_marcas_service as marcas
+    if respuesta not in ("aceptar", "rechazar"):
+        raise HTTPException(status_code=400, detail="Respuesta inválida")
+    return _accion(marcas.responder_oferta, _usuario_api(request)["_id"], pat_id, respuesta == "aceptar")
+
+
+# --- Giras (services/corporativo_acciones_service.py) ---
+@route.get("/contratos/{contrato_id}/gira", name="corporativos_cotizar_gira")
+def cotizar_gira(contrato_id: str, request: Request):
+    from services import corporativo_acciones_service as acciones
+    return _accion(acciones.cotizar_gira, _usuario_api(request)["_id"], contrato_id)
+
+
+@route.post("/contratos/{contrato_id}/gira", name="corporativos_organizar_gira")
+def organizar_gira(contrato_id: str, request: Request):
+    from services import corporativo_acciones_service as acciones
+    return _accion(acciones.organizar_gira, _usuario_api(request)["_id"], contrato_id)
 
 
 @route.post("/marketing", name="corporativos_marketing")

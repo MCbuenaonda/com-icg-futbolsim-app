@@ -43,7 +43,7 @@ async def simulate_next_auto(request: Request):
     """
     Busca el próximo partido pendiente ('creado'), lo simula y persiste el resultado (motor +
     services.juegos_service.simular_y_registrar_resultado), y arranca la ventana de "transmisión
-    en vivo" de 5 minutos que consume GET /matches/live. Los efectos secundarios del partido
+    en vivo" de 25 minutos que consume GET /matches/live. Los efectos secundarios del partido
     (país, jugadores, rankings, aficionados, quinielas, fantasy, sedes, avance de fase) quedan
     diferidos hasta que esa ventana termine, para no revelar el resultado antes de tiempo en la
     tabla de posiciones/perfiles de jugadores. Requiere sesión iniciada.
@@ -53,7 +53,7 @@ async def simulate_next_auto(request: Request):
     """
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión para simular partidos automáticamente")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión para simular partidos automáticamente")
 
     try:
         resultado = iniciar_simulacion_automatica()
@@ -78,9 +78,9 @@ async def simulate_next_auto(request: Request):
             mensaje="Ya hay una transmisión en curso; no se inició una nueva."
         )
 
-    # A propósito NO se devuelve el marcador acá (ni el de arriba, "ya_en_progreso") -- eso
+    # A propósito NO se devuelve el marcador aquí (ni el de arriba, "ya_en_progreso") -- eso
     # revelaría el resultado final en la misma respuesta del botón "Simular siguiente", antes de
-    # que arranque la revelación en vivo. El marcador (parcial, gobernado por la ventana de 5
+    # que arranque la revelación en vivo. El marcador (parcial, gobernado por la ventana de 25
     # minutos) se consulta vía GET /matches/live.
     return StartAutoSimulationResponse(
         encontrado=True,
@@ -94,7 +94,7 @@ async def simulate_next_auto(request: Request):
 async def get_live_match():
     """
     Estado actual de la transmisión en vivo: partido en curso, marcador parcial y solo el
-    subconjunto de eventos ya "sucedidos" en la ventana de 5 minutos, más los segundos
+    subconjunto de eventos ya "sucedidos" en la ventana de 25 minutos, más los segundos
     restantes. Solo lectura -- sin autenticación, igual que el resto de los GET del proyecto.
     """
     estado = obtener_estado_live()
@@ -157,6 +157,37 @@ def get_live_destacados():
     if not destacados:
         raise HTTPException(status_code=404, detail="No hay ningún partido en transmisión en este momento.")
     return destacados
+
+
+# ==========================================================================
+# El pulso (services/pulso_service.py): reproducción automática en el servidor
+# ==========================================================================
+@route.get("/pulso", name="matches_pulso")
+def get_pulso(request: Request):
+    """Si el torneo avanza solo y cuándo arranca el próximo partido (cualquiera). Con 'simular_partidos', además el
+    estado del último pulso."""
+    from services.pulso_service import resumen_admin, resumen_publico
+    from services.auth_service import tiene_permiso
+    return resumen_admin() if tiene_permiso(obtener_usuario_actual(request), "simular_partidos") else resumen_publico()
+
+
+@route.post("/pulso/config", name="matches_pulso_config", dependencies=[Depends(requiere_permiso("simular_partidos"))])
+def post_pulso_config(request: Request, datos: dict):
+    """Prender/apagar la reproducción automática y elegir el ritmo: {activo?: bool, intervalo_min?: int}."""
+    from services.pulso_service import guardar_config, resumen_admin
+    try:
+        guardar_config(obtener_usuario_actual(request), datos.get("activo"), datos.get("intervalo_min"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return resumen_admin()
+
+
+@route.post("/pulso/tick", name="matches_pulso_tick", dependencies=[Depends(requiere_permiso("simular_partidos"))])
+def post_pulso_tick():
+    """Pulso de respaldo desde el navegador de un admin (además del de Cloud Scheduler): respeta el mismo horario."""
+    from services.pulso_service import pulsar, resumen_admin
+    r = pulsar("navegador")
+    return {**resumen_admin(), "resultado": r}
 
 
 # ==========================================================================

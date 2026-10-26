@@ -45,21 +45,21 @@ def consultar(datos: ConsultaIn, request: Request):
     """Cobra (si corresponde) y devuelve el informe. Siempre el usuario de la sesión."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
     try:
         return asistente_service.consultar(usuario, datos.nivel, datos.precio_esperado)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error en la consulta al asistente: {e}")
-        raise HTTPException(status_code=500, detail="El Profe no pudo terminar el escaneo. Probá de nuevo en un momento.")
+        raise HTTPException(status_code=500, detail="El Profe no pudo terminar el escaneo. Prueba de nuevo en un momento.")
 
 
 @route.get("/informe/{consulta_id}", name="asistente_informe")
 def informe(consulta_id: str, request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
     doc = asistente_service.obtener_informe(usuario, consulta_id)
     if not doc:
         raise HTTPException(status_code=404, detail="No se encontró ese informe")
@@ -71,7 +71,7 @@ def seguimiento(consulta_id: str, request: Request):
     """Qué consejos ya se hicieron (detectado solo) o ya no aplican. Puede re-escanear: por eso va aparte del informe."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
     try:
         datos = asistente_service.obtener_seguimiento(usuario, consulta_id)
     except Exception as e:
@@ -87,7 +87,7 @@ def marcar(consulta_id: str, datos: MarcaIn, request: Request):
     """El usuario marca un consejo como listo, lo descarta o deshace la marca. Siempre sobre un informe propio."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Necesitás iniciar sesión")
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
     try:
         return asistente_service.marcar_consejo(usuario, consulta_id, datos.clave, datos.accion)
     except ValueError as e:

@@ -124,11 +124,11 @@ def consultar(usuario: dict, nivel: str, precio_esperado: Optional[int] = None) 
     if gratis_del_dia:
         precio = 0
     elif db[COLECCION].count_documents({"user_id": uid, "dia": _hoy(), "cobrado": {"$gt": 0}}) >= TOPE_CONSULTAS_PAGAS_DIA:
-        raise ValueError(f"El Profe ya atendió {TOPE_CONSULTAS_PAGAS_DIA} consultas pagas hoy. Volvé mañana.")
+        raise ValueError(f"El Profe ya atendió {TOPE_CONSULTAS_PAGAS_DIA} consultas pagas hoy. Vuelve mañana.")
 
     if precio_esperado is not None and precio > precio_esperado:
         raise ValueError(f"El precio cambió: ahora el {NIVELES_ASISTENTE[nivel]['nombre']} cuesta {precio:,} pts "
-                         "(se jugó un partido o ya usaste el gratis de hoy). Recargá la página para confirmarlo.")
+                         "(se jugó un partido o ya usaste el gratis de hoy). Recarga la página para confirmarlo.")
 
     # 3) Cobro atómico
     if precio > 0:

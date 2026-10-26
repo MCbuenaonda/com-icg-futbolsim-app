@@ -14,7 +14,7 @@ NIVELES_ASISTENTE = {
     "VISTAZO": {
         "codigo": "VISTAZO", "nombre": "Vistazo", "precio": 75, "max_consejos": 3, "horizonte": 10, "detalle": "basico",
         "icono": "bi-eye-fill", "color": "#38bdf8",
-        "resumen": "Lo urgente de tus carteras y lo que tenés gratis para cobrar.",
+        "resumen": "Lo urgente de tus carteras y lo que tienes gratis para cobrar.",
     },
     "ANALISIS": {
         "codigo": "ANALISIS", "nombre": "Análisis", "precio": 250, "max_consejos": 6, "horizonte": 20, "detalle": "numeros",

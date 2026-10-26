@@ -31,7 +31,7 @@
     <span><i class="bi bi-arrow-repeat text-info"></i><strong>+{{ reglas.cambios_por_jornada }} cambios gratis</strong> por jornada (máx. {{ reglas.tope }})</span>
     <span><i class="bi bi-cash-coin text-warning"></i>Cada cambio extra cuesta <strong>{{ reglas.costo_extra }} pts</strong> de saldo</span>
     <span><i class="bi bi-person-x-fill text-danger"></i>Reemplazar a un jugador <strong>eliminado</strong> es gratis y no gasta cambios</span>
-    <span><i class="bi bi-award-fill" style="color:#d9a066"></i>Podés sumar <strong>1 leyenda</strong> (el once histórico de cada selección)</span>
+    <span><i class="bi bi-award-fill" style="color:#d9a066"></i>Puedes sumar <strong>1 leyenda</strong> (el once histórico de cada selección)</span>
 </div>
 
 {% if eliminados_en_once %}
@@ -41,7 +41,7 @@
         <strong>{{ eliminados_en_once | length }} jugador{{ 'es' if eliminados_en_once | length != 1 }} de tu once ya no suma{{ 'n' if eliminados_en_once | length != 1 }} puntos</strong>
         porque su selección quedó afuera del Mundial:
         {% for j in eliminados_en_once %}<span class="once-eliminado-chip">{{ j.nombre }} · {{ j.pais_nombre }} ({{ j.motivo_eliminado | lower }})</span>{% endfor %}
-        <div class="small mt-1">Cambialos sin costo: el reemplazo de un eliminado no gasta tus cambios gratis.</div>
+        <div class="small mt-1">Cámbialos sin costo: el reemplazo de un eliminado no gasta tus cambios gratis.</div>
     </div>
 </div>
 {% endif %}
@@ -118,7 +118,7 @@
     <div class="card-body p-3 p-md-4">
         <h2 class="vivo-titulo"><i class="bi bi-calculator-fill" style="color: #a78bfa;"></i>Cómo se calcularon tus puntos</h2>
         {% if historial_puntos %}
-            <p class="text-muted small mb-3">Cada vez que se simula un partido, si un jugador de tu alineación participó, acá queda el detalle de cómo se calcularon sus puntos.</p>
+            <p class="text-muted small mb-3">Cada vez que se simula un partido, si un jugador de tu alineación participó, aquí queda el detalle de cómo se calcularon sus puntos.</p>
             <div class="d-flex flex-column gap-2" style="max-height: 480px; overflow-y: auto;">
                 {% for evento in historial_puntos %}
                     <div class="puntos-evento {% if evento.puntos_finales > 0 %}puntos-evento--mas{% elif evento.puntos_finales < 0 %}puntos-evento--menos{% endif %}">
@@ -311,13 +311,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (jugador.leyenda) {
             const otra = Object.entries(seleccionados).find(([pos, j]) => j && j.leyenda && Number(pos) !== jugador.posicion_id);
             if (otra && Object.values(seleccionados).filter(j => j && j.leyenda).length >= MAX_LEYENDAS) {
-                mostrarAlerta(`Solo podés tener ${MAX_LEYENDAS} leyenda en tu Once Ideal (ya tenés a ${otra[1].nombre}).`, 'warning');
+                mostrarAlerta(`Solo puedes tener ${MAX_LEYENDAS} leyenda en tu Once Ideal (ya tienes a ${otra[1].nombre}).`, 'warning');
                 return;
             }
         }
         const conteo = conteoPorPais();
         if ((conteo[jugador.pais_id] || 0) >= MAX_POR_PAIS) {
-            mostrarAlerta(`Ya tenés ${MAX_POR_PAIS} jugadores de ${jugador.pais_nombre} (máximo por selección).`, 'warning');
+            mostrarAlerta(`Ya tienes ${MAX_POR_PAIS} jugadores de ${jugador.pais_nombre} (máximo por selección).`, 'warning');
             return;
         }
 
@@ -327,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (ocupante) {
             const ok = await UI.confirmar({
                 titulo: 'Reemplazar jugador',
-                mensaje: `Ya tenés a ${ocupante.nombre} en la posición ${jugador.posicion_nombre} (${jugador.posicion_siglas}). ¿Reemplazarlo por ${jugador.nombre}?`,
+                mensaje: `Ya tienes a ${ocupante.nombre} en la posición ${jugador.posicion_nombre} (${jugador.posicion_siglas}). ¿Reemplazarlo por ${jugador.nombre}?`,
                 textoConfirmar: 'Reemplazar',
             });
             if (!ok) return;
@@ -348,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ultimosResultados = jugadores;
 
         // Los jugadores de una posición granular ya cubierta se muestran al final y
-        // atenuados (no se ocultan: seguís pudiendo elegirlos para reemplazar al titular).
+        // atenuados (no se ocultan: sigues pudiendo elegirlos para reemplazar al titular).
         const disponibles = jugadores.filter(j => !seleccionados[j.posicion_id] && !j.eliminado);
         const repetidos = jugadores.filter(j => seleccionados[j.posicion_id] && !j.eliminado);
         const eliminados = jugadores.filter(j => j.eliminado);   // al final y deshabilitados: ya no suman
@@ -396,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(datos => { if (consulta === numeroBusqueda) renderizarResultados(datos); })
             .catch(() => {
                 if (consulta === numeroBusqueda && contenedor) {
-                    contenedor.innerHTML = '<div class="text-danger small py-3 text-center"><i class="bi bi-exclamation-triangle me-1"></i>No se pudo buscar. Revisá tu conexión e intentá de nuevo.</div>';
+                    contenedor.innerHTML = '<div class="text-danger small py-3 text-center"><i class="bi bi-exclamation-triangle me-1"></i>No se pudo buscar. Revisa tu conexión e intenta de nuevo.</div>';
                 }
             });
     }
@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (usados) partes.push(`${usados} con cambios gratis (te quedan ${cambiosGratisDisponibles - usados})`);
                 if (extra) partes.push(`${extra} extra = ${extra * COSTO_CAMBIO_EXTRA} pts de saldo`);
                 if (!await UI.confirmar({ titulo: extra ? 'Guardar con cambios extra' : 'Guardar cambios',
-                        mensaje: `Cambiás ${salientes.length} jugador(es): ${partes.join(' + ')}.`,
+                        mensaje: `Cambias ${salientes.length} jugador(es): ${partes.join(' + ')}.`,
                         textoConfirmar: extra ? `Guardar y pagar ${extra * COSTO_CAMBIO_EXTRA} pts` : 'Guardar', peligro: !!extra })) {
                     return;
                 }

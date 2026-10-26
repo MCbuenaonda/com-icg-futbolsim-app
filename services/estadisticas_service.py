@@ -26,7 +26,7 @@ def _filtro_finalizados() -> dict:
     """
     Filtro base de TODAS las consultas de partidos de esta vista: jugados, del Mundial activo
     ('juegos' conserva los de mundiales anteriores) y sin el que todavía se está transmitiendo en
-    vivo (ya está simulado, pero su resultado no debe adelantarse acá).
+    vivo (ya está simulado, pero su resultado no debe adelantarse aquí).
     """
     filtro = {"estado": "finalizado", "transmision.estado": {"$ne": "in_progress"}}
     mundial_id = _mundial_activo_id()
@@ -117,7 +117,7 @@ def _formatear_partido_resumen(juego: dict, goles_local: int, goles_visitante: i
     Resumen liviano de un partido (id/tag/fecha/equipos+goles) para listar en los modales de
     "ver partidos" de las tarjetas de Estadio Más Frecuente / País Más Remontador. Recibe
     'goles_local'/'goles_visitante' ya calculados por el caller (en vez de leer
-    juego['resultado'] de nuevo acá) porque en '_get_stats_partidos' la clave 'resultado'
+    juego['resultado'] de nuevo aquí) porque en '_get_stats_partidos' la clave 'resultado'
     puede haber sido borrada del mismo dict 'juego' más arriba en el loop (ver nota sobre
     referencias compartidas ahí) — 'equipo_local'/'equipo_visitante'/'_id'/'tag'/'fecha' en
     cambio nunca se borran, así que esos sí se leen directo del documento.
@@ -268,7 +268,7 @@ def _get_stats_partidos(juegos: Optional[list] = None):
                 tipo_evento = ev.get("tipo", "").upper()
                 # "ANULADO" excluye los goles anulados por VAR (su tipo también contiene
                 # la palabra "GOL": "🖥️ VAR - GOL ANULADO") — si no se excluye, un gol que
-                # nunca se contó en el marcador real infla el marcador reconstruido acá y
+                # nunca se contó en el marcador real infla el marcador reconstruido aquí y
                 # puede generar remontadas falsas.
                 if "GOL" in tipo_evento and "ANULADO" not in tipo_evento:
                     if ev.get("equipo") == j["equipo_local"]["nombre"]:

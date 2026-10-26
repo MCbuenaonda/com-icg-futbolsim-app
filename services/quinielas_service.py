@@ -6,7 +6,7 @@ Mapeo con el resto del dominio:
 - Un "partido no jugado" es un doc de 'juegos' con estado == "creado".
 - El resultado de un partido (LOCAL/EMPATE/VISITA) se deriva del mismo
   'ganador_lado' ("L"/"V"/"E") que ya arma registrar_resultado_juego en
-  juegos_service.py — no se recalcula goles acá, se reutiliza ese valor.
+  juegos_service.py — no se recalcula goles aquí, se reutiliza ese valor.
 """
 import certifi
 from datetime import datetime

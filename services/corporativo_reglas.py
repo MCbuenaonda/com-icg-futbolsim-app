@@ -131,6 +131,7 @@ def aporte_partido(juego: dict, agregado_partido: dict, posicion_por_jugador: Di
         else:
             selecciones[pid] = "victoria" if ganador == pid else "derrota"
     recibidos = {local: gv, visita: gl}
+    diferencia = {local: gl - gv, visita: gv - gl}   # para las goleadas (corte de acuerdos publicitarios)
     jugadores = {}
     for jid, a in agregado_partido.items():
         m = a["metricas"]
@@ -139,7 +140,7 @@ def aporte_partido(juego: dict, agregado_partido: dict, posicion_por_jugador: Di
         valla = recibidos.get(a.get("pais_id")) == 0 and posicion_por_jugador.get(jid) in C.POSICIONES_VALLA_INVICTA
         jugadores[jid] = {"jugar": 1, "gol": m.get("goles", 0), "asistencia": m.get("asistencias", 0),
                           "valla_invicta": 1 if valla else 0, "roja": m.get("rojas", 0)}
-    return {"selecciones": selecciones, "jugadores": jugadores}
+    return {"selecciones": selecciones, "jugadores": jugadores, "diferencia": {k: v for k, v in diferencia.items() if k is not None}}
 
 
 def renta_seleccion(valor: int, resultado: str) -> int:
@@ -156,7 +157,51 @@ def renta_jugador(valor: int, aporte: dict) -> int:
 
 
 def honorario(tipo: str, valor: int) -> int:
-    return int(round(valor * C.HONORARIO_POR_CICLO[tipo]))
+    """Honorario ESPERADO por ciclo (mantenimiento + partidos esperados): para vistas, rescisiones y estimaciones."""
+    return int(round(valor * (C.HONORARIO_MANTENIMIENTO[tipo] + C.HONORARIO_POR_PARTIDO[tipo] * C.PARTIDOS_ESPERADOS_POR_CICLO)))
+
+
+def honorario_mantenimiento(tipo: str, valor: int) -> int:
+    """Lo que se cobra cada ciclo, juegue o no."""
+    return int(round(valor * C.HONORARIO_MANTENIMIENTO[tipo]))
+
+
+def honorario_partido(tipo: str, valor: int) -> int:
+    """Lo que se cobra por cada partido que el representado juega (junto con su renta)."""
+    return int(round(valor * C.HONORARIO_POR_PARTIDO[tipo]))
+
+
+def popularidad_seleccion(aficionados: float) -> float:
+    lo, hi = C.AFICIONADOS_POPULARIDAD
+    t = limitar(((aficionados or lo) - lo) / (hi - lo), 0, 1)
+    return round(C.POPULARIDAD_RANGO[0] + t * (C.POPULARIDAD_RANGO[1] - C.POPULARIDAD_RANGO[0]), 3)
+
+
+def popularidad_jugador(valor: float) -> float:
+    """Por su valor de mercado (las leyendas, por encima del máximo de los actuales, tocan el techo)."""
+    t = limitar((valor - C.VALOR_JUGADOR_MIN) / (C.VALOR_JUGADOR_MAX - C.VALOR_JUGADOR_MIN), 0, 1)
+    return round(C.POPULARIDAD_RANGO[0] + t ** 0.6 * (C.POPULARIDAD_RANGO[1] - C.POPULARIDAD_RANGO[0]), 3)
+
+
+def patrocinio(tipo: str, valor: int, popularidad: float, multiplicador: float = 1.0) -> int:
+    """Ingreso fijo por ciclo de un contrato (juegue o no). 'multiplicador': campaña de marketing vigente."""
+    return int(round(valor * C.PATROCINIO_POR_CICLO[tipo] * popularidad * multiplicador))
+
+
+def prima_renovacion(valor: float, satisfaccion: float) -> int:
+    descuento = C.DESCUENTO_RENOVACION_SATISFACCION * limitar((satisfaccion - 60) / 40, 0, 1)
+    return int(round(prima_referencia(valor) * C.PRIMA_RENOVACION * (1 - descuento), -1))
+
+
+def renta_esperada_partido(tipo: str, valor: int) -> int:
+    """Renta media de UN partido jugado, neta del honorario por partido (para proyecciones; ~45% victorias, 25% empates)."""
+    if tipo == "seleccion":
+        r = C.RENTA_SELECCION
+        bruto = r["jugar"] + 0.45 * r["victoria"] + 0.25 * r["empate"] + 0.30 * r["derrota"]
+    else:
+        r = C.RENTA_JUGADOR
+        bruto = r["jugar"] + 0.12 * r["gol"] + 0.08 * r["asistencia"] + 0.08 * r["valla_invicta"] - 0.01 * abs(r["roja"])
+    return int(round(valor * (bruto - C.HONORARIO_POR_PARTIDO[tipo])))
 
 
 # --- Mercado -------------------------------------------------------------------------------------
@@ -249,3 +294,230 @@ def limitar_banda(precio_nuevo: float, precio_anterior: float) -> float:
 def ciclo_de_seq(seq: int) -> int:
     """Número de ciclo al que pertenece un partido del registro (seq desde 1)."""
     return math.ceil(seq / C.PARTIDOS_POR_CICLO)
+
+
+# --- Acciones del CEO entre partidos: acuerdos y giras ------------------------------------------
+def acuerdo_montos(valor: float, popularidad: float, reputacion: float, rng: random.Random) -> dict:
+    """Adelanto, pago por ciclo y duración de un acuerdo publicitario (determinístico con rng)."""
+    factor = popularidad * (0.7 + 0.6 * limitar(reputacion, 0, 100) / 100)
+    return {"adelanto": int(round(valor * C.ACUERDO_ADELANTO * factor, -1)),
+            "pago_ciclo": int(round(valor * C.ACUERDO_PAGO_CICLO * factor, -1)),
+            "ciclos": rng.randint(*C.ACUERDO_CICLOS)}
+
+
+def gira_costo(valor: float) -> int:
+    return max(C.GIRA_COSTO_MINIMO, int(round(valor * C.GIRA_COSTO, -1)))
+
+
+def gira_recaudacion(valor: float, popularidad: float, rng: random.Random) -> int:
+    lo, hi = C.GIRA_RECAUDACION
+    return int(round(valor * rng.uniform(lo, hi) * popularidad / 1.1, -1))
+
+
+def gira_aficionados(aficionados: float, popularidad: float, rng: random.Random) -> int:
+    """Aficionados que suma una gira de selección del USUARIO: +1% a +3% (más si la selección ya es popular)."""
+    lo, hi = C.GIRA_AFICIONADOS_PCT
+    pct = lo + (hi - lo) * limitar((popularidad - C.POPULARIDAD_RANGO[0]) / (C.POPULARIDAD_RANGO[1] - C.POPULARIDAD_RANGO[0]) * 0.6
+                                   + rng.random() * 0.4, 0, 1)
+    return int(round((aficionados or C.AFICIONADOS_BASE) * pct))
+
+
+def gira_jugador_costo(valor: float) -> int:
+    return max(C.GIRA_COSTO_MINIMO, int(round(valor * C.GIRA_JUGADOR_COSTO, -1)))
+
+
+def gira_jugador_ingreso(valor: float, popularidad: float, rng: random.Random) -> int:
+    lo, hi = C.GIRA_JUGADOR_INGRESO
+    return int(round(valor * rng.uniform(lo, hi) * popularidad / 1.1, -1))
+
+
+def aporte_aficionados_jugador(forma_seleccion: float, forma_jugador: float, rng: random.Random) -> int:
+    """
+    0 a GIRA_JUGADOR_AFICIONADOS_MAX aficionados para su selección por una gira de un jugador.
+    forma_seleccion: puntos de sus últimos 5 partidos / 15. forma_jugador: 0..1 (juega y aporta goles/asistencias).
+    Con malos resultados (selección que no suma y jugador que no juega) aporta 0.
+    """
+    base = 0.6 * limitar(forma_seleccion, 0, 1) + 0.4 * limitar(forma_jugador, 0, 1)
+    if base < 0.15:
+        return 0
+    return int(round(C.GIRA_JUGADOR_AFICIONADOS_MAX * limitar(base * rng.uniform(0.7, 1.15), 0, 1)))
+
+
+# --- Señales de comprar / vender -----------------------------------------------------------------
+def renta_esperada_ciclo(tipo: str, valor: float, partidos_2_ciclos: int, popularidad: float, titular: float = 1.0) -> int:
+    """Renta neta esperada POR CICLO de un representado en los próximos 2 ciclos (partidos programados + patrocinio
+    - mantenimiento). 'titular': fracción de partidos que juega (jugadores)."""
+    por_partidos = partidos_2_ciclos * titular * renta_esperada_partido(tipo, int(valor)) / 2
+    return int(por_partidos + patrocinio(tipo, int(valor), popularidad) - honorario_mantenimiento(tipo, int(valor)))
+
+
+def _senal_cartera(datos: dict, pos: list, neg: list):
+    """
+    Cartera: la señal de VENDER solo sale cuando el representado rinde mal Y su contrato está en la ventana de
+    renovación (los últimos CICLOS_AVISO_RENOVACION ciclos: "pide renovación"). Un representado que rinde bien no se
+    marca para vender aunque su valor haya subido: es justamente el que más deja cuando juega.
+    En la ventana, además, una recomendación de renovación:
+      renovar     rinde bien (o recuperó lo que costó) y sigue jugando
+      esperar     resultados mixtos y todavía juega partidos antes de que venza: conviene verlo jugar y decidir después
+      no_renovar  rinde mal y ya no le quedan partidos antes del vencimiento (o su selección quedó eliminada)
+    -> (senal, renovacion|None). Agrega sus motivos a pos/neg.
+    """
+    restantes = datos.get("ciclos_restantes") or 99
+    en_ventana = restantes <= C.CICLOS_AVISO_RENOVACION
+    renta, costos = datos.get("renta_total") or 0, datos.get("costos_total") or 0
+    # forma mala, casi no juega o eliminada (motivos de arriba); «sin partido programado» no cuenta: en las
+    # eliminatorias una selección pasa varios ciclos sin jugar y eso no habla de su rendimiento
+    malos = sum(1 for t in neg if not t.startswith("Sin partido"))
+    buenos = sum(1 for t in pos)           # juega pronto, forma buena, titular
+    if costos:
+        if renta >= costos:
+            buenos += 1
+            pos.append(f"Ya recuperó lo que costó: rindió {renta:,} contra {costos:,}")
+        else:
+            malos += 1
+            neg.append(f"Rindió {renta:,} y costó {costos:,}")
+    if (datos.get("ciclos_sin_jugar") or 0) >= 2:
+        malos += 1
+        neg.append(f"{datos['ciclos_sin_jugar']} ciclos sin jugar")
+    if (datos.get("satisfaccion") or 100) < 40:
+        neg.append(f"Está descontento (satisfacción {datos['satisfaccion']}): podría pedir irse sin dejarte nada")
+    if datos.get("valor_firma") and (datos.get("valor") or 0) >= datos["valor_firma"] * 1.3:
+        pos.append(f"Su valor subió {datos['valor'] / datos['valor_firma'] - 1:.0%} desde que lo firmaste")
+    if not en_ventana:
+        return (None, None)
+    antes = datos.get("partidos_antes_vencer") or 0
+    antes_ultimo = datos.get("partidos_antes_ultimo") or 0   # partidos antes del último ciclo: todavía se puede renovar después
+    if datos.get("eliminada"):
+        decision, texto = "no_renovar", "Su selección quedó eliminada: renovar no le deja más partidos."
+    elif buenos >= 2 and malos <= 1:
+        decision, texto = "renovar", ("Viene rindiendo bien: conviene renovarlo antes de que venza."
+                                      + (f" Además juega {antes} partido{'s' if antes != 1 else ''} antes del vencimiento." if antes else ""))
+    elif malos >= 2 and buenos == 0 and not antes_ultimo:
+        decision, texto = "no_renovar", "Viene rindiendo mal y ya no juega antes de que venza: mejor dejarlo ir o venderlo."
+    elif antes_ultimo and restantes >= 2:
+        decision, texto = "esperar", (f"Resultados mixtos y todavía juega {antes_ultimo} partido{'s' if antes_ultimo != 1 else ''} "
+                                      "antes de su último ciclo: espera a verlo jugar y decide después (puedes renovarlo hasta el último ciclo).")
+    elif renta >= costos:
+        decision, texto = "renovar", "Ya recuperó lo que costó: renovarlo es razonable."
+    else:
+        decision, texto = "no_renovar", "No recuperó lo que costó y no le quedan partidos para demostrar: mejor no renovarlo."
+    neg.append(f"Pide renovación: su contrato vence en {restantes} ciclo{'s' if restantes != 1 else ''}")
+    senal = "vender" if decision == "no_renovar" and malos >= 2 else None
+    return (senal, {"decision": decision, "texto": texto, "partidos_antes": antes, "ciclos_restantes": restantes})
+
+
+def senales(datos: dict) -> dict:
+    """
+    Señales de COMPRAR (mercado) o de VENDER (cartera) con su "¿por qué?". 'datos':
+      tipo, valor, popularidad, partidos_2_ciclos, sin_partido (bool), eliminada (bool), forma (0..1, puntos/15 de los
+      últimos 5 de su selección), titular (0..1 o None), y para contratos propios: prima, satisfaccion,
+      ciclos_sin_jugar, renta_total, costos_total, valor_firma, ciclos_restantes.
+    -> {"senal": "comprar"|"vender"|"mantener"|None, "motivos": [{"tono": "pos"|"neg", "texto"}], "renta_ciclo", "recupera_ciclos"}
+    """
+    tipo, valor = datos["tipo"], datos.get("valor") or 0
+    titular = datos.get("titular")
+    renta = renta_esperada_ciclo(tipo, valor, datos.get("partidos_2_ciclos") or 0, datos.get("popularidad") or 1.0,
+                                 1.0 if titular is None else max(0.2, titular))
+    pos, neg = [], []
+    if datos.get("eliminada"):
+        neg.append("Su selección fue eliminada: ya no juega partidos")
+    elif datos.get("sin_partido"):
+        neg.append("Sin partido programado todavía")
+    elif datos.get("partidos_2_ciclos"):
+        pos.append(f"Juega pronto: {datos['partidos_2_ciclos']} partido{'s' if datos['partidos_2_ciclos'] > 1 else ''} en los próximos 2 ciclos")
+    forma = datos.get("forma")
+    if forma is not None:
+        if forma >= 0.6:
+            pos.append(f"Su selección viene bien ({round(forma * 15)} de 15 puntos en sus últimos 5)")
+        elif forma <= 0.25:
+            neg.append(f"Su selección viene mal ({round(forma * 15)} de 15 puntos en sus últimos 5)")
+    if titular is not None and tipo == "jugador":
+        if titular >= 0.7:
+            pos.append("Titular habitual")
+        elif titular <= 0.3:
+            neg.append("Casi no juega con su selección")
+    salida = {"renta_ciclo": renta, "recupera_ciclos": None}
+    if "prima" not in datos:   # mercado: ¿conviene comprar?
+        prima = prima_referencia(valor)
+        # recuperación: mitad corto plazo (partidos ya programados) y mitad ritmo normal (~0,2 partidos por ciclo)
+        largo = renta_esperada_ciclo(tipo, valor, 2 * C.PARTIDOS_ESPERADOS_POR_CICLO, datos.get("popularidad") or 1.0,
+                                     1.0 if titular is None else max(0.2, titular))
+        mezcla = (renta + largo) / 2
+        if mezcla > 0:
+            salida["recupera_ciclos"] = round(prima / mezcla, 1)
+            if prima / mezcla <= 6:
+                pos.append(f"La prima ({prima:,}) se recupera en ~{prima / mezcla:.0f} ciclos")
+        # exigente a propósito: si casi todos tuvieran señal, no serviría para elegir
+        senal = "comprar" if len(pos) >= 3 and not neg else None
+    else:                      # cartera: ¿conviene vender? ¿conviene renovar?
+        senal, renovacion = _senal_cartera(datos, pos, neg)
+        salida["renovacion"] = renovacion
+    salida.update(senal=senal, motivos=[{"tono": "pos", "texto": t} for t in pos] + [{"tono": "neg", "texto": t} for t in neg])
+    return salida
+
+
+# --- Marcas y patrocinios -------------------------------------------------------------------------
+def _escala(x, lo, hi):
+    return limitar((x - lo) / (hi - lo), 0, 1) if hi > lo else 0.0
+
+
+def encaje_marca(marca: dict, rep: dict) -> int:
+    """
+    0..100: qué tanto le interesa el representado a la marca (0 = fuera de su región). 'rep':
+      tipo, pais_id, confederacion_id, percentil (0..1 por valor), popularidad, forma (0..1 o None), titular (0..1 o None),
+      partidos_2, edad, leyenda, sector (Portero/Defensa/Medio/Delantero), goles (en el Mundial), eliminada
+    """
+    if marca["alcance"] == "continental" and rep.get("confederacion_id") != marca.get("confederacion_id"):
+        return 0
+    if marca["alcance"] == "local" and rep.get("pais_id") != marca.get("pais_id"):
+        return 0
+    pct = rep.get("percentil") or 0
+    # las globales buscan estrellas; las locales se conforman con menos
+    base = {3: 10 + 40 * pct, 2: 18 + 32 * pct, 1: 30 + 20 * pct}[marca.get("nivel", 2)]
+    forma = rep.get("forma")
+    forma = 0.4 if forma is None else forma
+    titular = rep.get("titular")
+    titular = 0.5 if titular is None else titular
+    edad = rep.get("edad") or 26
+    es_jug = rep["tipo"] == "jugador"
+    perfil = marca.get("perfil")
+    if perfil == "goleadores":
+        extra = (min(30, (rep.get("goles") or 0) * 10) + (12 if rep.get("sector") == "Delantero" else 0)) if es_jug else 25 * forma
+    elif perfil == "figuras_forma":
+        extra = 26 * forma + (14 * titular if es_jug else 10)
+    elif perfil == "promesas":
+        extra = (40 if edad <= 21 else 28 if edad <= 23 else 12 if edad <= 25 else 0) if es_jug and not rep.get("leyenda") else 0
+    elif perfil == "aficion":
+        extra = 40 * _escala(rep.get("popularidad") or 1.0, C.POPULARIDAD_RANGO[0], C.POPULARIDAD_RANGO[1])
+    elif perfil == "selecciones":
+        extra = (22 + 18 * forma) if not es_jug else 4
+    elif perfil == "veteranos":
+        extra = ((32 if edad >= 31 else 18 if edad >= 28 else 0) + 8 * titular) if es_jug and not rep.get("leyenda") else 10
+    elif perfil == "defensas":
+        extra = (34 + 6 * titular if rep.get("sector") in ("Portero", "Defensa") else 0) if es_jug else 14
+    elif perfil == "leyendas":
+        extra = 42 if rep.get("leyenda") else 0
+    else:
+        extra = 10
+    ajuste = (6 if rep.get("partidos_2") else 0) - (30 if rep.get("eliminada") else 0)
+    return int(round(limitar(base + extra + ajuste, 0, 100)))
+
+
+def monto_marca(valor: float, nivel: int, encaje: float, reputacion: float) -> dict:
+    """Pago por ciclo y firma de un patrocinio."""
+    pago = valor * C.MARCA_PAGO_CICLO * C.MARCA_FACTOR_NIVEL.get(nivel, 1.0) * (0.7 + 0.6 * limitar(encaje, 0, 100) / 100) \
+        * (0.85 + 0.3 * limitar(reputacion, 0, 100) / 100)
+    pago = max(10, int(round(pago, -1)))
+    return {"pago_ciclo": pago, "firma": int(round(pago * C.MARCA_FIRMA, -1))}
+
+
+def prob_promocion(encaje: float, reputacion: float, fama: float = 50) -> float:
+    """Probabilidad de que una marca acepte la promoción del CEO (se resuelve al cierre del ciclo)."""
+    return round(limitar(C.MARCA_PROMOCION_BASE + 0.55 * _escala(encaje, C.MARCA_ENCAJE_MINIMO - 10, 95)
+                         + 0.15 * limitar(reputacion, 0, 100) / 100 + 0.10 * limitar(fama, 0, 100) / 100, 0.05, 0.92), 2)
+
+
+def riesgo_marca(eventos: dict, fidelidad: float) -> int:
+    """0..100: riesgo de que la marca corte, por lo que pasó en el ciclo (roja, goleada, eliminación, sin jugar, mala forma)."""
+    bruto = sum(C.MARCA_RIESGO[k] for k, v in (eventos or {}).items() if v and k in C.MARCA_RIESGO)
+    return int(round(limitar(bruto * (1.3 - limitar(fidelidad, 0, 1)), 0, 100)))

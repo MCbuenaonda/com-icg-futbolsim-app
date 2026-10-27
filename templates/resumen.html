@@ -254,6 +254,21 @@
                         <div class="col-sm-6">
                             <div class="alineacion alineacion--{{ lado }}">
                                 <div class="alineacion__cabecera">{{ m.bandera(equipo.bandera, pais_id=equipo.id) }} <span class="text-truncate">{{ equipo.nombre }}</span>{% if equipo.tactica %}<span class="alineacion__tactica">{{ equipo.tactica }}</span>{% endif %}</div>
+                                {# Planteamiento del DT (services/tecnicos.elegir_esquema): solo en partidos simulados con formaciones v2 #}
+                                {% set plan = (res.planteamiento or {}).get('local' if lado == 'local' else 'visita') %}
+                                {% if plan %}{% set fp = formacion(plan.esquema) %}
+                                <div class="planteo">
+                                    {{ m.mini_esquema(plan.esquema) }}
+                                    <div class="min-w-0">
+                                        <span class="planteo__postura planteo__postura--{{ 'of' if plan.postura > 0.2 else ('def' if plan.postura < -0.2 else 'neu') }}">{{ plan.etiqueta }}</span>
+                                        <div class="planteo__motivo">«{{ plan.motivo }}»</div>
+                                        {% if fp %}<div class="planteo__perfil">Fuerte en {{ fp.fuerte }} · débil en {{ fp.debil }}</div>{% endif %}
+                                        {% for c in plan.cambios or [] %}
+                                        <div class="planteo__cambio"><i class="bi bi-arrow-repeat"></i>{{ c.minuto }}': {{ 'fue a buscarlo' if c.ajuste == 'ataque' else ('cerró el partido' if c.ajuste == 'cerrar' else 'volvió al plan') }} — del {{ c.de }} al <strong>{{ c.a }}</strong></div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
                                 {% for t in detalle.titulares[lado] %}
                                 <a href="{{ '/jugadores/' ~ t.id if t.id else '#' }}" class="alineacion__jugador">
                                     {{ m.avatar(t.id, None, 'sm', t.nombre) }}

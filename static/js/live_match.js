@@ -420,6 +420,25 @@ document.addEventListener('DOMContentLoaded', function () {
         interesCaja.classList.remove('d-none');
     }
 
+    let canchaLineasIniciales = { local: [], visitante: [] };
+    let canchaFormaciones = {};     // esquema -> línea de cada puesto (para el cambio de esquema en vivo)
+    let canchaPlanteamiento = {};   // {local|visita: {esquema, etiqueta, postura, motivo}}
+
+    // Esquema vigente de un lado según los ajustes ya revelados (📋 AJUSTE TÁCTICO con esquema_a): la cancha se reacomoda
+    function esquemaVigente(lado, data) {
+        const plan = canchaPlanteamiento[lado === 'local' ? 'local' : 'visita'] || {};
+        const nombre = lado === 'local' ? data.local : data.visitante;
+        const cambios = (data.eventos || []).filter(ev => ev.tipo === '📋 AJUSTE TÁCTICO' && ev.equipo === nombre && ev.esquema_a);
+        return cambios.length ? cambios[cambios.length - 1].esquema_a : plan.esquema;
+    }
+
+    function actualizarLineasPorEsquema(data) {
+        ['local', 'visitante'].forEach(lado => {
+            const esq = esquemaVigente(lado, data);
+            const lineas = (esq && canchaFormaciones[esq]) || canchaLineasIniciales[lado];
+            if (lado === 'local') canchaLineasLocal = lineas; else canchaLineasVisitante = lineas;
+        });
+    }
     let canchaDT = {};   // DT de cada lado (/matches/live/plantillas): {local|visita: {id, nombre, estilo, arquetipo, avatar_url, record}}
 
     // Fila del DT al tope de "Jugadores en Cancha": lo que hizo desde el banco sale SOLO de los eventos ya revelados
@@ -434,6 +453,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const ultimoAjuste = ajustes.length ? ajustes[ajustes.length - 1] : null;
         const textoAjuste = { ataque: 'Al ataque', cerrar: 'Cerrojo', normal: 'Plan inicial' };
         const iconos = [];
+        const plan = canchaPlanteamiento[lado === 'local' ? 'local' : 'visita'];
+        const esqAhora = esquemaVigente(lado, data);
+        if (plan && plan.esquema) {
+            const cambio = esqAhora && esqAhora !== plan.esquema;
+            iconos.push(`<span class="once-ico once-dt__esquema ${cambio ? 'once-dt__esquema--cambio' : ''}" title="${escaparHtml(plan.motivo || '')}">🧩 ${escaparHtml(plan.esquema)}${cambio ? ` → <b>${escaparHtml(esqAhora)}</b>` : ` <small>${escaparHtml(plan.etiqueta || '')}</small>`}</span>`);
+        }
         if (ultimoAjuste) iconos.push(`<span class="once-ico once-dt__ajuste once-dt__ajuste--${escaparHtml(ultimoAjuste.ajuste || 'normal')}" title="Ajuste táctico en el ${minutoTexto(ultimoAjuste)}">📋 ${escaparHtml(textoAjuste[ultimoAjuste.ajuste] || 'Ajuste')}<small>${minutoTexto(ultimoAjuste)}</small></span>`);
         if (reclamos) iconos.push(`<span class="once-ico" title="${reclamos} reclamo${reclamos > 1 ? 's' : ''}">🗣️${reclamos > 1 ? `<small>×${reclamos}</small>` : ''}</span>`);
         if (amonestado && !expulsado) iconos.push(`<span class="once-ico" title="Amonestado en el ${minutoTexto(amonestado)}">🟨<small>${minutoTexto(amonestado)}</small></span>`);
@@ -470,6 +495,9 @@ document.addEventListener('DOMContentLoaded', function () {
             mascota = data.mascota_url ? { anfitrion: data.anfitrion, url: data.mascota_url, nombre: data.mascota_nombre } : null;
             canchaLineasLocal = data.lineas_local || [];
             canchaLineasVisitante = data.lineas_visitante || [];
+            canchaLineasIniciales = { local: canchaLineasLocal, visitante: canchaLineasVisitante };
+            canchaFormaciones = data.formaciones || {};
+            canchaPlanteamiento = data.planteamiento || {};
             canchaPlantillasMatchId = matchId;
         } catch (e) {
             // Sin conexión momentánea o partido recién terminado -- la etiqueta simplemente
@@ -2069,6 +2097,7 @@ document.addEventListener('DOMContentLoaded', function () {
         renderEventos(data.eventos, data.local, data.visitante, data.match_id);
         renderMarcadorTv(data);
         await actualizarPlantillasSiCorresponde(data.match_id);
+        actualizarLineasPorEsquema(data);
         actualizarDestacadosSiCorresponde(data.match_id);   // sin await: la primera vez puede tardar, se ve en el próximo poll
         actualizarInteresSiCorresponde(data.match_id).then(() => renderInteresVivo(data));
         // La cancha virtual no se dibuja si está oculta (celular): ahorra el trabajo más pesado de cada poll

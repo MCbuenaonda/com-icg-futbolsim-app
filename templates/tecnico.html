@@ -125,6 +125,27 @@
 </div>
 {% endif %}
 
+{# Esquemas: preferencia por su estilo y rendimiento real con cada uno (config/formaciones.py, directores_tecnicos.esquemas) #}
+<div class="card tc-panel mb-4">
+    <div class="card-body">
+        <h2 class="tc-subtitulo"><i class="bi bi-diagram-3-fill text-success"></i>Sus esquemas</h2>
+        <p class="small text-muted mb-2">Cuánto le gusta cada esquema por su estilo y cómo le fue con cada uno. Antes de cada partido mira al rival, la serie,
+            la racha y lo que le funcionó{% if t.ultimo_esquema %}; el último que usó fue el <strong class="text-white">{{ t.ultimo_esquema }}</strong>{% endif %}.</p>
+        <div class="tc-esquemas">
+            {% for e in t.esquemas_vista %}
+            <div class="tc-esquema {{ 'tc-esquema--usado' if e.pj }}">
+                {{ m.mini_esquema(e.esquema) }}
+                <div class="min-w-0">
+                    <div class="fw-bold text-white">{{ e.esquema }} <span class="planteo__postura planteo__postura--{{ 'of' if e.postura > 0.2 else ('def' if e.postura < -0.2 else 'neu') }}">{{ e.etiqueta }}</span></div>
+                    <div class="tc-esquema__pref"><span style="width: {{ e.preferencia * 2 }}%;"></span></div>
+                    <div class="fs-8 text-muted">{% if e.pj %}{{ e.pj }} partido{{ 's' if e.pj != 1 }} · {{ e.ppp }} pts/partido · {{ e.gf }}-{{ e.gc }} goles{% else %}Todavía no lo usó{% endif %}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
 <div class="row g-3 mb-4">
     <!-- Cargos y banco -->
     <div class="col-12 col-lg-5">

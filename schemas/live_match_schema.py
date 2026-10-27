@@ -28,6 +28,9 @@ class EventoOut(BaseModel):
     dt_id: Optional[int] = None
     dt: Optional[str] = None
     ajuste: Optional[str] = None
+    # Cambio de esquema en vivo (services/tecnicos.esquema_en_vivo): del y al
+    esquema_de: Optional[str] = None
+    esquema_a: Optional[str] = None
 
 
 class StartedMatchOut(BaseModel):
@@ -129,3 +132,7 @@ class PlantillasLiveOut(BaseModel):
     mascota_nombre: Optional[str] = None
     # DT de cada lado (live_match_service._dts_en_vivo): {local|visita: {id, nombre, estilo, arquetipo, avatar_url, partidos, record}}
     dt: Dict[str, Any] = {}
+    # Formaciones (config/formaciones.py): líneas de cada esquema, para reacomodar la cancha si el DT cambia de esquema,
+    # y el planteamiento inicial de cada lado {local|visita: {esquema, etiqueta, postura, motivo}} (sin los cambios: spoiler)
+    formaciones: Dict[str, List[int]] = {}
+    planteamiento: Dict[str, Any] = {}

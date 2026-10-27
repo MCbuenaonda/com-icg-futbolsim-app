@@ -146,31 +146,84 @@ def _nuevo_acuerdo(uid, sigla: str, corp: dict, c: dict, ciclo: int) -> dict:
             "cobrado": m["adelanto"], "estado": "ACTIVO", "motivo": None, "creado_en": datetime.utcnow()}
 
 
-def _gira_validar(user_id, sigla: str, c: dict, ciclo: int, tipo: str):
-    if db["corp_giras"].count_documents({"universo_id": user_id, "sigla": sigla, "ciclo": ciclo}) >= C.GIRAS_POR_CICLO:
-        raise ValueError("Tu corporativo ya organizó una gira este ciclo")
-    enfriamiento = C.GIRA_ENFRIAMIENTO if tipo == "seleccion" else C.GIRA_JUGADOR_ENFRIAMIENTO
-    if db["corp_giras"].find_one({"universo_id": user_id, "tipo": tipo, "ref_id": c["ref_id"], "ciclo": {"$gt": ciclo - enfriamiento}}):
-        raise ValueError(f"Ya hizo una gira hace poco: puede volver a salir después de {enfriamiento} ciclos")
+# --- Giras v2: duran partidos, cobran partido a partido y una gira de jugadores lleva a varios -----------------
+def _seq_universo(universo: dict) -> int:
+    return universo.get("cursor_seq") or U.seq_actual()
 
 
-def cotizar_gira(user_id, contrato_id: str) -> dict:
-    universo, sigla, corp, c, ciclo = _contexto(user_id, contrato_id)
+def _giras_en_curso(uid, sigla: Optional[str] = None) -> list:
+    q = {"universo_id": uid, "estado": "EN_CURSO"}
+    if sigla:
+        q["sigla"] = sigla
+    return list(db["corp_giras"].find(q))
+
+
+def _proximo_partido_en(pais_id) -> Optional[int]:
+    """Cuántos partidos del torneo faltan para el próximo de esta selección (None si no tiene programado)."""
+    d = calendario_paises().get(pais_id)
+    return min(d["posiciones"]) if d and d.get("posiciones") else None
+
+
+def _motivo_no_disponible(uid, c: dict, seq: int, ciclo: int, en_curso: list) -> Optional[str]:
+    if any(g["tipo"] == c["tipo"] and g["ref_id"] == c["ref_id"] for g in en_curso):
+        return "Ya está de gira"
+    if c["tipo"] == "jugador":
+        previa = db["corp_giras"].find_one({"universo_id": uid, "tipo": "jugador", "ref_id": c["ref_id"],
+                                            "$or": [{"hasta_seq": {"$gt": seq - C.GIRA_JUGADOR_ENFRIAMIENTO_PARTIDOS}},
+                                                    {"hasta_seq": None, "ciclo": {"$gt": ciclo - C.GIRA_JUGADOR_ENFRIAMIENTO}}]})
+        if previa:
+            falta = (previa.get("hasta_seq") or seq) + C.GIRA_JUGADOR_ENFRIAMIENTO_PARTIDOS - seq
+            return f"Volvió de gira hace poco: puede salir en ~{max(1, falta)} partidos"
+        return None
+    if db["corp_giras"].find_one({"universo_id": uid, "tipo": "seleccion", "ref_id": c["ref_id"], "ciclo": {"$gt": ciclo - C.GIRA_ENFRIAMIENTO}}):
+        return f"Hizo una gira hace poco (cada {C.GIRA_ENFRIAMIENTO} ciclos)"
+    prox = _proximo_partido_en(c["ref_id"])
+    if prox is not None and prox < C.GIRA_SELECCION_PARTIDOS:
+        return f"Juega en {prox + 1} partido{'s' if prox else ''}: la gira dura {C.GIRA_SELECCION_PARTIDOS} y no puede tener partidos en medio"
+    return None
+
+
+def _cotizar(uid, c: dict, seq: int, ciclo: int, en_curso: list) -> dict:
     valor = _valor(c["tipo"], c["ref_id"])
     pais = _pais_de(c["tipo"], c["ref_id"])
     pop = _popularidad(c["tipo"], c["ref_id"], valor)
+    base = {"contrato_id": str(c["_id"]), "tipo": c["tipo"], "ref_id": c["ref_id"], "nombre": _nombre(c["tipo"], c["ref_id"]),
+            "pais_id": pais, "motivo": _motivo_no_disponible(uid, c, seq, ciclo, en_curso)}
     if c["tipo"] == "seleccion":
         lo, hi = C.GIRA_RECAUDACION
-        proximos = partidos_en_ciclos(pais, C.GIRA_CICLOS_SIN_PARTIDO)
-        return {"tipo": "seleccion", "costo": R.gira_costo(valor), "ingreso_min": int(valor * lo * pop / 1.1), "ingreso_max": int(valor * hi * pop / 1.1),
-                "disponible": proximos == 0, "motivo": (f"Tiene {proximos} partido(s) en los próximos {C.GIRA_CICLOS_SIN_PARTIDO} ciclos: "
-                                                        "las giras se hacen cuando no hay partidos" if proximos else None),
-                "suma_aficionados": _gira_suma_aficionados(pais, ciclo), "cobra": "al cierre del ciclo siguiente"}
-    lo, hi = C.GIRA_JUGADOR_INGRESO
-    return {"tipo": "jugador", "costo": R.gira_jugador_costo(valor), "ingreso_min": int(valor * lo * pop / 1.1),
-            "ingreso_max": int(valor * hi * pop / 1.1), "disponible": True, "motivo": None,
-            "forma_seleccion": round(forma_selecciones().get(pais, 0) * 15), "cobra": "al cierre de este ciclo",
-            "aficionados_max": C.GIRA_JUGADOR_AFICIONADOS_MAX}
+        return {**base, "costo": R.gira_costo(valor), "ingreso_min": int(valor * lo * pop / 1.1), "ingreso_max": int(valor * hi * pop / 1.1),
+                "partidos": C.GIRA_SELECCION_PARTIDOS, "suma_aficionados": _gira_suma_aficionados(pais, ciclo)}
+    costo = R.gira_jugador_costo_v2(valor)
+    retorno = R.gira_jugador_retorno(pop, forma_selecciones().get(pais, 0), _forma_jugador(c))
+    return {**base, "costo": costo, "ingreso_min": int(costo * retorno * 0.85), "ingreso_max": int(costo * retorno * 1.15),
+            "retorno": round(retorno, 2), "partidos": C.GIRA_JUGADOR_PARTIDOS, "aficionados_max": C.GIRA_JUGADOR_AFICIONADOS_MAX,
+            "forma_seleccion": round(forma_selecciones().get(pais, 0) * 15)}
+
+
+def _limites(uid, sigla: str, ciclo: int, en_curso: list) -> dict:
+    grupos = {g.get("grupo_id") or g["_id"] for g in en_curso}
+    usados = db["corp_giras"].count_documents({"universo_id": uid, "sigla": sigla, "tipo": "jugador", "ciclo": ciclo,
+                                               "estado": {"$in": ["EN_CURSO", "COBRADA"]}})
+    return {"giras_restantes": max(0, C.GIRAS_SIMULTANEAS - len(grupos)), "jugadores_restantes": max(0, C.GIRA_JUGADORES_POR_CICLO - usados),
+            "max_por_gira": C.GIRA_MAX_JUGADORES, "partidos": C.GIRA_JUGADOR_PARTIDOS}
+
+
+def giras_jugadores(user_id) -> dict:
+    """Para el modal de gira grupal: cada jugador de tu corporativo con su cotización y si puede salir, y los límites."""
+    from services.corporativo_fichajes_service import _cargo
+    universo, sigla, corp = _cargo(user_id)
+    ciclo, seq = U.ciclo_en_curso(universo), _seq_universo(universo)
+    en_curso = _giras_en_curso(user_id, sigla)
+    jugadores = [_cotizar(user_id, c, seq, ciclo, en_curso) for c in U.contratos_activos(user_id, sigla) if c["tipo"] == "jugador"]
+    jugadores.sort(key=lambda x: (x["motivo"] is not None, -x["ingreso_max"]))
+    return {"jugadores": jugadores, **_limites(user_id, sigla, ciclo, en_curso), "capital": int(corp.get("capital", 0))}
+
+
+def cotizar_gira(user_id, contrato_id: str) -> dict:
+    """Cotización de UNA gira (la de selección; la de jugadores va por giras_jugadores)."""
+    universo, sigla, corp, c, ciclo = _contexto(user_id, contrato_id)
+    q = _cotizar(user_id, c, _seq_universo(universo), ciclo, _giras_en_curso(user_id, sigla))
+    return {**q, "disponible": q["motivo"] is None, "cobra": f"partido a partido durante {q['partidos']} partidos"}
 
 
 def _gira_suma_aficionados(pais_id, ciclo: int) -> bool:
@@ -179,32 +232,165 @@ def _gira_suma_aficionados(pais_id, ciclo: int) -> bool:
                                           "ciclo": {"$gt": ciclo - C.GIRA_ENFRIAMIENTO}})
 
 
-def organizar_gira(user_id, contrato_id: str) -> dict:
+def _doc_gira(uid, sigla: str, c: dict, seq: int, ciclo: int, grupo_id: str, es_usuario: bool) -> dict:
+    """Documento de una gira v2 con su ingreso ya sorteado (se cobra en partes iguales, partido a partido)."""
+    valor = _valor(c["tipo"], c["ref_id"])
+    pais = _pais_de(c["tipo"], c["ref_id"])
+    pop = _popularidad(c["tipo"], c["ref_id"], valor)
+    rng = R.semilla(uid, "gira2", str(c["_id"]), seq)
+    if c["tipo"] == "seleccion":
+        costo, partidos = R.gira_costo(valor), C.GIRA_SELECCION_PARTIDOS
+        ingreso = R.gira_recaudacion(valor, pop, rng)
+    else:
+        costo, partidos = R.gira_jugador_costo_v2(valor), C.GIRA_JUGADOR_PARTIDOS
+        ingreso = R.gira_jugador_ingreso_v2(costo, pop, forma_selecciones().get(pais, 0), _forma_jugador(c), rng)
+    return {"_id": f"{uid}:{sigla}:{c['tipo']}:{c['ref_id']}:s{seq}", "universo_id": uid, "sigla": sigla, "tipo": c["tipo"],
+            "ref_id": c["ref_id"], "contrato_id": str(c["_id"]), "grupo_id": grupo_id, "ciclo": ciclo, "desde_seq": seq + 1,
+            "hasta_seq": seq + partidos, "partidos": partidos, "costo": costo, "ingreso": ingreso, "cobrado": 0, "aficionados": None,
+            "es_usuario": es_usuario, "suma_aficionados": c["tipo"] == "jugador" or (es_usuario and _gira_suma_aficionados(pais, ciclo)),
+            "estado": "EN_CURSO", "creado_en": datetime.utcnow()}
+
+
+def organizar_gira_jugadores(user_id, contrato_ids: list) -> dict:
+    """Gira de varios jugadores a la vez (1 a GIRA_MAX_JUGADORES): cuesta ahora y cobra partido a partido durante la gira."""
+    ids = [x for x in dict.fromkeys(contrato_ids or []) if ObjectId.is_valid(x)]
+    if not ids:
+        raise ValueError("Elige al menos un jugador")
+    if len(ids) > C.GIRA_MAX_JUGADORES:
+        raise ValueError(f"Una gira lleva como máximo {C.GIRA_MAX_JUGADORES} jugadores")
     U.poner_al_dia(user_id)
     with U.candado(user_id):
-        universo, sigla, corp, c, ciclo = _contexto(user_id, contrato_id)
-        _gira_validar(user_id, sigla, c, ciclo, c["tipo"])
-        valor = _valor(c["tipo"], c["ref_id"])
-        pais = _pais_de(c["tipo"], c["ref_id"])
-        if c["tipo"] == "seleccion":
-            if partidos_en_ciclos(pais, C.GIRA_CICLOS_SIN_PARTIDO):
-                raise ValueError("Tiene partidos en los próximos ciclos: las giras se hacen cuando no hay partidos")
-            costo, cobra = R.gira_costo(valor), ciclo + 1
-        else:
-            costo, cobra = R.gira_jugador_costo(valor), ciclo
+        from services.corporativo_fichajes_service import _cargo
+        universo, sigla, corp = _cargo(user_id)
+        ciclo, seq = U.ciclo_en_curso(universo), _seq_universo(universo)
+        en_curso = _giras_en_curso(user_id, sigla)
+        lim = _limites(user_id, sigla, ciclo, en_curso)
+        if not lim["giras_restantes"]:
+            raise ValueError(f"Ya tienes {C.GIRAS_SIMULTANEAS} giras en curso: espera a que vuelva alguna")
+        if len(ids) > lim["jugadores_restantes"]:
+            raise ValueError(f"Este ciclo solo puedes mandar {lim['jugadores_restantes']} jugador(es) más de gira")
+        contratos = list(db["corp_contratos"].find({"_id": {"$in": [ObjectId(x) for x in ids]}, "universo_id": user_id, "sigla": sigla,
+                                                     "activo": True, "tipo": "jugador"}))
+        if len(contratos) != len(ids):
+            raise ValueError("Algún jugador elegido no es de tu corporativo")
+        for c in contratos:
+            motivo = _motivo_no_disponible(user_id, c, seq, ciclo, en_curso)
+            if motivo:
+                raise ValueError(f"{_nombre('jugador', c['ref_id'])}: {motivo}")
+        grupo = f"{user_id}:{sigla}:g{seq}:{len(en_curso)}"
+        docs = [_doc_gira(user_id, sigla, c, seq, ciclo, grupo, True) for c in contratos]
+        costo = sum(d["costo"] for d in docs)
         pago = db["corp_corporativos"].find_one_and_update(
             {"_id": corp["_id"], "capital": {"$gte": costo}}, {"$inc": {"capital": -costo, "ciclo_actual.gastos_extra": costo}})
         if not pago:
             raise ValueError(f"La gira cuesta {costo:,} de capital")
-        doc = {"_id": f"{user_id}:{sigla}:{c['tipo']}:{c['ref_id']}:{ciclo}", "universo_id": user_id, "sigla": sigla, "tipo": c["tipo"],
-               "ref_id": c["ref_id"], "contrato_id": str(c["_id"]), "ciclo": ciclo, "cobra_ciclo": cobra, "costo": costo,
-               "ingreso": None, "aficionados": None, "es_usuario": True,
-               "suma_aficionados": c["tipo"] == "jugador" or _gira_suma_aficionados(pais, ciclo),
-               "estado": "PENDIENTE", "creado_en": datetime.utcnow()}
+        db["corp_giras"].insert_many(docs)
+        nombres = ", ".join(_nombre("jugador", d["ref_id"]) for d in docs)
+        _mov(user_id, sigla, ciclo, "GIRA", -costo, f"Gira de exhibición de {nombres} (organización)")
+    U.dar_xp(user_id, "CORP_GIRA", grupo)
+    return {"ok": True, "mensaje": f"¡De gira! {nombres}: costó {costo:,} y cobra partido a partido durante {C.GIRA_JUGADOR_PARTIDOS} partidos."}
+
+
+def organizar_gira(user_id, contrato_id: str) -> dict:
+    """Gira de una selección (o de un solo jugador, que va por la gira grupal)."""
+    universo, sigla, corp, c, ciclo = _contexto(user_id, contrato_id)
+    if c["tipo"] == "jugador":
+        return organizar_gira_jugadores(user_id, [contrato_id])
+    U.poner_al_dia(user_id)
+    with U.candado(user_id):
+        universo, sigla, corp, c, ciclo = _contexto(user_id, contrato_id, "seleccion")
+        seq = _seq_universo(universo)
+        en_curso = _giras_en_curso(user_id, sigla)
+        if not _limites(user_id, sigla, ciclo, en_curso)["giras_restantes"]:
+            raise ValueError(f"Ya tienes {C.GIRAS_SIMULTANEAS} giras en curso: espera a que vuelva alguna")
+        motivo = _motivo_no_disponible(user_id, c, seq, ciclo, en_curso)
+        if motivo:
+            raise ValueError(motivo)
+        doc = _doc_gira(user_id, sigla, c, seq, ciclo, f"{user_id}:{sigla}:g{seq}:sel{c['ref_id']}", True)
+        pago = db["corp_corporativos"].find_one_and_update(
+            {"_id": corp["_id"], "capital": {"$gte": doc["costo"]}}, {"$inc": {"capital": -doc["costo"], "ciclo_actual.gastos_extra": doc["costo"]}})
+        if not pago:
+            raise ValueError(f"La gira cuesta {doc['costo']:,} de capital")
         db["corp_giras"].insert_one(doc)
-        _mov(user_id, sigla, ciclo, "GIRA", -costo, f"Gira de exhibición de {_nombre(c['tipo'], c['ref_id'])} (organización)")
+        _mov(user_id, sigla, ciclo, "GIRA", -doc["costo"], f"Gira de exhibición de {_nombre('seleccion', c['ref_id'])} (organización)")
     U.dar_xp(user_id, "CORP_GIRA", doc["_id"])
-    return {"ok": True, "gira": {k: v for k, v in doc.items() if k != "creado_en"}}
+    return {"ok": True, "mensaje": f"¡De gira! {_nombre('seleccion', c['ref_id'])} recauda partido a partido durante {doc['partidos']} partidos."}
+
+
+def _cargar_giras(estado) -> list:
+    if getattr(estado, "_giras_v2", None) is None:
+        estado._giras_v2 = list(db["corp_giras"].find({"universo_id": estado.uid, "estado": "EN_CURSO"}))
+    return estado._giras_v2
+
+
+def procesar_giras_partido(estado, seq: int, ciclo: int) -> None:
+    """Por cada partido registrado (dentro de poner_al_dia): cada gira en curso cobra su parte y, en el último partido,
+    vuelve (aficionados, satisfacción y aviso). Si alguna se pasó de fecha (no se procesó a tiempo) cobra lo que le falta."""
+    try:
+        giras = _cargar_giras(estado)
+        if not giras:
+            return
+        from services import corporativo_marcas_service as M
+        M.iniciar_lote()
+        por_grupo: dict = {}
+        for g in giras:
+            if g["estado"] != "EN_CURSO" or seq < g["desde_seq"]:
+                continue
+            corp = estado.corps.get(g["sigla"])
+            if not corp:
+                continue
+            hecho = min(seq, g["hasta_seq"]) - g["desde_seq"] + 1
+            objetivo = g["ingreso"] * hecho // g["partidos"]
+            parte = objetivo - g.get("cobrado", 0)
+            c = _contrato_por_id(estado, g["contrato_id"])
+            if parte:
+                corp["capital"] += parte
+                corp["ciclo_actual"]["extra"] += parte
+                if c:
+                    c["renta_total"] = c.get("renta_total", 0) + parte
+                    estado.tocar(c)
+                g["cobrado"] = objetivo
+                grupo = por_grupo.setdefault(g.get("grupo_id") or g["_id"], {"sigla": g["sigla"], "monto": 0, "nombres": [], "fin": []})
+                grupo["monto"] += parte
+                grupo["nombres"].append(_nombre(g["tipo"], g["ref_id"]))
+            cambios = {"cobrado": g["cobrado"]}
+            if seq >= g["hasta_seq"]:
+                cambios.update(_terminar_gira(estado, g, c, ciclo))
+                g["estado"] = "COBRADA"
+                por_grupo.setdefault(g.get("grupo_id") or g["_id"], {"sigla": g["sigla"], "monto": 0, "nombres": [], "fin": []})["fin"].append(g)
+            M._upd("corp_giras", g["_id"], {"$set": cambios})
+        for gid, info in por_grupo.items():
+            if info["monto"]:
+                estado.mover(info["sigla"], ciclo, "GIRA", info["monto"], f"Gira de {', '.join(dict.fromkeys(info['nombres']))}: recaudación del partido")
+            if info["fin"] and estado.corps[info["sigla"]].get("es_del_usuario"):
+                total = sum(x["ingreso"] for x in info["fin"])
+                costo = sum(x["costo"] for x in info["fin"])
+                afic = sum(x.get("aficionados") or 0 for x in info["fin"])
+                nombres = ", ".join(_nombre(x["tipo"], x["ref_id"]) for x in info["fin"])
+                U.avisar(estado.uid, ciclo, "GIRA", f"Volvió la gira de {nombres}",
+                         f"Recaudó {total:,} (costó {costo:,})" + (f" y sumó {afic:,} aficionados." if afic else "."), "bi-airplane-fill",
+                         clave=f"gira:{gid}")
+    except Exception as e:
+        print(f"[corporativos] giras del partido {seq}: {e}")
+
+
+def _terminar_gira(estado, g: dict, c: Optional[dict], ciclo: int) -> dict:
+    """Vuelta de la gira: aficionados (con las reglas globales de siempre) y satisfacción."""
+    pais = _pais_de(g["tipo"], g["ref_id"])
+    rng = R.semilla(estado.uid, "gira2-afic", g["_id"])
+    aficionados = 0
+    if g["tipo"] == "seleccion":
+        if g.get("es_usuario") and g.get("suma_aficionados"):
+            pop = _popularidad("seleccion", g["ref_id"], _valor("seleccion", g["ref_id"]))
+            aficionados = _sumar_aficionados_gira(pais, R.gira_aficionados(_aficionados(pais), pop, rng), f"{MOTIVO_GIRA} ({g['sigla']})")
+    else:
+        aporte = R.aporte_aficionados_jugador(forma_selecciones().get(pais, 0), _forma_jugador(c or {}), rng)
+        aficionados = _aporte_agrupado(pais, ciclo, aporte) if aporte else 0
+    if c:
+        c["satisfaccion"] = min(100, c["satisfaccion"] + C.GIRA_SATISFACCION)
+        estado.tocar(c)
+    g["aficionados"] = aficionados
+    return {"estado": "COBRADA", "aficionados": aficionados}
 
 
 def _mov(uid, sigla, ciclo, tipo, monto, detalle):
@@ -375,23 +561,37 @@ def _ia_acciones(estado, ciclo: int) -> None:
             continue
         # (los acuerdos publicitarios los reemplazaron las marcas: corporativo_marcas_service)
         if rng.random() < C.IA_PROB_GIRA * factor:
-            selecciones = [c for c in propios if c["tipo"] == "seleccion" and not partidos_en_ciclos(c["ref_id"], C.GIRA_CICLOS_SIN_PARTIDO)]
-            candidatos = selecciones or [c for c in propios if c["tipo"] == "jugador"]
-            if candidatos and not db["corp_giras"].find_one({"universo_id": estado.uid, "sigla": sigla, "ciclo": ciclo}):
-                c = rng.choice(candidatos)
-                valor = _valor(c["tipo"], c["ref_id"])
-                costo = R.gira_costo(valor) if c["tipo"] == "seleccion" else R.gira_jugador_costo(valor)
-                if corp["capital"] >= costo * 4:
-                    try:
-                        db["corp_giras"].insert_one({"_id": f"{estado.uid}:{sigla}:{c['tipo']}:{c['ref_id']}:{ciclo}", "universo_id": estado.uid,
-                                                     "sigla": sigla, "tipo": c["tipo"], "ref_id": c["ref_id"], "contrato_id": str(c["_id"]),
-                                                     "ciclo": ciclo, "cobra_ciclo": ciclo + 1, "costo": costo, "ingreso": None,
-                                                     "aficionados": None, "es_usuario": False, "suma_aficionados": c["tipo"] == "jugador",
-                                                     "estado": "PENDIENTE", "creado_en": datetime.utcnow()})
-                        corp["capital"] -= costo
-                        corp["ciclo_actual"]["gastos_extra"] += costo
-                    except DuplicateKeyError:
-                        pass
+            _ia_gira(estado, sigla, corp, propios, ciclo, rng)
+
+
+def _ia_gira(estado, sigla: str, corp: dict, propios: list, ciclo: int, rng) -> None:
+    """La IA organiza giras v2: una selección sin partidos cerca o 1-2 jugadores (sus giras de selección no suman aficionados)."""
+    seq = ciclo * C.PARTIDOS_POR_CICLO
+    giras = _cargar_giras(estado)
+    if sum(1 for g in giras if g["sigla"] == sigla and g["estado"] == "EN_CURSO") >= C.GIRAS_SIMULTANEAS:
+        return
+    ocupados = {(g["tipo"], g["ref_id"]) for g in giras if g["estado"] == "EN_CURSO"}
+    selecciones = [c for c in propios if c["tipo"] == "seleccion" and (c["tipo"], c["ref_id"]) not in ocupados
+                   and (_proximo_partido_en(c["ref_id"]) is None or _proximo_partido_en(c["ref_id"]) >= C.GIRA_SELECCION_PARTIDOS)]
+    jugadores = [c for c in propios if c["tipo"] == "jugador" and (c["tipo"], c["ref_id"]) not in ocupados]
+    if selecciones and rng.random() < 0.5:
+        elegidos = [rng.choice(selecciones)]
+    elif jugadores:
+        elegidos = rng.sample(jugadores, min(len(jugadores), rng.choice([1, 2])))
+    else:
+        return
+    grupo = f"{estado.uid}:{sigla}:g{seq}:ia"
+    docs = [_doc_gira(estado.uid, sigla, c, seq, ciclo, grupo, False) for c in elegidos]
+    costo = sum(d["costo"] for d in docs)
+    if corp["capital"] < costo * 4:
+        return
+    from services import corporativo_marcas_service as M
+    M.iniciar_lote()
+    for d in docs:
+        M._ins("corp_giras", d)
+        giras.append(d)
+    corp["capital"] -= costo
+    corp["ciclo_actual"]["gastos_extra"] += costo
 
 
 # --- Para las vistas -----------------------------------------------------------------------------
@@ -400,4 +600,4 @@ def acuerdos_de(universo_id, sigla: str) -> list:
 
 
 def giras_de(universo_id, sigla: str) -> list:
-    return list(db["corp_giras"].find({"universo_id": universo_id, "sigla": sigla}).sort("ciclo", -1).limit(30))
+    return list(db["corp_giras"].find({"universo_id": universo_id, "sigla": sigla}).sort([("ciclo", -1), ("desde_seq", -1)]).limit(30))

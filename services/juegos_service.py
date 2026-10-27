@@ -517,6 +517,12 @@ def registrar_resultado_juego(db: Database, juego_id: str, partido: dict, stats_
     # DT de cada lado (services/tecnicos.py): {local|visita: {id, nombre, amonestado, expulsado, ajuste, reclamos}}
     if partido.get("dt"):
         objeto_resultado["dt"] = partido["dt"]
+    # Planteamiento de cada DT (services/tecnicos.elegir_esquema): esquema, postura, motivo y cambios de esquema en vivo
+    if partido.get("planteamiento"):
+        objeto_resultado["planteamiento"] = partido["planteamiento"]
+    # Calificación de cada jugador ({"<jugador_id>": rating}): ficha y forma del Once Ideal (fantasy_rendimiento)
+    if partido.get("calificaciones"):
+        objeto_resultado["calificaciones"] = partido["calificaciones"]
 
     # 4. Actualizar el registro en MongoDB
     update_data = {
@@ -541,6 +547,27 @@ def registrar_resultado_juego(db: Database, juego_id: str, partido: dict, stats_
         }
     
     return {"exito": False, "mensaje": "No se pudo actualizar el registro del juego."}
+
+
+def planteamiento_probable(juego_id: str) -> Optional[Dict[str, Any]]:
+    """Formación probable de cada lado ANTES del partido (previa y Scouter): la misma decisión del DT que usará el motor
+    (simular_service.planteamientos con la semilla del partido). Puede variar si antes se juegan otros partidos que le
+    cambian la racha o el historial al DT."""
+    try:
+        from services.simular_service import obtener_dt_en_funciones, planteamientos
+        juego = db["juegos"].find_one({"_id": ObjectId(juego_id)}, {"equipo_local.id": 1, "equipo_visitante.id": 1, "estado": 1})
+        if not juego or juego.get("estado") == "finalizado":
+            return None
+        id_local, id_visita = juego["equipo_local"]["id"], juego["equipo_visitante"]["id"]
+        dt_local, _ = obtener_dt_en_funciones(db["paises"].find_one({"id": id_local}))
+        dt_visita, _ = obtener_dt_en_funciones(db["paises"].find_one({"id": id_visita}))
+        tiempo_extra = evaluar_tiempo_extra_grupo_dos_equipos(db, juego_id, id_local, id_visita)
+        marcador_ida = obtener_marcador_ida_grupo_dos_equipos(db, juego_id, id_local, id_visita)
+        local, visita = planteamientos(id_local, id_visita, dt_local, dt_visita, tiempo_extra, marcador_ida, str(juego_id))
+        return {"local": local, "visita": visita}
+    except Exception as e:
+        print(f"Formación probable del partido {juego_id}: {e}")
+        return None
 
 
 def simular_y_registrar_resultado(juego_id: str, id_local: int, id_visita: int, tiempo_extra: bool = False) -> Dict[str, Any]:
@@ -606,7 +633,8 @@ def simular_y_registrar_resultado(juego_id: str, id_local: int, id_visita: int, 
     marcador_ida = obtener_marcador_ida_grupo_dos_equipos(db, juego_id, id_local, id_visita)
 
     # El motor de simulación
-    partido, stats_jugadores = simular_partido_realista(id_local, id_visita, tiempo_extra, clima=clima, marcador_ida=marcador_ida)
+    partido, stats_jugadores = simular_partido_realista(id_local, id_visita, tiempo_extra, clima=clima, marcador_ida=marcador_ida,
+                                                        juego_id=str(juego_id))
 
     # Completar la ficha técnica (sede, clima, aforo, fecha/hora/grupo/jornada/tag/tipo) para
     # la vista de resultado -- el dict 'resultado' que devuelve simular_partido_realista solo
@@ -659,6 +687,9 @@ def simular_y_registrar_resultado(juego_id: str, id_local: int, id_visita: int, 
     # distinguir "jugó pero no anotó" (corta la racha) de "no jugó este partido" (no aplica)
     # al calcular la racha de partidos consecutivos anotando (ver _obtener_mayor_racha_goles)
     partido["participantes"] = list(stats_jugadores.keys())
+    # Calificación de cada jugador en el partido (claves string: Mongo). La usan la ficha del Once Ideal y la forma del
+    # jugador (fantasy_rendimiento); los partidos anteriores no la tienen.
+    partido["calificaciones"] = {str(jid): s["rating"] for jid, s in stats_jugadores.items() if s.get("rating") is not None}
 
     # Feed estilo X del dashboard (ver templates/home.html), publicado por la cuenta de la
     # FIFAV: texto narrativo del post + hilo de respuestas con comentarios de 2-3 jugadores

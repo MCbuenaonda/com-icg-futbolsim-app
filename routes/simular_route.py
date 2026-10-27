@@ -139,11 +139,19 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
         logger.error(f"Motivos de interés del partido {id}: {e}")
         mot = None
 
+    try:
+        from services.juegos_service import planteamiento_probable
+        planteo = planteamiento_probable(id)
+    except Exception as e:
+        logger.error(f"Formación probable del partido {id}: {e}")
+        planteo = None
+
     return templates.TemplateResponse(
         request=request,
         name="simulador.html",
         context={
             "mot": mot,
+            "planteo": planteo,
             "partido": partido,
             "stats_jugadores": None,
             "prefix": PREFIX_SIMULADOR_PATH,

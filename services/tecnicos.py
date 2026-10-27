@@ -68,6 +68,99 @@ def q(dt: Optional[dict], rasgo: str) -> float:
     return max(-1.0, min(1.0, (float(dt.get(rasgo, REFERENCIA) or REFERENCIA) - REFERENCIA) / ESCALA))
 
 
+# --- Formación: elección con contexto y cambio en vivo (catálogo en config/formaciones.py) ---------------------
+def elegir_esquema(dt: Optional[dict], ctx: Optional[dict] = None, rng=random) -> dict:
+    """
+    El DT elige el esquema del partido: parte de las preferencias de su ESTILO y las mueve según el contexto:
+      - la postura que pide el partido: favorito -> más ofensiva, inferior -> más defensiva; en la vuelta de una serie,
+        ganando el global cierra y perdiendo ataca; de local, un poco más ofensiva;
+      - la racha: con mala racha cambia el esquema que venía usando, con buena lo repite;
+      - su historial: los esquemas con los que suma más puntos;
+      - el esquema probable del rival: busca el que le gana el medio/las bandas; verlo depende de su LECTURA
+        (con mala lectura a veces elige al revés).
+    ctx: {fuerza (diferencia de gol esperada, + favorito), forma (0..1), local, serie: {"vuelta", "global"},
+          eliminacion, historial {esquema: {pj, pts}}, ultimo, rival_probable}
+    -> {"esquema", "postura", "etiqueta", "motivo"}
+    """
+    import math
+    from config import formaciones as CF
+    from services import formaciones as FS
+    ctx = ctx or {}
+    estilo = (dt or {}).get("estilo") or "equilibrado"
+    pref = CF.PREFERENCIAS_ESTILO.get(estilo, CF.PREFERENCIAS_ESTILO["equilibrado"])
+    fuerza = float(ctx.get("fuerza") or 0.0)
+    objetivo = 0.6 * max(-1.0, min(1.0, fuerza)) + (0.15 if ctx.get("local") else -0.05)
+    serie = ctx.get("serie") or {}
+    if serie.get("vuelta"):
+        if serie.get("global", 0) > 0:
+            objetivo = min(objetivo, -0.6)
+        elif serie.get("global", 0) < 0:
+            objetivo = max(objetivo, 0.7)
+    elif ctx.get("eliminacion") and fuerza < 0:
+        objetivo -= 0.2
+    objetivo = max(-1.0, min(1.0, objetivo))
+    lectura = q(dt, "lectura")
+    ultimo, forma, rival = ctx.get("ultimo"), ctx.get("forma"), ctx.get("rival_probable")
+    pesos = {}
+    for e in CF.ESQUEMAS:
+        w = pref.get(e, 1) * math.exp(-((FS.postura(e) - objetivo) ** 2) / (2 * CF.ANCHO_POSTURA ** 2))
+        if ultimo == e and forma is not None:
+            w *= 0.35 if forma <= CF.MALA_RACHA else (2.0 if forma >= CF.BUENA_RACHA else 1.0)
+        h = (ctx.get("historial") or {}).get(e) or {}
+        if h.get("pj", 0) >= CF.MINIMO_HISTORIAL:
+            w *= 0.6 + 0.4 * (h.get("pts", 0) / h["pj"]) / 1.5
+        if rival:
+            w *= math.exp(CF.PESO_VENTAJA_RIVAL * lectura * FS.ventaja(e, rival) / 5.0)
+        pesos[e] = w
+    esquema = rng.choices(list(pesos), weights=list(pesos.values()))[0]
+    d = FS.datos(esquema)
+    # el porqué (lo que más pesó)
+    if serie.get("vuelta") and serie.get("global", 0) > 0 and d["postura"] < 0:
+        motivo = f"Sale con {esquema} para cuidar la ventaja del global"
+    elif serie.get("vuelta") and serie.get("global", 0) < 0 and d["postura"] > 0:
+        motivo = f"Necesita remontar el global: apuesta por el {esquema}"
+    elif ultimo and forma is not None and forma <= CF.MALA_RACHA and esquema != ultimo:
+        motivo = f"Tras la mala racha cambia el {ultimo} por el {esquema}"
+    elif ultimo and forma is not None and forma >= CF.BUENA_RACHA and esquema == ultimo:
+        motivo = f"Repite el {esquema} que le viene dando resultados"
+    elif rival and lectura > 0.2 and FS.ventaja(esquema, rival) > 1.5:
+        motivo = f"Lee el {rival} del rival y busca ganarle el medio con el {esquema}"
+    elif fuerza >= 0.4 and d["postura"] >= 0.3:
+        motivo = f"Sale a dominar como favorito con el {esquema}"
+    elif fuerza <= -0.4 and d["postura"] <= -0.3:
+        motivo = f"Se protege ante un rival superior: {esquema} y contragolpe"
+    else:
+        motivo = f"Fiel a su estilo {estilo}, juega con el {esquema}"
+    return {"esquema": esquema, "postura": d["postura"], "etiqueta": d["etiqueta"], "motivo": motivo}
+
+
+def esquema_probable(dt: Optional[dict], ultimo: Optional[str] = None) -> str:
+    """Lo que un DT rival "suele" usar (para que el otro lo lea): el último que usó o el favorito de su estilo."""
+    from config import formaciones as CF
+    if ultimo in CF.FORMACIONES:
+        return ultimo
+    pref = CF.PREFERENCIAS_ESTILO.get((dt or {}).get("estilo") or "equilibrado", CF.PREFERENCIAS_ESTILO["equilibrado"])
+    return max(pref, key=pref.get)
+
+
+def esquema_en_vivo(dt: Optional[dict], actual: str, inicial: str, ajuste: Optional[str]) -> str:
+    """El ajuste táctico en vivo como cambio de esquema: «ataque» -> uno más ofensivo de su repertorio, «cerrar» -> uno
+    más defensivo, None/«normal» -> vuelve al inicial. Elige, entre los que van en esa dirección, el que más le gusta."""
+    from config import formaciones as CF
+    from services import formaciones as FS
+    if not ajuste or ajuste == "normal":
+        return inicial
+    p = FS.postura(actual)
+    pref = CF.PREFERENCIAS_ESTILO.get((dt or {}).get("estilo") or "equilibrado", CF.PREFERENCIAS_ESTILO["equilibrado"])
+    if ajuste == "ataque":
+        candidatos = [e for e in CF.ESQUEMAS if p < FS.postura(e) <= p + 0.8]
+    else:
+        candidatos = [e for e in CF.ESQUEMAS if p - 0.8 <= FS.postura(e) < p]
+    if not candidatos:
+        return actual
+    return max(candidatos, key=lambda e: (pref.get(e, 0), abs(FS.postura(e) - p)))
+
+
 def elegir_tactica(dt: Optional[dict], tacticas: List[str], rng=random) -> str:
     if not dt:
         return rng.choice(tacticas)

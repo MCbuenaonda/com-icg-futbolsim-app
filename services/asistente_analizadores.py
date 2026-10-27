@@ -165,33 +165,34 @@ def analizar_once_ideal(ctx: Contexto) -> List[dict]:
     from services import fantasy_service as FS
     if not ctx.mundial_id:
         return []
-    equipo = db['fantasy_teams'].find_one({"user_id": ctx.uid, "mundial_id": ctx.mundial_id})
-    if not equipo:   # equipos viejos por fase (se migran al abrir /once-ideal)
-        equipo = db['fantasy_teams'].find_one({"user_id": ctx.uid, "mundial_id": {"$exists": False}}, sort=[("fase_id", -1)])
-    if not equipo:
+    equipos = list(db['fantasy_teams'].find({"user_id": ctx.uid, "mundial_id": ctx.mundial_id}))
+    if not equipos:   # equipos viejos por fase (se migran al abrir /once-ideal)
+        equipos = list(db['fantasy_teams'].find({"user_id": ctx.uid, "mundial_id": {"$exists": False}}, sort=[("fase_id", -1)]).limit(1))
+    if not equipos:
         return [consejo(
             "once_ideal", "OPORTUNIDAD", "Arma tu Once Ideal",
-            "Armarlo es gratis y suma puntos en todos los partidos del Mundial que quedan.", "/once-ideal/", "Armar equipo",
-            porque=["Cada partido que pasa sin equipo son puntos que no sumas"], confianza="alta", urgencia=35,
+            "Armarlo es gratis y cada partido que juega uno de tus jugadores te paga saldo.", "/once-ideal/", "Armar equipo",
+            porque=["Cada partido que pasa sin equipo es saldo que no cobras"], confianza="alta", urgencia=35,
             clave="once_ideal:armar")]
 
     salida = []
     eliminados = FS.paises_eliminados()
-    jugadores = list(db['jugadores'].find({"id": {"$in": equipo.get("lineup") or []}}, {"id": 1, "nombre": 1, "pais_id": 1}))
+    lineup_total = [j for e in equipos for j in (e.get("lineup") or [])]
+    jugadores = list(db['jugadores'].find({"id": {"$in": lineup_total}}, {"id": 1, "nombre": 1, "pais_id": 1}))
     fuera = [j for j in jugadores if j.get("pais_id") in eliminados]
     if fuera:
         nombres = ", ".join(j.get("nombre", "?") for j in fuera[:4]) + ("…" if len(fuera) > 4 else "")
         salida.append(consejo(
             "once_ideal", "URGENTE", f"Cambia {_plural(len(fuera), 'jugador eliminado', 'jugadores eliminados')} de tu Once",
-            "Sus selecciones ya no juegan: no suman más puntos. Reemplazarlos no te cuesta cambios ni saldo.",
-            "/once-ideal/", "Ir al Once Ideal", porque=[nombres], numeros=[f"{len(fuera)} de 11 sin sumar"],
+            "Sus selecciones ya no juegan: no te pagan más. Reemplazarlos no te cuesta cambios ni saldo.",
+            "/once-ideal/", "Ir al Once Ideal", porque=[nombres], numeros=[f"{len(fuera)} de {len(lineup_total)} sin cobrar"],
             urgencia=85, clave="once_ideal:eliminados", jugador_id=fuera[0]["id"], pais_id=fuera[0].get("pais_id")))
 
-    # Cambios gratis acumulados (cálculo de solo lectura de lo que acreditaría _equipo_del_mundial)
+    # Cambios gratis acumulados (cálculo de solo lectura de lo que acreditaría _escuadras_del_mundial), del equipo con más
     jornada = FS.jornada_actual()
-    credito = equipo.get("jornada_credito", jornada["numero"])
-    cambios = min(FS.TOPE_CAMBIOS_GRATIS, int(equipo.get("cambios_gratis_disponibles") or 0)
-                  + max(0, jornada["numero"] - credito) * FS.CAMBIOS_GRATIS_POR_JORNADA)
+    cambios = max(min(FS.TOPE_CAMBIOS_GRATIS, int(e.get("cambios_gratis_disponibles") or 0)
+                      + max(0, jornada["numero"] - e.get("jornada_credito", jornada["numero"])) * FS.CAMBIOS_GRATIS_POR_JORNADA)
+                  for e in equipos)
     if cambios >= TOPE_CAMBIOS_AVISO:
         al_tope = cambios >= FS.TOPE_CAMBIOS_GRATIS
         salida.append(consejo(
@@ -202,6 +203,29 @@ def analizar_once_ideal(ctx: Contexto) -> List[dict]:
             numeros=[f"{cambios}/{FS.TOPE_CAMBIOS_GRATIS} cambios gratis", f"Cada cambio extra cuesta {FS.COSTO_CAMBIO_EXTRA} pts"],
             valor=FS.COSTO_CAMBIO_EXTRA * FS.CAMBIOS_GRATIS_POR_JORNADA if al_tope else None,
             urgencia=55 if al_tope else 25, clave="once_ideal:cambios"))
+
+    # Equipo siguiente listo para desbloquear (o desbloqueado y sin armar)
+    usuario = FS.datos_usuario_fantasy(ctx.uid)
+    abiertas = FS.escuadras_desbloqueadas(usuario)
+    armados = {e.get("escuadra", 1) for e in equipos}
+    sin_armar = [n for n in range(1, abiertas + 1) if n not in armados]
+    if sin_armar:
+        salida.append(consejo(
+            "once_ideal", "OPORTUNIDAD", f"Arma tu equipo {sin_armar[0]} del Once Ideal",
+            "Ya lo desbloqueaste: armarlo es gratis y sus jugadores te pagan en cada partido.", f"/once-ideal/#equipo-{sin_armar[0]}",
+            "Armar equipo", porque=["Un espacio desbloqueado sin jugadores no te paga nada"], confianza="alta", urgencia=40,
+            clave=f"once_ideal:armar_equipo:{sin_armar[0]}"))
+    else:
+        from config import fantasy as CFF
+        estado = FS.estado_desbloqueo(usuario, [{**e, "completo_desde_jornada": e.get("completo_desde_jornada") or e.get("jornada_credito")} for e in equipos])
+        if estado and estado["listo"]:
+            salida.append(consejo(
+                "once_ideal", "OPORTUNIDAD", f"Desbloquea tu equipo {estado['escuadra']} del Once Ideal",
+                "Otra formación y otros 11 jugadores que te pagan en cada partido.", "/once-ideal/", "Ver desbloqueo",
+                porque=[f"Un equipo armado deja ~{CFF.PAGO_ESPERADO_JORNADA} de saldo por jornada: se recupera en "
+                        f"~{round(estado['costo'] / CFF.PAGO_ESPERADO_JORNADA)} jornadas"],
+                numeros=[f"Cuesta {estado['costo']:,}"], valor=estado["costo"], confianza="media", urgencia=15,
+                nivel_minimo="ANALISIS", clave=f"once_ideal:desbloquear:{estado['escuadra']}"))
     return salida
 
 
@@ -323,6 +347,19 @@ def _consejos_corporativo_v2(ctx: Contexto, sigla: str, ciclo: int, nombre_ref) 
     v = valores()
     ctxp = CS._contexto_partidos()
     activos = U.contratos_activos(ctx.uid_str, sigla)
+    # Huecos del calendario: ciclos en que la cartera casi no juega -> libres que sí juegan ahí (misma función que la vista)
+    try:
+        capital = (db['corp_corporativos'].find_one({"universo_id": ctx.uid_str, "sigla": sigla}, {"capital": 1}) or {}).get("capital", 0)
+        huecos = CS.sugerencias_huecos(CS.calendario_cartera(activos, ctxp), ctxp, ctx.uid_str, capital)
+        h = next((x for x in huecos if x["sugerencias"]), None)
+        if h:
+            salida.append(consejo(
+                "corporativo", "OPORTUNIDAD", f"Tu cartera {'no juega' if h['vacio'] else 'casi no juega'} en el ciclo {h['ciclo']}",
+                "Sin partidos no hay renta por partidos: ficha a alguien que juegue ese ciclo y su prima entre en tu capital.",
+                "/corporativo/", "Ver huecos", porque=[f"{x['nombre']}: juega {x['partidos']}, prima ~{x['prima']:,}" for x in h["sugerencias"]],
+                confianza="media", urgencia=30, nivel_minimo="ANALISIS", clave=f"corporativo:hueco:{h['ciclo']}"))
+    except Exception as e:
+        print(f"[asistente] huecos del calendario: {e}")
     vender = []
     for c in activos:
         valor = (v["selecciones"] if c["tipo"] == "seleccion" else v["jugadores"]).get(c["ref_id"], 0)
@@ -344,15 +381,16 @@ def _consejos_corporativo_v2(ctx: Contexto, sigla: str, ciclo: int, nombre_ref) 
             salida.append(consejo(
                 "corporativo", "URGENTE", f"{o['marca']['nombre']} quiere patrocinar a {o['nombre']}",
                 f"Firma {o['firma']:,} y {o['pago_ciclo']:,} por ciclo durante {o['ciclos']} ciclos; el {int(CC.MARCA_COMISION_CEO * 100)}% es tu comisión. "
-                "Si no respondes antes del cierre del ciclo siguiente, la oferta se pierde.", "/corporativo/marcas", "Responder",
+                + (f"Vence en {o['vence_en']} partidos." if o.get('vence_en') is not None else "Vence pronto."), "/corporativo/marcas", "Responder",
                 numeros=[f"Encaje {o['encaje']}/100"], urgencia=70, clave=f"corporativo:patrocinio:{o['_id']}"))
         if res["en_riesgo"]:
             salida.append(consejo(
                 "corporativo", "URGENTE", f"{res['en_riesgo']} patrocinio{'s' if res['en_riesgo'] > 1 else ''} en riesgo",
                 "La marca está revisando el patrocinio: si el próximo ciclo sigue igual, corta. Que juegue, una gira o una campaña de marketing ayudan.",
                 "/corporativo/marcas", "Ver patrocinios", urgencia=55, nivel_minimo="ANALISIS", clave="corporativo:marca_riesgo"))
-        promos = db['corp_patrocinios'].count_documents({"universo_id": ctx.uid_str, "origen": "PROMOCION", "ciclo": ciclo})
-        if promos < CC.MARCA_PROMOCIONES_POR_CICLO:
+        _, ronda, _faltan = MK._ronda_usuario(ctx.uid_str)
+        promos = MK._promos_ronda(ctx.uid_str, ronda)
+        if promos < CC.MARCA_PROMOCIONES_POR_RONDA:
             vista = MK.vista_marcas(ctx.uid_str) or {}
             mejores = sorted(((mk, c) for mk in vista.get("interesadas", []) for c in mk["candidatos"]), key=lambda x: -x[1]["encaje"])[:3]
             if mejores:
@@ -361,7 +399,7 @@ def _consejos_corporativo_v2(ctx: Contexto, sigla: str, ciclo: int, nombre_ref) 
                     "Hay marcas con cupo que encajan con tu cartera: preséntaselos y responden al cierre del ciclo. Firma + pago por ciclo, juegue o no.",
                     "/corporativo/marcas", "Ver marcas interesadas",
                     porque=[f"{c['nombre']} → {mk['nombre']} ({round(c['prob'] * 100)}% acepta)" for mk, c in mejores],
-                    numeros=[f"{CC.MARCA_PROMOCIONES_POR_CICLO - promos} promociones disponibles este ciclo"], urgencia=25, clave="corporativo:promover"))
+                    numeros=[f"{CC.MARCA_PROMOCIONES_POR_RONDA - promos} promociones disponibles en esta ronda (responden en ~{_faltan} partidos)"], urgencia=25, clave="corporativo:promover"))
     except Exception as e:
         print(f"[asistente] marcas: {e}")
     if not db['corp_giras'].find_one({"universo_id": ctx.uid_str, "sigla": sigla, "ciclo": ciclo}):
@@ -507,9 +545,15 @@ def analizar_mercado_selecciones(ctx: Contexto) -> List[dict]:
 # ==========================================
 def analizar_cambio_once(ctx: Contexto) -> List[dict]:
     from services import fantasy_service as FS
-    equipo = db['fantasy_teams'].find_one({"user_id": ctx.uid, "mundial_id": ctx.mundial_id}, {"lineup": 1}) if ctx.mundial_id else None
+    equipos = list(db['fantasy_teams'].find({"user_id": ctx.uid, "mundial_id": ctx.mundial_id}, {"lineup": 1})) if ctx.mundial_id else []
     por_pais = _partidos_por_pais(ctx)
-    if not equipo or not equipo.get("lineup") or not por_pais:
+    if not equipos or not por_pais:
+        return []
+    en_todos = [j for e in equipos for j in (e.get("lineup") or [])]
+    # El equipo con el jugador más flojo (se evalúa cada equipo por separado: los cupos por selección son por equipo)
+    equipo = min(equipos, key=lambda e: min((x.get("rendimiento") or 0) for x in db['jugadores'].find(
+        {"id": {"$in": e.get("lineup") or [-1]}}, {"rendimiento": 1})) if e.get("lineup") else 999)
+    if not equipo.get("lineup"):
         return []
     eliminados = FS.paises_eliminados()
     lineup = list(db['jugadores'].find({"id": {"$in": equipo["lineup"]}}, {"id": 1, "nombre": 1, "pais_id": 1, "posicion_id": 1, "rendimiento": 1, "leyenda": 1}))
@@ -527,14 +571,14 @@ def analizar_cambio_once(ctx: Contexto) -> List[dict]:
     otras_leyendas = sum(1 for j in lineup if j.get("leyenda") and j["id"] != flojo["id"])
     filtro_leyenda = {"leyenda": {"$ne": True}} if otras_leyendas >= FS.MAX_LEYENDAS_FANTASY else {}
     reemplazo = db['jugadores'].find_one({"posicion_id": flojo.get("posicion_id"), "pais_id": {"$in": paises_ok},
-                                          "id": {"$nin": equipo["lineup"]}, **filtro_leyenda},
+                                          "id": {"$nin": en_todos}, **filtro_leyenda},
                                          {"id": 1, "nombre": 1, "pais_id": 1, "rendimiento": 1}, sort=[("rendimiento", -1)])
     if not reemplazo or (reemplazo.get("rendimiento") or 0) <= (flojo.get("rendimiento") or 0) + 2:
         return []
     sin_partido = flojo.get("pais_id") not in por_pais
     return [consejo(
         "once_ideal", "OPORTUNIDAD", f"Cambia a {flojo.get('nombre')} por {reemplazo.get('nombre')}",
-        "Misma posición, mejor momento y con partido en lo que viene.", "/once-ideal/", "Ir al Once Ideal",
+        "Misma posición, mejor momento y con partido en lo que viene: te paga más por partido.", "/once-ideal/", "Ir al Once Ideal",
         porque=(["Su selección no juega en los próximos partidos"] if sin_partido else []) +
                [f"Rendimiento {reemplazo.get('rendimiento', 0):.1f} vs {flojo.get('rendimiento', 0):.1f}",
                 f"{_plural(len(por_pais.get(reemplazo['pais_id'], [])), 'partido', 'partidos')} de su selección en el horizonte"],
@@ -715,11 +759,15 @@ def verificar_hecho(uid: ObjectId, clave: str, desde: datetime) -> Optional[bool
         if tipo == "comprar":
             return db['team_ownerships'].count_documents({"user_id": uid, "pais_id": pid, "status": "ACTIVO"}, limit=1) > 0 or None
     if modulo == "once_ideal":
-        equipo = db['fantasy_teams'].find_one({"user_id": uid}, {"lineup": 1}, sort=[("_id", -1)]) if tipo != "armar" else None
         if tipo == "armar":
             return db['fantasy_teams'].count_documents({"user_id": uid}, limit=1) > 0
-        if tipo == "cambio" and len(partes) == 3 and equipo:
-            return int(partes[2]) not in (equipo.get("lineup") or [])
+        if tipo == "armar_equipo" and len(partes) == 3:
+            return db['fantasy_teams'].count_documents({"user_id": uid, "escuadra": int(partes[2]), "created_at": {"$gte": desde}}, limit=1) > 0 or None
+        if tipo == "desbloquear" and len(partes) == 3:
+            return db['fantasy_movimientos'].count_documents({"user_id": uid, "tipo": "DESBLOQUEO", "escuadra": int(partes[2])}, limit=1) > 0 or None
+        if tipo == "cambio" and len(partes) == 3:
+            en_equipos = [j for e in db['fantasy_teams'].find({"user_id": uid}, {"lineup": 1}) for j in (e.get("lineup") or [])]
+            return int(partes[2]) not in en_equipos if en_equipos else None
         if tipo in ("eliminados", "cambios"):   # solo se resuelven guardando el Once (XP de la acción)
             return db['xp_eventos'].count_documents({"user_id": uid, "accion": "ONCE_IDEAL", "creado_en": {"$gte": desde}}, limit=1) > 0 or None
     if modulo == "quinielas" and len(partes) == 2:
@@ -755,6 +803,9 @@ def verificar_hecho(uid: ObjectId, clave: str, desde: datetime) -> Optional[bool
             return True if c and not c.get("activo") else None
         if tipo == "acuerdo":
             return db['corp_acuerdos'].count_documents({"universo_id": uid_str, "creado_en": {"$gte": desde_utc}}, limit=1) > 0 or None
+        if tipo == "hueco":
+            return db['corp_contratos'].count_documents({"universo_id": uid_str, "creado_en": {"$gte": desde_utc},
+                                                         "origen": {"$in": ["FICHAJE", "TRASPASO", "PROPUESTA", "CONTRAOFERTA"]}}, limit=1) > 0 or None
         if tipo == "promover":
             return db['corp_patrocinios'].count_documents({"universo_id": uid_str, "origen": "PROMOCION", "creado_en": {"$gte": desde_utc}}, limit=1) > 0 or None
         if tipo == "patrocinio" and len(partes) >= 3:

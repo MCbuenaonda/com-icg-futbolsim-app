@@ -56,7 +56,7 @@
         ('Selecciones', r.selecciones.cantidad_activas, "{:,}".format(r.selecciones.total_dividendos) ~ ' pts en dividendos', '#22c55e', imagen_inicio('confederaciones'), '/selecciones/mercado'),
         ('Sedes', r.sedes.cantidad_activas, "{:,}".format(r.sedes.total_regalias) ~ ' pts en regalías', '#f59e0b', imagen_perfil('historial'), '/sedes/directorio'),
         ('Quinielas', r.quinielas.cantidad, r.quinielas.ganadas ~ ' ganadas · ' ~ r.quinielas.pendientes ~ ' pendientes', '#a855f7', imagen_inicio('partidos'), '/quinielas/mis-quinielas'),
-        ('Once Ideal', "{:,}".format(r.fantasy.puntos_totales), 'pts fantasy · ' ~ r.fantasy.alineaciones_armadas ~ ' alineaciones', '#38bdf8', imagen_perfil('atributos'), '/once-ideal/'),
+        ('Once Ideal', "{:,}".format(r.fantasy.puntos_totales), 'pts fantasy · ' ~ "{:,}".format(r.fantasy.saldo_ganado) ~ ' de saldo · ' ~ r.fantasy.alineaciones_armadas ~ ' equipos', '#38bdf8', imagen_perfil('atributos'), '/once-ideal/'),
         ('Álbum', r.album.jugadores + r.album.paises + r.album.ciudades + (r.album.arbitros or 0), 'estampas · ' ~ r.album.sobres_comprados ~ ' sobres', '#eab308', imagen_inicio('copa'), '/album-estampas/coleccion'),
         ('Racha', r.rewards.racha_actual ~ (' día' if r.rewards.racha_actual == 1 else ' días'), r.rewards.trivia_sesiones_jugadas ~ ' trivias jugadas', '#f43f5e', imagen_perfil('animo_motivado'), '/misiones/')] %}
     <div class="col">
@@ -144,7 +144,7 @@
         </div>
         {% if r.feed %}
         {% set iconos = {'Selección': 'bi-flag-fill', 'Sede': 'bi-building', 'Quiniela': 'bi-ticket-perforated-fill', 'Álbum': 'bi-collection-fill', 'Recompensas': 'bi-gift-fill', 'Juego en Vivo': 'bi-controller', 'Once Ideal': 'bi-stars', 'Trivia': 'bi-patch-question-fill', 'Ajuste': 'bi-shield-check', 'Nivel': 'bi-trophy-fill'} %}
-        {% set colores = {'Selección': '#22c55e', 'Sede': '#f59e0b', 'Quiniela': '#a855f7', 'Álbum': '#eab308', 'Recompensas': '#f43f5e', 'Juego en Vivo': '#38bdf8', 'Once Ideal': '#38bdf8', 'Trivia': '#fb923c', 'Ajuste': '#4ade80', 'Nivel': '#facc15', 'Corporativo': '#60a5fa', 'Bolsa': '#818cf8', 'Asistente': '#10b981'} %}
+        {% set colores = {'Selección': '#22c55e', 'Sede': '#f59e0b', 'Quiniela': '#a855f7', 'Álbum': '#eab308', 'Recompensas': '#f43f5e', 'Juego en Vivo': '#38bdf8', 'Once Ideal': '#84cc16', 'Trivia': '#fb923c', 'Ajuste': '#4ade80', 'Nivel': '#facc15', 'Corporativo': '#60a5fa', 'Bolsa': '#818cf8', 'Asistente': '#10b981'} %}
         <div class="d-flex flex-column gap-2" id="listaMovimientos">
             {% for item in r.feed %}
             <div class="movimiento" data-categoria="{{ item.categoria }}" style="--mov-color: {{ colores.get(item.categoria, '#94a3b8') }};">
@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const paletaCategorias = {
         'Selección': '#22c55e', 'Sede': '#f59e0b', 'Quiniela': '#a855f7',
         'Álbum': '#eab308', 'Recompensas': '#f43f5e', 'Juego en Vivo': '#38bdf8', 'Trivia': '#fb923c', 'Ajuste': '#4ade80', 'Nivel': '#facc15',
-        'Corporativo': '#60a5fa', 'Bolsa': '#818cf8', 'Asistente': '#10b981'
+        'Corporativo': '#60a5fa', 'Bolsa': '#818cf8', 'Asistente': '#10b981', 'Once Ideal': '#84cc16'
     };
     function coloresPara(labels) {
         return labels.map(l => paletaCategorias[l] || '#6c757d');

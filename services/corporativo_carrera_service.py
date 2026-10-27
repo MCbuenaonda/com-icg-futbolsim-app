@@ -96,7 +96,11 @@ def pagar_ceo(estado, universo: dict, ciclo: int) -> None:
     bono = R.bono_ciclo(cargo["bono_pct"], media, sueldo)
     en_acciones = int(bono * C.FRACCION_BONO_EN_ACCIONES)
     efectivo = sueldo + bono - en_acciones
-    comision = int(corp["ciclo_actual"].get("comision_ceo") or 0)   # 5% de las marcas: ya se descontó del ingreso del corporativo
+    # Comisión del CEO: 5% de lo que pagaron las marcas en el ciclo (sobre el total: pago a pago se perdía en el redondeo).
+    # 'comision_ceo' = lo que ya se descontó del ingreso (firmas aceptadas desde la vista, modelo viejo).
+    bruto = corp["ciclo_actual"].get("marcas_bruto") or 0
+    comision_nueva = int(round(bruto * C.MARCA_COMISION_CEO))
+    comision = int(corp["ciclo_actual"].get("comision_ceo") or 0) + comision_nueva
     uid = universo["_id"]
     try:
         _db()["corp_movimientos"].insert_one({"_id": f"{uid}:sueldo:{ciclo}", "universo_id": uid, "sigla": cargo["sigla"], "ciclo": ciclo,
@@ -112,10 +116,10 @@ def pagar_ceo(estado, universo: dict, ciclo: int) -> None:
                 "otorgada_ciclo": ciclo, "consolida_ciclo": ciclo + C.CICLOS_CONSOLIDACION_ACCIONES}}})
     except DuplicateKeyError:
         pass   # este ciclo ya se pagó (reproceso): solo se repite el descuento en memoria del corporativo
-    corp["capital"] -= efectivo
-    corp["ciclo_actual"]["sueldo"] = efectivo
+    corp["capital"] -= efectivo + comision_nueva
+    corp["ciclo_actual"]["sueldo"] = efectivo + comision_nueva
     corp["_utilidad_op"] = util_op
-    corp["_utilidad"] = util_op - efectivo
+    corp["_utilidad"] = util_op - efectivo - comision_nueva
     corp["_pago_ceo"] = {"sueldo": sueldo, "bono": bono, "acciones": en_acciones, "efectivo": efectivo, "comision": comision}
 
 

@@ -1,0 +1,26 @@
+{# Formación probable de cada lado antes del partido (juegos_service.planteamiento_probable). Variables: planteo, nombre_local,
+   nombre_visita. Es la decisión del DT con la semilla del partido: puede variar si antes se juegan otros partidos. #}
+{% import "partials/macros.html" as m %}
+{% if planteo %}
+<div class="card planteo-previa mb-3">
+  <div class="card-body p-3">
+    <h3 class="h6 fw-bold text-white mb-1"><i class="bi bi-diagram-3-fill text-success me-1"></i>Formación probable</h3>
+    <p class="small text-muted mb-2">Lo que decidirían los técnicos hoy según su estilo, el rival, la racha y la serie. En el partido pueden cambiar de esquema según el marcador.</p>
+    <div class="row g-2">
+      {% for lado, nombre in [('local', nombre_local), ('visita', nombre_visita)] %}{% set plan = planteo[lado] %}{% set fp = formacion(plan.esquema) %}
+      <div class="col-sm-6">
+        <div class="planteo h-100">
+          {{ m.mini_esquema(plan.esquema, 'mini-esquema--lg') }}
+          <div class="min-w-0">
+            <div class="fw-bold text-white">{{ nombre }} · {{ plan.esquema }}</div>
+            <span class="planteo__postura planteo__postura--{{ 'of' if plan.postura > 0.2 else ('def' if plan.postura < -0.2 else 'neu') }}">{{ plan.etiqueta }}</span>
+            <div class="planteo__motivo">«{{ plan.motivo }}»</div>
+            {% if fp %}<div class="planteo__perfil">Fuerte en {{ fp.fuerte }} · débil en {{ fp.debil }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}

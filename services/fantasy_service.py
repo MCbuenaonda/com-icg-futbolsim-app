@@ -24,20 +24,13 @@ Decisiones de diseño sobre puntos ambiguos del pedido original:
   services/simular_service.py (que usa posicion_id 1-4 como si fuera un
   esquema de 4 posiciones, y no coincide con los valores reales de
   'jugadores.posicion_id').
-- Acomodo de formaciones (FORMACIONES_GRANULARES): a pedido explícito del
-  usuario, cada formación define qué posiciones GRANULARES (por siglas) caen
-  en cada línea — esto NO es un agrupamiento genérico por sector, reubica
-  posiciones puntuales (ej. el Central Ofensivo/MC cae a la línea defensiva en
-  3-5-2; el Delantero/DC sube a la línea media en 4-4-2 y 3-5-2). Las 3
-  formaciones soportadas usan, cada una, las 10 posiciones de campo exactas
-  una sola vez (sin repetir ninguna) — por eso 'set_fantasy_lineup' valida la
-  alineación de forma agnóstica a la formación elegida: siempre exige
-  exactamente 1 jugador por cada una de las 11 posiciones reales que existan
-  en la colección 'posiciones' (Portero + las 10 de campo), sin repetir
-  ninguna. La formación elegida (guardada en 'fantasy_teams.formacion') es
-  puramente una preferencia visual de cómo agrupar esas 11 posiciones en 3
-  líneas al armar el equipo — cambiar de formación NO invalida jugadores ya
-  elegidos, solo reordena en qué línea se muestran.
+- EQUIPOS POR FORMACIÓN (v2): cada usuario tiene hasta config/fantasy.ESCUADRAS_MAX equipos por Mundial
+  ('fantasy_teams.escuadra'); empieza con 1 y desbloquea el siguiente con saldo + jornadas jugadas con el anterior
+  (desbloquear_escuadra; 'usuarios.fantasy_escuadras' es PERMANENTE). Cada equipo usa una formación DISTINTA del
+  catálogo del motor (config/formaciones.py), que define cuántos jugadores van por línea; cada jugador entra en la
+  línea natural de su posición (config/fantasy.LINEA_DE_POSICION). Un jugador no puede estar en dos equipos del mismo
+  usuario; el tope de 2 por selección y 1 leyenda es por equipo. El equipo único de antes migra solo a la escuadra 1
+  (en 4-3-3, la única que cuadra con el viejo "1 por puesto").
 - UN EQUIPO POR MUNDIAL + JORNADAS (rediseño a pedido del usuario): antes el Once Ideal se
   guardaba por fase_id, pero cada confederación avanza de fase a su ritmo y los partidos de
   fase 1 y fase 2 se intercalan en el calendario: la vista mostraba un equipo u otro según el
@@ -50,13 +43,10 @@ Decisiones de diseño sobre puntos ambiguos del pedido original:
   Reemplazar a un jugador cuya selección está ELIMINADA (o no juega el Mundial) es siempre
   gratis y no consume cambios; no se puede sumar un jugador eliminado. Los equipos viejos por
   fase se migran solos al primer acceso (_equipo_del_mundial).
-- Recompensa en 'monto' sobre los puntos fantasy (a pedido explícito del
-  usuario): además de sumar a 'total_points_fase' (puntaje de liga, no
-  moneda), los casos a) y c) ahora también acreditan un porcentaje
-  (PORCENTAJE_MONTO_POR_PUNTOS_FANTASY) de los puntos finales del jugador a
-  'usuarios.monto' — a diferencia de la recompensa pasiva del Álbum (caso b,
-  20%, por solo poseer la estampa), esta es un incentivo adicional por tener
-  al jugador realmente alineado en el Once Ideal.
+- PAGO POR PARTIDO (v2, pago_partido): cada partido que juega un jugador alineado paga saldo por jugar (según su
+  línea), por su calificación del partido y un % de sus puntos fantasy (con la postura de la formación); ×1.5 con su
+  estampa. Calibrado con calibrar_fantasy.py: un equipo deja ~66 por jornada en cualquier formación y cada desbloqueo
+  se recupera en 8-11 jornadas. Antes pagaba solo el 10% de los puntos (~45 en todo un Mundial).
 - Indicador de desempeño por jugador del lineup ('obtener_desempeno_lineup'):
   combina los puntos fantasy que ese jugador ya le sumó al usuario en la fase
   actual (de 'fantasy_points_history') con su 'rendimiento' de carrera
@@ -65,6 +55,7 @@ Decisiones de diseño sobre puntos ambiguos del pedido original:
   para que el usuario pueda decidir si conviene mantenerlo o cambiarlo.
 """
 import certifi
+import re
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -72,6 +63,8 @@ from bson import ObjectId
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
 from services import niveles_service
+from services import formaciones as FSF
+from config import fantasy as CFF
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -109,27 +102,7 @@ PORCENTAJE_MONTO_POR_PUNTOS_FANTASY = 0.10
 UMBRAL_RENDIMIENTO_ALTO = 70
 UMBRAL_RENDIMIENTO_BAJO = 50
 
-FORMACION_DEFAULT = "4-3-3"
-
-# Acomodo de las 10 posiciones de campo (por siglas) en cada línea, según el
-# esquema explícito que definió el usuario. El Portero (POR) es fijo en las 3.
-FORMACIONES_GRANULARES = {
-    "4-3-3": {
-        "DEFENSA": ["LI", "DFI", "DFD", "LD"],
-        "MEDIO": ["MI", "MC", "MD"],
-        "DELANTERO": ["EI", "DC", "ED"]
-    },
-    "4-4-2": {
-        "DEFENSA": ["LI", "DFI", "DFD", "LD"],
-        "MEDIO": ["MI", "MC", "DC", "MD"],
-        "DELANTERO": ["EI", "ED"]
-    },
-    "3-5-2": {
-        "DEFENSA": ["DFI", "MC", "DFD"],
-        "MEDIO": ["LI", "MI", "MD", "LD", "DC"],
-        "DELANTERO": ["EI", "ED"]
-    }
-}
+FORMACION_DEFAULT = CFF.FORMACION_DEFAULT
 
 
 def _mapa_posiciones() -> Dict[int, dict]:
@@ -137,28 +110,12 @@ def _mapa_posiciones() -> Dict[int, dict]:
     return {p["id"]: {"nombre": p.get("nombre"), "siglas": p.get("siglas"), "sector": p.get("sector")} for p in db['posiciones'].find({})}
 
 
-def obtener_formaciones_granulares() -> Dict[str, Dict[str, List[dict]]]:
-    """
-    FORMACIONES_GRANULARES resuelto con los datos reales de cada posición
-    (id/nombre/siglas), listo para que el frontend arme los 11 "slots" con
-    nombre propio de cada formación (ver templates/fantasy_once_ideal.html).
-    """
-    mapa_posiciones = _mapa_posiciones()
-    siglas_a_id = {v["siglas"]: pid for pid, v in mapa_posiciones.items()}
-
-    def _resolver(sigla: str) -> Optional[dict]:
-        pid = siglas_a_id.get(sigla)
-        if pid is None:
-            return None
-        return {"id": pid, "siglas": sigla, "nombre": mapa_posiciones[pid]["nombre"]}
-
-    resultado: Dict[str, Dict[str, List[dict]]] = {}
-    for formacion, lineas in FORMACIONES_GRANULARES.items():
-        resultado[formacion] = {
-            linea: [p for p in (_resolver(s) for s in siglas) if p]
-            for linea, siglas in lineas.items()
-        }
-    return resultado
+def obtener_catalogo_formaciones() -> List[dict]:
+    """Las formaciones del catálogo del motor (config/formaciones.py) con los cupos por línea del Once Ideal."""
+    from config import formaciones as CF
+    return [{"esquema": e, "postura": CF.FORMACIONES[e]["postura"], "etiqueta": CF.FORMACIONES[e]["etiqueta"],
+             "fuerte": CF.FORMACIONES[e].get("fuerte"), "debil": CF.FORMACIONES[e].get("debil"),
+             "cupos": CFF.cupos_formacion(e)} for e in CFF.FORMACIONES]
 
 
 def obtener_catalogo_paises() -> List[dict]:
@@ -233,28 +190,56 @@ def _serializar_equipo(equipo: dict) -> dict:
         "usuario_id": str(equipo["user_id"]),
         "mundial_id": equipo.get("mundial_id"),
         "fase_id": equipo.get("fase_id"),   # legado: los equipos ya no son por fase
+        "escuadra": equipo.get("escuadra", 1),
         "lineup": equipo["lineup"],
         "formacion": equipo.get("formacion", FORMACION_DEFAULT),
         "is_locked": False,
         "total_points_fase": equipo.get("total_points_fase", 0),
-        "cambios_gratis_disponibles": equipo.get("cambios_gratis_disponibles", 0)
+        "monto_ganado": equipo.get("monto_ganado", 0),
+        "cambios_gratis_disponibles": equipo.get("cambios_gratis_disponibles", 0),
+        "completo_desde_jornada": equipo.get("completo_desde_jornada"),
     }
 
 
-def _equipo_del_mundial(usuario_oid: ObjectId) -> Optional[dict]:
+def _lineas_de(ids: List[int]) -> Dict[int, str]:
+    """{jugador_id: línea natural} (PORTERO/DEFENSA/MEDIO/DELANTERO) según su posicion_id."""
+    return {j["id"]: CFF.LINEA_DE_POSICION.get(j.get("posicion_id"), "MEDIO")
+            for j in db['jugadores'].find({"id": {"$in": list(ids)}}, {"id": 1, "posicion_id": 1})}
+
+
+def _cuadra_con_formacion(lineup: List[int], formacion: str) -> bool:
+    lineas = _lineas_de(lineup)
+    cupos = CFF.cupos_formacion(formacion)
+    return all(sum(1 for j in lineup if lineas.get(j) == l) == n for l, n in cupos.items())
+
+
+def _acreditar_jornadas(equipo: dict, jornada: dict) -> None:
+    """Cambios gratis de las jornadas que pasaron desde el último crédito (+N por jornada, con tope)."""
+    pendientes = jornada["numero"] - equipo.get("jornada_credito", jornada["numero"])
+    if pendientes > 0:
+        nuevos = min(TOPE_CAMBIOS_GRATIS, equipo.get("cambios_gratis_disponibles", 0) + pendientes * CAMBIOS_GRATIS_POR_JORNADA)
+        db['fantasy_teams'].update_one({"_id": equipo["_id"], "jornada_credito": equipo.get("jornada_credito")},
+                                       {"$set": {"cambios_gratis_disponibles": nuevos, "jornada_credito": jornada["numero"]}})
+        equipo["cambios_gratis_disponibles"], equipo["jornada_credito"] = nuevos, jornada["numero"]
+
+
+def _escuadras_del_mundial(usuario_oid: ObjectId) -> List[dict]:
     """
-    El Once Ideal del usuario para el Mundial activo, con los cambios gratis de las jornadas ya acreditados.
-    Migración perezosa (idempotente): si todavía tiene equipos del esquema viejo por fase (sin mundial_id; son del
-    Mundial actual porque restart_mundial los borra), se fusionan en uno: el de la fase más alta como base, con la
-    suma de los puntos de todos.
+    Los equipos del usuario en el Mundial activo (ordenados por 'escuadra'), con los cambios gratis de las jornadas ya
+    acreditados. Migraciones perezosas (idempotentes):
+      - equipos del esquema viejo por fase (sin mundial_id): se fusionan en uno, el de la fase más alta, con la suma
+        de los puntos de todos;
+      - el equipo único de antes (sin 'escuadra') pasa a ser la escuadra 1; si su alineación no cuadra con los cupos
+        por línea de su formación (antes la formación era solo visual), queda en 4-3-3, que acepta el once de "1 por
+        puesto"; 'completo_desde_jornada' sale de su primer registro de puntos.
     """
     jornada = jornada_actual()
     mundial_id = jornada["mundial_id"]
-    equipo = db['fantasy_teams'].find_one({"user_id": usuario_oid, "mundial_id": mundial_id})
-    if not equipo:
+    equipos = list(db['fantasy_teams'].find({"user_id": usuario_oid, "mundial_id": mundial_id}))
+    if not equipos:
         viejos = list(db['fantasy_teams'].find({"user_id": usuario_oid, "mundial_id": {"$exists": False}}).sort("fase_id", -1))
         if not viejos:
-            return None
+            return []
         equipo = viejos[0]
         total = sum(v.get("total_points_fase", 0) for v in viejos)
         db['fantasy_teams'].update_one({"_id": equipo["_id"]}, {"$set": {
@@ -262,58 +247,82 @@ def _equipo_del_mundial(usuario_oid: ObjectId) -> Optional[dict]:
             "cambios_gratis_disponibles": min(TOPE_CAMBIOS_GRATIS, max(CAMBIOS_GRATIS_POR_JORNADA, equipo.get("cambios_gratis_disponibles", 0)))}})
         if len(viejos) > 1:
             db['fantasy_teams'].delete_many({"_id": {"$in": [v["_id"] for v in viejos[1:]]}})
-        equipo = db['fantasy_teams'].find_one({"_id": equipo["_id"]})
-    # Cambios gratis de las jornadas que pasaron desde el último crédito (+N por jornada, con tope)
-    pendientes = jornada["numero"] - equipo.get("jornada_credito", jornada["numero"])
-    if pendientes > 0:
-        nuevos = min(TOPE_CAMBIOS_GRATIS, equipo.get("cambios_gratis_disponibles", 0) + pendientes * CAMBIOS_GRATIS_POR_JORNADA)
-        db['fantasy_teams'].update_one({"_id": equipo["_id"], "jornada_credito": equipo.get("jornada_credito")},
-                                       {"$set": {"cambios_gratis_disponibles": nuevos, "jornada_credito": jornada["numero"]}})
-        equipo["cambios_gratis_disponibles"], equipo["jornada_credito"] = nuevos, jornada["numero"]
-    return equipo
+        equipos = [db['fantasy_teams'].find_one({"_id": equipo["_id"]})]
+
+    for equipo in equipos:
+        if equipo.get("v2"):
+            continue
+        cambios = {"v2": True, "escuadra": equipo.get("escuadra") or 1}
+        formacion = equipo.get("formacion")
+        if formacion not in CFF.FORMACIONES or not _cuadra_con_formacion(equipo["lineup"], formacion):
+            cambios["formacion"] = FORMACION_DEFAULT
+        if equipo.get("completo_desde_jornada") is None:
+            primero = db['fantasy_points_history'].find_one({"fantasy_team_id": equipo["_id"], "jornada": {"$exists": True}},
+                                                           {"jornada": 1}, sort=[("jornada", 1)])
+            cambios["completo_desde_jornada"] = (primero or {}).get("jornada") or equipo.get("jornada_credito") or jornada["numero"]
+        if equipo.get("monto_ganado") is None:
+            ganado = list(db['fantasy_points_history'].aggregate([
+                {"$match": {"fantasy_team_id": equipo["_id"]}}, {"$group": {"_id": None, "t": {"$sum": "$monto_otorgado"}}}]))
+            cambios["monto_ganado"] = ganado[0]["t"] if ganado else 0
+        db['fantasy_teams'].update_one({"_id": equipo["_id"]}, {"$set": cambios})
+        equipo.update(cambios)
+
+    for equipo in equipos:
+        _acreditar_jornadas(equipo, jornada)
+    return sorted(equipos, key=lambda e: e.get("escuadra", 1))
+
+
+def _equipo_del_mundial(usuario_oid: ObjectId, escuadra: int = 1) -> Optional[dict]:
+    return next((e for e in _escuadras_del_mundial(usuario_oid) if e.get("escuadra", 1) == escuadra), None)
+
+
+def datos_usuario_fantasy(usuario_id) -> dict:
+    """{_id, monto, fantasy_escuadras, activo} del usuario (lo que piden el desbloqueo y la vista)."""
+    oid = usuario_id if isinstance(usuario_id, ObjectId) else ObjectId(usuario_id)
+    return db['usuarios'].find_one({"_id": oid}, {"monto": 1, "fantasy_escuadras": 1, "activo": 1}) or {"_id": oid}
+
+
+def escuadras_desbloqueadas(usuario: dict) -> int:
+    return max(1, min(CFF.ESCUADRAS_MAX, int(usuario.get("fantasy_escuadras") or 1)))
 
 
 # ==========================================
 # Armado del Once Ideal
 # ==========================================
-def _validar_alineacion(lineup: List[int]) -> None:
+def _validar_alineacion(lineup: List[int], formacion: str, otros_lineups: Optional[List[List[int]]] = None) -> None:
+    """
+    Cupos por línea de la formación (cada jugador en la línea natural de su posición), 2 por selección y 1 leyenda
+    dentro del equipo, y ningún jugador que ya esté en otro equipo del usuario.
+    """
     if len(lineup) != CANTIDAD_JUGADORES_LINEUP:
         raise ValueError(f"El Once Ideal debe tener exactamente {CANTIDAD_JUGADORES_LINEUP} jugadores")
     if len(set(lineup)) != len(lineup):
         raise ValueError("No se puede repetir el mismo jugador en la alineación")
 
-    jugadores = list(db['jugadores'].find({"id": {"$in": lineup}}, {"id": 1, "posicion_id": 1, "pais_id": 1, "leyenda": 1}))
+    jugadores = list(db['jugadores'].find({"id": {"$in": lineup}}, {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "leyenda": 1}))
     if len(jugadores) != len(lineup):
         raise ValueError("Uno o más jugadores de la alineación no existen")
 
     if sum(1 for j in jugadores if j.get("leyenda")) > MAX_LEYENDAS_FANTASY:
-        raise ValueError(f"Solo puedes tener {MAX_LEYENDAS_FANTASY} leyenda en tu Once Ideal")
+        raise ValueError(f"Solo puedes tener {MAX_LEYENDAS_FANTASY} leyenda por equipo")
 
-    # Máximo 2 jugadores por selección
     conteo_por_pais: Dict[int, int] = {}
     for j in jugadores:
         conteo_por_pais[j["pais_id"]] = conteo_por_pais.get(j["pais_id"], 0) + 1
-    excedidos = [pid for pid, cantidad in conteo_por_pais.items() if cantidad > MAX_JUGADORES_POR_PAIS]
-    if excedidos:
-        raise ValueError(f"Máximo {MAX_JUGADORES_POR_PAIS} jugadores por selección (excedido en país id {excedidos})")
+    if any(c > MAX_JUGADORES_POR_PAIS for c in conteo_por_pais.values()):
+        raise ValueError(f"Máximo {MAX_JUGADORES_POR_PAIS} jugadores por selección en cada equipo")
 
-    # Cada una de las 11 posiciones reales (Portero + las 10 de campo) debe cubrirse con
-    # exactamente 1 jugador — sin repetir ninguna. Es agnóstico a la formación elegida:
-    # las 3 formaciones soportadas usan las mismas 10 posiciones de campo, solo cambia en
-    # qué línea se muestra cada una (ver FORMACIONES_GRANULARES y su nota de diseño arriba).
-    mapa_posiciones = _mapa_posiciones()
-    ids_requeridos = set(mapa_posiciones.keys())
-    ids_lineup = [j["posicion_id"] for j in jugadores]
+    cupos = CFF.cupos_formacion(formacion)
+    nombres = {"PORTERO": "portero", "DEFENSA": "defensas", "MEDIO": "medios", "DELANTERO": "delanteros"}
+    for linea, n in cupos.items():
+        tiene = sum(1 for j in jugadores if CFF.LINEA_DE_POSICION.get(j.get("posicion_id")) == linea)
+        if tiene != n:
+            raise ValueError(f"El {formacion} lleva {n} {nombres[linea]} y tu equipo tiene {tiene}")
 
-    if len(set(ids_lineup)) != len(ids_lineup):
-        repetidas = {pid for pid in ids_lineup if ids_lineup.count(pid) > 1}
-        siglas_repetidas = ", ".join(sorted(mapa_posiciones.get(pid, {}).get("siglas", "?") for pid in repetidas))
-        raise ValueError(f"No puedes tener más de un jugador en la misma posición: {siglas_repetidas}")
-
-    if set(ids_lineup) != ids_requeridos:
-        faltantes = ids_requeridos - set(ids_lineup)
-        siglas_faltantes = ", ".join(sorted(mapa_posiciones.get(pid, {}).get("siglas", "?") for pid in faltantes))
-        raise ValueError(f"Faltan jugadores para estas posiciones: {siglas_faltantes}")
+    en_otros = {j for otro in (otros_lineups or []) for j in otro}
+    repetidos = [j.get("nombre") for j in jugadores if j["id"] in en_otros]
+    if repetidos:
+        raise ValueError("Ya están en otro de tus equipos: " + ", ".join(repetidos))
 
 
 def calcular_cambios(lineup_anterior: List[int], lineup_nuevo: List[int], cambios_gratis: int) -> dict:
@@ -332,28 +341,36 @@ def calcular_cambios(lineup_anterior: List[int], lineup_nuevo: List[int], cambio
             "costo": extra * COSTO_CAMBIO_EXTRA, "cambios_gratis_restantes": cambios_gratis - usados}
 
 
-def set_fantasy_lineup(usuario_id: str, lineup: List[int], formacion: str = FORMACION_DEFAULT) -> dict:
+def set_fantasy_lineup(usuario_id: str, lineup: List[int], formacion: str = FORMACION_DEFAULT, escuadra: int = 1) -> dict:
     """
-    Valida y guarda el Once Ideal del usuario para el Mundial activo (un solo equipo, suma en todas las fases).
-    Armarlo por primera vez es gratis. Después, cada guardado se desglosa con calcular_cambios: los reemplazos
-    de jugadores eliminados son gratis, el resto consume los cambios gratis de las jornadas y cada cambio extra
-    cobra COSTO_CAMBIO_EXTRA de saldo (atómico). No se puede SUMAR un jugador de una selección eliminada.
-    'formacion' es solo la preferencia visual de agrupamiento (ver nota de diseño arriba).
-    Lanza ValueError con un mensaje descriptivo si alguna validación falla.
+    Valida y guarda uno de los equipos del usuario para el Mundial activo (suman en todas las fases). Armarlo por
+    primera vez es gratis. Después, cada guardado se desglosa con calcular_cambios: los reemplazos de jugadores
+    eliminados son gratis, el resto consume los cambios gratis de las jornadas de ESE equipo y cada cambio extra cobra
+    COSTO_CAMBIO_EXTRA de saldo (atómico). No se puede SUMAR un jugador de una selección eliminada.
+    Cada equipo usa una formación distinta (define los cupos por línea). Lanza ValueError si algo no se cumple.
     """
-    _validar_alineacion(lineup)
-    if formacion not in FORMACIONES_GRANULARES:
-        formacion = FORMACION_DEFAULT
-
+    if formacion not in CFF.FORMACIONES:
+        raise ValueError("Formación desconocida")
     usuario_oid = ObjectId(usuario_id)
     usuario = db['usuarios'].find_one({"_id": usuario_oid})
     if not usuario or not usuario.get("activo", True):
         raise ValueError("Usuario no encontrado o inactivo")
+    try:
+        escuadra = int(escuadra or 1)
+    except (TypeError, ValueError):
+        raise ValueError("Equipo inválido")
+    if escuadra < 1 or escuadra > escuadras_desbloqueadas(usuario):
+        raise ValueError("Ese equipo todavía no está desbloqueado")
 
     jornada = jornada_actual()
     if not jornada["mundial_id"]:
         raise ValueError("No hay un Mundial activo")
-    equipo = _equipo_del_mundial(usuario_oid)
+    todos = _escuadras_del_mundial(usuario_oid)
+    equipo = next((e for e in todos if e.get("escuadra", 1) == escuadra), None)
+    otros = [e for e in todos if e is not equipo]
+    if any(e.get("formacion") == formacion for e in otros):
+        raise ValueError(f"Ya usas el {formacion} en otro equipo: cada equipo lleva una formación distinta")
+    _validar_alineacion(lineup, formacion, [e["lineup"] for e in otros])
     anteriores = set(equipo["lineup"]) if equipo else set()
 
     # No se puede sumar un jugador que ya no juega (los que ya estaban se pueden mantener hasta cambiarlos)
@@ -366,9 +383,10 @@ def set_fantasy_lineup(usuario_id: str, lineup: List[int], formacion: str = FORM
                              + ", ".join(f"{j.get('nombre')} ({eliminados[j['pais_id']].lower()})" for j in bloqueados))
 
     if not equipo:
-        nuevo = {"user_id": usuario_oid, "mundial_id": jornada["mundial_id"], "lineup": lineup, "formacion": formacion,
-                 "total_points_fase": 0, "cambios_gratis_disponibles": CAMBIOS_GRATIS_POR_JORNADA, "jornada_credito": jornada["numero"],
-                 "created_at": datetime.now()}
+        nuevo = {"user_id": usuario_oid, "mundial_id": jornada["mundial_id"], "escuadra": escuadra, "lineup": lineup,
+                 "formacion": formacion, "total_points_fase": 0, "monto_ganado": 0, "v2": True,
+                 "cambios_gratis_disponibles": CAMBIOS_GRATIS_POR_JORNADA, "jornada_credito": jornada["numero"],
+                 "completo_desde_jornada": jornada["numero"], "created_at": datetime.now()}
         nuevo["_id"] = db['fantasy_teams'].insert_one(nuevo).inserted_id
         desglose = {"total": 0, "gratis_eliminados": 0, "usados": 0, "extra": 0, "costo": 0, "cambios_gratis_restantes": CAMBIOS_GRATIS_POR_JORNADA}
         equipo = nuevo
@@ -391,8 +409,64 @@ def set_fantasy_lineup(usuario_id: str, lineup: List[int], formacion: str = FORM
     return {**_serializar_equipo(equipo), "cambios": desglose}
 
 
+def estado_desbloqueo(usuario: dict, escuadras: Optional[List[dict]] = None) -> Optional[dict]:
+    """
+    El próximo equipo por desbloquear: {escuadra, costo, jornadas_requeridas, jornadas_cumplidas, listo, motivo}
+    (None si ya están todos). Pide saldo y JORNADAS_PARA_DESBLOQUEAR jornadas con el equipo anterior armado.
+    """
+    abiertas = escuadras_desbloqueadas(usuario)
+    if abiertas >= CFF.ESCUADRAS_MAX:
+        return None
+    siguiente = abiertas + 1
+    if escuadras is None:
+        escuadras = _escuadras_del_mundial(usuario["_id"] if isinstance(usuario["_id"], ObjectId) else ObjectId(usuario["_id"]))
+    anterior = next((e for e in escuadras if e.get("escuadra", 1) == abiertas), None)
+    jornada = jornada_actual()["numero"]
+    cumplidas = max(0, jornada - anterior["completo_desde_jornada"]) if anterior and anterior.get("completo_desde_jornada") else 0
+    costo = CFF.COSTOS_ESCUADRA[siguiente]
+    motivo = None
+    if not anterior:
+        motivo = f"Primero arma tu equipo {abiertas}"
+    elif cumplidas < CFF.JORNADAS_PARA_DESBLOQUEAR:
+        faltan = CFF.JORNADAS_PARA_DESBLOQUEAR - cumplidas
+        motivo = f"Juega {faltan} jornada{'s' if faltan != 1 else ''} más con tu equipo {abiertas}"
+    elif (usuario.get("monto") or 0) < costo:
+        motivo = f"Te faltan {costo - int(usuario.get('monto') or 0):,} de saldo"
+    return {"escuadra": siguiente, "costo": costo, "jornadas_requeridas": CFF.JORNADAS_PARA_DESBLOQUEAR,
+            "recupera_jornadas": round(costo / CFF.PAGO_ESPERADO_JORNADA), "pago_jornada": CFF.PAGO_ESPERADO_JORNADA,
+            "jornadas_cumplidas": min(cumplidas, CFF.JORNADAS_PARA_DESBLOQUEAR), "listo": motivo is None, "motivo": motivo}
+
+
+def desbloquear_escuadra(usuario_id: str) -> dict:
+    """Desbloquea el siguiente equipo: cobro atómico condicionado al saldo y a que nadie lo haya desbloqueado antes."""
+    usuario_oid = ObjectId(usuario_id)
+    usuario = db['usuarios'].find_one({"_id": usuario_oid}, {"monto": 1, "fantasy_escuadras": 1, "activo": 1})
+    if not usuario or not usuario.get("activo", True):
+        raise ValueError("Usuario no encontrado o inactivo")
+    estado = estado_desbloqueo(usuario)
+    if not estado:
+        raise ValueError("Ya tienes todos los equipos desbloqueados")
+    if not estado["listo"]:
+        raise ValueError(estado["motivo"])
+    abiertas = estado["escuadra"] - 1
+    filtro_abiertas = {"$in": [None, 1]} if abiertas == 1 else abiertas
+    cobro = db['usuarios'].update_one({"_id": usuario_oid, "monto": {"$gte": estado["costo"]}, "fantasy_escuadras": filtro_abiertas},
+                                      {"$inc": {"monto": -estado["costo"]}, "$set": {"fantasy_escuadras": estado["escuadra"]}})
+    if cobro.modified_count == 0:
+        raise ValueError("No se pudo desbloquear: revisa tu saldo e intenta de nuevo")
+    db['fantasy_movimientos'].insert_one({"user_id": usuario_oid, "tipo": "DESBLOQUEO", "monto": -estado["costo"],
+                                          "escuadra": estado["escuadra"], "detalle": f"Equipo {estado['escuadra']} del Once Ideal",
+                                          "created_at": datetime.now()})
+    niveles_service.otorgar_logro(usuario_oid, "SEGUNDO_EQUIPO_FANTASY")
+    return {"escuadra": estado["escuadra"], "costo": estado["costo"]}
+
+
+def obtener_escuadras(usuario_id: str) -> List[dict]:
+    return [_serializar_equipo(e) for e in _escuadras_del_mundial(ObjectId(usuario_id))]
+
+
 def obtener_alineacion(usuario_id: str, fase_id: Optional[int] = None) -> Optional[dict]:
-    """Once Ideal del usuario para el Mundial activo ('fase_id' se ignora: se mantiene por compatibilidad de la API)."""
+    """Equipo 1 del usuario para el Mundial activo ('fase_id' se ignora: se mantiene por compatibilidad de la API)."""
     equipo = _equipo_del_mundial(ObjectId(usuario_id))
     return _serializar_equipo(equipo) if equipo else None
 
@@ -429,15 +503,17 @@ def _enriquecer_jugadores(jugadores: List[dict]) -> List[dict]:
 
 
 def buscar_jugadores(texto: str = "", pais_id: Optional[int] = None, posicion_id: Optional[int] = None, limite: int = 30,
-                     leyendas: Optional[bool] = None) -> List[dict]:
-    """Búsqueda por nombre/país/posición, para el selector de jugadores del Once Ideal (leyendas=True: solo leyendas)."""
+                     leyendas: Optional[bool] = None, linea: Optional[str] = None) -> List[dict]:
+    """Búsqueda por nombre/país/posición o línea, para el selector del Once Ideal (leyendas=True: solo leyendas)."""
     filtro: Dict[str, Any] = {}
+    if linea in CFF.LINEAS and posicion_id is None:
+        filtro["posicion_id"] = {"$in": [p for p, l in CFF.LINEA_DE_POSICION.items() if l == linea]}
     if leyendas is True:
         filtro["leyenda"] = True
     elif leyendas is False:
         filtro["leyenda"] = {"$ne": True}
     if texto:
-        filtro["nombre"] = {"$regex": texto, "$options": "i"}
+        filtro["nombre"] = {"$regex": re.escape(texto), "$options": "i"}
     if pais_id is not None:
         filtro["pais_id"] = pais_id
     if posicion_id is not None:
@@ -504,28 +580,51 @@ def _calcular_puntos_base(stats: dict, goles_local: int, goles_visitante: int) -
     return sum(item["subtotal"] for item in _desglosar_puntos_base(stats, goles_local, goles_visitante))
 
 
+def puntos_con_postura(desglose: List[dict], formacion: str) -> int:
+    """Puntos fantasy con la postura de la formación: goles/asistencias valen más en una ofensiva, la valla en una defensiva."""
+    postura = FSF.postura(formacion) if formacion in CFF.FORMACIONES else 0.0
+    total = 0.0
+    for item in desglose:
+        if item["concepto"] in ("Goles", "Asistencias"):
+            total += item["subtotal"] * (1 + CFF.POSTURA_GOL * postura)
+        elif item["concepto"] == "Arquería en cero":
+            total += item["subtotal"] * (1 - CFF.POSTURA_VALLA * postura)
+        else:
+            total += item["subtotal"]
+    return int(round(total))
+
+
+def pago_partido(stats: dict, desglose: List[dict], formacion: str, en_album: bool) -> dict:
+    """
+    Lógica pura: lo que gana un jugador alineado en un partido (ver config/fantasy.py).
+    {puntos_formacion, puntos_finales, pago_jugar, pago_desempeno, pago_puntos, multiplicador, monto}
+    """
+    multiplicador = MULTIPLICADOR_SINERGIA if en_album else 1.0
+    puntos_formacion = puntos_con_postura(desglose, formacion)
+    puntos_finales = int(puntos_formacion * multiplicador)
+    linea = CFF.LINEA_DE_POSICION.get(stats.get("posicion_id")) or str(stats.get("posicion") or "MEDIO").upper()
+    pago_jugar = CFF.PAGO_POR_PARTIDO.get(linea, CFF.PAGO_POR_PARTIDO["MEDIO"]) * (CFF.FRACCION_SUPLENTE if stats.get("entro_de_cambio") else 1.0)
+    rating = stats.get("rating")
+    pago_desempeno = max(0.0, (rating or CFF.RATING_BASE_PAGO) - CFF.RATING_BASE_PAGO) * CFF.PAGO_POR_PUNTO_RATING
+    pago_puntos = puntos_formacion * CFF.PORCENTAJE_MONTO_POR_PUNTOS
+    monto = max(0, int(round((pago_jugar + pago_desempeno + pago_puntos) * multiplicador)))
+    return {"puntos_formacion": puntos_formacion, "puntos_finales": puntos_finales, "rating": rating,
+            "pago_jugar": int(round(pago_jugar)), "pago_desempeno": int(round(pago_desempeno)),
+            "pago_puntos": int(round(pago_puntos)), "multiplicador": multiplicador, "monto": monto}
+
+
 def procesar_eventos_jugadores_partido(
     fase_id: int, stats_jugadores: Dict[int, dict], goles_local: int, goles_visitante: int,
     match_id: Optional[str] = None, mundial_id: Optional[str] = None
 ) -> None:
     """
-    Se llama al terminar de simular un partido (ver routes/simular_route.py).
-    Por cada jugador que participó, calcula sus puntos base y los distribuye
-    entre los usuarios que lo tengan en su Once Ideal del Mundial (sea cual sea la fase del partido) y/o en su Álbum:
-      a) Solo en el Once Ideal          -> 100% de los puntos base -> total_points_fase.
-      b) Solo en el Álbum (sin lineup)  -> 20% de los puntos base (pasiva)  -> usuarios.monto.
-      c) En AMBOS                       -> 150% (sinergia x1.5)   -> total_points_fase.
-    Los casos a) y c) (los que SÍ tocan total_points_fase) quedan además
-    registrados en 'fantasy_points_history', con el desglose de cómo se armó
-    el puntaje — es la fuente del historial que se muestra en el Once Ideal
-    (ver obtener_historial_puntos_fantasy). El caso b) NO se registra ahí
-    porque no es puntaje fantasy: es un beneficio pasivo del Álbum a
-    usuarios.monto, fuera del alcance de "cálculo de puntos fantasy".
-
-    Además, en los casos a) y c), se acredita a 'usuarios.monto' un porcentaje
-    (PORCENTAJE_MONTO_POR_PUNTOS_FANTASY) de los puntos finales del jugador — un
-    incentivo en moneda gastable por tener al jugador realmente alineado, aparte del
-    puntaje de liga fantasy (que sigue siendo un contador separado, no moneda).
+    Se llama al terminar cada partido (juegos_service.aplicar_efectos_secundarios; en vivo, al terminar la transmisión).
+    Por cada jugador que participó:
+      a) En un equipo del Once Ideal: cobra el pago del partido (pago_partido: por jugar + desempeño + % de sus puntos
+         con la postura de la formación; ×1.5 si además tiene su estampa) a usuarios.monto, y sus puntos fantasy suman
+         al equipo (total_points_fase). Queda en 'fantasy_points_history' aunque no haya hecho puntos (cobró por jugar).
+      b) Solo en el Álbum: 20% de los puntos base (pasiva) a usuarios.monto, en 'album_passive_rewards'.
+    Un jugador está en un solo equipo por usuario (lo valida set_fantasy_lineup).
     """
     if not stats_jugadores:
         return
@@ -533,39 +632,33 @@ def procesar_eventos_jugadores_partido(
     jornada = jornada_actual()["numero"]
 
     for jugador_id, stats in stats_jugadores.items():
+        try:
+            jugador_id = int(jugador_id)
+        except (TypeError, ValueError):
+            continue
         desglose = _desglosar_puntos_base(stats, goles_local, goles_visitante)
         puntos_base = sum(item["subtotal"] for item in desglose)
-        if puntos_base == 0:
-            continue
 
         equipos_con_lineup = list(db['fantasy_teams'].find(
-            {"mundial_id": mundial_id, "lineup": jugador_id},
-            {"user_id": 1}
-        ))
+            {"mundial_id": mundial_id, "lineup": jugador_id}, {"user_id": 1, "formacion": 1, "escuadra": 1}))
+        if not equipos_con_lineup and puntos_base == 0:
+            continue
+        albumes_con_jugador = list(db['user_albums'].find({"owned_jugadores": jugador_id}, {"user_id": 1}))
+        ids_en_album = {a["user_id"] for a in albumes_con_jugador}
         ids_en_lineup = {eq["user_id"] for eq in equipos_con_lineup}
 
-        albumes_con_jugador = list(db['user_albums'].find(
-            {"owned_jugadores": jugador_id},
-            {"user_id": 1}
-        ))
-        ids_en_album = {a["user_id"] for a in albumes_con_jugador}
-
-        # Casos a) y c): tiene al jugador en su Once Ideal del Mundial
         for equipo in equipos_con_lineup:
             en_album = equipo["user_id"] in ids_en_album
-            multiplicador = MULTIPLICADOR_SINERGIA if en_album else 1.0
-            puntos_finales = int(puntos_base * multiplicador)
-            monto_otorgado = int(puntos_finales * PORCENTAJE_MONTO_POR_PUNTOS_FANTASY)
-
-            db['fantasy_teams'].update_one(
-                {"_id": equipo["_id"]},
-                {"$inc": {"total_points_fase": puntos_finales}}
-            )
-            if monto_otorgado != 0:
-                db['usuarios'].update_one({"_id": equipo["user_id"]}, {"$inc": {"monto": monto_otorgado}})
+            pago = pago_partido(stats, desglose, equipo.get("formacion") or FORMACION_DEFAULT, en_album)
+            db['fantasy_teams'].update_one({"_id": equipo["_id"]},
+                                           {"$inc": {"total_points_fase": pago["puntos_finales"], "monto_ganado": pago["monto"]}})
+            if pago["monto"]:
+                db['usuarios'].update_one({"_id": equipo["user_id"]}, {"$inc": {"monto": pago["monto"]}})
             db['fantasy_points_history'].insert_one({
                 "user_id": equipo["user_id"],
                 "fantasy_team_id": equipo["_id"],
+                "escuadra": equipo.get("escuadra", 1),
+                "formacion": equipo.get("formacion"),
                 "fase_id": fase_id,   # fase del partido (informativo: el equipo suma en todas)
                 "mundial_id": mundial_id,
                 "jornada": jornada,
@@ -575,20 +668,20 @@ def procesar_eventos_jugadores_partido(
                 "desglose": desglose,
                 "puntos_base": puntos_base,
                 "sinergia_album_aplicada": en_album,
-                "multiplicador": multiplicador,
-                "puntos_finales": puntos_finales,
-                "monto_otorgado": monto_otorgado,
+                "multiplicador": pago["multiplicador"],
+                "puntos_finales": pago["puntos_finales"],
+                "monto_otorgado": pago["monto"],
+                "pago": pago,
                 "created_at": datetime.now()
             })
 
-        # Caso b): tiene la estampa pero NO tiene a este jugador en su Once Ideal.
-        # No se registra en 'fantasy_points_history' (no es puntaje fantasy, ver
-        # docstring arriba), sino en 'album_passive_rewards' -- únicamente para poder
-        # marcar en el Álbum (templates/album_coleccion.html) qué estampas de jugador
-        # ya le generaron alguna regalía pasiva al usuario.
+        # Caso b): tiene la estampa pero NO tiene a este jugador en ningún equipo. No es puntaje fantasy: va a
+        # 'album_passive_rewards' (el Álbum marca qué estampas de jugador ya dieron regalía pasiva).
+        if puntos_base == 0:
+            continue
         for album in albumes_con_jugador:
             if album["user_id"] in ids_en_lineup:
-                continue  # ya cubierto arriba (caso c)
+                continue
             puntos_pasivos = int(puntos_base * PORCENTAJE_RECOMPENSA_PASIVA)
             if puntos_pasivos != 0:
                 db['usuarios'].update_one({"_id": album["user_id"]}, {"$inc": {"monto": puntos_pasivos}})
@@ -623,6 +716,8 @@ def obtener_historial_puntos_fantasy(usuario_id: str, fase_id: Optional[int] = N
             "multiplicador": r.get("multiplicador", 1.0),
             "puntos_finales": r.get("puntos_finales", 0),
             "monto_otorgado": r.get("monto_otorgado", 0),
+            "escuadra": r.get("escuadra", 1),
+            "pago": r.get("pago"),
             "created_at": r.get("created_at")
         }
         for r in registros

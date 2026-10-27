@@ -60,8 +60,14 @@ async def scouter_view(request: Request, match_id: str):
     except Exception as e:
         logger.error(f"Error al armar el historial entre ambos del partido '{match_id}': {str(e)}")
         h2h = None
+    try:
+        from services.juegos_service import planteamiento_probable
+        planteo = planteamiento_probable(match_id)
+    except Exception as e:
+        logger.error(f"Formación probable del partido '{match_id}': {str(e)}")
+        planteo = None
     return templates.TemplateResponse(
         request=request,
         name="prematch_scouter.html",
-        context={"analisis": analisis, "match_id": match_id, "h2h": h2h}
+        context={"analisis": analisis, "match_id": match_id, "h2h": h2h, "planteo": planteo}
     )

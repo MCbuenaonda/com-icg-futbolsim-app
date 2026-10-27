@@ -28,7 +28,7 @@ from config.settings import MONGODB_URI
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database("mundial")
 
-VERSION = 5
+VERSION = 6   # 6: planteamiento de los DT (formaciones v2)
 TIPOS_GOL = ("⚽ GOL", "⚽ GOL DE TIRO LIBRE", "⚽ GOL DE CÓRNER", "⚽ GOL DE PENAL")
 COMPETICION = {1: "las Eliminatorias de la UEFA", 2: "las Eliminatorias de la CONMEBOL", 3: "las Eliminatorias de la CONCACAF",
                4: "las Eliminatorias de la CAF", 5: "las Eliminatorias de la OFC", 6: "las Eliminatorias de la AFC"}
@@ -179,7 +179,7 @@ def analizar(juego: dict) -> dict:
             dt_expulsiones.append({"min": m, "adic": ad, "per": per, "seg": seg, "lado": ld, "dt": e.get("dt") or ""})
         elif t == "📋 AJUSTE TÁCTICO" and ld:
             ajustes.append({"min": m, "adic": ad, "per": per, "seg": seg, "lado": ld, "dt": e.get("dt") or "", "ajuste": e.get("ajuste"),
-                            "marcador": dict(marcador)})
+                            "marcador": dict(marcador), "esquema_de": e.get("esquema_de"), "esquema_a": e.get("esquema_a")})
 
     gl, gv = int(res.get("goles_local") or 0), int(res.get("goles_visitante") or 0)
     pl, pv = res.get("penaltis_local"), res.get("penaltis_visitante")
@@ -205,6 +205,8 @@ def analizar(juego: dict) -> dict:
         "tiros": {"L": (estad.get("local") or {}).get("tiros_totales"), "V": (estad.get("visitante") or {}).get("tiros_totales")},
         "asistencia": (juego.get("aforo") or {}).get("asistencia"), "clima": (juego.get("clima") or {}).get("descripcion") or (juego.get("clima") or {}).get("tipo"),
         "leyendas_titulares": {k: [n for n in titulares[k] if n in leyendas[k]] for k in "LV"},
+        # planteamiento de cada DT (formaciones v2): {L|V: {esquema, etiqueta, motivo, cambios}}
+        "planteamiento": {"L": (res.get("planteamiento") or {}).get("local"), "V": (res.get("planteamiento") or {}).get("visita")},
         "goleadores_sub": {g["jugador_nombre"] for g in res.get("goleadores") or [] if g.get("entro_de_cambio")},
         "dt": {"L": ((res.get("dt") or {}).get("local") or {}).get("nombre"), "V": ((res.get("dt") or {}).get("visita") or {}).get("nombre")},
         "dt_expulsiones": dt_expulsiones, "ajustes": ajustes,
@@ -644,6 +646,21 @@ def redactar(h: dict) -> dict:
             leyendas_txt.append(f"{nombre[k]} salió con {('la leyenda ' + ls[0]) if len(ls) == 1 else ('las leyendas ' + ', '.join(ls[:-1]) + ' y ' + ls[-1])}")
     if leyendas_txt:
         entrada += " " + r.choice(["Como dato especial, ", "Hubo historia en la cancha: ", "Detalle de lujo: "]) + "; ".join(leyendas_txt) + "."
+    plan = h.get("planteamiento") or {}
+    if plan.get("L") and plan.get("V"):
+        def _esq(k):
+            p = plan[k]
+            return f"un {p['esquema']} {str(p.get('etiqueta') or '').lower()}".rstrip()
+        entrada += " " + r.choice([
+            f"En la pizarra, {nombre['L']} salió con {_esq('L')} y {nombre['V']} respondió con {_esq('V')}.",
+            f"Los técnicos se jugaron sus cartas: {_esq('L')} para {nombre['L']}, {_esq('V')} para {nombre['V']}.",
+            f"{nombre['L']} se paró con {_esq('L')}; enfrente, {nombre['V']} eligió {_esq('V')}.",
+        ])
+        cambio = next((p for k in "LV" for p in (plan.get(k) or {}).get("cambios") or []), None)
+        if cambio and not (h.get("principal") or {}).get("clave") == "ajuste_decisivo":
+            k = next(k for k in "LV" if cambio in ((plan.get(k) or {}).get("cambios") or []))
+            entrada += " " + r.choice([f"En el {cambio['minuto']}' {nombre[k]} pasó del {cambio['de']} al {cambio['a']}.",
+                                       f"Al {cambio['minuto']}', {nombre[k]} cambió el dibujo: del {cambio['de']} al {cambio['a']}."])
     arbs = h["arbs"]
     if h["arbitro"] and h["arbitro"] not in entrada:
         etiqueta = _etiqueta_rigor(h["rigor"])

@@ -134,7 +134,8 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
     equipos_fantasy = list(db['fantasy_teams'].find({"user_id": usuario_oid}))
     resumen_fantasy = {
         "alineaciones_armadas": len(equipos_fantasy),
-        "puntos_totales": sum(e.get("total_points_fase", 0) for e in equipos_fantasy)
+        "puntos_totales": sum(e.get("total_points_fase", 0) for e in equipos_fantasy),
+        "saldo_ganado": sum(e.get("monto_ganado", 0) or 0 for e in equipos_fantasy)
     }
 
     # ---------------------------------------------------------------
@@ -314,6 +315,23 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
         })
 
     # Asistente "El Profe": lo cobrado (las devoluciones de la garantía quedan en 0 y no se listan)
+    # Once Ideal: pago de cada partido de un jugador alineado, desbloqueo de equipos y consultas al Ojeador
+    for r in db['fantasy_points_history'].find({"user_id": usuario_oid, "monto_otorgado": {"$gt": 0}},
+                                               {"created_at": 1, "jugador_nombre": 1, "monto_otorgado": 1, "escuadra": 1}):
+        feed.append({
+            "fecha": r["created_at"],
+            "categoria": "Once Ideal",
+            "descripcion": f"Once Ideal: pago por {r.get('jugador_nombre', '?')} (equipo {r.get('escuadra', 1)})",
+            "monto": r["monto_otorgado"],
+        })
+    for m in db['fantasy_movimientos'].find({"user_id": usuario_oid}, {"created_at": 1, "detalle": 1, "monto": 1, "tipo": 1}):
+        feed.append({
+            "fecha": m["created_at"],
+            "categoria": "Once Ideal",
+            "descripcion": ("Desbloqueo: " if m.get("tipo") == "DESBLOQUEO" else "") + (m.get("detalle") or "Once Ideal"),
+            "monto": m.get("monto", 0),
+        })
+
     for c in db['asistente_consultas'].find({"user_id": usuario_oid, "cobrado": {"$gt": 0}}, {"fecha": 1, "nivel": 1, "cobrado": 1}):
         feed.append({
             "fecha": c["fecha"],

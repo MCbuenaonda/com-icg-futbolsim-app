@@ -25,7 +25,7 @@ CAMPOS_CORP = ("capital", "sentimiento", "precio", "variacion_ciclo", "patrimoni
                "saneamiento")
 CAMPOS_CONTRATO = ("renta_total", "renta_ciclo", "honorarios_total", "satisfaccion", "jugo_en_ciclo", "ciclos_sin_jugar",
                    "partidos", "foto_fase", "valor_actual", "activo", "fin_ciclo", "motivo_fin", "desde_ciclo", "hasta_ciclo",
-                   "prima", "origen", "pidio_salida_ciclo", "eventos_ciclo")
+                   "prima", "origen", "pidio_salida_ciclo", "eventos_ciclo", "eventos_marcas")
 
 _cache_aportes: "OrderedDict[str, dict]" = OrderedDict()
 MAX_CACHE_APORTES = 3000
@@ -123,7 +123,7 @@ def ciclo_vacio() -> dict:
     """Acumulados del ciclo en curso de un corporativo. 'extra' = patrocinios de marcas, acuerdos y giras (ingresos);
     'gastos_extra' = costos de las giras; 'comision_ceo' = comisión de las marcas que cobra el CEO con el sueldo."""
     return {"renta": 0, "honorarios": 0, "amortizacion": 0, "sueldo": 0, "impago": False, "fichajes": 0,
-            "patrocinio": 0, "extra": 0, "gastos_extra": 0, "fama": {}, "comision_ceo": 0}
+            "patrocinio": 0, "extra": 0, "gastos_extra": 0, "fama": {}, "comision_ceo": 0, "marcas_bruto": 0}
 
 
 # --- Partido -------------------------------------------------------------------------------------
@@ -140,6 +140,7 @@ def procesar_partido(estado: Estado, aporte: dict, ciclo: int, juego_id: str) ->
         c["jugo_en_ciclo"] = True
         if (aporte.get("diferencia") or {}).get(pais_id, 0) <= -3:   # goleada en contra: la marca de un acuerdo puede cortar
             c.setdefault("eventos_ciclo", {})["goleada"] = True
+            c.setdefault("eventos_marcas", {})["goleada"] = True   # la ronda de marcas (cada 4 partidos) los ve y los limpia
         if resultado == "victoria":
             c["satisfaccion"] = min(100, c["satisfaccion"] + C.SATISFACCION["victoria_seleccion"])
         nombre = v["info_paises"].get(pais_id, {}).get("nombre", "?")
@@ -156,6 +157,7 @@ def procesar_partido(estado: Estado, aporte: dict, ciclo: int, juego_id: str) ->
         c["partidos"] = c.get("partidos", 0) + 1
         if ap.get("roja"):
             c.setdefault("eventos_ciclo", {})["roja"] = True
+            c.setdefault("eventos_marcas", {})["roja"] = True
         # Fama del CEO por una actuación destacada de su representado (hat-trick, gol + asistencia, valla invicta ganando)
         pais_j = v["info_jugadores"].get(jugador_id, {}).get("pais_id")
         destacada = ap.get("gol", 0) >= 3 or (ap.get("gol") and ap.get("asistencia")) or \

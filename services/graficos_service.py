@@ -275,6 +275,39 @@ def _estadios() -> dict:
 MINIMO_MOTOR_DT = 30   # partidos jugados con el DT en el motor (reclamos, ajustes) para mostrar sus gráficos
 
 
+MINIMO_ESQUEMAS = 30   # partidos jugados con formaciones v2 (planteamiento del DT) para mostrar el rendimiento por esquema
+
+
+def _esquemas() -> dict:
+    """Rendimiento por esquema inicial (puntos, goles a favor y en contra por partido) y cambios de esquema en vivo."""
+    from config import formaciones as CF
+    filas = {e: {"esquema": e, "etiqueta": CF.FORMACIONES[e]["etiqueta"], "partidos": 0, "puntos": 0, "gf": 0, "gc": 0} for e in CF.ESQUEMAS}
+    cambios = {"ataque": {"n": 0, "gol": 0}, "cerrar": {"n": 0, "gano": 0}}
+    n = 0
+    for j in db["juegos"].find({**ES._filtro_finalizados(), "resultado.planteamiento": {"$exists": True}},
+                               {"resultado.planteamiento": 1, "resultado.goles_local": 1, "resultado.goles_visitante": 1}):
+        r = j["resultado"]
+        n += 1
+        for lado, gf, gc in (("local", r["goles_local"], r["goles_visitante"]), ("visita", r["goles_visitante"], r["goles_local"])):
+            plan = (r.get("planteamiento") or {}).get(lado) or {}
+            f = filas.get(plan.get("esquema"))
+            if f:
+                f["partidos"] += 1
+                f["puntos"] += 3 if gf > gc else (1 if gf == gc else 0)
+                f["gf"] += gf
+                f["gc"] += gc
+            for c in plan.get("cambios") or []:
+                if c.get("ajuste") == "ataque":
+                    cambios["ataque"]["n"] += 1
+                elif c.get("ajuste") == "cerrar":
+                    cambios["cerrar"]["n"] += 1
+                    cambios["cerrar"]["gano"] += gf > gc
+    lista = [{**f, "ppp": round(f["puntos"] / f["partidos"], 2) if f["partidos"] else 0,
+              "gfp": round(f["gf"] / f["partidos"], 2) if f["partidos"] else 0,
+              "gcp": round(f["gc"] / f["partidos"], 2) if f["partidos"] else 0} for f in filas.values()]
+    return {"esquemas": lista, "esquemas_partidos": n, "esquemas_minimo": MINIMO_ESQUEMAS, "cambios_esquema": cambios}
+
+
 def _tecnicos() -> dict:
     from services.tecnicos_service import fecha_corta
     """Ceses por confederación y a lo largo del torneo; y, con suficientes partidos jugados con el DT en el motor,
@@ -298,6 +331,7 @@ def _tecnicos() -> dict:
                                      "resultado.eventos.equipo": 1, "resultado.eventos.ajuste": 1}))
     salida = {"ceses_conf": list(por_conf.values()), "ceses_tiempo": tiempo, "total_ceses": len(ceses),
               "regresos": db["dt_cargos"].count_documents({"regreso": True}), "motor": len(juegos), "minimo": MINIMO_MOTOR_DT}
+    salida.update(_esquemas())
     if len(juegos) < MINIMO_MOTOR_DT:
         return salida
     dts = {d["id"]: d for d in db["directores_tecnicos"].find({}, {"_id": 0, "id": 1, "estilo": 1, "temperamento": 1})}

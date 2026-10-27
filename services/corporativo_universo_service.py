@@ -229,6 +229,7 @@ def poner_al_dia(user_id) -> dict:
     from services import corporativo_fichajes_service as fichajes
     from services import corporativo_bolsa_service as bolsa
     from services import corporativo_marcas_service as marcas
+    from services import corporativo_acciones_service as acciones
 
     ahora = datetime.utcnow()
     universo = db["corp_universos"].find_one_and_update(
@@ -250,6 +251,12 @@ def poner_al_dia(user_id) -> dict:
                 economia.procesar_partido(estado, aportes[entrada["juego_id"]], universo["ultimo_ciclo"] + 1, entrada["juego_id"])
                 marcas.reacciones_partido(estado, aportes[entrada["juego_id"]], universo["ultimo_ciclo"] + 1, entrada["juego_id"])
             fichajes.resolver_pendientes(estado, universo, seq, universo["ultimo_ciclo"] + 1)
+            acciones.procesar_giras_partido(estado, seq, universo["ultimo_ciclo"] + 1)    # giras: cobran partido a partido
+            if seq % C.MARCA_PARTIDOS_RONDA == 0 and seq % C.PARTIDOS_POR_CICLO:          # ronda de marcas (la del cierre va en el cierre)
+                try:
+                    marcas.ronda_marcas(estado, universo["ultimo_ciclo"] + 1, seq)
+                except Exception as e:
+                    print(f"[corporativos] ronda de marcas {seq}: {e}")
             if not universo.get("primeras_ofertas") and seq >= universo["primeras_ofertas_seq"]:
                 carrera.ofertas_iniciales(universo)
                 universo["primeras_ofertas"] = True

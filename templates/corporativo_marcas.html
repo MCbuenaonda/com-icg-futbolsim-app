@@ -18,9 +18,10 @@
       <div class="min-w-0">
         <span class="corp-sobretitulo">Ciclo {{ ciclo }} · tu universo{% if sigla %} · {{ sigla }}{% endif %}</span>
         <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-badge-ad-fill text-warning me-2"></i>Marcas y patrocinios</h1>
-        <p class="text-muted small mb-0">Las marcas se acercan solas a los representados que les encajan, también puedes promoverlos tú. Pagan una firma y
-          un monto por ciclo: el {{ 100 - comision }}% va al corporativo y el {{ comision }}% es tu comisión (con el sueldo). Si al representado le va mal,
-          avisan y cortan. Máximo {{ max_marcas }} marcas por representado, una por rubro.</p>
+        <p class="text-muted small mb-0">Las marcas deciden cada {{ partidos_ronda }} partidos ({{ rondas_ciclo }} rondas por ciclo; la próxima en {{ ronda_en }} partido{{ 's' if ronda_en != 1 }}):
+          se acercan solas a los representados que les encajan, responden tus promociones y, si al representado le va mal, avisan y cortan.
+          Pagan una firma y el patrocinio en {{ rondas_ciclo }} pagos por ciclo: el {{ 100 - comision }}% va al corporativo y el {{ comision }}% es tu comisión (con el sueldo).
+          Máximo {{ max_marcas }} marcas por representado, una por rubro.</p>
       </div>
       {% if r %}
       <div class="d-flex gap-2 flex-wrap">
@@ -35,7 +36,7 @@
   </div>
 
   {% if r and r.ofertas %}
-  <h2 class="vivo-titulo"><i class="bi bi-envelope-paper-heart-fill text-warning"></i>Ofertas para responder <span class="text-muted small fw-normal">(vencen al cierre del ciclo siguiente)</span></h2>
+  <h2 class="vivo-titulo"><i class="bi bi-envelope-paper-heart-fill text-warning"></i>Ofertas para responder <span class="text-muted small fw-normal">(vencen a los 8 partidos)</span></h2>
   <div class="mk-ofertas mb-4">
     {% for o in r.ofertas %}
     <div class="mk-oferta" style="--marca: {{ o.marca.color }};">
@@ -43,7 +44,7 @@
       <div class="min-w-0 flex-grow-1">
         <div class="fw-bold text-white">{{ o.marca.nombre }} <span class="x-post-rubro ms-1"><i class="bi {{ o.marca.rubro_icono }}"></i>{{ o.marca.rubro_nombre }}</span></div>
         <div class="small">quiere patrocinar a <strong>{{ m.bandera(o.bandera) }} {{ o.nombre }}</strong> · encaje {{ o.encaje }}/100</div>
-        <div class="small text-muted">Firma <strong class="text-white">{{ '{:,}'.format(o.firma) }}</strong> + <strong class="text-white">{{ '{:,}'.format(o.pago_ciclo) }}</strong> por ciclo durante {{ o.ciclos }} ciclos · «{{ o.marca.lema }}»</div>
+        <div class="small text-muted">Firma <strong class="text-white">{{ '{:,}'.format(o.firma) }}</strong> + <strong class="text-white">{{ '{:,}'.format(o.pago_ciclo) }}</strong> por ciclo durante {{ o.ciclos }} ciclos · «{{ o.marca.lema }}»{% if o.vence_en is not none %} · <strong class="text-warning">vence en {{ o.vence_en }} partido{{ 's' if o.vence_en != 1 }}</strong>{% endif %}</div>
       </div>
       <div class="d-flex gap-2">
         <button class="btn btn-sm btn-success rounded-pill" data-patrocinio-respuesta="aceptar" data-patrocinio="{{ o._id }}" data-marca="{{ o.marca.nombre }}" data-nombre="{{ o.nombre }}" data-firma="{{ o.firma }}"><i class="bi bi-check-lg"></i> Aceptar</button>
@@ -108,7 +109,7 @@
             <div class="fw-semibold text-white">{{ p.marca.nombre }} <i class="bi bi-arrow-right-short text-muted"></i> {{ m.bandera(p.bandera) }} {{ p.nombre }}</div>
             <div class="small text-muted">
               {% if p.estado == 'ACTIVO' %}{{ '{:,}'.format(p.pago_ciclo) }} por ciclo · hasta el ciclo {{ p.hasta_ciclo }} ({{ [p.hasta_ciclo - ciclo + 1, 0] | max }} ciclo{{ 's' if p.hasta_ciclo - ciclo + 1 != 1 }}) · cobrado {{ '{:,}'.format(p.cobrado or 0) }}{% if p.comision %} (tu comisión {{ '{:,}'.format(p.comision) }}){% endif %}
-              {% elif p.estado == 'PROMOCION' %}Promoción enviada: la marca responde al cierre del ciclo · encaje {{ p.encaje }}/100
+              {% elif p.estado == 'PROMOCION' %}Promoción enviada: la marca responde en {{ ronda_en }} partido{{ 's' if ronda_en != 1 }} · encaje {{ p.encaje }}/100
               {% else %}Oferta pendiente de tu respuesta{% endif %}
             </div>
           </div>
@@ -193,7 +194,7 @@
     </div>
   </div>
 </div>
-<script src="/static/js/marcas.js?v=1"></script>
+<script src="/static/js/marcas.js?v=2"></script>
 <script>
 (() => {
   const buscar = document.getElementById('mkBuscar'), rubro = document.getElementById('mkRubro'), alcance = document.getElementById('mkAlcance');

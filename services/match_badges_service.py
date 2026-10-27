@@ -71,12 +71,12 @@ def obtener_marcas_partido(
     except Exception:
         pass
 
-    # --- Fantasy: jugadores de cada país en el Once Ideal del usuario (uno por Mundial, suma en todas las fases) ---
+    # --- Fantasy: jugadores de cada país en los equipos del Once Ideal del usuario (suman en todas las fases) ---
     try:
         mundial = db['mundiales'].find_one({"activo": True}, {"_id": 1})
         if mundial:
-            equipo = db['fantasy_teams'].find_one({"user_id": usuario_oid, "mundial_id": str(mundial["_id"])}, {"lineup": 1})
-            lineup = equipo.get("lineup") if equipo else None
+            lineup = [j for e in db['fantasy_teams'].find({"user_id": usuario_oid, "mundial_id": str(mundial["_id"])}, {"lineup": 1})
+                      for j in (e.get("lineup") or [])]
             if lineup:
                 paises_en_lineup = {
                     j["pais_id"] for j in db['jugadores'].find(

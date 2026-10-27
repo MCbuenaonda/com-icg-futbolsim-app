@@ -66,6 +66,7 @@ LOGROS = {
     "PRIMERA_QUINIELA":   {"titulo": "Pronosticador",            "descripcion": "Compraste tu primer boleto de quiniela",    "icono": "bi-ticket-detailed"},
     "PRIMER_JUEGO_VIVO":  {"titulo": "En la tribuna",            "descripcion": "Jugaste tu primer partido en vivo",         "icono": "bi-broadcast"},
     "PRIMER_ONCE_IDEAL":  {"titulo": "Director técnico",         "descripcion": "Armaste tu primer Once Ideal",              "icono": "bi-people-fill"},
+    "SEGUNDO_EQUIPO_FANTASY": {"titulo": "Cuerpo técnico ampliado", "descripcion": "Desbloqueaste un segundo equipo del Once Ideal", "icono": "bi-diagram-3-fill"},
     "PRIMERA_SELECCION":  {"titulo": "Dueño de una selección",   "descripcion": "Compraste tu primera selección",            "icono": "bi-flag-fill"},
     "PRIMERA_SEDE":       {"titulo": "Patrocinador",             "descripcion": "Compraste tu primera sede",                 "icono": "bi-building"},
     "PRIMERA_EDICION_MUNDIAL": {"titulo": "Coleccionista mundialista", "descripcion": "Conseguiste tu primer póster o mascota de un Mundial", "icono": "bi-palette-fill"},

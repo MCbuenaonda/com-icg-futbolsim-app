@@ -229,11 +229,21 @@ def _patrocinadores(usuario, tipo, ref_id):
         return []
 
 
+def _formacion(esquema):
+    """Datos de un esquema (config/formaciones.py) para las vistas: postura, etiqueta y jugadores por línea."""
+    from config.formaciones import FORMACIONES
+    d = FORMACIONES.get(esquema)
+    if not d:
+        return None
+    cuenta = [d["lineas"].count(n) for n in (2, 3, 4)]
+    return {**d, "cuenta": cuenta, "texto_lineas": "-".join(str(x) for x in cuenta)}
+
+
 GLOBALES_JINJA = {
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,
     "imagen_inicio": imagen_inicio, "img_estadio": url_estadio, "img_avatar": url_avatar,
-    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo, "logo_marca": url_logo_marca, "patrocinadores": _patrocinadores,
+    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo, "logo_marca": url_logo_marca, "formacion": _formacion, "patrocinadores": _patrocinadores,
     "corp_representantes": _corp_representantes, "img_foto_equipo": url_foto_equipo, "arte_mundial": _arte_mundial,
     "img_tecnico": url_avatar_tecnico, "dt_de_pais": _dt_de_pais,
 }

@@ -30,6 +30,7 @@ import certifi
 from pymongo.mongo_client import MongoClient
 
 from config.settings import MONGODB_URI
+from services import tecnicos as T
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -153,6 +154,52 @@ def asegurar_dt_en_todos(mundial_id: Optional[str] = None) -> int:
     return asignados
 
 
+# --- Formación: contexto para la decisión del DT y su historial por esquema -------------------------------------
+def _rating(pais_id) -> float:
+    d = db["internacional"].find_one({"id": pais_id}, {"estadisticas": 1}) or db["paises"].find_one({"id": pais_id}, {"estadisticas": 1}) or {}
+    e = d.get("estadisticas") or {}
+    jj = e.get("juegos_jugados") or 0
+    return ((e.get("goles_favor") or 0) - (e.get("goles_contra") or 0)) / (jj + 5)   # contracción: pocos partidos -> cerca de 0
+
+
+def _forma(pais_id) -> Optional[float]:
+    """Puntos de sus últimos 5 partidos / 15 (None si no jugó)."""
+    puntos = []
+    for j in db["juegos"].find({"estado": "finalizado", "$or": [{"equipo_local.id": pais_id}, {"equipo_visitante.id": pais_id}]},
+                               {"resultado.ganador_id": 1, "resultado.empate": 1}).sort([("fecha", -1), ("hora", -1)]).limit(5):
+        r = j.get("resultado") or {}
+        puntos.append(1 if r.get("empate") else (3 if r.get("ganador_id") == pais_id else 0))
+    return sum(puntos) / 15 if puntos else None
+
+
+def contexto_tactico(pais_id, rival_id, dt: Optional[dict], dt_rival: Optional[dict], local: bool,
+                     eliminacion: bool = False, marcador_ida: Optional[dict] = None) -> dict:
+    """Lo que el DT mira para elegir el esquema (tecnicos.elegir_esquema). Nunca lanza."""
+    try:
+        global_ = None
+        if marcador_ida:
+            propios = marcador_ida.get("goles_local", 0) if local else marcador_ida.get("goles_visita", 0)
+            ajenos = marcador_ida.get("goles_visita", 0) if local else marcador_ida.get("goles_local", 0)
+            global_ = propios - ajenos
+        return {"fuerza": round(_rating(pais_id) - _rating(rival_id), 3), "forma": _forma(pais_id), "local": local,
+                "serie": {"vuelta": True, "global": global_} if global_ is not None else None, "eliminacion": eliminacion,
+                "historial": (dt or {}).get("esquemas") or {}, "ultimo": (dt or {}).get("ultimo_esquema"),
+                "rival_probable": T.esquema_probable(dt_rival, (dt_rival or {}).get("ultimo_esquema"))}
+    except Exception as e:
+        print(f"[tecnicos] contexto táctico: {e}")
+        return {}
+
+
+def _registrar_esquema(dt_id, esquema: Optional[str], gf: int, gc: int) -> None:
+    """Suma el partido al historial del DT con ese esquema (directores_tecnicos.esquemas, permanente)."""
+    if not dt_id or not esquema:
+        return
+    puntos = 3 if gf > gc else (1 if gf == gc else 0)
+    db["directores_tecnicos"].update_one({"id": dt_id}, {"$inc": {f"esquemas.{esquema}.pj": 1, f"esquemas.{esquema}.pts": puntos,
+                                                                  f"esquemas.{esquema}.gf": gf, f"esquemas.{esquema}.gc": gc},
+                                                         "$set": {"ultimo_esquema": esquema}})
+
+
 def registrar_partido(juego: Optional[dict]) -> None:
     """Suma el partido terminado al cargo de cada DT y la federación decide. Idempotente por juego. Nunca lanza."""
     try:
@@ -173,6 +220,8 @@ def registrar_partido(juego: Optional[dict]) -> None:
             ok = db["dt_cargos"].update_one({"_id": cargo["_id"], "juegos": {"$ne": jid}}, {"$set": campos, "$push": {"juegos": jid}})
             if not ok.modified_count:
                 continue
+            esquema = res.get("tactica_local") if lado == "local" else res.get("tactica_visita")
+            _registrar_esquema(cargo.get("dt_id"), esquema, gf, gc)
             pais = db["paises"].find_one({"id": pais_id}, {"federacion_paciencia": 1, "nombre": 1})
             eliminado = _eliminado(pais_id)
             if eliminado and cargo.get("evaluado_eliminado"):
@@ -426,7 +475,19 @@ def perfil_tecnico(tecnico_id: int) -> Optional[dict]:
     percentil = {k: round(100 * sum(1 for x in todos_rasgos if (x.get(k) or 0) < (t.get(k) or 0)) / max(1, len(todos_rasgos))) for k in claves}
     rasgos = [("Lectura de partido", "lectura", "bi-eye"), ("Motivación", "motivacion", "bi-fire"),
               ("Temperamento", "temperamento", "bi-megaphone"), ("Confianza en las leyendas", "confianza_leyendas", "bi-award")]
-    return {**t, "pais": pais, "confederacion": SIGLA_CONF.get((pais or {}).get("confederacion_id"), ""),
+    # Esquemas: sus preferencias por estilo y su rendimiento real con cada uno (directores_tecnicos.esquemas)
+    from config import formaciones as CF
+    pref = CF.PREFERENCIAS_ESTILO.get(t.get("estilo") or "equilibrado", CF.PREFERENCIAS_ESTILO["equilibrado"])
+    total_pref = sum(pref.values()) or 1
+    esquemas_vista = []
+    for e in CF.ESQUEMAS:
+        h = (t.get("esquemas") or {}).get(e) or {}
+        esquemas_vista.append({"esquema": e, "etiqueta": CF.FORMACIONES[e]["etiqueta"], "postura": CF.FORMACIONES[e]["postura"],
+                               "preferencia": round(100 * pref.get(e, 0) / total_pref), "pj": h.get("pj", 0),
+                               "ppp": round(h.get("pts", 0) / h["pj"], 2) if h.get("pj") else None,
+                               "gf": h.get("gf", 0), "gc": h.get("gc", 0)})
+    esquemas_vista.sort(key=lambda x: (-x["pj"], -x["preferencia"]))
+    return {**t, "esquemas_vista": esquemas_vista, "pais": pais, "confederacion": SIGLA_CONF.get((pais or {}).get("confederacion_id"), ""),
             "estilo_nombre": ETIQUETA_ESTILO.get(t.get("estilo"), "—"), "en_funciones": bool(vigente), "cargo_vigente": vigente,
             "cargos": cargos, "partidos_mundial": partidos, "stats": stats, "carrera": carrera, "media_pct": media_pct,
             "rasgos": [{"nombre": n, "clave": k, "valor": t.get(k), "etiqueta": etiqueta_rasgo(t.get(k)), "icono": i,

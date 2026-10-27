@@ -50,8 +50,11 @@
   </div>
   <div class="d-flex gap-1 flex-wrap">
     {% if x.marcas | length < 3 %}<button class="btn btn-sm btn-outline-warning rounded-pill" data-promover="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}" title="Presentarlo a una marca interesada"><i class="bi bi-megaphone"></i> Promover</button>{% endif %}
-    <button class="btn btn-sm btn-outline-info rounded-pill" data-contrato-accion="gira" data-contrato="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}"
-            {{ 'disabled' if not x.gira_ok }} title="{{ x.gira_motivo or 'Gira de exhibición' }}"><i class="bi bi-airplane"></i> Gira</button>
+    {% if x.de_gira %}<span class="corp-de-gira" title="Cobra partido a partido hasta volver"><i class="bi bi-airplane-fill"></i> De gira</span>
+    {% elif x.tipo_contrato == 'jugador' %}<button class="btn btn-sm btn-outline-info rounded-pill" data-gira-grupal="{{ x.contrato_id }}"
+            {{ 'disabled' if not x.gira_ok }} title="{{ x.gira_motivo or 'Gira de exhibición: elige uno o varios jugadores' }}"><i class="bi bi-airplane"></i> Gira</button>
+    {% else %}<button class="btn btn-sm btn-outline-info rounded-pill" data-contrato-accion="gira" data-contrato="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}"
+            {{ 'disabled' if not x.gira_ok }} title="{{ x.gira_motivo or 'Gira de exhibición' }}"><i class="bi bi-airplane"></i> Gira</button>{% endif %}
     {% if x.puede_renovar %}<button class="btn btn-sm btn-outline-success rounded-pill" data-contrato-accion="renovar" data-contrato="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}" data-costo="{{ x.costo_renovar }}"><i class="bi bi-arrow-repeat"></i> Renovar</button>{% endif %}
     <button class="btn btn-sm btn-outline-danger rounded-pill" data-contrato-accion="rescindir" data-contrato="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}" data-costo="{{ x.costo_rescindir }}" title="Rescindir"><i class="bi bi-x-lg"></i></button>
   </div>
@@ -101,7 +104,7 @@
       <span><i class="bi bi-receipt text-warning me-1"></i>Honorarios esperados por ciclo: <strong class="text-white">{{ '{:,}'.format(honorarios_ciclo) }}</strong></span>
       <span><i class="bi bi-graph-up text-success me-1"></i>Neto acumulado de la cartera: <strong class="{{ 'text-success' if neto_total > 0 else 'text-danger' }}">{{ '{:+,}'.format(neto_total) }}</strong></span>
       {% set mr = marcas_resumen %}
-      <span><i class="bi bi-badge-ad-fill text-warning me-1"></i>Marcas: <strong class="text-white">{{ mr.activos if mr else 0 }}</strong> patrocinios{% if mr and mr.pago_ciclo %} · <strong class="text-info">+{{ '{:,}'.format(mr.pago_ciclo) }}</strong> por ciclo (tu comisión +{{ '{:,}'.format(mr.comision_ciclo) }}){% endif %}{% if mr and mr.en_riesgo %} · <span class="text-danger">{{ mr.en_riesgo }} en riesgo</span>{% endif %} · <a href="/corporativo/marcas">ver marcas</a> · gira {{ 'ya organizada' if gira_este_ciclo else 'disponible' }} este ciclo</span>
+      <span><i class="bi bi-badge-ad-fill text-warning me-1"></i>Marcas: <strong class="text-white">{{ mr.activos if mr else 0 }}</strong> patrocinios{% if mr and mr.pago_ciclo %} · <strong class="text-info">+{{ '{:,}'.format(mr.pago_ciclo) }}</strong> por ciclo (tu comisión +{{ '{:,}'.format(mr.comision_ciclo) }}){% endif %}{% if mr and mr.en_riesgo %} · <span class="text-danger">{{ mr.en_riesgo }} en riesgo</span>{% endif %} · <a href="/corporativo/marcas">ver marcas</a> · giras en curso {{ giras_en_curso }} de {{ giras_limites.giras_restantes + giras_en_curso }} · {{ giras_limites.jugadores_restantes }} jugador{{ 'es' if giras_limites.jugadores_restantes != 1 }} de gira disponibles este ciclo</span>
       {% if senales.vender %}<span class="text-danger"><i class="bi bi-arrow-down-circle-fill me-1"></i>{{ senales.vender }} representado{{ 's' if senales.vender > 1 }} con señal de venta</span>{% endif %}
       {% if senales.renovacion %}<span class="text-warning"><i class="bi bi-arrow-repeat me-1"></i>{{ senales.renovacion }} representado{{ 's' if senales.renovacion > 1 }} pide{{ 'n' if senales.renovacion > 1 }} renovación: revisa la recomendación de cada uno</span>{% endif %}
       <span class="text-muted">Renovar cuesta ~60% de la prima de un fichaje (solo en los últimos 3 ciclos del contrato); rescindir, la mitad de los honorarios que faltan.</span>
@@ -169,7 +172,7 @@
                     UI.mostrarAlertaEn(document.getElementById('alertaPerfil'), q.motivo, 'warning'); return;
                 } else {
                     pregunta = { titulo: `¿Gira de exhibición de ${nombre}?`, textoConfirmar: 'Organizar gira',
-                                 mensaje: `Cuesta ${fmt(q.costo)} ahora y recauda entre ${fmt(q.ingreso_min)} y ${fmt(q.ingreso_max)} ${q.cobra}.`
+                                 mensaje: `Cuesta ${fmt(q.costo)} ahora y recauda entre ${fmt(q.ingreso_min)} y ${fmt(q.ingreso_max)}, ${q.cobra}.`
                                    + (q.tipo === 'seleccion' ? (q.suma_aficionados ? ' Además suma aficionados reales a la selección (+1% a +3%).' : ' Esta vez no suma aficionados: otra gira con esta selección fue hace poco.')
                                                              : ` Puede sumar hasta ${q.aficionados_max} aficionados a su selección (su selección hizo ${q.forma_seleccion} de 15 puntos en sus últimos 5).`) };
                 }
@@ -192,5 +195,6 @@
         }
     });
 </script>
-<script src="/static/js/marcas.js?v=1"></script>
+<script src="/static/js/marcas.js?v=2"></script>
+<script src="/static/js/giras.js?v=1"></script>
 {% endblock %}

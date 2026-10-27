@@ -87,6 +87,93 @@ def senal_de(tipo: str, ref_id: int, valor: int, juego: dict, ctx: dict, contrat
     return R.senales(datos)
 
 
+def _giras_vista(A, user_id, sigla: str, universo: dict) -> list:
+    """Giras recientes agrupadas (una gira grupal = una fila), con su avance partido a partido."""
+    seq = universo.get("cursor_seq") or U.seq_actual()
+    grupos: dict = {}
+    for g in A.giras_de(user_id, sigla):
+        k = g.get("grupo_id") or g["_id"]
+        f = grupos.setdefault(k, {"nombres": [], "costo": 0, "ingreso": 0, "cobrado": 0, "aficionados": 0, "estado": g["estado"],
+                                  "ciclo": g["ciclo"], "cobra_ciclo": g.get("cobra_ciclo"), "partidos": g.get("partidos"),
+                                  "desde_seq": g.get("desde_seq"), "hasta_seq": g.get("hasta_seq"), "v2": g.get("desde_seq") is not None})
+        f["nombres"].append(A._nombre(g["tipo"], g["ref_id"]))
+        f["costo"] += g.get("costo") or 0
+        f["ingreso"] += g.get("ingreso") or 0
+        f["cobrado"] += g.get("cobrado") or (g.get("ingreso") or 0 if g["estado"] == "COBRADA" else 0)
+        f["aficionados"] += g.get("aficionados") or 0
+    salida = []
+    for f in list(grupos.values())[:6]:
+        f["ref_nombre"] = ", ".join(f["nombres"])
+        if f["v2"]:
+            f["jugados"] = max(0, min(f["partidos"], seq - f["desde_seq"] + 1))
+        salida.append(f)
+    return salida
+
+
+def sugerencias_huecos(cal: dict, ctx: dict, user_id, capital: float) -> list:
+    """
+    Para los ciclos del calendario en que tu cartera no juega (o casi no juega), hasta CAL_SUGERENCIAS_POR_HUECO
+    representados LIBRES en tu universo que sí juegan en ese ciclo: selecciones y sus jugadores titulares (sin leyendas),
+    ordenados por renta esperada en ese ciclo contra su prima de referencia, y solo si la prima entra en la mitad del capital.
+    -> [{"ciclo", "partidos_cartera", "vacio", "sugerencias": [{tipo, ref_id, nombre, pais_id, bandera, partidos, prima, renta, url}]}]
+    """
+    from services.corporativo_ciclo_service import popularidad
+    v = valores()
+    ciclo0 = ctx["ciclo"]
+    totales = [sum(f["celdas"][k] for f in cal["filas"]) for k in range(len(cal["ciclos"]))]
+    huecos = [k for k, n in enumerate(totales) if n <= C.CAL_ACTIVIDAD_FLOJA][:4]
+    if not huecos:
+        return []
+    ocupados = {(c["tipo"], c["ref_id"]) for c in U.contratos_activos(user_id)}
+    # partidos de cada selección en cada ciclo del calendario
+    por_ciclo: dict = {}
+    for pais, d in ctx["cal"].items():
+        for i in d.get("posiciones", []):
+            k = R.ciclo_de_seq(ctx["seq"] + i + 1) - ciclo0
+            if 0 <= k < len(cal["ciclos"]):
+                por_ciclo.setdefault(k, {}).setdefault(pais, 0)
+                por_ciclo[k][pais] += 1
+    jugadores_por_pais: dict = {}
+    for jid, info in v["info_jugadores"].items():
+        if not info.get("leyenda") and ("jugador", jid) not in ocupados:
+            jugadores_por_pais.setdefault(info.get("pais_id"), []).append(jid)
+    tope = max(0, capital) * 0.5
+    salida = []
+    for k in huecos:
+        candidatos = []
+        for pais, n in (por_ciclo.get(k) or {}).items():
+            pinfo = v["info_paises"].get(pais, {})
+            if ("seleccion", pais) not in ocupados and pais not in ctx["eliminadas"]:
+                valor = v["selecciones"].get(pais, 0)
+                prima = R.prima_referencia(valor)
+                if 0 < prima <= tope:
+                    renta = R.renta_esperada_ciclo("seleccion", valor, 2 * n, popularidad("seleccion", pais, valor))
+                    candidatos.append({"tipo": "seleccion", "ref_id": pais, "nombre": pinfo.get("nombre"), "pais_id": pais,
+                                       "bandera": pinfo.get("bandera"), "partidos": n, "prima": prima, "renta": renta})
+            mejores = sorted(jugadores_por_pais.get(pais, []), key=lambda j: -v["jugadores"].get(j, 0))[:6]
+            for jid in mejores:
+                titular = _titular(jid, pais, ctx)
+                if titular is not None and titular < 0.5:
+                    continue
+                valor = v["jugadores"].get(jid, 0)
+                prima = R.prima_referencia(valor)
+                if 0 < prima <= tope:
+                    renta = R.renta_esperada_ciclo("jugador", valor, 2 * n, popularidad("jugador", jid, valor), titular or 0.8)
+                    candidatos.append({"tipo": "jugador", "ref_id": jid, "nombre": v["info_jugadores"][jid].get("nombre"), "pais_id": pais,
+                                       "bandera": pinfo.get("bandera"), "partidos": n, "prima": prima, "renta": renta})
+        candidatos.sort(key=lambda x: -(x["renta"] / max(x["prima"], 1)))
+        elegidos = []
+        sel = next((x for x in candidatos if x["tipo"] == "seleccion"), None)   # una selección si hay (juega todo el ciclo)
+        if sel:
+            elegidos.append(sel)
+        elegidos += [x for x in candidatos if x is not sel][:C.CAL_SUGERENCIAS_POR_HUECO - len(elegidos)]
+        for x in elegidos:
+            x["url"] = f"/corporativo/mercado?tipo={x['tipo']}&q={x['nombre']}"
+        salida.append({"ciclo": cal["ciclos"][k], "indice": k, "partidos_cartera": totales[k], "vacio": totales[k] == 0,
+                       "sugerencias": elegidos})
+    return salida
+
+
 def calendario_cartera(contratos: list, ctx: dict) -> dict:
     """Grilla de los próximos CICLOS_CALENDARIO ciclos por selección involucrada (representada o país de un jugador
     representado) y la lista de los próximos partidos de la cartera."""
@@ -119,7 +206,9 @@ def calendario_cartera(contratos: list, ctx: dict) -> dict:
             vistos.add(f["proximo"].get("juego_id"))
             proximos.append(f)
     proximos = proximos[:8]
-    return {"ciclos": [ciclo0 + k for k in range(CICLOS_CALENDARIO)], "filas": orden, "proximos": proximos,
+    totales = [sum(f["celdas"][k] for f in orden) for k in range(CICLOS_CALENDARIO)]
+    return {"ciclos": [ciclo0 + k for k in range(CICLOS_CALENDARIO)], "filas": orden, "proximos": proximos, "totales": totales,
+            "flojo": C.CAL_ACTIVIDAD_FLOJA,
             "con_partido": sum(1 for f in orden if any(f["celdas"])), "total": len(orden)}
 
 
@@ -189,7 +278,7 @@ def obtener_vista_inicio(user_id) -> dict:
     if cargo:
         mi_corp = next((c for c in corporativos if c["sigla"] == cargo["sigla"]), None)
         doc = U.db["corp_corporativos"].find_one({"universo_id": user_id, "sigla": cargo["sigla"]},
-                                                  {"historial": 1, "ciclo_actual": 1, "saneamiento": 1, "marketing_hasta_ciclo": 1}) or {}
+                                                  {"historial": 1, "ciclo_actual": 1, "saneamiento": 1, "marketing_hasta_ciclo": 1, "capital": 1}) or {}
         historial = doc.get("historial") or []
         ultimo = historial[-1] if historial else None
         ultimo_pago = U.db["corp_movimientos"].find_one({"universo_id": user_id, "tipo": "SUELDO_CEO"}, sort=[("ciclo", -1)])
@@ -215,9 +304,15 @@ def obtener_vista_inicio(user_id) -> dict:
         ctx = _contexto_partidos()
         activos = U.contratos_activos(user_id, cargo["sigla"])
         nombrar = lambda d: {**d, "ref_nombre": A._nombre(d["tipo"], d["ref_id"])}
-        mi_corp.update(calendario=calendario_cartera(activos, ctx), saneamiento=_saneamiento_vista(doc),
+        cal = calendario_cartera(activos, ctx)
+        try:
+            cal["huecos"] = sugerencias_huecos(cal, ctx, user_id, doc.get("capital", 0))
+        except Exception as e:
+            print(f"[corporativos] sugerencias del calendario: {e}")
+            cal["huecos"] = []
+        mi_corp.update(calendario=cal, saneamiento=_saneamiento_vista(doc),
                        acuerdos=[nombrar(a) for a in A.acuerdos_de(user_id, cargo["sigla"]) if a["estado"] == "ACTIVO"],
-                       giras=[nombrar(g) for g in A.giras_de(user_id, cargo["sigla"])[:5]], renta_esperada=renta_esperada(activos),
+                       giras=_giras_vista(A, user_id, cargo["sigla"], universo), renta_esperada=renta_esperada(activos),
                        marketing_activo=(doc.get("marketing_hasta_ciclo") or 0) >= ciclo_ahora,
                        marketing_hasta=doc.get("marketing_hasta_ciclo"))
     if mi_corp:
@@ -266,31 +361,31 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
     from services import corporativo_acciones_service as A
     from services.corporativo_ciclo_service import popularidad
     acuerdos = {a["contrato_id"]: a for a in A.acuerdos_de(user_id, sigla) if a["estado"] == "ACTIVO"}
-    giras_recientes = {(g["tipo"], g["ref_id"]): g for g in A.giras_de(user_id, sigla)}
-    gira_este_ciclo = any(g["ciclo"] == ciclo for g in giras_recientes.values())
+    en_curso = A._giras_en_curso(user_id, sigla)
+    seq_u = universo.get("cursor_seq") or U.seq_actual()
+    lim_giras = A._limites(user_id, sigla, ciclo, en_curso)
+    gira_este_ciclo = not lim_giras["giras_restantes"]   # (nombre viejo: ahora = sin lugar para otra gira en curso)
     from services import corporativo_marcas_service as M
     marcas_contrato = M.patrocinios_por_contrato(user_id, sigla) if doc.get("es_del_usuario") else {}
     selecciones, jugadores = [], []
     for c in U.contratos_activos(user_id, sigla):
         valor_c = (v["selecciones"] if c["tipo"] == "seleccion" else v["jugadores"]).get(c["ref_id"], 0)
         restantes = c["hasta_ciclo"] - ciclo + 1
-        base = {"ref_id": c["ref_id"], "contrato_id": str(c["_id"]), "hasta_ciclo": c["hasta_ciclo"], "ciclos_restantes": restantes,
+        base = {"ref_id": c["ref_id"], "contrato_id": str(c["_id"]), "tipo_contrato": c["tipo"], "hasta_ciclo": c["hasta_ciclo"], "ciclos_restantes": restantes,
                 "satisfaccion": c["satisfaccion"], "origen": c.get("origen"), "renta_total": c.get("renta_total", 0),
                 "honorarios_total": c.get("honorarios_total", 0), "neto": c.get("renta_total", 0) - c.get("honorarios_total", 0),
                 "partidos": c.get("partidos", 0), "honorario": R.honorario(c["tipo"], valor_c),
                 "costo_renovar": R.prima_renovacion(valor_c, c["satisfaccion"]), "puede_renovar": restantes <= C.CICLOS_AVISO_RENOVACION,
                 "costo_rescindir": _costo_rescision(c, valor_c, ciclo)}
         juego = juego_de(c["tipo"], c["ref_id"], ctx)
-        gira_prev = giras_recientes.get((c["tipo"], c["ref_id"]))
-        enfriamiento = C.GIRA_ENFRIAMIENTO if c["tipo"] == "seleccion" else C.GIRA_JUGADOR_ENFRIAMIENTO
+        motivo_gira = A._motivo_no_disponible(user_id, c, seq_u, ciclo, en_curso) if doc.get("es_del_usuario") else None
+        if not motivo_gira and not lim_giras["giras_restantes"]:
+            motivo_gira = f"Ya tienes {C.GIRAS_SIMULTANEAS} giras en curso"
         base.update(juego=juego, senal=senal_de(c["tipo"], c["ref_id"], valor_c, juego, ctx, c, ciclo),
                     patrocinio=R.patrocinio(c["tipo"], valor_c, popularidad(c["tipo"], c["ref_id"], valor_c)),
                     acuerdo=acuerdos.get(str(c["_id"])), marcas=marcas_contrato.get(str(c["_id"]), []), ciclos_sin_jugar=c.get("ciclos_sin_jugar", 0),
-                    gira_ok=not gira_este_ciclo and not (gira_prev and gira_prev["ciclo"] > ciclo - enfriamiento)
-                    and (c["tipo"] == "jugador" or juego.get("partidos_2", 0) == 0),
-                    gira_motivo=("Ya organizaste una gira este ciclo" if gira_este_ciclo else
-                                 f"Hizo una gira hace poco (cada {enfriamiento} ciclos)" if gira_prev and gira_prev["ciclo"] > ciclo - enfriamiento else
-                                 "Tiene partidos en los próximos ciclos" if c["tipo"] == "seleccion" and juego.get("partidos_2") else None))
+                    gira_ok=motivo_gira is None, gira_motivo=motivo_gira,
+                    de_gira=next((g for g in en_curso if g["tipo"] == c["tipo"] and g["ref_id"] == c["ref_id"]), None))
         if c["tipo"] == "seleccion":
             p = v["info_paises"].get(c["ref_id"], {})
             selecciones.append({**base, **p, "valor": v["selecciones"].get(c["ref_id"], 0), "de_region": c["ref_id"] in region})
@@ -315,6 +410,7 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
         "patrocinio_ciclo": sum(x["patrocinio"] for x in selecciones + jugadores),
         "saneamiento": _saneamiento_vista(doc), "exposicion": exposicion(selecciones, jugadores),
         "acuerdos_activos": len(acuerdos), "acuerdos_max": C.ACUERDOS_MAX_ACTIVOS, "gira_este_ciclo": gira_este_ciclo,
+        "giras_limites": lim_giras, "giras_en_curso": len({g.get("grupo_id") or g["_id"] for g in en_curso}),
         "marcas_resumen": M.resumen(user_id, sigla) if doc.get("es_del_usuario") else None,
         "senales": {"vender": sum(1 for x in selecciones + jugadores if x["senal"]["senal"] == "vender"),
                     "renovacion": sum(1 for x in selecciones + jugadores if x["senal"].get("renovacion"))},

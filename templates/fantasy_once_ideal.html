@@ -10,14 +10,12 @@
         <div class="min-w-0">
             <span class="plantilla-hero__sub" style="--logo-color: #22c55e;">Fantasy · Jornada {{ jornada.numero }}</span>
             <h1 class="h2 fw-bold text-white mb-1">Once Ideal</h1>
-            <p class="text-muted mb-0 small">Un equipo para todo el Mundial: suma en todos los partidos, de cualquier fase y confederación.
-                1 jugador por posición, máximo 2 por selección y 1 leyenda.</p>
+            <p class="text-muted mb-0 small">Arma tus equipos, uno por formación. Cada partido que juega uno de tus jugadores te paga saldo:
+                por jugar, por su calificación y por sus goles, asistencias y vallas invictas.</p>
         </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            <div class="fixture-kpi"><span>Puntos fantasy</span><strong class="text-success">{{ alineacion.total_points_fase if alineacion else 0 }}</strong></div>
-            {% if alineacion %}
-            <div class="fixture-kpi" title="+{{ reglas.cambios_por_jornada }} por jornada, acumulables hasta {{ reglas.tope }}"><span>Cambios gratis</span><strong class="{{ 'text-info' if alineacion.cambios_gratis_disponibles > 0 else 'text-secondary' }}">{{ alineacion.cambios_gratis_disponibles }}</strong></div>
-            {% endif %}
+            <div class="fixture-kpi"><span>Saldo ganado</span><strong class="text-warning">{{ "{:,}".format(total_ganado) }}</strong></div>
+            <div class="fixture-kpi"><span>Puntos fantasy</span><strong class="text-success">{{ "{:,}".format(total_puntos) }}</strong></div>
             <div class="once-jornada" title="Cada {{ jornada.partidos_por_jornada }} partidos jugados del Mundial empieza una jornada nueva">
                 <span>Jornada {{ jornada.numero }}</span>
                 <div class="once-jornada__barra"><i style="width: {{ jornada.pct }}%"></i></div>
@@ -28,43 +26,45 @@
 </div>
 
 <div class="once-reglas mb-3">
-    <span><i class="bi bi-arrow-repeat text-info"></i><strong>+{{ reglas.cambios_por_jornada }} cambios gratis</strong> por jornada (máx. {{ reglas.tope }})</span>
-    <span><i class="bi bi-cash-coin text-warning"></i>Cada cambio extra cuesta <strong>{{ reglas.costo_extra }} pts</strong> de saldo</span>
-    <span><i class="bi bi-person-x-fill text-danger"></i>Reemplazar a un jugador <strong>eliminado</strong> es gratis y no gasta cambios</span>
-    <span><i class="bi bi-award-fill" style="color:#d9a066"></i>Puedes sumar <strong>1 leyenda</strong> (el once histórico de cada selección)</span>
+    <span><i class="bi bi-cash-coin text-warning"></i>Cada partido jugado paga <strong>~{{ reglas.pago }}</strong> + su calificación + sus puntos</span>
+    <span><i class="bi bi-diagram-3 text-success"></i>Cada equipo usa una <strong>formación distinta</strong> y no comparte jugadores</span>
+    <span><i class="bi bi-arrow-repeat text-info"></i><strong>+{{ reglas.cambios_por_jornada }} cambios gratis</strong> por jornada en cada equipo (máx. {{ reglas.tope }}); extra: {{ reglas.costo_extra }}</span>
+    <span><i class="bi bi-person-x-fill text-danger"></i>Reemplazar a un <strong>eliminado</strong> es gratis</span>
+    <span><i class="bi bi-award-fill" style="color:#d9a066"></i><strong>1 leyenda</strong> y máx. 2 por selección en cada equipo</span>
 </div>
 
 {% if eliminados_en_once %}
 <div class="alert alert-danger d-flex align-items-start gap-2 once-alerta-eliminados">
     <i class="bi bi-person-x-fill fs-4"></i>
     <div>
-        <strong>{{ eliminados_en_once | length }} jugador{{ 'es' if eliminados_en_once | length != 1 }} de tu once ya no suma{{ 'n' if eliminados_en_once | length != 1 }} puntos</strong>
-        porque su selección quedó afuera del Mundial:
+        <strong>{{ eliminados_en_once | length }} jugador{{ 'es' if eliminados_en_once | length != 1 }} de tus equipos ya no cobra{{ 'n' if eliminados_en_once | length != 1 }}</strong>
+        porque su selección quedó fuera del Mundial:
         {% for j in eliminados_en_once %}<span class="once-eliminado-chip">{{ j.nombre }} · {{ j.pais_nombre }} ({{ j.motivo_eliminado | lower }})</span>{% endfor %}
         <div class="small mt-1">Cámbialos sin costo: el reemplazo de un eliminado no gasta tus cambios gratis.</div>
     </div>
 </div>
 {% endif %}
 
+<!-- Pestañas: un equipo por formación; los bloqueados muestran qué falta para abrirlos -->
+<div id="pestanasEquipos" class="once-tabs mb-3" role="tablist" aria-label="Tus equipos"></div>
+
 <div id="alertaFantasy" class="alert d-none" role="alert"></div>
 
 <div class="row g-4 mb-4">
     <div class="col-12 col-lg-7">
-        <div class="card card-logo-fondo card-seccion once-card" style="--logo-color: #22c55e;">
+        <div id="tarjetaEquipo" class="card card-logo-fondo card-seccion once-card" style="--logo-color: #22c55e;">
             <div class="card-body p-3 p-md-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                    <h2 class="vivo-titulo mb-0"><i class="bi bi-dribbble text-success"></i>Tu alineación</h2>
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                    <h2 class="vivo-titulo mb-0"><i class="bi bi-dribbble text-success"></i><span id="tituloEquipo">Tu equipo</span></h2>
                     <div class="d-flex align-items-center gap-2">
-                        <select id="selectFormacion" class="form-select form-select-sm once-formacion" aria-label="Formación">
-                            <option value="4-3-3">4-3-3</option>
-                            <option value="4-4-2">4-4-2</option>
-                            <option value="3-5-2">3-5-2</option>
-                        </select>
+                        <select id="selectFormacion" class="form-select form-select-sm once-formacion" aria-label="Formación"></select>
                         <span class="once-contador"><span id="contadorJugadores">0</span>/11</span>
                     </div>
                 </div>
-                <!-- Cancha: de arriba hacia abajo delanteros, medios, defensas y portero. Cada casillero vacío
-                     filtra el buscador por su posición; cada jugador se quita con la X -->
+                <div id="infoFormacion" class="once-formacion-info mb-2"></div>
+                <div id="kpisEquipo" class="once-kpis mb-2"></div>
+                <!-- Cancha: de arriba hacia abajo delanteros, medios, defensas y portero. Cada casillero vacío filtra el
+                     buscador por su línea; tocar la foto de un jugador abre su ficha -->
                 <div class="once-cancha">
                     <div class="once-cancha__lineas" aria-hidden="true"><span class="once-cancha__medio"></span><span class="once-cancha__area"></span><span class="once-cancha__area once-cancha__area--abajo"></span></div>
                     <div id="bloqueDelantero" class="once-linea"></div>
@@ -73,14 +73,33 @@
                     <div id="bloquePortero" class="once-linea"></div>
                 </div>
                 <button type="button" id="btnGuardarAlineacion" class="btn btn-success btn-lg fw-bold w-100 mt-3 rounded-pill" disabled>
-                    <i class="bi bi-check2-circle me-1"></i>Guardar Alineación
+                    <i class="bi bi-check2-circle me-1"></i>Guardar equipo
                 </button>
             </div>
         </div>
+        <div id="tarjetaDesbloqueo" class="card card-seccion once-desbloqueo d-none"></div>
     </div>
 
-    <div class="col-12 col-lg-5">
-        <div class="card card-logo-fondo card-seccion h-100" style="--logo-color: #38bdf8;">
+    <div class="col-12 col-lg-5 d-flex flex-column gap-4">
+        <!-- Ojeador: sugerencias pagas para UNA posición; el nivel define qué tan buenos son -->
+        <div class="card card-logo-fondo card-seccion" style="--logo-color: #facc15;">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="vivo-titulo"><i class="bi bi-binoculars-fill text-warning"></i>Ojeador</h2>
+                <p class="text-muted small mb-2">Te recomienda jugadores de una posición según su forma en los últimos partidos y si su selección juega pronto.</p>
+                <select id="ojeadorPosicion" class="form-select form-select-sm mb-2" aria-label="Posición a buscar">
+                    {% for posicion in posiciones %}
+                        <option value="{{ posicion.id }}">{{ posicion.nombre }} ({{ posicion.siglas }})</option>
+                    {% endfor %}
+                </select>
+                <div id="ojeadorNiveles" class="ojeador-niveles mb-2" role="radiogroup" aria-label="Nivel del Ojeador"></div>
+                <button type="button" id="btnOjeador" class="btn btn-warning btn-sm fw-bold w-100 rounded-pill">
+                    <i class="bi bi-search me-1"></i>Pedir sugerencias
+                </button>
+                <div id="ojeadorResultados" class="d-flex flex-column gap-2 mt-2"></div>
+            </div>
+        </div>
+
+        <div class="card card-logo-fondo card-seccion" style="--logo-color: #38bdf8;">
             <div class="card-body p-3 p-md-4">
                 <h2 class="vivo-titulo"><i class="bi bi-search text-info"></i>Buscar jugador</h2>
                 <div class="panel-filtros p-2 mb-2">
@@ -90,7 +109,7 @@
                     </div>
                     <div class="row g-2">
                         <div class="col-6">
-                            <select id="filtroPais" class="form-select form-select-sm">
+                            <select id="filtroPais" class="form-select form-select-sm" aria-label="País">
                                 <option value="">Todos los países</option>
                                 {% for pais in paises %}
                                     <option value="{{ pais.id }}">{{ pais.nombre }}</option>
@@ -98,11 +117,19 @@
                             </select>
                         </div>
                         <div class="col-6">
-                            <select id="filtroPosicion" class="form-select form-select-sm">
+                            <select id="filtroPosicion" class="form-select form-select-sm" aria-label="Posición">
                                 <option value="">Todas las posiciones</option>
+                                <optgroup label="Por línea">
+                                    <option value="L:PORTERO">Porteros</option>
+                                    <option value="L:DEFENSA">Defensas</option>
+                                    <option value="L:MEDIO">Medios</option>
+                                    <option value="L:DELANTERO">Delanteros</option>
+                                </optgroup>
+                                <optgroup label="Por posición">
                                 {% for posicion in posiciones %}
                                     <option value="{{ posicion.id }}">{{ posicion.nombre }} ({{ posicion.siglas }})</option>
                                 {% endfor %}
+                                </optgroup>
                             </select>
                         </div>
                     </div>
@@ -116,364 +143,60 @@
 <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #a78bfa;">
     <img src="{{ imagen_perfil('bitacora') }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
     <div class="card-body p-3 p-md-4">
-        <h2 class="vivo-titulo"><i class="bi bi-calculator-fill" style="color: #a78bfa;"></i>Cómo se calcularon tus puntos</h2>
+        <h2 class="vivo-titulo"><i class="bi bi-calculator-fill" style="color: #a78bfa;"></i>Lo que te pagaron tus jugadores</h2>
         {% if historial_puntos %}
-            <p class="text-muted small mb-3">Cada vez que se simula un partido, si un jugador de tu alineación participó, aquí queda el detalle de cómo se calcularon sus puntos.</p>
+            <p class="text-muted small mb-3">Cada partido que juega uno de tus jugadores queda aquí con el detalle de lo que te pagó.</p>
             <div class="d-flex flex-column gap-2" style="max-height: 480px; overflow-y: auto;">
                 {% for evento in historial_puntos %}
-                    <div class="puntos-evento {% if evento.puntos_finales > 0 %}puntos-evento--mas{% elif evento.puntos_finales < 0 %}puntos-evento--menos{% endif %}">
+                    <div class="puntos-evento {% if evento.monto_otorgado > 0 %}puntos-evento--mas{% elif evento.puntos_finales < 0 %}puntos-evento--menos{% endif %}">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <div>
                                 <span class="fw-semibold text-white">{{ evento.jugador_nombre }}</span>
+                                <span class="badge text-bg-dark border ms-1">Equipo {{ evento.escuadra }}</span>
                                 {% if evento.created_at %}
                                     <span class="text-muted small ms-2">{{ evento.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
                                 {% endif %}
                             </div>
-                            <span class="fw-bold {% if evento.puntos_finales > 0 %}text-success{% elif evento.puntos_finales < 0 %}text-danger{% else %}text-muted{% endif %}">
-                                {{ "+" if evento.puntos_finales > 0 else "" }}{{ evento.puntos_finales }} pts
+                            <span class="fw-bold {% if evento.monto_otorgado > 0 %}text-warning{% else %}text-muted{% endif %}">
+                                +{{ evento.monto_otorgado }} de saldo
                             </span>
                         </div>
                         <div class="small text-muted mt-1">
+                            {% if evento.pago %}
+                                <span class="puntos-evento__chip">Por jugar <strong>+{{ evento.pago.pago_jugar }}</strong></span>
+                                {% if evento.pago.rating %}<span class="puntos-evento__chip">Calificación {{ evento.pago.rating }} <strong>+{{ evento.pago.pago_desempeno }}</strong></span>{% endif %}
+                                {% if evento.pago.pago_puntos %}<span class="puntos-evento__chip">{{ evento.pago.puntos_formacion }} pts fantasy <strong>{{ "+" if evento.pago.pago_puntos > 0 else "" }}{{ evento.pago.pago_puntos }}</strong></span>{% endif %}
+                            {% endif %}
                             {% for item in evento.desglose %}
                                 <span class="puntos-evento__chip">{{ item.concepto }} <strong>{{ item.cantidad }}×{{ item.puntos_unitarios }} = {{ "+" if item.subtotal > 0 else "" }}{{ item.subtotal }}</strong></span>
                             {% endfor %}
                         </div>
-                        <div class="small mt-1 d-flex flex-wrap gap-2">
-                            {% if evento.sinergia_album_aplicada %}
-                                <span class="badge bg-dark border border-accent text-accent">
-                                    <i class="bi bi-collection-fill me-1"></i>Sinergia Álbum ×{{ evento.multiplicador }} — {{ evento.puntos_base }} → {{ evento.puntos_finales }} pts
-                                </span>
-                            {% endif %}
-                            {% if evento.monto_otorgado > 0 %}
-                                <span class="badge bg-dark border border-success text-success">
-                                    <i class="bi bi-coin me-1"></i>+{{ evento.monto_otorgado }} monto
-                                </span>
-                            {% endif %}
+                        {% if evento.sinergia_album_aplicada %}
+                        <div class="small mt-1">
+                            <span class="badge bg-dark border border-accent text-accent"><i class="bi bi-collection-fill me-1"></i>Sinergia Álbum ×{{ evento.multiplicador }}</span>
                         </div>
+                        {% endif %}
                     </div>
                 {% endfor %}
             </div>
         {% else %}
-            <p class="text-muted text-center mb-0">Todavía no se calcularon puntos fantasy para tu alineación en este Mundial — se registran automáticamente cuando se simule un partido de algún jugador tuyo.</p>
+            <p class="text-muted text-center mb-0">Todavía no hay pagos en este Mundial: se registran solos cuando juega alguno de tus jugadores.</p>
         {% endif %}
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const ETIQUETAS_BLOQUE = { PORTERO: 'Portero', DEFENSA: 'Defensas', MEDIO: 'Medios', DELANTERO: 'Delanteros' };
-    const MAX_POR_PAIS = 2;
-    const MAX_LEYENDAS = 1;   // fantasy_service.MAX_LEYENDAS_FANTASY
-    const INSIGNIA_LEYENDA = '<span class="insignia-leyenda insignia-leyenda--compacta" title="Leyenda: parte del once histórico de su selección"><i class="bi bi-award-fill"></i></span>';
+<!-- Ficha del jugador (ventana tipo alerta animada): datos, forma, próximo partido y partido a partido -->
+<div class="modal fade ficha-pop" id="modalFicha" tabindex="-1" aria-labelledby="fichaTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content ficha-pop__contenido">
+            <button type="button" class="btn-close btn-close-white ficha-pop__cerrar" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            <div id="fichaCuerpo" class="modal-body p-3 p-md-4"></div>
+        </div>
+    </div>
+</div>
 
-    // Catálogo real de las 11 posiciones (id/nombre/siglas/sector).
-    const POSICIONES_CATALOGO = {{ posiciones | tojson }};
-    const SLOT_PORTERO = POSICIONES_CATALOGO.find(p => p.sector === 'Portero');
-
-    // Acomodo explícito de las 10 posiciones de campo por línea, para cada formación
-    // (ver FORMACIONES_GRANULARES en services/fantasy_service.py — las 3 formaciones
-    // usan las mismas 10 posiciones, solo cambia en qué línea se agrupa cada una).
-    const FORMACIONES_GRANULARES = {{ formaciones_granulares_json | safe }};
-
-    function slotsDeFormacion(formacion) {
-        const datos = FORMACIONES_GRANULARES[formacion] || FORMACIONES_GRANULARES['4-3-3'];
-        return {
-            PORTERO: [SLOT_PORTERO],
-            DEFENSA: datos.DEFENSA,
-            MEDIO: datos.MEDIO,
-            DELANTERO: datos.DELANTERO
-        };
-    }
-
-    const tieneEquipo = {{ "true" if alineacion else "false" }};
-    const cambiosGratisDisponibles = {{ alineacion.cambios_gratis_disponibles if alineacion else 0 }};
-    const COSTO_CAMBIO_EXTRA = {{ reglas.costo_extra }};
-    const urlGuardar = "{{ url_for('fantasy_set_lineup') }}";
-    const urlBuscar = "{{ url_for('fantasy_buscar_jugadores') }}";
-
-    // Indicador de desempeño por jugador de la alineación actual ({jugador_id: {puntos_totales_fase,
-    // partidos_puntuados, rendimiento, estado}}), para decidir si conviene mantenerlo o cambiarlo.
-    const DESEMPENO_LINEUP = {{ desempeno_lineup_json | safe }};
-    const ETIQUETA_ESTADO = { alto: 'En forma', medio: 'Rindiendo', bajo: 'Bajo rendimiento' };
-    const CLASE_ESTADO = { alto: 'text-success', medio: 'text-warning', bajo: 'text-danger' };
-
-    const selectFormacion = document.getElementById('selectFormacion');
-    const contadorJugadores = document.getElementById('contadorJugadores');
-    const btnGuardar = document.getElementById('btnGuardarAlineacion');
-    const alertaFantasy = document.getElementById('alertaFantasy');
-    const inputBuscar = document.getElementById('buscarJugador');
-    const filtroPais = document.getElementById('filtroPais');
-    const filtroPosicion = document.getElementById('filtroPosicion');
-    const resultadosBusqueda = document.getElementById('resultadosBusqueda');
-
-    // seleccionados: { posicion_id: jugador | null } — una única posición granular por slot
-    // (ej. solo puede haber un jugador con posicion_id = DFD en toda la alineación).
-    let seleccionados = {};
-    POSICIONES_CATALOGO.forEach(p => { seleccionados[p.id] = null; });
-
-    const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaFantasy, mensaje, tipo);
-
-    function jugadoresElegidos() {
-        return Object.values(seleccionados).filter(j => j !== null);
-    }
-
-    function totalSeleccionados() {
-        return jugadoresElegidos().length;
-    }
-
-    function conteoPorPais() {
-        const conteo = {};
-        jugadoresElegidos().forEach(j => {
-            conteo[j.pais_id] = (conteo[j.pais_id] || 0) + 1;
-        });
-        return conteo;
-    }
-
-    function yaSeleccionado(jugadorId) {
-        return jugadoresElegidos().some(j => j.id === jugadorId);
-    }
-
-    function renderBloques() {
-        const slots = slotsDeFormacion(selectFormacion.value);
-
-        for (const bloque of ['PORTERO', 'DEFENSA', 'MEDIO', 'DELANTERO']) {
-            const contenedor = document.getElementById(`bloque${bloque.charAt(0)}${bloque.slice(1).toLowerCase()}`);
-            const posicionesBloque = slots[bloque] || [];
-            let html = `<div class="once-linea__titulo">${ETIQUETAS_BLOQUE[bloque]} <span>${posicionesBloque.filter(p => seleccionados[p.id]).length}/${posicionesBloque.length}</span></div><div class="once-linea__fichas">`;
-
-            posicionesBloque.forEach(slot => {
-                const jugador = seleccionados[slot.id];
-                if (jugador) {
-                    const desempeno = DESEMPENO_LINEUP[jugador.id];
-                    const titulo = jugador.eliminado
-                        ? `${jugador.pais_nombre}: ${(jugador.motivo_eliminado || '').toLowerCase()} — ya no suma puntos. Reemplazarlo es gratis.`
-                        : (desempeno ? `${ETIQUETA_ESTADO[desempeno.estado] || ''} · Rend. ${desempeno.rendimiento.toFixed(1)} · ${desempeno.puntos_totales_fase} pts fantasy en el Mundial` : '');
-                    html += `
-                        <div class="once-ficha ${jugador.eliminado ? 'once-ficha--eliminada' : ''}" title="${UI.escapar(titulo)}">
-                            ${jugador.eliminado ? `<span class="once-ficha__eliminado"><i class="bi bi-person-x-fill"></i> ${UI.escapar(jugador.motivo_eliminado || 'Eliminado')}</span>` : ''}
-                            <span class="once-ficha__foto">${UI.avatar(jugador.id, jugador.pais_id)}<span class="avatar-dorsal">${UI.escapar(jugador.numero ?? '')}</span>
-                                ${desempeno ? `<span class="once-ficha__estado once-ficha__estado--${desempeno.estado}"></span>` : ''}</span>
-                            <button type="button" class="once-ficha__quitar btn-quitar" data-posicion-id="${slot.id}" aria-label="Quitar a ${UI.escapar(jugador.nombre)}" title="Quitar"><i class="bi bi-x"></i></button>
-                            <span class="once-ficha__nombre">${jugador.leyenda ? INSIGNIA_LEYENDA + ' ' : ''}${UI.escapar(jugador.nombre)}</span>
-                            <span class="once-ficha__meta">${jugador.eliminado ? '<b class="text-danger">cambio gratis</b>' : `${slot.siglas} · ${jugador.overall}${desempeno ? ` · <b>${desempeno.puntos_totales_fase}p</b>` : ''}`}</span>
-                        </div>`;
-                } else {
-                    html += `
-                        <button type="button" class="once-ficha once-ficha--vacia" data-buscar-posicion="${slot.id}" title="Buscar ${UI.escapar(slot.nombre)}">
-                            <span class="once-ficha__hueco"><i class="bi bi-plus-lg"></i></span>
-                            <span class="once-ficha__nombre">${slot.siglas}</span>
-                            <span class="once-ficha__meta">${UI.escapar(slot.nombre)}</span>
-                        </button>`;
-                }
-            });
-            html += '</div>';
-            contenedor.innerHTML = html;
-        }
-
-        // casillero vacío: filtra el buscador por esa posición
-        document.querySelectorAll('[data-buscar-posicion]').forEach(btn => {
-            btn.addEventListener('click', function () {
-                filtroPosicion.value = btn.dataset.buscarPosicion;
-                ejecutarBusqueda();
-                if (window.innerWidth < 992) resultadosBusqueda.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            });
-        });
-
-        document.querySelectorAll('.btn-quitar').forEach(btn => {
-            btn.addEventListener('click', function () {
-                seleccionados[parseInt(btn.dataset.posicionId, 10)] = null;
-                actualizarTodo();
-            });
-        });
-    }
-
-    function actualizarTodo() {
-        renderBloques();
-        const total = totalSeleccionados();
-        contadorJugadores.textContent = total;
-        btnGuardar.disabled = total !== 11;
-        renderizarResultados(ultimosResultados);
-    }
-
-    async function agregarJugador(jugador) {
-        if (!(jugador.posicion_id in seleccionados)) {
-            mostrarAlerta('Posición de jugador desconocida.', 'warning');
-            return;
-        }
-        if (yaSeleccionado(jugador.id)) {
-            mostrarAlerta('Ese jugador ya está en tu alineación.', 'warning');
-            return;
-        }
-        if (jugador.eliminado && !LINEUP_ORIGINAL.includes(jugador.id)) {
-            mostrarAlerta(`${jugador.nombre} no puede sumar puntos: ${jugador.pais_nombre} ${jugador.motivo_eliminado === 'No participa' ? 'no juega el Mundial' : 'quedó eliminada'}.`, 'warning');
-            return;
-        }
-        if (jugador.leyenda) {
-            const otra = Object.entries(seleccionados).find(([pos, j]) => j && j.leyenda && Number(pos) !== jugador.posicion_id);
-            if (otra && Object.values(seleccionados).filter(j => j && j.leyenda).length >= MAX_LEYENDAS) {
-                mostrarAlerta(`Solo puedes tener ${MAX_LEYENDAS} leyenda en tu Once Ideal (ya tienes a ${otra[1].nombre}).`, 'warning');
-                return;
-            }
-        }
-        const conteo = conteoPorPais();
-        if ((conteo[jugador.pais_id] || 0) >= MAX_POR_PAIS) {
-            mostrarAlerta(`Ya tienes ${MAX_POR_PAIS} jugadores de ${jugador.pais_nombre} (máximo por selección).`, 'warning');
-            return;
-        }
-
-        // Cada posición granular es un único slot: si ya hay alguien ahí (ej. DFD), hay
-        // que confirmar el reemplazo — no se puede tener 2 jugadores de la misma posición.
-        const ocupante = seleccionados[jugador.posicion_id];
-        if (ocupante) {
-            const ok = await UI.confirmar({
-                titulo: 'Reemplazar jugador',
-                mensaje: `Ya tienes a ${ocupante.nombre} en la posición ${jugador.posicion_nombre} (${jugador.posicion_siglas}). ¿Reemplazarlo por ${jugador.nombre}?`,
-                textoConfirmar: 'Reemplazar',
-            });
-            if (!ok) return;
-        }
-
-        seleccionados[jugador.posicion_id] = jugador;
-        alertaFantasy.classList.add('d-none');
-        actualizarTodo();
-    }
-
-    selectFormacion.addEventListener('change', actualizarTodo);
-
-    // Buscador de jugadores (debounced), con filtros de país y posición
-    let temporizadorBusqueda = null;
-    let ultimosResultados = [];
-
-    function renderizarResultados(jugadores) {
-        ultimosResultados = jugadores;
-
-        // Los jugadores de una posición granular ya cubierta se muestran al final y
-        // atenuados (no se ocultan: sigues pudiendo elegirlos para reemplazar al titular).
-        const disponibles = jugadores.filter(j => !seleccionados[j.posicion_id] && !j.eliminado);
-        const repetidos = jugadores.filter(j => seleccionados[j.posicion_id] && !j.eliminado);
-        const eliminados = jugadores.filter(j => j.eliminado);   // al final y deshabilitados: ya no suman
-        const ordenados = disponibles.concat(repetidos, eliminados);
-
-        resultadosBusqueda.innerHTML = ordenados.map((j, indice) => {
-            const posicionCubierta = !!seleccionados[j.posicion_id];
-            const aviso = j.eliminado
-                ? `<span class="once-resultado__aviso once-resultado__aviso--fuera"><i class="bi bi-person-x-fill"></i> ${UI.escapar(j.motivo_eliminado || 'Eliminado')}</span>`
-                : (posicionCubierta ? '<span class="once-resultado__aviso"><i class="bi bi-arrow-repeat"></i> Reemplaza</span>' : '');
-            return `
-                <button type="button" class="once-resultado ${posicionCubierta ? 'once-resultado--cubierta' : ''} ${j.eliminado ? 'once-resultado--eliminado' : ''} btn-agregar-jugador" data-indice="${indice}"
-                        ${j.eliminado ? `disabled title="${UI.escapar(j.pais_nombre)}: ya no juega el Mundial"` : ''}>
-                    <span class="once-resultado__foto">${UI.avatar(j.id, j.pais_id, 'sm')}<span class="avatar-dorsal">${UI.escapar(j.numero ?? '')}</span></span>
-                    <span class="once-resultado__info">
-                        <strong>${UI.escapar(j.nombre)} ${j.leyenda ? INSIGNIA_LEYENDA : ''}</strong>
-                        <small>${UI.bandera ? UI.bandera('', { id: j.pais_id }) : ''} ${UI.escapar(j.pais_nombre)} · ${UI.escapar(j.posicion_siglas)}</small>
-                    </span>
-                    ${aviso}
-                    <span class="once-resultado__ovr">${j.overall}</span>
-                    <i class="bi bi-plus-circle-fill once-resultado__mas"></i>
-                </button>
-            `;
-        }).join('') || '<div class="text-muted small p-2">Sin resultados.</div>';
-
-        document.querySelectorAll('.btn-agregar-jugador').forEach(btn => {
-            btn.addEventListener('click', function () {
-                agregarJugador(ordenados[Number(btn.dataset.indice)]);
-            });
-        });
-    }
-
-    function ejecutarBusqueda() {
-        const texto = inputBuscar.value.trim();
-        const params = new URLSearchParams({ q: texto });
-        if (filtroPais.value) params.set('pais_id', filtroPais.value);
-        if (filtroPosicion.value) params.set('posicion_id', filtroPosicion.value);
-
-        // Estado de carga y de error (antes, si la búsqueda fallaba, la lista quedaba congelada sin aviso)
-        const contenedor = document.getElementById('resultadosBusqueda');
-        if (contenedor) contenedor.innerHTML = '<div class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Buscando jugadores…</div>';
-        const consulta = ++numeroBusqueda;
-        fetch(`${urlBuscar}?${params.toString()}`)
-            .then(resp => { if (!resp.ok) throw new Error(); return resp.json(); })
-            .then(datos => { if (consulta === numeroBusqueda) renderizarResultados(datos); })
-            .catch(() => {
-                if (consulta === numeroBusqueda && contenedor) {
-                    contenedor.innerHTML = '<div class="text-danger small py-3 text-center"><i class="bi bi-exclamation-triangle me-1"></i>No se pudo buscar. Revisa tu conexión e intenta de nuevo.</div>';
-                }
-            });
-    }
-    let numeroBusqueda = 0; // descarta respuestas de búsquedas viejas que llegan tarde
-
-    inputBuscar.addEventListener('input', function () {
-        clearTimeout(temporizadorBusqueda);
-        temporizadorBusqueda = setTimeout(ejecutarBusqueda, 300);
-    });
-    filtroPais.addEventListener('change', ejecutarBusqueda);
-    filtroPosicion.addEventListener('change', ejecutarBusqueda);
-
-    ejecutarBusqueda();
-
-    // Guardar alineación
-    btnGuardar.addEventListener('click', async function () {
-        const lineup = Object.values(seleccionados).flat().map(j => j.id);
-
-        if (tieneEquipo) {
-            // Mismo desglose que services/fantasy_service.calcular_cambios: los que salen de una selección
-            // eliminada se reemplazan gratis; el resto usa cambios gratis; lo que sobra se cobra.
-            const salientes = jugadoresActuales.filter(j => !lineup.includes(j.id));
-            const gratisEliminados = salientes.filter(j => j.eliminado).length;
-            const normales = salientes.length - gratisEliminados;
-            const usados = Math.min(normales, cambiosGratisDisponibles);
-            const extra = normales - usados;
-            if (salientes.length > 0) {
-                const partes = [];
-                if (gratisEliminados) partes.push(`${gratisEliminados} reemplazo(s) de eliminados (gratis)`);
-                if (usados) partes.push(`${usados} con cambios gratis (te quedan ${cambiosGratisDisponibles - usados})`);
-                if (extra) partes.push(`${extra} extra = ${extra * COSTO_CAMBIO_EXTRA} pts de saldo`);
-                if (!await UI.confirmar({ titulo: extra ? 'Guardar con cambios extra' : 'Guardar cambios',
-                        mensaje: `Cambias ${salientes.length} jugador(es): ${partes.join(' + ')}.`,
-                        textoConfirmar: extra ? `Guardar y pagar ${extra * COSTO_CAMBIO_EXTRA} pts` : 'Guardar', peligro: !!extra })) {
-                    return;
-                }
-            }
-        }
-
-        btnGuardar.disabled = true;
-        btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
-
-        fetch(urlGuardar, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lineup: lineup, formacion: selectFormacion.value })
-        })
-        .then(async resp => {
-            const data = await resp.json();
-            if (!resp.ok) {
-                throw new Error(data.detail || 'No se pudo guardar la alineación.');
-            }
-            const c = data.cambios || {};
-            mostrarAlerta(c.costo ? `¡Alineación guardada! Se cobraron ${c.costo} pts por ${c.extra} cambio(s) extra.` : '¡Alineación guardada!', 'success');
-            UI.refrescarSaldo();   // saldo (si se cobraron cambios extra) y XP de niveles
-            setTimeout(() => window.location.reload(), 1000);
-        })
-        .catch(err => {
-            mostrarAlerta(err.message, 'danger');
-            btnGuardar.disabled = false;
-            btnGuardar.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Guardar Alineación';
-        });
-    });
-
-    // Prellenar con la alineación del Mundial (una sola, ver services/fantasy_service.py). La formación guardada es solo la preferencia visual de
-    // agrupamiento — cambiarla después no invalida ningún jugador, porque las 3 formaciones
-    // usan las mismas 10 posiciones de campo (ver services/fantasy_service.py).
-    const jugadoresActuales = {{ jugadores_actuales_json | safe }};
-    const LINEUP_ORIGINAL = jugadoresActuales.map(j => j.id);
-    if (jugadoresActuales.length > 0) {
-        selectFormacion.value = "{{ formacion_inicial }}";
-        jugadoresActuales.forEach(j => {
-            if (j.posicion_id in seleccionados) seleccionados[j.posicion_id] = j;
-        });
-    }
-
-    actualizarTodo();
-});
-</script>
+<script id="datosFantasy" type="application/json">{{ config_json | safe }}</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="/static/js/graficos_fifav.js"></script>
+<script src="/static/js/fantasy.js?v=1"></script>
 {% endblock %}

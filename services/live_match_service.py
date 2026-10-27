@@ -504,4 +504,7 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
         # DT de cada lado: solo quién es (sus reclamos, amonestación, expulsión y ajustes salen de los eventos ya
         # revelados, en el navegador, para no adelantar nada de la transmisión)
         "dt": _dts_en_vivo(resultado.get("dt") or {}, id_local, id_visita),
+        "formaciones": dict(FORMACIONES),
+        "planteamiento": {lado: {k: v for k, v in (plan or {}).items() if k in ("esquema", "etiqueta", "postura", "motivo")}
+                          for lado, plan in (resultado.get("planteamiento") or {}).items()},
     }

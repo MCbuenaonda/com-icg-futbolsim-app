@@ -119,3 +119,15 @@
 </div>
 {% endif %}
 {%- endmacro %}
+
+
+{# Esquema dibujado (config/formaciones.py): una fila de puntos por línea, de la defensa al ataque #}
+{% macro mini_esquema(esquema, clase='') -%}
+{% set f = formacion(esquema) %}
+{% if f %}
+<span class="mini-esquema {{ clase }}" title="{{ esquema }} · {{ f.etiqueta }}">
+  {% for n in f.cuenta | reverse %}<span class="mini-esquema__linea">{% for _ in range(n) %}<i></i>{% endfor %}</span>{% endfor %}
+  <span class="mini-esquema__linea"><i class="mini-esquema__por"></i></span>
+</span>
+{% endif %}
+{%- endmacro %}

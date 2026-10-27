@@ -226,8 +226,32 @@
               </div>
               {% for n in f.celdas %}<div class="corp-cal__celda {{ 'corp-cal__celda--juega' if n }} {{ 'corp-cal__celda--hoy' if loop.first }}">{% if n %}<span class="corp-cal__pelota" title="{{ n }} partido{{ 's' if n > 1 }}">⚽{% if n > 1 %}<b>{{ n }}</b>{% endif %}</span>{% elif f.eliminada and loop.first %}<small>eliminada</small>{% endif %}</div>{% endfor %}
               {% endfor %}
+              {# Cobertura: partidos de toda la cartera por ciclo; ⚠ = ciclo vacío o flojo (ver «Huecos en tu calendario») #}
+              <div class="corp-cal__pais corp-cal__cobertura-titulo"><i class="bi bi-activity me-1"></i>Cobertura</div>
+              {% for n in cal.totales %}<div class="corp-cal__cobertura {{ 'corp-cal__cobertura--vacio' if n == 0 else ('corp-cal__cobertura--flojo' if n <= cal.flojo else '') }}"
+                   title="{{ n }} partido{{ 's' if n != 1 }} de tu cartera">{% if n <= cal.flojo %}<i class="bi bi-exclamation-triangle-fill"></i>{% endif %}{{ n }}</div>{% endfor %}
             </div>
             {% if cal.filas | length > 14 %}<small class="text-muted d-block mt-1">y {{ cal.filas | length - 14 }} selecciones más (las que juegan antes van primero).</small>{% endif %}
+            {% if cal.huecos %}
+            <div class="corp-panel__titulo mt-3"><i class="bi bi-calendar-x me-1 text-warning"></i>Huecos en tu calendario</div>
+            <p class="small text-muted mb-2">Ciclos en que tu cartera casi no juega (y no cobra renta por partidos). Estos libres sí juegan ahí y su prima entra en tu capital:</p>
+            <div class="corp-huecos">
+              {% for h in cal.huecos %}
+              <div class="corp-hueco">
+                <div class="corp-hueco__cab"><strong>Ciclo {{ h.ciclo }}</strong>
+                  <span class="{{ 'text-danger' if h.vacio else 'text-warning' }} small">{{ 'sin partidos' if h.vacio else h.partidos_cartera ~ ' partido' ~ ('s' if h.partidos_cartera != 1 else '') }}</span></div>
+                {% for x in h.sugerencias %}
+                <a href="{{ x.url }}" class="corp-hueco__item">
+                  {% if x.tipo == 'jugador' %}{{ m.avatar(x.ref_id, x.pais_id) }}{% else %}{{ m.bandera(x.bandera, pais_id=x.pais_id) }}{% endif %}
+                  <span class="min-w-0 flex-grow-1"><span class="d-block text-white fw-semibold text-truncate">{{ x.nombre }}{% if x.tipo == 'seleccion' %} <i class="bi bi-flag-fill text-success fs-8"></i>{% endif %}</span>
+                    <span class="d-block fs-8 text-muted">juega {{ x.partidos }} partido{{ 's' if x.partidos != 1 }} · prima ~{{ '{:,}'.format(x.prima) }} · rinde ~{{ '{:,}'.format(x.renta) }} ese ciclo</span></span>
+                  <i class="bi bi-arrow-right-short"></i>
+                </a>
+                {% else %}<div class="small text-muted">No encontramos libres accesibles que jueguen en ese ciclo.</div>{% endfor %}
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
             {% if cal.proximos %}
             <div class="corp-panel__titulo mt-3"><i class="bi bi-lightning-charge-fill me-1"></i>Próximos partidos de tu cartera</div>
             <div class="corp-proximos">
@@ -257,6 +281,8 @@
               <span class="corp-acuerdo__logo"><i class="bi bi-airplane-fill"></i></span>
               <div class="min-w-0 flex-grow-1 small"><div class="text-white fw-semibold">Gira de {{ g.ref_nombre or '' }} <span class="text-muted fw-normal">· ciclo {{ g.ciclo }}</span></div>
                 <div class="text-muted">{% if g.estado == 'COBRADA' %}Costó {{ '{:,}'.format(g.costo) }} · recaudó <strong class="{{ 'text-success' if g.ingreso >= g.costo else 'text-danger' }}">{{ '{:,}'.format(g.ingreso) }}</strong>{% if g.aficionados %} · <strong class="text-info">+{{ '{:,}'.format(g.aficionados) }}</strong> aficionados{% endif %}
+                  {% elif g.v2 %}De gira: partido {{ g.jugados }} de {{ g.partidos }} · cobrado <strong class="text-success">{{ '{:,}'.format(g.cobrado) }}</strong> de ~{{ '{:,}'.format(g.ingreso) }} (costó {{ '{:,}'.format(g.costo) }})
+                  <div class="corp-gira-barra"><span style="width: {{ (g.jugados * 100 / g.partidos) | round | int }}%;"></span></div>
                   {% else %}En curso: cobra al cierre del ciclo {{ g.cobra_ciclo }}{% endif %}</div></div>
             </div>
             {% endfor %}
@@ -299,7 +325,7 @@
               <span class="marca-avatar marca-avatar--sm"><img src="{{ o.marca.logo }}" alt=""></span>
               <div class="min-w-0 flex-grow-1">
                 <div class="small text-white fw-semibold">{{ o.marca.nombre }} → {{ o.nombre }}</div>
-                <div class="small text-muted">Firma {{ '{:,}'.format(o.firma) }} + {{ '{:,}'.format(o.pago_ciclo) }}/ciclo × {{ o.ciclos }} · vence al cierre del ciclo {{ o.vence_ciclo }}</div>
+                <div class="small text-muted">Firma {{ '{:,}'.format(o.firma) }} + {{ '{:,}'.format(o.pago_ciclo) }}/ciclo × {{ o.ciclos }} · {% if o.vence_en is not none %}vence en {{ o.vence_en }} partido{{ 's' if o.vence_en != 1 }}{% else %}vence al cierre del ciclo {{ o.vence_ciclo }}{% endif %}</div>
               </div>
               <button class="btn btn-sm btn-success rounded-pill" data-patrocinio-respuesta="aceptar" data-patrocinio="{{ o._id }}" data-marca="{{ o.marca.nombre }}" data-nombre="{{ o.nombre }}" data-firma="{{ o.firma }}">Aceptar</button>
               <button class="btn btn-sm btn-outline-secondary rounded-pill" data-patrocinio-respuesta="rechazar" data-patrocinio="{{ o._id }}" data-marca="{{ o.marca.nombre }}" data-nombre="{{ o.nombre }}" data-firma="{{ o.firma }}">Rechazar</button>
@@ -535,5 +561,5 @@
         }
     });
 </script>
-<script src="/static/js/marcas.js?v=1"></script>
+<script src="/static/js/marcas.js?v=2"></script>
 {% endblock %}

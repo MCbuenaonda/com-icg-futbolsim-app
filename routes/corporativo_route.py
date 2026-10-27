@@ -212,6 +212,22 @@ def responder_patrocinio(pat_id: str, respuesta: str, request: Request):
 
 
 # --- Giras (services/corporativo_acciones_service.py) ---
+class GiraIn(BaseModel):
+    contratos: list[str]
+
+
+@route.get("/giras/jugadores", name="corporativos_giras_jugadores")
+def giras_jugadores(request: Request):
+    from services import corporativo_acciones_service as acciones
+    return _accion(acciones.giras_jugadores, _usuario_api(request)["_id"])
+
+
+@route.post("/giras", name="corporativos_gira_jugadores")
+def gira_jugadores(datos: GiraIn, request: Request):
+    from services import corporativo_acciones_service as acciones
+    return _accion(acciones.organizar_gira_jugadores, _usuario_api(request)["_id"], datos.contratos)
+
+
 @route.get("/contratos/{contrato_id}/gira", name="corporativos_cotizar_gira")
 def cotizar_gira(contrato_id: str, request: Request):
     from services import corporativo_acciones_service as acciones

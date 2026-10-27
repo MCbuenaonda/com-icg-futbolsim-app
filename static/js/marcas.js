@@ -2,7 +2,7 @@
  * Marcas y patrocinios (Corporativos): acciones compartidas por la cartera (/corporativo/<SIGLA>), el inicio de
  * Corporativos y la página /corporativo/marcas.
  *   [data-promover="<contrato_id>"]  -> modal con las marcas interesadas en ese representado (GET /corporativos/contratos/{id}/marcas)
- *                                       y botón «Promover» por marca (POST .../promover, se resuelve al cierre del ciclo).
+ *                                       y botón «Promover» por marca (POST .../promover, la marca responde en la siguiente ronda: cada 4 partidos).
  *   [data-promover-marca]            -> promover directo (página de marcas: data-contrato + data-marca).
  *   [data-patrocinio-respuesta]      -> aceptar / rechazar una oferta de patrocinio (POST /corporativos/patrocinios/{id}/{respuesta}).
  * Los mensajes van al elemento #alertaMarcas (o #alertaPerfil) de la página.
@@ -38,7 +38,7 @@
 
     function filaMarca(mk, contrato, restantes) {
         const bloqueada = mk.traba || restantes <= 0;
-        const motivo = mk.traba || (restantes <= 0 ? 'Ya usaste tus promociones de este ciclo' : '');
+        const motivo = mk.traba || (restantes <= 0 ? 'Ya usaste tus promociones de esta ronda' : '');
         return `<div class="prom-marca ${bloqueada ? 'prom-marca--off' : ''}" style="--marca:${esc(mk.color)}">
             <span class="marca-avatar"><img src="${esc(mk.logo)}" alt=""></span>
             <div class="min-w-0 flex-grow-1">
@@ -67,8 +67,8 @@
         const actuales = datos.actuales.length
             ? `<div class="mb-3 small"><span class="text-muted">Ya lo patrocinan:</span> ${datos.actuales.map(a => `<span class="prom-actual" style="--marca:${esc(a.color)}"><img src="${esc(a.logo)}" alt="">${esc(a.nombre)}</span>`).join(' ')}</div>` : '';
         el.querySelector('#promCuerpo').innerHTML = `
-            <p class="small text-muted mb-2">Le presentas el representado a una marca; responde al <strong>cierre del ciclo</strong>.
-              Máximo ${datos.max_marcas} marcas por representado y una por rubro. Te quedan <strong>${datos.promociones_restantes}</strong> promociones este ciclo.
+            <p class="small text-muted mb-2">Le presentas el representado a una marca; responde en <strong>${datos.responde_en} partido${datos.responde_en === 1 ? '' : 's'}</strong> (las marcas deciden cada 4 partidos).
+              Máximo ${datos.max_marcas} marcas por representado y una por rubro. Te quedan <strong>${datos.promociones_restantes}</strong> promociones en esta ronda.
               Del patrocinio, el ${datos.comision}% es tu comisión y se cobra con tu sueldo.</p>
             ${actuales}
             ${datos.marcas.length ? datos.marcas.map(mk => filaMarca(mk, contrato, datos.promociones_restantes)).join('')
@@ -99,7 +99,7 @@
             ev.preventDefault();
             const { patrocinioRespuesta: respuesta, patrocinio, marca, nombre, firma } = resp.dataset;
             const ok = await UI.confirmar(respuesta === 'aceptar'
-                ? { titulo: `¿Aceptar a ${marca}?`, mensaje: `Patrocinará a ${nombre}: cobras ${fmt(firma)} de firma ahora (tu comisión incluida) y el pago por ciclo desde el próximo cierre.`, textoConfirmar: 'Aceptar' }
+                ? { titulo: `¿Aceptar a ${marca}?`, mensaje: `Patrocinará a ${nombre}: cobras ${fmt(firma)} de firma ahora (tu comisión incluida) y el patrocinio en pagos cada 4 partidos desde la próxima ronda.`, textoConfirmar: 'Aceptar' }
                 : { titulo: `¿Rechazar a ${marca}?`, mensaje: `La oferta para ${nombre} se pierde y la marca queda libre para otros.`, textoConfirmar: 'Rechazar', peligro: true });
             if (!ok) return;
             try {

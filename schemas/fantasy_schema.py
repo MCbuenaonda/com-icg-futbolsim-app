@@ -8,7 +8,14 @@ class LineupIn(BaseModel):
     usuario_id: Optional[str] = None  # ignorado: se usa el usuario de la sesión (routes/fantasy_route.py)
     fase_id: Optional[int] = None  # ignorado: el Once Ideal es uno por Mundial (services/fantasy_service.py)
     lineup: List[int]  # ids de jugadores (colección 'jugadores')
-    formacion: str = "4-3-3"  # solo agrupamiento visual (4-3-3/4-4-2/3-5-2), no afecta la validación
+    formacion: str = "4-3-3"  # una de las 8 del catálogo (config/formaciones.py): define los cupos por línea
+    escuadra: int = 1  # equipo del usuario (1..4, según los desbloqueados)
+
+
+class OjeadorIn(BaseModel):
+    posicion_id: int
+    nivel: str = "basico"
+    escuadra: int = 1
 
 
 class FantasyTeamOut(BaseModel):
@@ -21,6 +28,8 @@ class FantasyTeamOut(BaseModel):
     is_locked: bool
     total_points_fase: int
     cambios_gratis_disponibles: int
+    escuadra: int = 1
+    monto_ganado: int = 0
 
 
 class JugadorBusquedaOut(BaseModel):

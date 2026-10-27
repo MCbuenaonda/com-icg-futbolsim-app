@@ -193,7 +193,19 @@ GIRA_JUGADOR_INGRESO = (0.006, 0.014)
 GIRA_JUGADOR_ENFRIAMIENTO = 3
 GIRA_JUGADOR_AFICIONADOS_MAX = 10
 TOPE_AFICIONADOS_GIRAS_JUGADOR = 50   # por selección y ciclo, entre todas las giras de todos los universos
-GIRAS_POR_CICLO = 1               # giras (de selección o de jugador) por corporativo y ciclo
+GIRAS_POR_CICLO = 1               # (modelo viejo: una gira por ciclo)
+CAL_ACTIVIDAD_FLOJA = 2            # calendario de la cartera: un ciclo con ≤ 2 partidos de tus representados es «flojo»
+CAL_SUGERENCIAS_POR_HUECO = 3
+# Giras v2: duran PARTIDOS del torneo (no un ciclo) y cobran partido a partido; una gira de jugadores lleva a varios.
+GIRA_JUGADOR_PARTIDOS = 3          # una gira de jugadores dura 3 partidos del torneo
+GIRA_SELECCION_PARTIDOS = 6        # y la de una selección, 6 (sin partido propio durante la gira)
+GIRA_MAX_JUGADORES = 4             # jugadores en una misma gira
+GIRAS_SIMULTANEAS = 2              # giras en curso a la vez por corporativo
+GIRA_JUGADORES_POR_CICLO = 8       # jugadores de gira por corporativo y ciclo (que la ganancia no se dispare)
+GIRA_JUGADOR_ENFRIAMIENTO_PARTIDOS = 20   # un mismo jugador vuelve a salir de gira 20 partidos después de terminar
+GIRA_COSTO_MINIMO_JUGADOR = 25
+GIRA_JUGADOR_COSTO_V2 = 0.003      # x valor del jugador
+GIRA_JUGADOR_RETORNO = (1.25, 2.10)   # ingreso = costo x retorno (según popularidad, forma de su selección y si juega)
 IA_PROB_ACUERDO = 0.25            # (acuerdos viejos: la IA ya no firma; las marcas los reemplazaron)
 IA_PROB_GIRA = 0.20               # por ciclo, que organice una gira
 
@@ -328,11 +340,16 @@ MARCA_CICLOS = (4, 8)
 MARCAS_MAX_POR_REPRESENTADO = 3                       # y nunca dos del mismo rubro
 MARCA_COMISION_CEO = 0.05
 MARCA_ENCAJE_MINIMO = 45                              # debajo de esto la marca no se interesa
-MARCA_PROB_ACERCARSE = 0.20                           # por ciclo, que una marca con cupo libre salga a buscar
+MARCA_PROB_ACERCARSE = 0.20                           # por ciclo (se reparte entre las rondas: / RONDAS_POR_CICLO)
 MARCA_PROB_RUMOR = 0.30                               # antes de ofertar deja correr el rumor un ciclo (entre 3-4 candidatos)
 MARCA_IA_ACEPTA = 0.85
-MARCA_OFERTA_CICLOS = 1                               # la oferta al usuario vence al cierre del ciclo siguiente
-MARCA_PROMOCIONES_POR_CICLO = 3                       # «Promover» del CEO, se responden al cierre del ciclo
+MARCA_OFERTA_CICLOS = 1                               # (ofertas viejas: vencían al cierre del ciclo siguiente)
+MARCA_PROMOCIONES_POR_CICLO = 3                       # (antes del ritmo por rondas)
+# Ritmo: las marcas deciden en una RONDA cada MARCA_PARTIDOS_RONDA partidos (5 por ciclo): pagan 1/5 del monto por ciclo,
+# responden promociones, resuelven rumores, vencen ofertas, se acercan y evalúan cortes. Vencimientos/renovaciones, al cierre.
+MARCA_PARTIDOS_RONDA = 4
+MARCA_OFERTA_PARTIDOS = 8                             # la oferta al usuario vence a los 8 partidos (2 rondas)
+MARCA_PROMOCIONES_POR_RONDA = 2                       # «Promover» del CEO: la marca responde en la ronda siguiente
 MARCA_PROMOCION_BASE = 0.15                           # prob. = base + encaje + reputación + fama (corporativo_reglas.prob_promocion)
 # Riesgo de corte (0..100) al cierre de cada ciclo: lo que pasó en el ciclo x (1,3 - fidelidad de la marca)
 MARCA_RIESGO = {"roja": 30, "goleada": 22, "eliminada": 60, "sin_jugar": 12, "mala_forma": 14, "descontento": 8}

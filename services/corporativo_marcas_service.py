@@ -18,7 +18,8 @@ despedida, y respuestas de la marca a los partidos de sus patrocinados (services
 Colecciones (con universo_id, PERMANENTES como el resto de corp_*):
   corp_patrocinios {_id, universo_id, sigla, contrato_id, tipo, ref_id, marca_id, rubro, encaje, pago_ciclo, firma,
                     desde_ciclo, hasta_ciclo, pagos, cobrado, comision, riesgo, aviso_ciclo, origen MARCA|PROMOCION,
-                    estado OFERTA|PROMOCION|ACTIVO|TERMINADO|CORTADO|RECHAZADA|VENCIDA|DESCARTADA, motivo, vence_ciclo, ciclo}
+                    estado OFERTA|PROMOCION|ACTIVO|TERMINADO|CORTADO|RECHAZADA|VENCIDA|DESCARTADA, motivo, ciclo, seq,
+                    desde_seq (cobra desde), vence_seq (ofertas), aviso_seq, ronda (promociones)}
   corp_marcas_rumores {_id, universo_id, marca_id, ciclo, candidatos [{tipo, ref_id, sigla, contrato_id, encaje}], estado}
   corp_feed {_id, universo_id, tipo FIRMA|RUMOR|RENOVACION|DESPEDIDA|REACCION, marca_id, ciclo, juego_id, fecha, hora,
              orden, texto, refs [{tipo, ref_id, nombre}], sigla, creado_en}
@@ -57,7 +58,21 @@ def iniciar_lote() -> None:
         _hilo.lote = {}
 
 
+def _espejo_activo() -> Optional[dict]:
+    return getattr(_hilo, "espejo", None)
+
+
+def _aplicar(doc: dict, cambios: dict) -> None:
+    for k, v in (cambios.get("$set") or {}).items():
+        doc[k] = v
+    for k, v in (cambios.get("$inc") or {}).items():
+        doc[k] = (doc.get(k) or 0) + v
+
+
 def _ins(col: str, doc: dict) -> None:
+    esp = _espejo_activo()
+    if esp is not None and col in esp:
+        esp[col][doc["_id"]] = dict(doc)
     lote = _lote()
     if lote is None:
         try:
@@ -69,6 +84,9 @@ def _ins(col: str, doc: dict) -> None:
 
 
 def _upd(col: str, _id, cambios: dict) -> None:
+    esp = _espejo_activo()
+    if esp is not None and col in esp and _id in esp[col]:
+        _aplicar(esp[col][_id], cambios)
     lote = _lote()
     if lote is None:
         db[col].update_one({"_id": _id}, cambios)
@@ -77,13 +95,18 @@ def _upd(col: str, _id, cambios: dict) -> None:
 
 
 def vaciar_lote() -> None:
-    """Manda todo lo acumulado (al final de cada cierre y de cada poner_al_dia). Duplicados = reproceso: se ignoran."""
+    """Manda todo lo acumulado (en el cierre de cada ciclo y al final de cada poner_al_dia). Primero las altas (sin orden;
+    un duplicado = reproceso y se ignora) y después las actualizaciones EN ORDEN (un mismo documento puede recibir varias)."""
     lote = _lote()
     _hilo.lote = None
     for col, ops in (lote or {}).items():
-        if ops:
+        altas = [o for o in ops if isinstance(o, InsertOne)]
+        cambios = [o for o in ops if not isinstance(o, InsertOne)]
+        for grupo, ordenado in ((altas, False), (cambios, True)):
+            if not grupo:
+                continue
             try:
-                db[col].bulk_write(ops, ordered=False)
+                db[col].bulk_write(grupo, ordered=ordenado)
             except BulkWriteError as e:
                 otros = [x for x in e.details.get("writeErrors", []) if x.get("code") != 11000]
                 if otros:
@@ -155,17 +178,37 @@ def _pais_nombre(tipo: str, ref_id: int) -> str:
     return v["info_paises"].get(pais, {}).get("nombre", "")
 
 
-def _ocupacion(uid) -> dict:
+def espejo(estado) -> dict:
+    """Patrocinios vigentes y rumores abiertos del universo EN MEMORIA durante un poner_al_dia: se cargan una vez y las
+    escrituras de las rondas los actualizan (_ins/_upd), así cada ronda (cada 4 partidos) no consulta la base."""
+    e = getattr(estado, "_espejo_marcas", None)
+    if e is None:
+        uid = estado.uid
+        e = estado._espejo_marcas = {
+            "corp_patrocinios": {p["_id"]: p for p in db["corp_patrocinios"].find({"universo_id": uid, "estado": {"$in": ESTADOS_VIGENTES}})},
+            "corp_marcas_rumores": {r["_id"]: r for r in db["corp_marcas_rumores"].find({"universo_id": uid, "estado": "ABIERTO"})}}
+    return e
+
+
+def _vigentes(col: str, estado_doc: str) -> list:
+    return [d for d in list(_espejo_activo()[col].values()) if d.get("estado") == estado_doc]
+
+
+def _ocupacion(uid, esp: Optional[dict] = None) -> dict:
     """Lo comprometido en el universo: rubros por representado, marcas por representado y cupos usados por marca."""
     cat = catalogo()
     por_rep: Dict[tuple, list] = {}
     por_marca: Dict[int, int] = {}
-    for p in db["corp_patrocinios"].find({"universo_id": uid, "estado": {"$in": ESTADOS_VIGENTES}},
-                                         {"tipo": 1, "ref_id": 1, "marca_id": 1, "estado": 1}):
+    fuente_pat = ([p for p in esp["corp_patrocinios"].values() if p.get("estado") in ESTADOS_VIGENTES] if esp is not None else
+                  db["corp_patrocinios"].find({"universo_id": uid, "estado": {"$in": ESTADOS_VIGENTES}},
+                                              {"tipo": 1, "ref_id": 1, "marca_id": 1, "estado": 1}))
+    for p in fuente_pat:
         por_rep.setdefault((p["tipo"], p["ref_id"]), []).append(p["marca_id"])
         if p["estado"] != "PROMOCION":
             por_marca[p["marca_id"]] = por_marca.get(p["marca_id"], 0) + 1
-    for r in db["corp_marcas_rumores"].find({"universo_id": uid, "estado": "ABIERTO"}, {"marca_id": 1}):
+    fuente_rum = ([r for r in esp["corp_marcas_rumores"].values() if r.get("estado") == "ABIERTO"] if esp is not None else
+                  db["corp_marcas_rumores"].find({"universo_id": uid, "estado": "ABIERTO"}, {"marca_id": 1}))
+    for r in fuente_rum:
         por_marca[r["marca_id"]] = por_marca.get(r["marca_id"], 0) + 1
     rubros = {k: {cat[m]["rubro"] for m in ms if m in cat} for k, ms in por_rep.items()}
     return {"por_rep": por_rep, "rubros": rubros, "por_marca": por_marca}
@@ -205,13 +248,14 @@ def _liberar(ocup: dict, marca_id: int, tipo: str, ref_id: int, cupo: bool = Tru
 
 
 # --- Red social: publicaciones del universo ---------------------------------------------------------
-def _ancla(ciclo: int) -> dict:
-    """Fecha y hora del partido que cerró el ciclo: las publicaciones del cierre aparecen justo después de él en la red."""
-    if ciclo not in _cache_anclas:
-        reg = db["corp_registro_partidos"].find_one({"seq": {"$lte": ciclo * C.PARTIDOS_POR_CICLO}}, {"juego_id": 1}, sort=[("seq", -1)])
+def _ancla(ciclo: int, seq: Optional[int] = None) -> dict:
+    """Fecha y hora del partido de la ronda (o del que cerró el ciclo): las publicaciones aparecen justo después de él en la red."""
+    clave = seq if seq is not None else ciclo * C.PARTIDOS_POR_CICLO
+    if clave not in _cache_anclas:
+        reg = db["corp_registro_partidos"].find_one({"seq": {"$lte": clave}}, {"juego_id": 1}, sort=[("seq", -1)])
         j = db["juegos"].find_one({"_id": ObjectId(reg["juego_id"])}, {"fecha": 1, "hora": 1}) if reg and ObjectId.is_valid(reg["juego_id"]) else None
-        _cache_anclas[ciclo] = {"juego_id": reg["juego_id"] if reg else None, "fecha": (j or {}).get("fecha"), "hora": (j or {}).get("hora")}
-    return _cache_anclas[ciclo]
+        _cache_anclas[clave] = {"juego_id": reg["juego_id"] if reg else None, "fecha": (j or {}).get("fecha"), "hora": (j or {}).get("hora")}
+    return _cache_anclas[clave]
 
 
 def _publicar(uid, tipo: str, marca: dict, ciclo: int, texto: str, refs: list, clave: str, sigla: Optional[str] = None,
@@ -220,6 +264,10 @@ def _publicar(uid, tipo: str, marca: dict, ciclo: int, texto: str, refs: list, c
     if tipo in ("FIRMA", "RENOVACION", "DESPEDIDA") and usuario and sigla and sigla != usuario \
             and R.semilla(uid, "post", clave).random() >= C.MARCA_PROB_POST_IA:
         return   # la red no se llena con cada movimiento de la IA
+    if not ancla and getattr(_hilo, "ancla_seq", None) is not None:
+        if getattr(_hilo, "ancla", None) is None:
+            _hilo.ancla = _ancla(ciclo, _hilo.ancla_seq)
+        ancla = _hilo.ancla
     ancla = ancla or _ancla(ciclo)
     _ins("corp_feed", {"_id": f"{uid}:{clave}", "universo_id": uid, "tipo": tipo, "marca_id": marca["id"], "ciclo": ciclo,
                        "juego_id": ancla.get("juego_id"), "fecha": ancla.get("fecha"), "hora": ancla.get("hora"),
@@ -232,45 +280,79 @@ def _ref(tipo: str, ref_id: int) -> dict:
 
 # --- Cobros ------------------------------------------------------------------------------------------
 def _cobrar(estado, corp: dict, contrato: Optional[dict], pat: dict, monto: int, ciclo: int, detalle: str) -> dict:
-    """Ingreso de una marca: 95% al corporativo y la comisión a la nómina del CEO (solo el del usuario)."""
-    com = int(round(monto * C.MARCA_COMISION_CEO)) if corp.get("es_del_usuario") else 0
-    neto = monto - com
-    corp["capital"] += neto
-    corp["ciclo_actual"]["extra"] += neto
-    corp["ciclo_actual"]["comision_ceo"] = corp["ciclo_actual"].get("comision_ceo", 0) + com
+    """Ingreso de una marca. Del corporativo del usuario, el 5% es la comisión del CEO: se calcula sobre el total del
+    ciclo (`ciclo_actual.marcas_bruto`) y se descuenta y paga con el sueldo en carrera.pagar_ceo."""
+    usuario = corp.get("es_del_usuario")
+    com = round(monto * C.MARCA_COMISION_CEO, 2) if usuario else 0
+    corp["capital"] += monto
+    corp["ciclo_actual"]["extra"] += monto
+    if usuario:
+        corp["ciclo_actual"]["marcas_bruto"] = corp["ciclo_actual"].get("marcas_bruto", 0) + monto
     if contrato:
-        contrato["renta_total"] = contrato.get("renta_total", 0) + neto
+        contrato["renta_total"] = contrato.get("renta_total", 0) + monto - com
         estado.tocar(contrato)
-    estado.mover(corp["sigla"], ciclo, "PATROCINIO_MARCA", neto, detalle + (f" (comisión tuya {com:,})" if com else ""))
+    estado.mover(corp["sigla"], ciclo, "PATROCINIO_MARCA", monto, detalle + (" (5% es tu comisión, con el sueldo)" if usuario else ""))
     return {"cobrado": monto, "comision": com}
 
 
-# --- Cierre de ciclo (dentro de poner_al_dia, desde corporativo_acciones_service.cerrar_ciclo_acciones) --------
+# --- Rondas (cada MARCA_PARTIDOS_RONDA partidos, dentro de poner_al_dia) y cierre de ciclo -----------------------
+RONDAS_POR_CICLO = C.PARTIDOS_POR_CICLO // C.MARCA_PARTIDOS_RONDA
+
+
+def ronda_de_seq(seq: int) -> int:
+    return seq // C.MARCA_PARTIDOS_RONDA
+
+
 def cerrar_ciclo_marcas(estado, ciclo: int) -> None:
+    """Cierre de ciclo: la última ronda del ciclo + vencimientos/renovaciones y los riesgos de fondo (llamado desde
+    corporativo_acciones_service.cerrar_ciclo_acciones, antes de limpiar eventos_ciclo)."""
+    ronda_marcas(estado, ciclo, ciclo * C.PARTIDOS_POR_CICLO, cierre=True)
+
+
+def ronda_marcas(estado, ciclo: int, seq: int, cierre: bool = False) -> None:
+    """
+    Una ronda de marcas: pagan 1/RONDAS_POR_CICLO del monto por ciclo, evalúan el riesgo con lo que pasó en la ronda
+    (roja, goleada; en el cierre además eliminación, ciclos sin jugar, mala racha y descontento), responden las
+    promociones y resuelven los rumores de rondas anteriores, vencen las ofertas y se acercan las que tienen cupo.
+    """
     cat = catalogo()
     if not cat:
         return
     uid = estado.uid
     _hilo.sigla_usuario = next((s for s, c in estado.corps.items() if c.get("es_del_usuario")), "-")
     iniciar_lote()
+    _hilo.espejo = espejo(estado)
+    _hilo.ancla, _hilo.ancla_seq = None, seq
     try:
-        vaciar_lote()            # primero lo pendiente (reacciones de los partidos del ciclo): _ocupacion lee la base
-        iniciar_lote()
-        ctx = _ctx_encaje()
-        ocup = _ocupacion(uid)
+        ctx = getattr(estado, "_ctx_marcas", None)
+        if not ctx or ctx.get("_ciclo") != ciclo:   # el contexto de encaje se arma una vez por ciclo
+            ctx = estado._ctx_marcas = {**_ctx_encaje(), "_ciclo": ciclo}
+        ocup = _ocupacion(uid, _hilo.espejo)
         contratos = {(c["tipo"], c["ref_id"]): c for c in estado.contratos if c["activo"]}
-        _procesar_activos(estado, ciclo, cat, ctx, ocup, contratos)
-        _procesar_promociones(estado, ciclo, cat, ctx, ocup, contratos)
-        _vencer_ofertas(estado, ciclo, cat, ocup)
-        _resolver_rumores(estado, ciclo, cat, ctx, ocup, contratos)
-        _acercamientos(estado, ciclo, cat, ctx, ocup, contratos)
+        ronda = ronda_de_seq(seq)
+        _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre)
+        _procesar_promociones(estado, ciclo, seq, cat, ctx, ocup, contratos)
+        _vencer_ofertas(estado, ciclo, seq, ocup, cierre)
+        _resolver_rumores(estado, ciclo, seq, cat, ctx, ocup, contratos)
+        _acercamientos(estado, ciclo, ronda, cat, ctx, ocup, contratos)
+        for c in contratos.values():   # los hechos de la ronda ya se usaron: no cuentan dos veces
+            if c.get("eventos_marcas"):
+                c["eventos_marcas"] = {}
+                estado.tocar(c)
     finally:
-        vaciar_lote()
-    estado._patrocinios_activos = None   # el próximo partido relee los patrocinios vigentes
+        if cierre:   # las escrituras se agrupan hasta el cierre (o el final del poner_al_dia): las lecturas van al espejo
+            vaciar_lote()
+        _hilo.ancla, _hilo.ancla_seq, _hilo.espejo = None, None, None
 
 
-def _eventos(c: dict, ctx: dict) -> dict:
-    ev = dict(c.get("eventos_ciclo") or {})
+def _eventos(c: dict, ctx: dict, cierre: bool) -> dict:
+    """Lo que preocupa a la marca: los hechos de la ronda (roja, goleada) y, en el cierre del ciclo, además la
+    eliminación, los ciclos sin jugar, la mala racha y el descontento (así una situación de fondo no se cuenta 5 veces)."""
+    ev = dict(c.get("eventos_marcas") or {})
+    if not cierre:
+        return ev
+    if (c.get("eventos_ciclo") or {}).get("eliminada"):
+        ev["eliminada"] = True
     pais = c["ref_id"] if c["tipo"] == "seleccion" else valores()["info_jugadores"].get(c["ref_id"], {}).get("pais_id")
     forma = ctx["forma"].get(pais)
     ev["sin_jugar"] = (c.get("ciclos_sin_jugar") or 0) >= 2
@@ -279,9 +361,16 @@ def _eventos(c: dict, ctx: dict) -> dict:
     return ev
 
 
-def _procesar_activos(estado, ciclo, cat, ctx, ocup, contratos) -> None:
+def _vigente_desde(p: dict) -> int:
+    """seq desde el que cobra (los viejos guardaban solo el ciclo)."""
+    return p["desde_seq"] if p.get("desde_seq") is not None else (p.get("desde_ciclo", 0) - 1) * C.PARTIDOS_POR_CICLO + 1
+
+
+def _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre) -> None:
     uid = estado.uid
-    for p in db["corp_patrocinios"].find({"universo_id": uid, "estado": "ACTIVO", "desde_ciclo": {"$lte": ciclo}}):
+    for p in _vigentes("corp_patrocinios", "ACTIVO"):
+        if _vigente_desde(p) > seq:
+            continue
         marca = cat.get(p["marca_id"])
         c = contratos.get((p["tipo"], p["ref_id"]))
         corp = estado.corps.get(p["sigla"])
@@ -292,13 +381,14 @@ def _procesar_activos(estado, ciclo, cat, ctx, ocup, contratos) -> None:
             _upd("corp_patrocinios", p["_id"], {"$set": {"estado": "TERMINADO", "motivo": "Terminó la representación"}})
             _liberar(ocup, p["marca_id"], p["tipo"], p["ref_id"])
             continue
-        ev = _eventos(c, ctx)
+        ev = _eventos(c, ctx, cierre)
         riesgo = R.riesgo_marca(ev, marca.get("fidelidad", 0.5))
         es_usuario = corp.get("es_del_usuario")
-        if riesgo >= C.MARCA_RIESGO_CORTE or (p.get("aviso_ciclo") and riesgo >= C.MARCA_RIESGO_AVISO):
+        en_aviso = p.get("aviso_seq") or p.get("aviso_ciclo")
+        if riesgo >= C.MARCA_RIESGO_CORTE or (en_aviso and riesgo >= C.MARCA_RIESGO_AVISO):
             motivo = _motivo_riesgo(ev)
-            _upd("corp_patrocinios", p["_id"], {"$set": {"estado": "CORTADO", "riesgo": riesgo, "fin_ciclo": ciclo,
-                                                                           "motivo": f"La marca cortó por {motivo}"}})
+            _upd("corp_patrocinios", p["_id"], {"$set": {"estado": "CORTADO", "riesgo": riesgo, "fin_ciclo": ciclo, "fin_seq": seq,
+                                                         "motivo": f"La marca cortó por {motivo}"}})
             _liberar(ocup, p["marca_id"], p["tipo"], p["ref_id"])
             _publicar(uid, "DESPEDIDA", marca, ciclo, T.texto_despedida(marca, nombre, _pais_nombre(p["tipo"], p["ref_id"]), p["_id"]),
                       [_ref(p["tipo"], p["ref_id"])], f"adios:{p['_id']}", p["sigla"], orden=3)
@@ -307,16 +397,17 @@ def _procesar_activos(estado, ciclo, cat, ctx, ocup, contratos) -> None:
                          f"Por {motivo}, la marca decidió no seguir. Te quedas con lo ya cobrado ({p.get('cobrado', 0):,}).",
                          "bi-x-octagon-fill", clave=f"marca-corte:{p['_id']}")
             continue
-        pago = p["pago_ciclo"]
+        pago = max(1, int(round(p["pago_ciclo"] / RONDAS_POR_CICLO)))
         cobro = _cobrar(estado, corp, c, p, pago, ciclo, f"{marca['nombre']}: patrocinio de {nombre}")
-        aviso = ciclo if riesgo >= C.MARCA_RIESGO_AVISO else None
-        cambios = {"$inc": {"pagos": 1, "cobrado": cobro["cobrado"], "comision": cobro["comision"]},
-                   "$set": {"riesgo": riesgo, "aviso_ciclo": aviso}}
-        if aviso and not p.get("aviso_ciclo") and es_usuario:
-            U.avisar(uid, ciclo, "MARCA", f"{marca['nombre']} está revisando el patrocinio de {nombre}",
-                     f"Le preocupa {_motivo_riesgo(ev)}. Si el próximo ciclo sigue igual, corta. Que juegue, una gira o "
-                     "una campaña de marketing ayudan.", "bi-exclamation-triangle-fill", clave=f"marca-aviso:{p['_id']}:{ciclo}")
-        if ciclo >= p["hasta_ciclo"]:
+        cambios = {"$inc": {"pagos": 1, "cobrado": cobro["cobrado"], "comision": cobro["comision"]}, "$set": {}}
+        if ev or cierre:   # sin hechos en la ronda, el semáforo queda como estaba
+            aviso = seq if riesgo >= C.MARCA_RIESGO_AVISO else None
+            cambios["$set"].update(riesgo=riesgo, aviso_seq=aviso, aviso_ciclo=ciclo if aviso else None)
+            if aviso and not en_aviso and es_usuario:
+                U.avisar(uid, ciclo, "MARCA", f"{marca['nombre']} está revisando el patrocinio de {nombre}",
+                         f"Le preocupa {_motivo_riesgo(ev)}. Si vuelve a pasar algo así, corta. Que juegue y rinda, una gira o "
+                         "una campaña de marketing ayudan.", "bi-exclamation-triangle-fill", clave=f"marca-aviso:{p['_id']}:{seq}")
+        if cierre and ciclo >= p["hasta_ciclo"]:
             rng = R.semilla(uid, "marca-renueva", p["_id"], ciclo)
             if riesgo < C.MARCA_RIESGO_AVISO and rng.random() < C.MARCA_PROB_RENUEVA:
                 extra = rng.randint(*C.MARCA_CICLOS)
@@ -326,14 +417,16 @@ def _procesar_activos(estado, ciclo, cat, ctx, ocup, contratos) -> None:
                           [_ref(p["tipo"], p["ref_id"])], f"renov:{p['_id']}:{ciclo}", p["sigla"], orden=2)
                 if es_usuario:
                     U.avisar(uid, ciclo, "MARCA", f"{marca['nombre']} renovó con {nombre}",
-                             f"Quedó conforme y extiende el patrocinio {extra} ciclos más ({pago:,} por ciclo).", "bi-arrow-repeat",
+                             f"Quedó conforme y extiende el patrocinio {extra} ciclos más ({p['pago_ciclo']:,} por ciclo).", "bi-arrow-repeat",
                              clave=f"marca-renov:{p['_id']}:{ciclo}")
             else:
-                cambios["$set"].update(estado="TERMINADO", motivo="Cumplido", fin_ciclo=ciclo)
+                cambios["$set"].update(estado="TERMINADO", motivo="Cumplido", fin_ciclo=ciclo, fin_seq=seq)
                 _liberar(ocup, p["marca_id"], p["tipo"], p["ref_id"])
                 if rng.random() < 0.5:
                     _publicar(uid, "DESPEDIDA", marca, ciclo, T.texto_despedida(marca, nombre, _pais_nombre(p["tipo"], p["ref_id"]), p["_id"]),
                               [_ref(p["tipo"], p["ref_id"])], f"adios:{p['_id']}", p["sigla"], orden=3)
+        if not cambios["$set"]:
+            del cambios["$set"]
         _upd("corp_patrocinios", p["_id"], cambios)
 
 
@@ -345,16 +438,16 @@ def _motivo_riesgo(ev: dict) -> str:
 
 
 def _activar(estado, ciclo: int, marca: dict, c: dict, corp: dict, encaje: int, origen: str, ocup: dict, pat_id: Optional[str] = None,
-             desde: Optional[int] = None) -> dict:
+             seq: Optional[int] = None) -> dict:
     """Firma un patrocinio en el cierre (IA, promoción aceptada): cobra la firma y publica la noticia."""
     uid = estado.uid
     rng = R.semilla(uid, "marca-firma", marca["id"], c["tipo"], c["ref_id"], ciclo)
     montos = R.monto_marca(c.get("valor_actual") or _valor(c["tipo"], c["ref_id"]), marca.get("nivel", 2), encaje, corp.get("reputacion", 50))
     ciclos = rng.randint(*C.MARCA_CICLOS)
-    desde = desde or ciclo + 1
+    seq = seq if seq is not None else ciclo * C.PARTIDOS_POR_CICLO
     doc = {"universo_id": uid, "sigla": c["sigla"], "contrato_id": str(c["_id"]), "tipo": c["tipo"], "ref_id": c["ref_id"],
-           "marca_id": marca["id"], "rubro": marca["rubro"], "encaje": encaje, **montos, "desde_ciclo": desde,
-           "hasta_ciclo": desde + ciclos - 1, "pagos": 0, "cobrado": 0, "comision": 0, "riesgo": 0, "aviso_ciclo": None,
+           "marca_id": marca["id"], "rubro": marca["rubro"], "encaje": encaje, **montos, "desde_ciclo": ciclo,
+           "desde_seq": seq + 1, "hasta_ciclo": ciclo + ciclos, "pagos": 0, "cobrado": 0, "comision": 0, "riesgo": 0, "aviso_ciclo": None,
            "origen": origen, "estado": "ACTIVO", "motivo": None, "ciclo": ciclo, "creado_en": datetime.utcnow()}
     nombre = _nombre(c["tipo"], c["ref_id"])
     cobro = _cobrar(estado, corp, c, doc, montos["firma"], ciclo, f"{marca['nombre']}: firma del patrocinio de {nombre}")
@@ -362,7 +455,7 @@ def _activar(estado, ciclo: int, marca: dict, c: dict, corp: dict, encaje: int, 
     if pat_id:
         _upd("corp_patrocinios", pat_id, {"$set": doc})
     else:
-        pat_id = f"{uid}:{marca['id']}:{c['tipo']}:{c['ref_id']}:{ciclo}"
+        pat_id = f"{uid}:{marca['id']}:{c['tipo']}:{c['ref_id']}:r{ronda_de_seq(seq)}"
         _ins("corp_patrocinios", {"_id": pat_id, **doc})
     _ocupar(ocup, marca, c["tipo"], c["ref_id"])
     _publicar(uid, "FIRMA", marca, ciclo, T.texto_firma(marca, c["tipo"], nombre, _pais_nombre(c["tipo"], c["ref_id"]), ciclos, pat_id),
@@ -375,10 +468,15 @@ def _valor(tipo: str, ref_id: int) -> int:
     return int((v["selecciones"] if tipo == "seleccion" else v["jugadores"]).get(ref_id, 0))
 
 
-def _procesar_promociones(estado, ciclo, cat, ctx, ocup, contratos) -> None:
+def _procesar_promociones(estado, ciclo, seq, cat, ctx, ocup, contratos) -> None:
     uid = estado.uid
-    universo = U.obtener_universo(uid) or {}
-    for p in db["corp_patrocinios"].find({"universo_id": uid, "estado": "PROMOCION", "ciclo": {"$lte": ciclo}}):
+    universo = None
+    for p in _vigentes("corp_patrocinios", "PROMOCION"):
+        if p.get("seq") is not None and p["seq"] >= seq:
+            continue   # se hizo después de esta ronda: responde en la siguiente
+        if p.get("seq") is None and p.get("ciclo", 0) > ciclo:
+            continue
+        universo = universo or U.obtener_universo(uid) or {}
         marca = cat.get(p["marca_id"])
         c = contratos.get((p["tipo"], p["ref_id"]))
         corp = estado.corps.get(p["sigla"])
@@ -393,41 +491,44 @@ def _procesar_promociones(estado, ciclo, cat, ctx, ocup, contratos) -> None:
         prob = R.prob_promocion(encaje, corp.get("reputacion", 50), universo.get("fama", 50))
         acepta = not traba and encaje >= C.MARCA_ENCAJE_MINIMO and R.semilla(uid, "promo", p["_id"]).random() < prob
         if acepta:
-            _activar(estado, ciclo, marca, c, corp, encaje, "PROMOCION", ocup, pat_id=p["_id"])
+            _activar(estado, ciclo, marca, c, corp, encaje, "PROMOCION", ocup, pat_id=p["_id"], seq=seq)
             U.avisar(uid, ciclo, "MARCA", f"¡{marca['nombre']} aceptó! Patrocinará a {nombre}",
-                     "Tu promoción funcionó: cobras la firma ahora y el pago por ciclo desde el próximo.", "bi-stars",
+                     f"Tu promoción funcionó: cobras la firma ahora y el patrocinio cada {C.MARCA_PARTIDOS_RONDA} partidos.", "bi-stars",
                      clave=f"promo-ok:{p['_id']}")
             U.dar_xp(uid, "CORP_PATROCINIO", p["_id"])
         else:
             motivo = traba or ("no encaja con lo que busca" if encaje < C.MARCA_ENCAJE_MINIMO else "eligió esperar")
             _upd("corp_patrocinios", p["_id"], {"$set": {"estado": "DESCARTADA", "motivo": motivo.capitalize()}})
             U.avisar(uid, ciclo, "MARCA", f"{marca['nombre'] if marca else 'La marca'} no tomó la propuesta por {nombre}",
-                     f"Motivo: {motivo}. Puedes intentar con otra marca el próximo ciclo.", "bi-x-circle", clave=f"promo-no:{p['_id']}")
+                     f"Motivo: {motivo}. Puedes intentar con otra marca.", "bi-x-circle", clave=f"promo-no:{p['_id']}")
 
 
-def _vencer_ofertas(estado, ciclo, cat, ocup) -> None:
-    for p in db["corp_patrocinios"].find({"universo_id": estado.uid, "estado": "OFERTA", "vence_ciclo": {"$lte": ciclo}}):
+def _vencer_ofertas(estado, ciclo, seq, ocup, cierre) -> None:
+    for p in _vigentes("corp_patrocinios", "OFERTA"):
+        vencida = p["vence_seq"] <= seq if p.get("vence_seq") is not None else (cierre and p.get("vence_ciclo", 0) <= ciclo)
+        if not vencida:
+            continue
         _upd("corp_patrocinios", p["_id"], {"$set": {"estado": "VENCIDA", "motivo": "No respondiste a tiempo"}})
         _liberar(ocup, p["marca_id"], p["tipo"], p["ref_id"])
 
 
-def _ofrecer(estado, ciclo: int, marca: dict, c: dict, encaje: int, ocup: dict) -> None:
-    """Oferta de una marca a un representado del USUARIO: la acepta o rechaza durante el ciclo siguiente."""
+def _ofrecer(estado, ciclo: int, marca: dict, c: dict, encaje: int, ocup: dict, seq: int) -> None:
+    """Oferta de una marca a un representado del USUARIO: la acepta o rechaza en los próximos MARCA_OFERTA_PARTIDOS partidos."""
     uid = estado.uid
     corp = estado.corps[c["sigla"]]
     montos = R.monto_marca(c.get("valor_actual") or _valor(c["tipo"], c["ref_id"]), marca.get("nivel", 2), encaje, corp.get("reputacion", 50))
     ciclos = R.semilla(uid, "marca-oferta", marca["id"], c["ref_id"], ciclo).randint(*C.MARCA_CICLOS)
-    pat_id = f"{uid}:{marca['id']}:{c['tipo']}:{c['ref_id']}:{ciclo}"
+    pat_id = f"{uid}:{marca['id']}:{c['tipo']}:{c['ref_id']}:r{ronda_de_seq(seq)}"
     if True:
         _ins("corp_patrocinios", {"_id": pat_id, "universo_id": uid, "sigla": c["sigla"], "contrato_id": str(c["_id"]),
                                            "tipo": c["tipo"], "ref_id": c["ref_id"], "marca_id": marca["id"], "rubro": marca["rubro"],
                                            "encaje": encaje, **montos, "ciclos": ciclos, "estado": "OFERTA", "origen": "MARCA",
-                                           "ciclo": ciclo, "vence_ciclo": ciclo + C.MARCA_OFERTA_CICLOS, "creado_en": datetime.utcnow()})
+                                           "ciclo": ciclo, "seq": seq, "vence_seq": seq + C.MARCA_OFERTA_PARTIDOS, "creado_en": datetime.utcnow()})
     _ocupar(ocup, marca, c["tipo"], c["ref_id"])
     nombre = _nombre(c["tipo"], c["ref_id"])
     U.avisar(uid, ciclo, "MARCA", f"{marca['nombre']} quiere patrocinar a {nombre}",
-             f"Ofrece {montos['firma']:,} de firma y {montos['pago_ciclo']:,} por ciclo durante {ciclos} ciclos. Respóndele antes del "
-             "cierre del próximo ciclo en Marcas y patrocinios.", "bi-badge-ad-fill", clave=f"marca-oferta:{pat_id}")
+             f"Ofrece {montos['firma']:,} de firma y {montos['pago_ciclo']:,} por ciclo durante {ciclos} ciclos. Respóndele en los "
+             f"próximos {C.MARCA_OFERTA_PARTIDOS} partidos en Marcas y patrocinios.", "bi-badge-ad-fill", clave=f"marca-oferta:{pat_id}")
 
 
 def _candidatos(marca: dict, ctx: dict, ocup: dict, contratos: dict, reps: dict) -> List[tuple]:
@@ -445,9 +546,11 @@ def _candidatos(marca: dict, ctx: dict, ocup: dict, contratos: dict, reps: dict)
     return salida
 
 
-def _resolver_rumores(estado, ciclo, cat, ctx, ocup, contratos) -> None:
+def _resolver_rumores(estado, ciclo, seq, cat, ctx, ocup, contratos) -> None:
     uid = estado.uid
-    for r in db["corp_marcas_rumores"].find({"universo_id": uid, "estado": "ABIERTO", "ciclo": {"$lt": ciclo}}):
+    for r in _vigentes("corp_marcas_rumores", "ABIERTO"):
+        if (r["seq"] >= seq) if r.get("seq") is not None else (r.get("ciclo", 0) >= ciclo):
+            continue   # el rumor es de esta ronda: se resuelve en la siguiente
         marca = cat.get(r["marca_id"])
         _upd("corp_marcas_rumores", r["_id"], {"$set": {"estado": "RESUELTO"}})
         ocup["por_marca"][r["marca_id"]] = max(0, ocup["por_marca"].get(r["marca_id"], 0) - 1)
@@ -459,20 +562,22 @@ def _resolver_rumores(estado, ciclo, cat, ctx, ocup, contratos) -> None:
         if not vivos:
             continue
         e, c = rng.choices(vivos, weights=[max(1, x[0] - 30) for x in vivos])[0]
-        _decidir(estado, ciclo, marca, c, e, ocup, rng)
+        _decidir(estado, ciclo, marca, c, e, ocup, rng, seq)
 
 
-def _decidir(estado, ciclo, marca, c, encaje, ocup, rng) -> None:
+def _decidir(estado, ciclo, marca, c, encaje, ocup, rng, seq) -> None:
     corp = estado.corps[c["sigla"]]
     if corp.get("es_del_usuario"):
-        _ofrecer(estado, ciclo, marca, c, encaje, ocup)
+        _ofrecer(estado, ciclo, marca, c, encaje, ocup, seq)
     elif rng.random() < C.MARCA_IA_ACEPTA:
-        _activar(estado, ciclo, marca, c, corp, encaje, "MARCA", ocup)
+        _activar(estado, ciclo, marca, c, corp, encaje, "MARCA", ocup, seq=seq)
 
 
-def _acercamientos(estado, ciclo, cat, ctx, ocup, contratos) -> None:
+def _acercamientos(estado, ciclo, ronda, cat, ctx, ocup, contratos) -> None:
     uid = estado.uid
-    rng = R.semilla(uid, "marcas-acercan", ciclo)
+    seq = ronda * C.MARCA_PARTIDOS_RONDA
+    rng = R.semilla(uid, "marcas-acercan", ronda)
+    prob = C.MARCA_PROB_ACERCARSE / RONDAS_POR_CICLO
     ids = sorted(cat)
     rng.shuffle(ids)
     reps: dict = {}
@@ -480,16 +585,16 @@ def _acercamientos(estado, ciclo, cat, ctx, ocup, contratos) -> None:
         marca = cat[mid]
         if ocup["por_marca"].get(mid, 0) >= C.MARCA_CUPOS_NIVEL.get(marca.get("nivel", 2), 1):
             continue
-        if rng.random() >= C.MARCA_PROB_ACERCARSE:
+        if rng.random() >= prob:
             continue
         cands = _candidatos(marca, ctx, ocup, contratos, reps)[:8]
         if not cands:
             continue
         if len(cands) >= 3 and rng.random() < C.MARCA_PROB_RUMOR:
             elegidos = rng.sample(cands, min(len(cands), rng.choice([3, 3, 4])))
-            rid = f"{uid}:{mid}:{ciclo}"
+            rid = f"{uid}:{mid}:r{ronda}"
             if True:
-                _ins("corp_marcas_rumores", {"_id": rid, "universo_id": uid, "marca_id": mid, "ciclo": ciclo, "estado": "ABIERTO",
+                _ins("corp_marcas_rumores", {"_id": rid, "universo_id": uid, "marca_id": mid, "ciclo": ciclo, "seq": seq, "estado": "ABIERTO",
                                                       "candidatos": [{"tipo": c["tipo"], "ref_id": c["ref_id"], "sigla": c["sigla"],
                                                                       "contrato_id": str(c["_id"]), "encaje": e} for e, c in elegidos]})
             ocup["por_marca"][mid] = ocup["por_marca"].get(mid, 0) + 1
@@ -497,7 +602,7 @@ def _acercamientos(estado, ciclo, cat, ctx, ocup, contratos) -> None:
                       [_ref(c["tipo"], c["ref_id"]) for _, c in elegidos], f"rumor:{rid}", orden=4)
         else:
             e, c = rng.choices(cands, weights=[max(1, x[0] - 30) for x in cands])[0]
-            _decidir(estado, ciclo, marca, c, e, ocup, rng)
+            _decidir(estado, ciclo, marca, c, e, ocup, rng, seq)
 
 
 # --- Partido: las marcas responden en el hilo del partido de sus patrocinados -------------------------
@@ -506,10 +611,7 @@ def reacciones_partido(estado, aporte: dict, ciclo: int, juego_id: str) -> None:
     try:
         iniciar_lote()
         _hilo.sigla_usuario = next((s for s, c in estado.corps.items() if c.get("es_del_usuario")), "-")
-        if not getattr(estado, "_patrocinios_activos", None):
-            estado._patrocinios_activos = list(db["corp_patrocinios"].find(
-                {"universo_id": estado.uid, "estado": "ACTIVO"}, {"tipo": 1, "ref_id": 1, "marca_id": 1, "sigla": 1}))
-        pats = estado._patrocinios_activos
+        pats = [p for p in espejo(estado)["corp_patrocinios"].values() if p.get("estado") == "ACTIVO"]
         if not pats:
             return
         v = valores()
@@ -559,6 +661,17 @@ def _contrato_propio(user_id, contrato_id: str):
     return universo, sigla, corp, c, U.ciclo_en_curso(universo)
 
 
+def _ronda_usuario(user_id) -> tuple:
+    """(seq del universo, ronda en curso, partidos que faltan para la próxima ronda)."""
+    seq = (U.obtener_universo(user_id) or {}).get("cursor_seq") or U.seq_actual()
+    faltan = C.MARCA_PARTIDOS_RONDA - (seq % C.MARCA_PARTIDOS_RONDA)
+    return seq, ronda_de_seq(seq), faltan
+
+
+def _promos_ronda(user_id, ronda: int) -> int:
+    return db["corp_patrocinios"].count_documents({"universo_id": user_id, "origen": "PROMOCION", "ronda": ronda})
+
+
 def interesadas(user_id, contrato_id: str, ctx: Optional[dict] = None) -> dict:
     """Marcas que podrían patrocinar a este representado, por encaje, con la probabilidad de aceptar una promoción."""
     universo, sigla, corp, c, ciclo = _contrato_propio(user_id, contrato_id)
@@ -575,13 +688,13 @@ def interesadas(user_id, contrato_id: str, ctx: Optional[dict] = None) -> dict:
         salida.append({**marca_vista(m), "encaje": e, **montos, "traba": traba if e >= C.MARCA_ENCAJE_MINIMO else "Todavía no encaja con lo que busca",
                        "prob": R.prob_promocion(e, corp.get("reputacion", 50), universo.get("fama", 50))})
     salida.sort(key=lambda x: (x["traba"] is not None, -x["encaje"]))
-    usadas = db["corp_patrocinios"].count_documents({"universo_id": user_id, "estado": {"$in": ["PROMOCION", "DESCARTADA", "ACTIVO"]},
-                                                     "origen": "PROMOCION", "ciclo": ciclo})
+    _, ronda, faltan = _ronda_usuario(user_id)
+    usadas = _promos_ronda(user_id, ronda)
     actuales = [marca_vista(catalogo()[p["marca_id"]]) for p in db["corp_patrocinios"].find(
         {"universo_id": user_id, "tipo": c["tipo"], "ref_id": c["ref_id"], "estado": "ACTIVO"}) if p["marca_id"] in catalogo()]
     return {"nombre": _nombre(c["tipo"], c["ref_id"]), "tipo": c["tipo"], "marcas": salida[:12], "actuales": actuales,
-            "promociones_restantes": max(0, C.MARCA_PROMOCIONES_POR_CICLO - usadas), "max_marcas": C.MARCAS_MAX_POR_REPRESENTADO,
-            "comision": int(C.MARCA_COMISION_CEO * 100)}
+            "promociones_restantes": max(0, C.MARCA_PROMOCIONES_POR_RONDA - usadas), "max_marcas": C.MARCAS_MAX_POR_REPRESENTADO,
+            "comision": int(C.MARCA_COMISION_CEO * 100), "responde_en": faltan}
 
 
 def promover(user_id, contrato_id: str, marca_id: int) -> dict:
@@ -591,9 +704,9 @@ def promover(user_id, contrato_id: str, marca_id: int) -> dict:
         marca = catalogo().get(int(marca_id))
         if not marca:
             raise ValueError("Marca inexistente")
-        usadas = db["corp_patrocinios"].count_documents({"universo_id": user_id, "origen": "PROMOCION", "ciclo": ciclo})
-        if usadas >= C.MARCA_PROMOCIONES_POR_CICLO:
-            raise ValueError(f"Ya hiciste {C.MARCA_PROMOCIONES_POR_CICLO} promociones este ciclo")
+        seq, ronda, faltan = _ronda_usuario(user_id)
+        if _promos_ronda(user_id, ronda) >= C.MARCA_PROMOCIONES_POR_RONDA:
+            raise ValueError(f"Ya hiciste {C.MARCA_PROMOCIONES_POR_RONDA} promociones en esta ronda: en {faltan} partido{'s' if faltan != 1 else ''} puedes volver a promover")
         ocup = _ocupacion(user_id)
         traba = puede_patrocinar(marca, c["tipo"], c["ref_id"], ocup)
         if traba:
@@ -604,15 +717,15 @@ def promover(user_id, contrato_id: str, marca_id: int) -> dict:
         e = R.encaje_marca(marca, representado(c["tipo"], c["ref_id"], _ctx_encaje()))
         if e < C.MARCA_ENCAJE_MINIMO:
             raise ValueError("A esta marca todavía no le interesa: busca otra que encaje mejor")
-        pat_id = f"{user_id}:promo:{marca['id']}:{c['tipo']}:{c['ref_id']}:{ciclo}"
+        pat_id = f"{user_id}:promo:{marca['id']}:{c['tipo']}:{c['ref_id']}:r{ronda}"
         try:
             db["corp_patrocinios"].insert_one({"_id": pat_id, "universo_id": user_id, "sigla": sigla, "contrato_id": str(c["_id"]),
                                                "tipo": c["tipo"], "ref_id": c["ref_id"], "marca_id": marca["id"], "rubro": marca["rubro"],
-                                               "encaje": e, "estado": "PROMOCION", "origen": "PROMOCION", "ciclo": ciclo,
+                                               "encaje": e, "estado": "PROMOCION", "origen": "PROMOCION", "ciclo": ciclo, "seq": seq, "ronda": ronda,
                                                "creado_en": datetime.utcnow()})
         except DuplicateKeyError:
-            raise ValueError("Ya promoviste a este representado con esa marca en este ciclo")
-    return {"ok": True, "mensaje": f"Le presentaste {_nombre(c['tipo'], c['ref_id'])} a {marca['nombre']}: responde al cierre del ciclo."}
+            raise ValueError("Ya promoviste a este representado con esa marca en esta ronda")
+    return {"ok": True, "mensaje": f"Le presentaste {_nombre(c['tipo'], c['ref_id'])} a {marca['nombre']}: responde en {faltan} partido{'s' if faltan != 1 else ''}."}
 
 
 def responder_oferta(user_id, pat_id: str, aceptar: bool) -> dict:
@@ -625,6 +738,10 @@ def responder_oferta(user_id, pat_id: str, aceptar: bool) -> dict:
         universo = U.obtener_universo(user_id)
         ciclo = U.ciclo_en_curso(universo)
         nombre = _nombre(p["tipo"], p["ref_id"])
+        seq = universo.get("cursor_seq") or U.seq_actual()
+        if p.get("vence_seq") is not None and seq >= p["vence_seq"]:
+            db["corp_patrocinios"].update_one({"_id": pat_id}, {"$set": {"estado": "VENCIDA", "motivo": "No respondiste a tiempo"}})
+            raise ValueError("La oferta ya venció")
         if not aceptar:
             db["corp_patrocinios"].update_one({"_id": pat_id}, {"$set": {"estado": "RECHAZADA", "motivo": "La rechazaste"}})
             return {"ok": True, "mensaje": f"Rechazaste a {marca['nombre']}."}
@@ -632,18 +749,18 @@ def responder_oferta(user_id, pat_id: str, aceptar: bool) -> dict:
         if not c:
             db["corp_patrocinios"].update_one({"_id": pat_id}, {"$set": {"estado": "DESCARTADA", "motivo": "Ya no lo representas"}})
             raise ValueError("Ya no representas a " + nombre)
-        com = int(round(p["firma"] * C.MARCA_COMISION_CEO))
-        neto = p["firma"] - com
+        firma = p["firma"]
+        com = int(round(firma * C.MARCA_COMISION_CEO))   # tu 5%: se descuenta y se paga con el sueldo del cierre (marcas_bruto)
         corp = db["corp_corporativos"].find_one_and_update(
             {"universo_id": user_id, "sigla": p["sigla"]},
-            {"$inc": {"capital": neto, "ciclo_actual.extra": neto, "ciclo_actual.comision_ceo": com}})
-        db["corp_contratos"].update_one({"_id": c["_id"]}, {"$inc": {"renta_total": neto}})
+            {"$inc": {"capital": firma, "ciclo_actual.extra": firma, "ciclo_actual.marcas_bruto": firma}})
+        db["corp_contratos"].update_one({"_id": c["_id"]}, {"$inc": {"renta_total": firma - com}})
         desde = ciclo
         db["corp_patrocinios"].update_one({"_id": pat_id}, {"$set": {
-            "estado": "ACTIVO", "desde_ciclo": desde, "hasta_ciclo": desde + p.get("ciclos", 4) - 1, "pagos": 0, "cobrado": p["firma"],
+            "estado": "ACTIVO", "desde_ciclo": desde, "desde_seq": seq + 1, "hasta_ciclo": desde + p.get("ciclos", 4) - 1, "pagos": 0, "cobrado": firma,
             "comision": com, "riesgo": 0, "aviso_ciclo": None, "aceptada_ciclo": ciclo}})
         db["corp_movimientos"].insert_one({"universo_id": user_id, "sigla": p["sigla"], "ciclo": ciclo, "tipo": "PATROCINIO_MARCA",
-                                           "monto": neto, "detalle": f"{marca['nombre']}: firma del patrocinio de {nombre} (comisión tuya {com:,})",
+                                           "monto": firma, "detalle": f"{marca['nombre']}: firma del patrocinio de {nombre} (5% es tu comisión, con el sueldo)",
                                            "creado_en": datetime.utcnow()})
         reg = db["corp_registro_partidos"].find_one({}, {"juego_id": 1}, sort=[("seq", -1)])
         j = db["juegos"].find_one({"_id": ObjectId(reg["juego_id"])}, {"fecha": 1, "hora": 1}) if reg else {}
@@ -652,7 +769,7 @@ def responder_oferta(user_id, pat_id: str, aceptar: bool) -> dict:
                   [_ref(p["tipo"], p["ref_id"])], f"firma:{pat_id}", p["sigla"],
                   ancla={"juego_id": reg["juego_id"] if reg else None, "fecha": (j or {}).get("fecha"), "hora": (j or {}).get("hora")}, orden=1)
     U.dar_xp(user_id, "CORP_PATROCINIO", pat_id)
-    return {"ok": True, "mensaje": f"¡Firmado! {marca['nombre']} patrocina a {nombre}: cobraste {neto:,} de firma (+{com:,} de comisión para ti).",
+    return {"ok": True, "mensaje": f"¡Firmado! {marca['nombre']} patrocina a {nombre}: cobraste {firma:,} de firma (tu comisión de ~{com:,} llega con el sueldo).",
             "corp": bool(corp)}
 
 
@@ -697,19 +814,23 @@ def resumen(user_id, sigla: str) -> dict:
     """Para el inicio de Corporativos: ofertas pendientes, ingresos por ciclo, comisión y patrocinios en riesgo."""
     cat = catalogo()
     activos = list(db["corp_patrocinios"].find({"universo_id": user_id, "sigla": sigla, "estado": "ACTIVO"}))
-    ofertas = [_fila(p, cat) for p in db["corp_patrocinios"].find({"universo_id": user_id, "estado": "OFERTA"}).sort("ciclo", -1)]
+    seq_u = (U.obtener_universo(user_id) or {}).get("cursor_seq")
+    ofertas = [_fila(p, cat, seq_u) for p in db["corp_patrocinios"].find({"universo_id": user_id, "estado": "OFERTA"}).sort("ciclo", -1)]
     pago = sum(p["pago_ciclo"] for p in activos)
     return {"activos": len(activos), "pago_ciclo": pago, "comision_ciclo": int(round(pago * C.MARCA_COMISION_CEO)),
             "en_riesgo": sum(1 for p in activos if _salud(p)["nivel"] == "rojo"), "ofertas": [o for o in ofertas if o]}
 
 
-def _fila(p: dict, cat: dict) -> Optional[dict]:
+def _fila(p: dict, cat: dict, seq_ref: Optional[int] = None) -> Optional[dict]:
     m = cat.get(p["marca_id"])
     if not m:
         return None
     v = valores()
     pais = p["ref_id"] if p["tipo"] == "seleccion" else v["info_jugadores"].get(p["ref_id"], {}).get("pais_id")
-    return {**p, "_id": str(p["_id"]), "marca": marca_vista(m), "nombre": _nombre(p["tipo"], p["ref_id"]), "pais_id": pais,
+    vence_en = None
+    if p.get("vence_seq") is not None:
+        vence_en = max(0, p["vence_seq"] - (seq_ref if seq_ref is not None else U.seq_actual()))
+    return {**p, "_id": str(p["_id"]), "vence_en": vence_en, "marca": marca_vista(m), "nombre": _nombre(p["tipo"], p["ref_id"]), "pais_id": pais,
             "bandera": v["info_paises"].get(pais, {}).get("bandera"), "salud": _salud(p)}
 
 
@@ -748,7 +869,8 @@ def vista_marcas(user_id) -> Optional[dict]:
                 encajan.sort(key=lambda x: -x["encaje"])
                 interesadas_l.append({**marca_vista(m), "candidatos": encajan[:3], "mejor": encajan[0]["encaje"]})
         interesadas_l.sort(key=lambda x: -x["mejor"])
-    mios = [_fila(p, cat) for p in db["corp_patrocinios"].find({"universo_id": user_id, "sigla": sigla, "estado": {"$in": ["ACTIVO", "OFERTA", "PROMOCION"]}})]
+    seq_u = universo.get("cursor_seq")
+    mios = [_fila(p, cat, seq_u) for p in db["corp_patrocinios"].find({"universo_id": user_id, "sigla": sigla, "estado": {"$in": ["ACTIVO", "OFERTA", "PROMOCION"]}})]
     mios = [x for x in mios if x]
     historial = [_fila(p, cat) for p in db["corp_patrocinios"].find(
         {"universo_id": user_id, "estado": {"$in": ["TERMINADO", "CORTADO", "RECHAZADA", "VENCIDA", "DESCARTADA"]}}).sort("ciclo", -1).limit(40)]
@@ -761,9 +883,11 @@ def vista_marcas(user_id) -> Optional[dict]:
     catalogo_l = sorted(({**marca_vista(m), "patrocina": patrocinados.get(m["id"], []),
                           "cupos": C.MARCA_CUPOS_NIVEL.get(m.get("nivel", 2), 1), "usados": ocup["por_marca"].get(m["id"], 0)}
                          for m in cat.values()), key=lambda x: (-x["nivel"], x["nombre"]))
-    promos = db["corp_patrocinios"].count_documents({"universo_id": user_id, "origen": "PROMOCION", "ciclo": ciclo})
+    _, ronda, faltan = _ronda_usuario(user_id)
+    promos = _promos_ronda(user_id, ronda)
     return {"universo": universo, "sigla": sigla, "ciclo": ciclo, "interesadas": interesadas_l[:24], "mios": mios,
             "historial": [h for h in historial if h], "catalogo": catalogo_l, "rubros": RUBROS, "alcances": ALCANCES,
             "confederaciones": CONFEDERACIONES, "resumen": resumen(user_id, sigla) if sigla else None,
-            "promociones_restantes": max(0, C.MARCA_PROMOCIONES_POR_CICLO - promos), "max_marcas": C.MARCAS_MAX_POR_REPRESENTADO,
+            "promociones_restantes": max(0, C.MARCA_PROMOCIONES_POR_RONDA - promos), "max_marcas": C.MARCAS_MAX_POR_REPRESENTADO,
+            "ronda_en": faltan, "partidos_ronda": C.MARCA_PARTIDOS_RONDA, "rondas_ciclo": RONDAS_POR_CICLO,
             "comision": int(C.MARCA_COMISION_CEO * 100), "en_cargo": universo["estado"] == "EN_CARGO"}

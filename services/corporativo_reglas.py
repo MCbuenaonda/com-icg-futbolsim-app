@@ -331,6 +331,23 @@ def gira_jugador_ingreso(valor: float, popularidad: float, rng: random.Random) -
     return int(round(valor * rng.uniform(lo, hi) * popularidad / 1.1, -1))
 
 
+def gira_jugador_costo_v2(valor: float) -> int:
+    return max(C.GIRA_COSTO_MINIMO_JUGADOR, int(round(valor * C.GIRA_JUGADOR_COSTO_V2)))
+
+
+def gira_jugador_retorno(popularidad: float, forma_seleccion: float, forma_jugador: float) -> float:
+    """Multiplicador esperado sobre el costo (sin azar): mejor con un jugador popular, que juega y cuya selección viene bien."""
+    lo, hi = C.GIRA_JUGADOR_RETORNO
+    puntaje = (0.45 * _escala(popularidad, C.POPULARIDAD_RANGO[0], C.POPULARIDAD_RANGO[1])
+               + 0.30 * limitar(forma_seleccion or 0, 0, 1) + 0.25 * limitar(forma_jugador or 0, 0, 1))
+    return lo + (hi - lo) * puntaje
+
+
+def gira_jugador_ingreso_v2(costo: int, popularidad: float, forma_seleccion: float, forma_jugador: float, rng: random.Random) -> int:
+    """Ingreso total de la gira de un jugador (se cobra en partes iguales partido a partido): costo x retorno ±15%."""
+    return int(round(costo * gira_jugador_retorno(popularidad, forma_seleccion, forma_jugador) * rng.uniform(0.85, 1.15)))
+
+
 def aporte_aficionados_jugador(forma_seleccion: float, forma_jugador: float, rng: random.Random) -> int:
     """
     0 a GIRA_JUGADOR_AFICIONADOS_MAX aficionados para su selección por una gira de un jugador.

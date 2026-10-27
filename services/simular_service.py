@@ -4,15 +4,12 @@ from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
 from collections import defaultdict
 import random
-from services import reglas_leyendas, desgaste, arbitraje, tecnicos
+from services import reglas_leyendas, desgaste, arbitraje, tecnicos, formaciones as FS
+from config import formaciones as CF
 
-TACTICAS = ["4-3-3", "4-4-2", "3-5-2"]
-
-FORMACIONES = {
-    "4-3-3": [1,  2, 2, 2, 2,  3, 3, 3,  4, 4, 4],
-    "4-4-2": [1,  2, 2, 2, 2,  3, 3, 3, 3,  4, 4],
-    "3-5-2": [1,  2, 2, 2,  3, 3, 3, 3, 3,  4, 4]
-}
+# Esquemas y la línea de cada puesto (config/formaciones.py; efecto en los duelos en services/formaciones.py)
+TACTICAS = CF.ESQUEMAS
+FORMACIONES = {k: v["lineas"] for k, v in CF.FORMACIONES.items()}
 
 POSICIONES = {
     1: "PORTERO",
@@ -160,13 +157,8 @@ BONUS_PRECISION_AMBIDIESTRO = 4  # jugador menos previsible: remata bien con cua
 BONUS_PRECISION_ESPECIALISTA_PENAL = 8
 BONUS_PRECISION_ESPECIALISTA_TIRO_LIBRE = 6
 
-# Bonos de formación táctica -- hoy la táctica (elegida al azar por partido, ver TACTICAS) solo
-# definía la alineación vía FORMACIONES; con el reloj de segundos se le suma un efecto real
-# sobre las probabilidades de posesión/progresión/intercepción, aplicado como plus de atributo
-# en los mismos resolver_duelo() ya existentes (mismo patrón que bonus_pie_habil).
-BONUS_FORMACION_POSESION_3_5_2 = 6       # conservar el balón en MEDIOCAMPO
-BONUS_FORMACION_PROGRESION_4_3_3 = 6     # pase profundo MEDIOCAMPO -> ATAQUE por bandas
-BONUS_FORMACION_INTERCEPCION_4_4_2 = 6   # recuperar el balón en ZONA DEFENSIVA
+# Formación: los viejos BONUS_FORMACION_* (3 bonos fijos de +6) los reemplazó services/formaciones.py (superioridad por
+# zona, perfil del esquema por acción y postura), con el catálogo de 8 esquemas de config/formaciones.py.
 
 
 def bonus_pie_habil(jugador: dict) -> float:
@@ -264,6 +256,7 @@ def seleccionar_plantilla_titular(plantilla_db: list, esquema="4-3-3", pesos_ley
             jugadores_disponibles.remove(elegido)
         jugador_partido = elegido.copy()
         jugador_partido["linea_partido"] = linea
+        jugador_partido["slot"] = i   # puesto en el esquema: un cambio de esquema en vivo reasigna su línea
         titulares.append(jugador_partido)
         i += 1
 
@@ -527,7 +520,7 @@ def ejecutar_tiro_libre(equipo_atacante: dict, defensor_marcador: dict, portero_
 
 
 def ejecutar_corner(equipo_atacante: dict, equipo_defensor: dict, portero_rival: dict,
-                     stats_jugadores: dict, eventos_visibles: list, segundos_acumulados: float):
+                     stats_jugadores: dict, eventos_visibles: list, segundos_acumulados: float, bono_aereo=(0.0, 0.0)):
     """
     Ejecuta un córner (disparado desde la rama de "desvío a córner" de la resolución de un tiro
     a puerta en simular_partido_realista). Tres sub-duelos: disputa aérea, a puerta o desviado,
@@ -558,8 +551,8 @@ def ejecutar_corner(equipo_atacante: dict, equipo_defensor: dict, portero_rival:
     segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_ATAQUE_REMATE)
 
     # 1) Disputa aérea: ¿conecta el ataque o despeja la defensa?
-    attr_rematador = rematador.get("juego_aereo", 60)
-    attr_defensor = (defensor.get("juego_aereo", 60) + defensor.get("fuerza_fisica", 60)) / 2
+    attr_rematador = rematador.get("juego_aereo", 60) + bono_aereo[0]
+    attr_defensor = (defensor.get("juego_aereo", 60) + defensor.get("fuerza_fisica", 60)) / 2 + bono_aereo[1]
     conecta = resolver_duelo(0.40, attr_rematador, attr_defensor)
 
     if not conecta:
@@ -712,6 +705,7 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
 
     entra_jugador_copia = entra_jugador.copy()
     entra_jugador_copia["linea_partido"] = linea_saliente
+    entra_jugador_copia["slot"] = sale_jugador.get("slot")
     desgaste.iniciar(entra_jugador_copia)   # piernas frescas
     stats_jugadores[sale_jugador["id"]]["energia_final"] = round(sale_jugador.get("energia", 100), 1)
     titulares.append(entra_jugador_copia)
@@ -1005,7 +999,22 @@ def procesar_expulsion(jugador: dict, equipo: dict, stats_jugadores: dict, event
 # -------------------------------------------------------------------------
 # SIMULACIÓN PRINCIPAL
 # -------------------------------------------------------------------------
-def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: bool = False, clima: dict = None, marcador_ida: dict = None):
+def planteamientos(id_local: int, id_visitante: int, dt_local, dt_visita, tiempo_extra=False, marcador_ida=None, juego_id=None):
+    """El esquema que elige cada DT para este partido (lo usan el motor y la previa: con juego_id da lo mismo)."""
+    from services import tecnicos_service as TS
+    planes = []
+    for pais, rival, dt, dt_rival, local in ((id_local, id_visitante, dt_local, dt_visita, True),
+                                             (id_visitante, id_local, dt_visita, dt_local, False)):
+        rng = random.Random(f"esquema:{juego_id}:{pais}") if juego_id else random
+        ctx = TS.contexto_tactico(pais, rival, dt, dt_rival, local, bool(tiempo_extra), marcador_ida)
+        plan = tecnicos.elegir_esquema(dt, ctx, rng)
+        plan["cambios"] = []
+        planes.append(plan)
+    return planes[0], planes[1]
+
+
+def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: bool = False, clima: dict = None, marcador_ida: dict = None,
+                             juego_id: str = None, esquemas_forzados: tuple = None):
     goles_local = 0
     goles_visitante = 0
 
@@ -1041,8 +1050,14 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     # Director técnico de cada lado (services/tecnicos.py): elige la táctica y cuántas leyendas arrancan; sin DT, al azar
     dt_local, cargo_local = obtener_dt_en_funciones(pais_local)
     dt_visita, cargo_visita = obtener_dt_en_funciones(pais_visitante)
-    tactica_elegida_local = tecnicos.elegir_tactica(dt_local, TACTICAS)
-    tactica_elegida_visita = tecnicos.elegir_tactica(dt_visita, TACTICAS)
+    # El DT elige el esquema con su estilo y el contexto (rival, serie, racha, historial; tecnicos.elegir_esquema). Con
+    # juego_id la elección es determinística (la previa muestra la misma formación probable). 'esquemas_forzados' = calibración.
+    plan_local, plan_visita = planteamientos(id_local, id_visitante, dt_local, dt_visita, tiempo_extra, marcador_ida, juego_id)
+    if esquemas_forzados:
+        for plan, esq in zip((plan_local, plan_visita), esquemas_forzados):
+            if esq:
+                plan.update(esquema=esq, postura=FS.postura(esq), etiqueta=FS.datos(esq)["etiqueta"], motivo="(forzado)")
+    tactica_elegida_local, tactica_elegida_visita = plan_local["esquema"], plan_visita["esquema"]
 
     # 11 titulares
     plantilla_local = seleccionar_plantilla_titular(plantilla_local_temp, esquema=tactica_elegida_local,
@@ -1083,12 +1098,12 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
         bancos[pais_local["nombre"]].aplicar(plantilla_local)
         bancos[pais_visitante["nombre"]].aplicar(plantilla_visitante)
 
-    # Tácticas por equipo (referenciable por nombre) -- usadas por los bonos de formación, ver
-    # BONUS_FORMACION_* más arriba.
+    # Esquema vigente por equipo (referenciable por nombre): lo leen los bonos de services/formaciones.py y cambia en vivo
     tactica_por_equipo = {
         equipo_local["nombre"]: tactica_elegida_local,
         equipo_visitante["nombre"]: tactica_elegida_visita
     }
+    planes_por_equipo = {equipo_local["nombre"]: plan_local, equipo_visitante["nombre"]: plan_visita}
 
     stats_jugadores = {
         j["id"]: {
@@ -1238,9 +1253,20 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                 nuevo = banco.evaluar_ajuste(minuto, dif)
                 if nuevo:
                     banco.aplicar(eq["plantilla"])
-                    nuevos.append(construir_evento(segundos_acumulados, eq["nombre"], "📋 AJUSTE TÁCTICO",
-                                                   tecnicos.texto(tecnicos.TEXTOS_AJUSTE[nuevo], dt=banco.nombre, equipo=eq["nombre"]),
-                                                   [], zona_balon, dt_id=banco.dt["id"], dt=banco.nombre, ajuste=nuevo))
+                    # El ajuste es también un CAMBIO DE ESQUEMA real: las líneas de los que están en cancha se reasignan
+                    plan = planes_por_equipo[eq["nombre"]]
+                    de = tactica_por_equipo[eq["nombre"]]
+                    a = tecnicos.esquema_en_vivo(banco.dt, de, plan["esquema"], nuevo)
+                    texto_ajuste = tecnicos.texto(tecnicos.TEXTOS_AJUSTE[nuevo], dt=banco.nombre, equipo=eq["nombre"])
+                    extra_esquema = {}
+                    if a != de:
+                        FS.reasignar_lineas(eq["plantilla"], a)
+                        tactica_por_equipo[eq["nombre"]] = a
+                        plan["cambios"].append({"minuto": int(minuto), "de": de, "a": a, "ajuste": nuevo})
+                        texto_ajuste += f" Pasa del {de} al {a}."
+                        extra_esquema = {"esquema_de": de, "esquema_a": a}
+                    nuevos.append(construir_evento(segundos_acumulados, eq["nombre"], "📋 AJUSTE TÁCTICO", texto_ajuste,
+                                                   [], zona_balon, dt_id=banco.dt["id"], dt=banco.nombre, ajuste=nuevo, **extra_esquema))
         eventos_visibles.extend(nuevos)
         dt_cursor = len(eventos_visibles)
 
@@ -1387,6 +1413,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
             else:
                 opciones, pesos = ["pase", "regate"], [75, 25]
 
+        pesos = FS.pesos_con_postura(opciones, pesos, tactica_por_equipo[equipo_con_balon["nombre"]])
         accion = random.choices(opciones, weights=pesos)[0]
 
         # --- DESGASTE POR LA ACCIÓN (el que la hace y el que lo marca) ---
@@ -1400,21 +1427,15 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
             # Ejemplo en acción PASE:
             efectividad_pase = (jugador_con_balon.get("precision_pase", 60) + jugador_con_balon.get("vision_juego", 60)) / 2
 
-            # Bonos de formación (ver BONUS_FORMACION_* arriba): 3-5-2 conserva mejor el balón
-            # en mediocampo, 4-3-3 progresa mejor de mediocampo a ataque por bandas.
-            tactica_propia = tactica_por_equipo[equipo_con_balon["nombre"]]
-            if zona_balon == "medio" and tactica_propia == "3-5-2":
-                efectividad_pase += BONUS_FORMACION_POSESION_3_5_2
-            if accion == "pase_profundo" and tactica_propia == "4-3-3":
-                efectividad_pase += BONUS_FORMACION_PROGRESION_4_3_3
+            # Formación (services/formaciones.py): superioridad en la zona + perfil del esquema para esta acción
+            b_atk, b_def = FS.bonos(zona_balon, accion, tactica_por_equipo[equipo_con_balon["nombre"]], tactica_por_equipo[equipo_defensor["nombre"]],
+                                    FS.cuentas(equipo_con_balon["plantilla"]), FS.cuentas(equipo_defensor["plantilla"]))
+            efectividad_pase += b_atk
 
             efectividad_pase = max(0.0, efectividad_pase * (1 + mod_precision))
             defensa_rival = (defensor_marcador.get("anticipacion", 60) + defensor_marcador.get("concentracion", 60)) / 2
 
-            # Bono de formación defensiva: 4-4-2 intercepta mejor en zona propia.
-            tactica_rival = tactica_por_equipo[equipo_defensor["nombre"]]
-            if zona_balon == "defensa" and tactica_rival == "4-4-2":
-                defensa_rival += BONUS_FORMACION_INTERCEPCION_4_4_2
+            defensa_rival += b_def
 
             exito = resolver_duelo(0.85, efectividad_pase, defensa_rival)
             segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_TRANSICION)
@@ -1657,10 +1678,11 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                 defensor_marcador.get("anticipacion", 60)
             ) / 3.0
 
-            # Bono de formación defensiva (4-4-2 intercepta mejor en zona propia), mismo
-            # criterio que en la rama de pase.
-            if zona_balon == "defensa" and tactica_por_equipo[equipo_defensor["nombre"]] == "4-4-2":
-                attr_defensa_fisica += BONUS_FORMACION_INTERCEPCION_4_4_2
+            # Formación: superioridad en la zona + perfil del esquema (services/formaciones.py)
+            b_atk, b_def = FS.bonos(zona_balon, "regate", tactica_por_equipo[equipo_con_balon["nombre"]], tactica_por_equipo[equipo_defensor["nombre"]],
+                                    FS.cuentas(equipo_con_balon["plantilla"]), FS.cuentas(equipo_defensor["plantilla"]))
+            attr_regateador += b_atk
+            attr_defensa_fisica += b_def
 
             # Base bajada de 0.60 a 0.54: el éxito de gambeta era más alto que el ~45-50% real,
             # contribuía a llegar a zona de ataque con más facilidad de la debida.
@@ -1808,6 +1830,10 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
             ) / 2.0
             attr_remate = max(0.0, attr_remate * (1 + mod_precision))
             attr_marca_defensa = (defensor_marcador.get("anticipacion", 60) + defensor_marcador.get("fuerza_fisica", 60)) / 2.0
+            b_atk, b_def = FS.bonos(zona_balon, "tiro", tactica_por_equipo[equipo_con_balon["nombre"]], tactica_por_equipo[equipo_defensor["nombre"]],
+                                    FS.cuentas(equipo_con_balon["plantilla"]), FS.cuentas(equipo_defensor["plantilla"]))
+            attr_remate += b_atk
+            attr_marca_defensa += b_def
 
             # Base bajada de 0.50 a 0.44 como margen extra (el ajuste principal de volumen de
             # marcadores está en los pesos de acción de la zona de ataque, más arriba).
@@ -1929,7 +1955,8 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                         # resuelve dentro de ejecutar_corner.
                         resultado_corner, _, segundos_acumulados = ejecutar_corner(
                             equipo_con_balon, equipo_defensor, portero_rival,
-                            stats_jugadores, eventos_visibles, segundos_acumulados
+                            stats_jugadores, eventos_visibles, segundos_acumulados,
+                            bono_aereo=FS.bono_aereo(tactica_por_equipo[equipo_con_balon["nombre"]], tactica_por_equipo[equipo_defensor["nombre"]])
                         )
                         if resultado_corner == "gol":
                             if equipo_con_balon == equipo_local:
@@ -2021,6 +2048,9 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                for lado, b in (("local", bancos[equipo_local["nombre"]]), ("visita", bancos[equipo_visitante["nombre"]])) if b.activo},
         "tactica_local": tactica_elegida_local,
         "tactica_visita": tactica_elegida_visita,
+        # planteamiento: esquema inicial, postura, por qué lo eligió y los cambios de esquema en vivo
+        "planteamiento": {"local": {**plan_local, "final": tactica_por_equipo[equipo_local["nombre"]]},
+                          "visita": {**plan_visita, "final": tactica_por_equipo[equipo_visitante["nombre"]]}},
         "marcador_ida": marcador_ida,
         "marcador_global_local": goles_local + goles_ida_local,
         "marcador_global_visita": goles_visitante + goles_ida_visita,

@@ -287,6 +287,49 @@
         </div>
     </div>
 
+    {# MARCAS (corporativo_marcas_service.patrocinios_de_pais): quién patrocina a la selección y a sus jugadores en tu universo #}
+    {% if puede('corporativos') %}
+    {% set pp = patrocinios_pais(usuario_actual, pais.id) %}
+    <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #facc15;">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <h2 class="vivo-titulo mb-0"><i class="bi bi-badge-ad-fill text-warning"></i>Marcas en tu universo</h2>
+                <a href="/corporativo/marcas" class="btn btn-sm btn-outline-light rounded-pill px-3">Ver marcas</a>
+            </div>
+            {% if pp.total %}
+            <h3 class="h6 text-muted mt-2 mb-1">La selección</h3>
+            {% if pp.seleccion %}
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                {% for mk in pp.seleccion %}
+                <a href="/red-social/?filtro=marcas&q={{ mk.nombre | urlencode }}" class="franja-marcas__item franja-marcas" style="--marca: {{ mk.color }};" title="{{ mk.rubro_nombre }} · representada por {{ mk.sigla }}">
+                    <img src="{{ mk.logo }}" alt="" loading="lazy"><span>{{ mk.nombre }}<small class="d-block text-muted fw-normal">{{ mk.rubro_nombre }} · {{ mk.sigla }}</small></span></a>
+                {% endfor %}
+            </div>
+            {% else %}<p class="small text-muted mb-3">Ninguna marca patrocina a la selección.</p>{% endif %}
+            <h3 class="h6 text-muted mb-1">Sus jugadores <span class="fw-normal">({{ pp.jugadores | length }} con patrocinio)</span></h3>
+            {% if pp.jugadores %}
+            <div class="pais-marcas">
+                {% for jid, marcas_j in pp.jugadores.items() %}{% set j = plantel_por_id.get(jid) %}
+                {% if j %}
+                <a href="/jugadores/{{ jid }}" class="pais-marcas__jugador" title="{{ marcas_j | map(attribute='nombre') | join(', ') }}">
+                    {{ m.avatar(jid, pais.id, '', j.nombre) }}
+                    <span class="min-w-0">
+                        <strong class="d-block text-truncate text-white">{{ j.nombre }}</strong>
+                        <small class="text-muted">{{ j.posicion }}{% if marcas_j | length == 1 %} · {{ marcas_j[0].nombre }}{% endif %}</small>
+                        <span class="pais-marcas__logos">{% for mk in marcas_j %}<img src="{{ mk.logo }}" alt="{{ mk.nombre }}" loading="lazy" style="--marca: {{ mk.color }};">{% endfor %}</span>
+                    </span>
+                </a>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}<p class="small text-muted mb-0">Ningún jugador de la plantilla tiene patrocinio.</p>{% endif %}
+            {% else %}
+            <p class="text-muted small mb-0">En tu universo ninguna marca patrocina todavía a {{ pais.nombre }} ni a sus jugadores. Las marcas buscan a los representados de los corporativos: puedes promover a los tuyos desde <a href="/corporativo/marcas">Marcas</a>.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     {% if cuerpo_tecnico and cuerpo_tecnico.dt %}
     {% set ct = cuerpo_tecnico %}{% set dt = ct.dt %}{% set cg = ct.cargo %}{% set act = ct.actual %}
     {% set color_presion = {'alta': '#ef4444', 'media': '#f59e0b', 'baja': '#22c55e'}[ct.presion_nivel] %}

@@ -6,6 +6,7 @@ from typing import Optional
 from services.jugadores_service import get_jugadores, get_jugador
 from services.paises_service import get_pais
 from services.jugador_analisis_service import buscar_jugadores, comparar_jugadores, obtener_bitacora_jugador
+from services.especialidades_service import evolucion_jugador
 from services.auth_service import context_usuario_actual
 from services.imagenes_pais_service import GLOBALES_JINJA
 from config.settings import PREFIX_JUGADORES_PATH
@@ -74,11 +75,12 @@ async def jugador(request: Request, id: str):
     try:
         jugador = get_jugador(id, logger)
         bitacora = obtener_bitacora_jugador(jugador) if jugador else None
+        evolucion = evolucion_jugador(jugador) if jugador else None   # especialidades: progreso, riesgo e historial
 
         return templates.TemplateResponse(
             request=request,
             name="jugador.html",
-            context={"jugador": jugador, "bitacora": bitacora}
+            context={"jugador": jugador, "bitacora": bitacora, "evolucion": evolucion}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")

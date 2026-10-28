@@ -38,6 +38,7 @@ from bson import ObjectId
 from pymongo.mongo_client import MongoClient
 from config.settings import IMAGENES_PAISES_URL, MONGODB_URI
 from services import niveles_service
+from services.imagenes_pais_service import VERSION_IMAGENES
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
@@ -162,7 +163,7 @@ def buscar_ciudades_directorio(texto: str = "", usuario_id: Optional[str] = None
             "costo": COSTO_BASE_SEDE,
             "tiene_dueno": tiene_dueno,
             "es_mia": tiene_dueno and usuario_id is not None and str(owner_user_id) == str(usuario_id),
-            "estadio_img": f"{IMAGENES_PAISES_URL}/{c['estadio_imagen']}" if c.get("estadio_imagen") else None,
+            "estadio_img": f"{IMAGENES_PAISES_URL}/{c['estadio_imagen']}?v={VERSION_IMAGENES['estadio']}" if c.get("estadio_imagen") else None,
             "programados": (programados.get(c["id"]) or {}).get("n", 0),
             "proximo": (programados.get(c["id"]) or {}).get("proximo"),
             "tengo_estampa": c["id"] in estampas,
@@ -219,7 +220,7 @@ def resumen_directorio(usuario_id: str) -> dict:
         estimada = round(p["n"] * (REGALIA_BASE + 3.8 * BONO_POR_GOL) * (MULTIPLICADOR_SINERGIA if cid in estampas else 1))
         oportunidades.append({"ciudad_id": cid, "nombre": c.get("nombre"), "estadio": c.get("estadio"), "pais_id": c.get("pais_id"),
                               "pais_nombre": c.get("pais"), "programados": p["n"], "proximo": p["proximo"],
-                              "estadio_img": f"{IMAGENES_PAISES_URL}/{c['estadio_imagen']}" if c.get("estadio_imagen") else None,
+                              "estadio_img": f"{IMAGENES_PAISES_URL}/{c['estadio_imagen']}?v={VERSION_IMAGENES['estadio']}" if c.get("estadio_imagen") else None,
                               "tengo_estampa": cid in estampas, "regalia_estimada": estimada, "costo": COSTO_BASE_SEDE})
     return {"total": total, "libres": libres, "ocupadas": total - libres, "mias": mias, "max_total": MAX_CIUDADES_TOTAL,
             "max_por_pais": MAX_CIUDADES_POR_PAIS, "con_partidos": len(programados), "oportunidades": oportunidades,
@@ -249,7 +250,7 @@ def obtener_portafolio_vista(user_id: str) -> dict:
         s.update({"recupero_pct": round(ganado / pagado * 100) if pagado else 0, "neto": ganado - pagado,
                   "tengo_estampa": s["ciudad_id"] in estampas, "programados": p.get("n", 0), "proximo": p.get("proximo"),
                   "reembolso": round(pagado * PORCENTAJE_REEMBOLSO_VENTA),
-                  "estadio_img": f"{IMAGENES_PAISES_URL}/{imgs[s['ciudad_id']]}" if imgs.get(s["ciudad_id"]) else None,
+                  "estadio_img": f"{IMAGENES_PAISES_URL}/{imgs[s['ciudad_id']]}?v={VERSION_IMAGENES['estadio']}" if imgs.get(s["ciudad_id"]) else None,
                   "ultimas": [{"monto": h["total_earned"], "sinergia": h.get("album_synergy_applied"), "fecha": h["created_at"]}
                               for h in reversed(por_ciudad.get(s["ciudad_id"], [])[-3:])]})
     sedes.sort(key=lambda s: -s.get("total_revenue_earned", 0))

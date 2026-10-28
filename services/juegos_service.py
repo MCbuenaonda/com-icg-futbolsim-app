@@ -855,6 +855,14 @@ def aplicar_efectos_secundarios(
     except Exception as e:
         print(f"No se pudo registrar el partido para los técnicos: {e}")
 
+    # Especialidades (services/especialidades_service.py): se ganan y se pierden con el rendimiento de cada jugador.
+    # Va antes de la crónica; nunca lanza.
+    try:
+        from services.especialidades_service import registrar_partido as registrar_partido_especialidades
+        registrar_partido_especialidades(juego_id, stats_jugadores, goles_local, goles_visitante, juego_doc)
+    except Exception as e:
+        print(f"No se pudo registrar el partido para las especialidades: {e}")
+
     # Crónica del partido (services/cronica_service.py): se escribe al terminar, con la cronología completa.
     # Nunca lanza; si el partido sigue en transmisión no hace nada y se escribe al abrir su resumen.
     try:

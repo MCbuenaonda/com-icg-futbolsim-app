@@ -5,6 +5,8 @@ from config.settings import MONGODB_URI
 from collections import defaultdict
 import random
 from services import reglas_leyendas, desgaste, arbitraje, tecnicos, formaciones as FS
+from services import especialidades as ES
+from config import especialidades as CE_ESP
 from config import formaciones as CF
 
 # Esquemas y la línea de cada puesto (config/formaciones.py; efecto en los duelos en services/formaciones.py)
@@ -347,8 +349,9 @@ def ejecutar_penal(tirador, portero, nombre_equipo, nombre_equipo_rival, stats_j
     if tirador.get("especialista_penales"):
         attr_tirador += BONUS_PRECISION_ESPECIALISTA_PENAL
 
-    # Promedio de agilidad y rendimiento del portero
-    attr_portero = (portero.get("agilidad", 60) + portero.get("rendimiento", 60)) / 2
+    # Promedio de agilidad y rendimiento del portero (+ sus especialidades: Atajapenales, services/especialidades.py)
+    attr_portero = (portero.get("agilidad", 60) + portero.get("rendimiento", 60)) / 2 + ES.puntos(portero, "penal", "def")
+    attr_tirador += ES.puntos(tirador, "penal", "atk")
 
     eventos_visibles.append(construir_evento(
         segundos_acumulados, nombre_equipo, "⏳ PREPARACIÓN",
@@ -416,10 +419,11 @@ def ejecutar_penal(tirador, portero, nombre_equipo, nombre_equipo_rival, stats_j
         # estadisticas_service.py y jugadores_service.actualizar_jugadores_post_partido).
         stats_jugadores[portero["id"]]["atajadas"] += 1
         stats_jugadores[portero["id"]]["atajadas_penales"] += 1
+        esp = ES.decisiva(portero, "penal", "def")
         eventos_visibles.append(construir_evento(
             segundos_acumulados, nombre_equipo_rival, "❌ PENAL FALLADO",
-            f"¡{portero['nombre']} detiene el disparo de {tirador['nombre']}!",
-            [portero["nombre"], tirador["nombre"]], "ataque", **({"en_juego": True} if en_juego else {})
+            f"¡{portero['nombre']} detiene el disparo de {tirador['nombre']}!" + (f" {ES.frase(esp, portero['nombre'])}" if esp else ""),
+            [portero["nombre"], tirador["nombre"]], "ataque", **({"en_juego": True} if en_juego else {}), **ES.extra_evento(esp)
         ))
         return False, segundos_acumulados
 
@@ -494,9 +498,10 @@ def ejecutar_tiro_libre(equipo_atacante: dict, defensor_marcador: dict, portero_
 
     # 3) Cobrador vs arquero (base menor que el tiro normal/penal -- un libre directo es más difícil de convertir)
     potencia = (cobrador.get("fuerza_disparo", 60) + cobrador.get("precision_tiro", 60) + plus_cobrador) / 2 * (1 + mod_precision)
+    potencia += ES.puntos(cobrador, "gol", "atk")
     reflejos_portero = (
         portero_rival.get("rendimiento", 60) + portero_rival.get("agilidad", 60) + portero_rival.get("concentracion", 60)
-    ) / 3
+    ) / 3 + ES.puntos(portero_rival, "gol", "def")
     gol = resolver_duelo(0.28, potencia, reflejos_portero)
 
     if gol:
@@ -551,15 +556,21 @@ def ejecutar_corner(equipo_atacante: dict, equipo_defensor: dict, portero_rival:
     segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_ATAQUE_REMATE)
 
     # 1) Disputa aérea: ¿conecta el ataque o despeja la defensa?
-    attr_rematador = rematador.get("juego_aereo", 60) + bono_aereo[0]
-    attr_defensor = (defensor.get("juego_aereo", 60) + defensor.get("fuerza_fisica", 60)) / 2 + bono_aereo[1]
+    # Especialidades (services/especialidades.py): Cabeceador/Torre del que remata; Torre del que marca y Dominio del área
+    # del arquero en la disputa
+    attr_rematador = rematador.get("juego_aereo", 60) + bono_aereo[0] + ES.puntos(rematador, "aereo", "atk")
+    attr_defensor = ((defensor.get("juego_aereo", 60) + defensor.get("fuerza_fisica", 60)) / 2 + bono_aereo[1]
+                     + ES.puntos(defensor, "aereo", "def") + ES.puntos(portero_rival, "aereo", "def"))
     conecta = resolver_duelo(0.40, attr_rematador, attr_defensor)
 
     if not conecta:
+        quien = defensor if ES.decisiva(defensor, "aereo", "def") else (portero_rival if ES.decisiva(portero_rival, "aereo", "def") else defensor)
+        esp = ES.decisiva(quien, "aereo", "def")
         eventos_visibles.append(construir_evento(
             segundos_acumulados, equipo_defensor["nombre"], "🛡️ CÓRNER DESPEJADO",
-            f"¡{defensor['nombre']} se impone en el área y despeja el córner de cabeza!",
-            [defensor["nombre"]], "ataque"
+            (f"¡{quien['nombre']} sale y se queda con el balón del córner!" if quien is portero_rival
+             else f"¡{defensor['nombre']} se impone en el área y despeja el córner de cabeza!") + (f" {ES.frase(esp, quien['nombre'])}" if esp else ""),
+            [quien["nombre"]], "ataque", **ES.extra_evento(esp)
         ))
         return "despejado", rematador, segundos_acumulados
 
@@ -580,17 +591,18 @@ def ejecutar_corner(equipo_atacante: dict, equipo_defensor: dict, portero_rival:
     # 3) Rematador vs arquero
     reflejos_portero = (
         portero_rival.get("rendimiento", 60) + portero_rival.get("agilidad", 60) + portero_rival.get("concentracion", 60)
-    ) / 3
+    ) / 3 + ES.puntos(portero_rival, "gol", "def")
     gol = resolver_duelo(0.30, attr_rematador, reflejos_portero)
 
     if gol:
         stats_jugadores[rematador["id"]]["goles"] += 1
         stats_jugadores[rematador["id"]]["goles_corner"] += 1
         stats_jugadores[portero_rival["id"]]["goles_encajados"] += 1
+        esp = ES.decisiva(rematador, "aereo", "atk")
         eventos_visibles.append(construir_evento(
             segundos_acumulados, nombre_equipo, "⚽ GOL DE CÓRNER",
-            f"¡Gol de {rematador['nombre']} de cabeza tras el córner! Imposible para {portero_rival['nombre']}.",
-            [rematador["nombre"], portero_rival["nombre"]], "ataque"
+            f"¡Gol de {rematador['nombre']} de cabeza tras el córner! Imposible para {portero_rival['nombre']}." + (f" {ES.frase(esp, rematador['nombre'])}" if esp else ""),
+            [rematador["nombre"], portero_rival["nombre"]], "ataque", **ES.extra_evento(esp)
         ))
         return "gol", rematador, segundos_acumulados
     else:
@@ -642,7 +654,8 @@ PROB_CAMBIO_BASE = 0.025
 PROB_CAMBIO_POR_CANSANCIO = 0.35
 
 
-def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: int, max_cambios: int, segundos_acumulados: float, stats_jugadores: dict, eventos_visibles: dict, arbitros: dict, zona_balon: str, va_perdiendo: bool = False):
+def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: int, max_cambios: int, segundos_acumulados: float, stats_jugadores: dict, eventos_visibles: dict, arbitros: dict, zona_balon: str, va_perdiendo: bool = False,
+                         situacion: str = "", lectura: float = 0.0):
     """Procesa el cambio de un jugador titular por uno de la banca. Se invoca solo en paradas
     de juego del 2º tiempo -- ver el llamador en simular_partido_realista."""
     if sustituciones_realizadas >= max_cambios:
@@ -697,7 +710,17 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
     stats_jugadores[sale_jugador["id"]]["salio_de_cambio"] = True
     candidatos_suplentes = [j for j in habilitados if j.get("posicion_id") == sale_jugador.get("posicion_id")]
 
-    entra_jugador = leyenda_forzada or (random.choice(candidatos_suplentes) if candidatos_suplentes else random.choice(habilitados))
+    # Quién entra: el DT pesa las especialidades que pide el partido (perdiendo: ofensivas; ganando al final: defensivas;
+    # empatado: desequilibrio), más cuanto mejor es su lectura (services/especialidades.peso_cambio). Los titulares, en
+    # cambio, salen al azar: así juegan también los que todavía no tienen especialidad y pueden ganarse una.
+    especialidad_cambio = None
+    if leyenda_forzada:
+        entra_jugador = leyenda_forzada
+    else:
+        pool = candidatos_suplentes or habilitados
+        pesos_motivos = [ES.peso_cambio(j, situacion, lectura) for j in pool]
+        idx = random.choices(range(len(pool)), weights=[w for w, _ in pesos_motivos])[0]
+        entra_jugador, especialidad_cambio = pool[idx], pesos_motivos[idx][1]
 
     # Actualizar listas de plantilla y banca
     titulares.remove(sale_jugador)
@@ -706,6 +729,7 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
     entra_jugador_copia = entra_jugador.copy()
     entra_jugador_copia["linea_partido"] = linea_saliente
     entra_jugador_copia["slot"] = sale_jugador.get("slot")
+    entra_jugador_copia["_revulsivo"] = True   # especialidad «Revulsivo» (services/especialidades.py)
     desgaste.iniciar(entra_jugador_copia)   # piernas frescas
     stats_jugadores[sale_jugador["id"]]["energia_final"] = round(sale_jugador.get("energia", 100), 1)
     titulares.append(entra_jugador_copia)
@@ -732,10 +756,13 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
         "lado": stats_jugadores[sale_jugador["id"]]["lado"]
     }
 
+    motivo_cambio = ""
+    if especialidad_cambio and situacion in CE_ESP.TEXTO_CAMBIO:
+        motivo_cambio = " " + CE_ESP.TEXTO_CAMBIO[situacion].format(e=entra_jugador["nombre"], esp=CE_ESP.ESPECIALIDADES[especialidad_cambio]["nombre"])
     eventos_visibles.append(construir_evento(
         segundos_acumulados, equipo["nombre"], "🔄 SUSTITUCIÓN",
-        f"Entra {entra_jugador['nombre']} sustituyendo a {sale_jugador['nombre']}. (El 4to árbitro, {arbitros['cuarto']}, levanta el tablero)",
-        [entra_jugador["nombre"], sale_jugador["nombre"]], zona_balon
+        f"Entra {entra_jugador['nombre']} sustituyendo a {sale_jugador['nombre']}.{motivo_cambio} (El 4to árbitro, {arbitros['cuarto']}, levanta el tablero)",
+        [entra_jugador["nombre"], sale_jugador["nombre"]], zona_balon, **ES.extra_evento(especialidad_cambio)
     ))
 
     return sustituciones_realizadas + 1
@@ -1046,6 +1073,9 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
     plantilla_local_temp = list(collection.find({"pais_id": id_local}))
     plantilla_visitante_temp = list(collection.find({"pais_id": id_visitante}))
+    if tiempo_extra:   # eliminación directa o serie: rige la especialidad «Partidos grandes» (services/especialidades.py)
+        for j in plantilla_local_temp + plantilla_visitante_temp:
+            j["_partido_grande"] = True
 
     # Director técnico de cada lado (services/tecnicos.py): elige la táctica y cuántas leyendas arrancan; sin DT, al azar
     dt_local, cargo_local = obtener_dt_en_funciones(pais_local)
@@ -1365,9 +1395,13 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                 # marcador global (ida + vuelta) desde el lado de quien hace el cambio
                 diferencia = (goles_local + goles_ida_local) - (goles_visitante + goles_ida_visita)
                 va_perdiendo = diferencia < 0 if equipo_cambio is equipo_local else diferencia > 0
+                va_ganando = diferencia > 0 if equipo_cambio is equipo_local else diferencia < 0
+                dt_cambio = bancos[nombre_eq].dt
+                lectura_dt = (tecnicos.q(dt_cambio, "lectura") + 1) / 2 if dt_cambio else 0.3
                 cambios_realizados[nombre_eq] = realizar_sustitucion(
                     equipo_cambio, bancas, cambios_realizados[nombre_eq], max_cambios, segundos_acumulados,
-                    stats_jugadores, eventos_visibles, arbitros, zona_balon, va_perdiendo=va_perdiendo
+                    stats_jugadores, eventos_visibles, arbitros, zona_balon, va_perdiendo=va_perdiendo,
+                    situacion=ES.situacion_cambio(va_perdiendo, va_ganando, int(segundos_acumulados // 60)), lectura=lectura_dt
                 )
                 if bancos[nombre_eq].activo:
                     bancos[nombre_eq].aplicar(equipo_cambio["plantilla"])
@@ -1431,11 +1465,14 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
             b_atk, b_def = FS.bonos(zona_balon, accion, tactica_por_equipo[equipo_con_balon["nombre"]], tactica_por_equipo[equipo_defensor["nombre"]],
                                     FS.cuentas(equipo_con_balon["plantilla"]), FS.cuentas(equipo_defensor["plantilla"]))
             efectividad_pase += b_atk
+            # Especialidades (services/especialidades.py): Organizador, Lateral de ida y vuelta, Anticipación, Recuperador...
+            accion_esp = "pase" if accion == "despeje" else accion
+            efectividad_pase += ES.puntos(jugador_con_balon, accion_esp, "atk", zona_balon)
 
             efectividad_pase = max(0.0, efectividad_pase * (1 + mod_precision))
             defensa_rival = (defensor_marcador.get("anticipacion", 60) + defensor_marcador.get("concentracion", 60)) / 2
 
-            defensa_rival += b_def
+            defensa_rival += b_def + ES.puntos(defensor_marcador, accion_esp, "def", zona_balon)
 
             exito = resolver_duelo(0.85, efectividad_pase, defensa_rival)
             segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_TRANSICION)
@@ -1681,8 +1718,8 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
             # Formación: superioridad en la zona + perfil del esquema (services/formaciones.py)
             b_atk, b_def = FS.bonos(zona_balon, "regate", tactica_por_equipo[equipo_con_balon["nombre"]], tactica_por_equipo[equipo_defensor["nombre"]],
                                     FS.cuentas(equipo_con_balon["plantilla"]), FS.cuentas(equipo_defensor["plantilla"]))
-            attr_regateador += b_atk
-            attr_defensa_fisica += b_def
+            attr_regateador += b_atk + ES.puntos(jugador_con_balon, "regate", "atk", zona_balon)
+            attr_defensa_fisica += b_def + ES.puntos(defensor_marcador, "regate", "def", zona_balon)
 
             # Base bajada de 0.60 a 0.54: el éxito de gambeta era más alto que el ~45-50% real,
             # contribuía a llegar a zona de ataque con más facilidad de la debida.
@@ -1832,8 +1869,8 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
             attr_marca_defensa = (defensor_marcador.get("anticipacion", 60) + defensor_marcador.get("fuerza_fisica", 60)) / 2.0
             b_atk, b_def = FS.bonos(zona_balon, "tiro", tactica_por_equipo[equipo_con_balon["nombre"]], tactica_por_equipo[equipo_defensor["nombre"]],
                                     FS.cuentas(equipo_con_balon["plantilla"]), FS.cuentas(equipo_defensor["plantilla"]))
-            attr_remate += b_atk
-            attr_marca_defensa += b_def
+            attr_remate += b_atk + ES.puntos(jugador_con_balon, "tiro", "atk", zona_balon)
+            attr_marca_defensa += b_def + ES.puntos(defensor_marcador, "tiro", "def", zona_balon)
 
             # Base bajada de 0.50 a 0.44 como margen extra (el ajuste principal de volumen de
             # marcadores está en los pesos de acción de la zona de ataque, más arriba).
@@ -1847,13 +1884,13 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     jugador_con_balon.get("fuerza_disparo", 60)
                     + jugador_con_balon.get("precision_tiro", 60) + bonus_pie_habil(jugador_con_balon)
                 ) / 2.0
-                potencia_remate = max(0.0, potencia_remate * (1 + mod_precision))
+                potencia_remate = max(0.0, potencia_remate * (1 + mod_precision)) + ES.puntos(jugador_con_balon, "gol", "atk", zona_balon)
 
                 reflejos_portero = (
                     portero_rival.get("rendimiento", 60) +
                     portero_rival.get("agilidad", 60) +
                     portero_rival.get("concentracion", 60)
-                ) / 3.0
+                ) / 3.0 + ES.puntos(portero_rival, "gol", "def", zona_balon)
 
                 # Base bajada de 0.37 a 0.32: la conversión por intento ya estaba cerca de lo
                 # real (~18% medido con atributos promedio), esta reducción es solo margen extra.
@@ -1900,11 +1937,14 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     descripcion_gol = f"¡Golazo de {jugador_con_balon['nombre']}! Remate imparable para {portero_rival['nombre']}."
                     if asistente:
                         descripcion_gol += f" Asistencia de {asistente['nombre']}."
+                    esp_gol = ES.decisiva(jugador_con_balon, "gol", "atk", zona_balon) or ES.decisiva(jugador_con_balon, "tiro", "atk", zona_balon)
+                    if esp_gol:
+                        descripcion_gol += f" {ES.frase(esp_gol, jugador_con_balon['nombre'])}"
 
                     eventos_visibles.append(construir_evento(
                         segundos_acumulados, equipo_con_balon["nombre"], "⚽ GOL", descripcion_gol,
                         [jugador_con_balon["nombre"], portero_rival["nombre"]] + ([asistente["nombre"]] if asistente else []),
-                        zona_balon
+                        zona_balon, **ES.extra_evento(esp_gol)
                     ))
                     if revision_gol:   # revisado y confirmado: el gol ya está en el marcador, se narra la revisión
                         eventos_visibles.append(construir_evento(
@@ -1928,10 +1968,12 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     # Un tiro a puerta puede terminar en atajada limpia o desvío a tiro de esquina
                     if random.random() < 0.65:
                         stats_jugadores[portero_rival["id"]]["atajadas"] += 1
+                        esp_ataj = ES.decisiva(portero_rival, "gol", "def", zona_balon)
                         eventos_visibles.append(construir_evento(
                             segundos_acumulados, equipo_defensor["nombre"], "🧤 ATAJADA ESPECTACULAR",
-                            f"¡Disparo peligroso! {portero_rival['nombre']} se luce con una atajada salvadora.",
-                            [portero_rival["nombre"]], zona_balon
+                            f"¡Disparo peligroso! {portero_rival['nombre']} se luce con una atajada salvadora."
+                            + (f" {ES.frase(esp_ataj, portero_rival['nombre'])}" if esp_ataj else ""),
+                            [portero_rival["nombre"]], zona_balon, **ES.extra_evento(esp_ataj)
                         ))
                         equipo_con_balon, equipo_defensor = equipo_defensor, equipo_con_balon
                         jugador_con_balon = portero_rival

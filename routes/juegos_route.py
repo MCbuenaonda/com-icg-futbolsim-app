@@ -177,6 +177,13 @@ async def juego(request: Request, id: str):
         except Exception as e:
             print(f"Ceses del partido: {e}")
             ceses_dt = []
+        # Especialidades que se ganaron o perdieron en este partido (services/especialidades_service.py)
+        try:
+            from services.especialidades_service import cambios_del_partido
+            esp_cambios = cambios_del_partido(str(juego["_id"])) if juego and juego.get("resultado") else []
+        except Exception as e:
+            print(f"Especialidades del partido: {e}")
+            esp_cambios = []
         # La foto del partido (Vertex AI): las ya generadas y, para quien puede generarlas, el cupo de hoy
         fotos, cupo_fotos = [], None
         if juego and juego.get("resultado"):
@@ -189,7 +196,7 @@ async def juego(request: Request, id: str):
         return templates.TemplateResponse(
             request=request,
             name="resumen.html",
-            context={"partido": juego, "detalle": detalle, "cronica": cronica, "ceses_dt": ceses_dt,
+            context={"partido": juego, "detalle": detalle, "cronica": cronica, "ceses_dt": ceses_dt, "esp_cambios": esp_cambios,
                      "fotos": fotos, "cupo_fotos": cupo_fotos, "fotos_por_dia": FOTO.FOTOS_POR_DIA}
         )
     except FileNotFoundError:

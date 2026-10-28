@@ -381,6 +381,8 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
         motivo_gira = A._motivo_no_disponible(user_id, c, seq_u, ciclo, en_curso) if doc.get("es_del_usuario") else None
         if not motivo_gira and not lim_giras["giras_restantes"]:
             motivo_gira = f"Ya tienes {C.GIRAS_SIMULTANEAS} giras en curso"
+        if not motivo_gira and c["tipo"] == "jugador" and not lim_giras["jugadores_restantes"]:
+            motivo_gira = f"Ya mandaste {C.GIRA_JUGADORES_POR_CICLO} jugadores de gira este ciclo: espera al próximo"
         base.update(juego=juego, senal=senal_de(c["tipo"], c["ref_id"], valor_c, juego, ctx, c, ciclo),
                     patrocinio=R.patrocinio(c["tipo"], valor_c, popularidad(c["tipo"], c["ref_id"], valor_c)),
                     acuerdo=acuerdos.get(str(c["_id"])), marcas=marcas_contrato.get(str(c["_id"]), []), ciclos_sin_jugar=c.get("ciclos_sin_jugar", 0),
@@ -412,9 +414,26 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
         "acuerdos_activos": len(acuerdos), "acuerdos_max": C.ACUERDOS_MAX_ACTIVOS, "gira_este_ciclo": gira_este_ciclo,
         "giras_limites": lim_giras, "giras_en_curso": len({g.get("grupo_id") or g["_id"] for g in en_curso}),
         "marcas_resumen": M.resumen(user_id, sigla) if doc.get("es_del_usuario") else None,
+        "cupos": _cupos_vista(lim_giras, en_curso, seq_u, jugadores, M.promociones_disponibles(user_id)) if doc.get("es_del_usuario") else None,
         "senales": {"vender": sum(1 for x in selecciones + jugadores if x["senal"]["senal"] == "vender"),
                     "renovacion": sum(1 for x in selecciones + jugadores if x["senal"].get("renovacion"))},
     }
+
+
+def _cupos_vista(lim: dict, en_curso: list, seq: int, jugadores: list, promos: dict) -> dict:
+    """Indicadores del perfil: giras libres, jugadores que aún pueden salir este ciclo, disponibles ya y promociones."""
+    grupos = {}
+    for g in en_curso:
+        k = g.get("grupo_id") or g["_id"]
+        grupos[k] = max(grupos.get(k, 0), g.get("hasta_seq") or 0)
+    vuelve = min((h - seq for h in grupos.values() if h), default=None)
+    return {"giras_libres": lim["giras_restantes"], "giras_max": C.GIRAS_SIMULTANEAS, "giras_en_curso": len(grupos),
+            "vuelve_en": max(1, vuelve) if vuelve is not None else None,
+            "jugadores_ciclo": lim["jugadores_restantes"], "jugadores_ciclo_max": C.GIRA_JUGADORES_POR_CICLO,
+            "disponibles": min(lim["jugadores_restantes"], sum(1 for j in jugadores if j.get("gira_ok") and not j.get("de_gira"))),
+            "aptos": sum(1 for j in jugadores if j.get("gira_ok") and not j.get("de_gira")),
+            "ciclo_faltan": C.PARTIDOS_POR_CICLO - seq % C.PARTIDOS_POR_CICLO,
+            "promos": promos}
 
 
 def exposicion(selecciones: list, jugadores: list) -> list:

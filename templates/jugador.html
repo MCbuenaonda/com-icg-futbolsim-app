@@ -127,16 +127,16 @@
                 <img src="{{ imagen_perfil('especialidad') }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="card-logo-fondo__logo" onerror="this.remove()">
                 <div class="card-body">
                     <span class="text-muted fs-8 text-uppercase fw-semibold">Especialidades</span>
-                    <div class="mt-2">
-                        {% if jugador.especialista_penales %}
-                            <span class="badge bg-success-subtle text-success border border-success-subtle fs-8 mb-1">Penales</span>
-                        {% endif %}
-                        {% if jugador.especialista_tiros_libres %}
-                            <span class="badge bg-info-subtle text-info border border-info-subtle fs-8 mb-1">Tiros Libres</span>
-                        {% endif %}
-                        {% if not jugador.especialista_penales and not jugador.especialista_tiros_libres %}
+                    {# Especialidades (config/especialidades.py): suman puntos en su jugada durante el partido #}
+                    {% set esps = especialidades_de(jugador.especialidades) %}
+                    <div class="mt-2 esp-lista">
+                        {% set ganadas = (evolucion.ganadas if evolucion and evolucion.ganadas else {}) %}
+                        {% for e in esps %}
+                            <span class="esp-chip {{ 'esp-chip--ganada' if e.codigo in ganadas }}" title="{{ e.descripcion }}" tabindex="0"><i class="bi {{ e.icono }}"></i>{{ e.nombre }}{% if e.codigo in ganadas %} <i class="bi bi-arrow-up-circle-fill" title="Ganada: {{ ganadas[e.codigo].motivo }}"></i>{% endif %}</span>
+                            <small class="esp-desc">{{ e.descripcion }}</small>
+                        {% else %}
                             <span class="text-muted fs-7">Ninguna destacada</span>
-                        {% endif %}
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -153,6 +153,54 @@
             </div>
         </div>
     </div>
+
+    <!-- Evolución de sus especialidades (services/especialidades_service.evolucion_jugador): se ganan y se pierden con el
+         rendimiento partido a partido; las leyendas no evolucionan -->
+    {% if evolucion and not evolucion.leyenda %}{% set ev = evolucion %}
+    <div class="card card-logo-fondo card-seccion esp-evolucion mb-4" style="--logo-color: #8b5cf6;">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <h2 class="vivo-titulo mb-0"><i class="bi bi-graph-up-arrow" style="color:#a78bfa;"></i>Evolución de sus especialidades</h2>
+                <small class="text-muted">{{ ev.partidos_registrados }} partido{{ 's' if ev.partidos_registrados != 1 }} registrado{{ 's' if ev.partidos_registrados != 1 }} · se gana o se pierde según rinde</small>
+            </div>
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <h3 class="esp-evolucion__sub">En camino a…</h3>
+                    {% for c in ev.cerca %}
+                    <div class="esp-progreso" title="{{ c.descripcion }}">
+                        <span class="esp-chip esp-chip--mini"><i class="bi {{ c.icono }}"></i>{{ c.nombre }}</span>
+                        <div class="esp-progreso__barra"><i style="width: {{ c.progreso }}%"></i></div>
+                        <small>{{ c.progreso }}%</small>
+                    </div>
+                    {% else %}
+                    <p class="small text-muted mb-0">{% if ev.partidos_registrados %}Todavía no se acerca a ninguna: necesita destacar en sus próximos partidos.{% else %}Empieza a contar desde su próximo partido.{% endif %}</p>
+                    {% endfor %}
+                    {% if ev.seleccion and ev.seleccion.en_techo %}
+                    <p class="small text-warning mt-2 mb-0"><i class="bi bi-info-circle me-1"></i>Su selección está en el máximo de especialidades ({{ ev.seleccion.techo }}): para ganar una, otro compañero debe perder la suya.</p>
+                    {% elif ev.seleccion and ev.seleccion.en_piso %}
+                    <p class="small text-info mt-2 mb-0"><i class="bi bi-info-circle me-1"></i>Su selección está en el mínimo de especialidades ({{ ev.seleccion.piso }}): por ahora nadie pierde las suyas.</p>
+                    {% endif %}
+                    {% if ev.riesgo %}
+                    <h3 class="esp-evolucion__sub mt-3 text-danger">En riesgo</h3>
+                    {% for c in ev.riesgo %}<span class="esp-chip esp-chip--riesgo" title="Si sigue rindiendo así, la pierde"><i class="bi {{ c.icono }}"></i>{{ c.nombre }}</span> {% endfor %}
+                    {% endif %}
+                </div>
+                <div class="col-12 col-md-6">
+                    <h3 class="esp-evolucion__sub">Historial</h3>
+                    {% for h in ev.historial %}
+                    <div class="esp-hist esp-hist--{{ h.tipo | lower }}">
+                        <i class="bi {{ 'bi-arrow-up-circle-fill' if h.tipo == 'GANADA' else 'bi-arrow-down-circle-fill' }}"></i>
+                        <span class="min-w-0"><strong>{{ 'Ganó' if h.tipo == 'GANADA' else 'Perdió' }} {{ h.especialidad.nombre }}</strong>
+                            <small class="d-block text-muted">{{ h.motivo }}{% if h.rival %} · vs {{ h.rival }}{% endif %}{% if h.fecha_partido %} · {{ h.fecha_partido }}{% endif %}</small></span>
+                    </div>
+                    {% else %}
+                    <p class="small text-muted mb-0">Sin cambios todavía.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Atributos (radar + barras por grupo) e Historial competitivo, con el mismo estilo de tarjeta
          (.card-logo-fondo + ilustración de perfil/ como marca de agua) que las tarjetas de estado -->

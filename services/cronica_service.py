@@ -28,7 +28,7 @@ from config.settings import MONGODB_URI
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database("mundial")
 
-VERSION = 6   # 6: planteamiento de los DT (formaciones v2)
+VERSION = 7   # 6: planteamiento de los DT (formaciones v2); 7: especialidades de los jugadores
 TIPOS_GOL = ("⚽ GOL", "⚽ GOL DE TIRO LIBRE", "⚽ GOL DE CÓRNER", "⚽ GOL DE PENAL")
 COMPETICION = {1: "las Eliminatorias de la UEFA", 2: "las Eliminatorias de la CONMEBOL", 3: "las Eliminatorias de la CONCACAF",
                4: "las Eliminatorias de la CAF", 5: "las Eliminatorias de la OFC", 6: "las Eliminatorias de la AFC"}
@@ -152,7 +152,8 @@ def analizar(juego: dict) -> dict:
                 penal_pendiente = None
             goles.append({"min": m, "adic": ad, "per": per, "penal": bool(e.get("de_penal")), "seg": seg, "lado": ld, "autor": js[0] if js else "", "asistente": js[2] if len(js) > 2 else None,
                           "tipo": "penal" if e.get("de_penal") else {"⚽ GOL DE TIRO LIBRE": "tiro_libre", "⚽ GOL DE CÓRNER": "corner", "⚽ GOL DE PENAL": "penal"}.get(t, "jugada"),
-                          "antes": antes, "despues": dict(marcador), "leyenda": (js[0] if js else "") in leyendas[ld]})
+                          "antes": antes, "despues": dict(marcador), "leyenda": (js[0] if js else "") in leyendas[ld],
+                          "especialidad": e.get("especialidad_nombre")})
         elif t in ("🟥 TARJETA ROJA", "🟨🟥 DOBLE AMARILLA") and ld:
             rojas.append({"min": m, "adic": ad, "per": per, "seg": seg, "lado": ld, "jugador": js[0] if js else "", "doble": "DOBLE" in t,
                           "por_var": roja_por_var})
@@ -590,6 +591,11 @@ def _frase_gol(h, g, r, idx):
     frase = frase[0].upper() + frase[1:]
     if g["tipo"] == "tiro_libre" and r.random() < .6:
         frase = r.choice(EXCLAMACIONES) + " " + frase
+    if g.get("especialidad") and r.random() < .7:   # la especialidad del jugador decidió la jugada (config/especialidades.py)
+        esp = g["especialidad"]
+        frase = frase.rstrip() + " " + r.choice([f"Le hizo honor a su especialidad: {esp}.",
+                                                  f"Especialidad de la casa: {esp}.",
+                                                  f"Ahí pesó su especialidad ({esp})."])
     return frase
 
 

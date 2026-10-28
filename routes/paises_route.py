@@ -79,7 +79,8 @@ async def pais(request: Request, id: str):
             context={"pais": pais, "historial_aficionados": historial_aficionados, "aficionados_base": AFICIONADOS_INICIAL,
                      "trayectoria": trayectoria, "partidos": partidos, "figuras": figuras, "leyendas": leyendas,
                      "estadisticas": estadisticas, "balance": balance,
-                     "probabilidades": probabilidades, "cuerpo_tecnico": cuerpo_tecnico, "destacados": destacados}
+                     "probabilidades": probabilidades, "cuerpo_tecnico": cuerpo_tecnico, "destacados": destacados,
+                     "plantel_por_id": {j["id"]: j for j in plantel}}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")

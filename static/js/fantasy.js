@@ -405,6 +405,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <span class="ficha-pop__chip">OVR ${E(f.overall)}</span>
                         ${enEquipo ? `<span class="ficha-pop__chip ficha-pop__chip--ok"><i class="bi bi-check2"></i> En tu equipo ${enEquipo}</span>` : ''}
                     </div>
+                    ${(f.especialidades || []).length ? `<div class="esp-iconos">${f.especialidades.map(e => `<span class="esp-chip esp-chip--mini" title="${E(e.descripcion)}"><i class="bi ${E(e.icono)}"></i>${E(e.nombre)}</span>`).join('')}</div>` : ''}
                 </div>
             </div>
             <div class="ficha-pop__kpis">

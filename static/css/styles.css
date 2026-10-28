@@ -4782,3 +4782,66 @@ a.cal-record:hover { color: var(--tinta-1); border-color: var(--c); }
     .ficha-pop__avatar .avatar-jugador { width: 4.2rem; height: 4.2rem; }
     .once-tab { flex-basis: 7.5rem; }
 }
+
+/* Indicadores de cupos en el perfil del corporativo (giras y promociones disponibles) */
+.corp-cupos { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.6rem; }
+.corp-cupo { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 0.9rem; border-radius: 14px; background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(56, 189, 248, 0.3); --cupo: #38bdf8; }
+.corp-cupo--marca { border-color: rgba(250, 204, 21, 0.3); --cupo: #facc15; }
+.corp-cupo--agotado { border-color: rgba(148, 163, 184, 0.2); --cupo: #64748b; }
+.corp-cupo__icono { flex: 0 0 auto; width: 2.4rem; height: 2.4rem; border-radius: 50%; display: grid; place-items: center; font-size: 1.1rem;
+    color: var(--cupo); background: color-mix(in srgb, var(--cupo) 16%, transparent); }
+.corp-cupo__titulo { display: block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bs-secondary-color); }
+.corp-cupo strong { font-size: 1.35rem; color: #fff; line-height: 1.1; }
+.corp-cupo strong small { font-size: 0.8rem; color: var(--bs-secondary-color); font-weight: 600; }
+.corp-cupo__puntos { display: flex; gap: 0.2rem; margin: 0.2rem 0; }
+.corp-cupo__puntos i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+.corp-cupo__puntos i.is-libre { background: var(--cupo); }
+.corp-cupo__nota { display: block; font-size: 0.7rem; color: var(--bs-secondary-color); }
+
+/* Marcas de cada jugador en la plantilla (/jugadores/pais/{id}) y en la ficha del país */
+.ficha-jugador__marcas { position: relative; z-index: 1; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin: 0 0.85rem 0.5rem;
+    padding: 0.3rem 0.5rem; border-radius: 10px; font-size: 0.72rem; font-weight: 700; color: var(--text-main);
+    background: linear-gradient(90deg, rgba(245, 179, 1, 0.14), rgba(255, 255, 255, 0.02)); border: 1px solid rgba(245, 179, 1, 0.3); }
+.ficha-jugador__marcas > .bi { color: #facc15; }
+.ficha-jugador__marca { display: inline-flex; align-items: center; gap: 0.3rem; }
+.ficha-jugador__marca img { width: 2.2rem; height: 1.5rem; object-fit: contain; padding: 2px; border-radius: 6px; background: #0d1424;
+    border: 1px solid color-mix(in srgb, var(--marca) 55%, transparent); }
+.pais-marcas { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.5rem; }
+.pais-marcas__jugador { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; border-radius: 12px; text-decoration: none; color: inherit;
+    background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(245, 179, 1, 0.2); transition: border-color .15s; }
+.pais-marcas__jugador:hover { border-color: rgba(245, 179, 1, 0.55); }
+.pais-marcas__jugador .avatar-jugador { width: 2.6rem; height: 2.6rem; }
+.pais-marcas__logos { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 0.15rem; }
+.pais-marcas__logos img { width: 2rem; height: 1.35rem; object-fit: contain; padding: 2px; border-radius: 5px; background: #0d1424;
+    border: 1px solid color-mix(in srgb, var(--marca) 55%, transparent); }
+
+/* Especialidades de los jugadores (config/especialidades.py): ficha, plantilla, Once Ideal y transmisión */
+.esp-lista { display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; }
+.esp-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700;
+    color: #ddd6fe; background: rgba(139, 92, 246, 0.18); border: 1px solid rgba(139, 92, 246, 0.45); }
+.esp-chip .bi { color: #c4b5fd; }
+.esp-desc { display: block; margin: 0 0 0.35rem 0.2rem; font-size: 0.7rem; line-height: 1.25; color: var(--bs-secondary-color); }
+.esp-iconos { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.35rem; }
+.esp-chip--mini { padding: 0 0.45rem; font-size: 0.66rem; }
+/* Evolución de especialidades (ficha del jugador y resumen del partido) */
+.esp-chip--ganada { border-color: rgba(74, 222, 128, 0.55); }
+.esp-chip--ganada .bi-arrow-up-circle-fill { color: #4ade80; }
+.esp-chip--riesgo { color: #fecaca; background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.45); }
+.esp-chip--riesgo .bi { color: #fca5a5; }
+.esp-evolucion__sub { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--bs-secondary-color); margin-bottom: 0.4rem; }
+.esp-progreso { display: grid; grid-template-columns: minmax(0, 11rem) 1fr auto; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+.esp-progreso__barra { height: 0.45rem; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.esp-progreso__barra i { display: block; height: 100%; border-radius: 999px; background: #8b5cf6; }
+.esp-progreso small { font-size: 0.7rem; color: var(--bs-secondary-color); min-width: 2.2rem; text-align: right; }
+.esp-hist { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 0.8rem; }
+.esp-hist--ganada > .bi { color: #4ade80; }
+.esp-hist--perdida > .bi { color: #f87171; }
+.esp-juego { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.esp-juego__item { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem; border-radius: 10px; font-size: 0.78rem;
+    background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(139, 92, 246, 0.3); text-decoration: none; color: inherit; }
+/* KPI de especialidades de la selección (plantilla): total contra la base, entre el piso y el techo */
+.esp-kpi strong small { font-size: 0.7em; color: var(--bs-secondary-color); }
+.esp-kpi__barra { position: relative; width: 100%; min-width: 4rem; height: 0.3rem; margin-top: 0.25rem; border-radius: 999px; background: rgba(255, 255, 255, 0.1); }
+.esp-kpi__barra i { display: block; height: 100%; border-radius: 999px; background: #8b5cf6; }
+.esp-kpi__barra b { position: absolute; top: -0.15rem; width: 2px; height: 0.6rem; background: #fff; opacity: 0.6; }

@@ -87,6 +87,26 @@
         </div>
     </div>
 
+    <!-- ESPECIALIDADES EN JUEGO: quién ganó o perdió una especialidad en este partido (especialidades_service) -->
+    {% if esp_cambios %}
+    <div class="card card-seccion mb-4">
+        <div class="card-body p-3">
+            <h2 class="vivo-titulo"><i class="bi bi-graph-up-arrow" style="color:#a78bfa;"></i>Especialidades en juego</h2>
+            <div class="esp-juego">
+                {% for c in esp_cambios %}
+                <a href="/jugadores/{{ c.jugador_id }}" class="esp-juego__item esp-hist--{{ c.tipo | lower }}" title="{{ c.motivo }}">
+                    {{ m.avatar(c.jugador_id, c.pais_id, 'sm', c.jugador_nombre) }}
+                    <i class="bi {{ 'bi-arrow-up-circle-fill' if c.tipo == 'GANADA' else 'bi-arrow-down-circle-fill' }}"></i>
+                    <span><strong>{{ c.jugador_nombre }}</strong> {{ 'gana' if c.tipo == 'GANADA' else 'pierde' }}
+                        <span class="esp-chip esp-chip--mini {{ 'esp-chip--riesgo' if c.tipo == 'PERDIDA' }}"><i class="bi {{ c.especialidad.icono }}"></i>{{ c.especialidad.nombre }}</span>
+                        <small class="d-block text-muted">{{ c.motivo }}</small></span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- CESE DE DT: la federación cambió de técnico tras este partido (tecnicos_service.ceses_del_partido) -->
     {% for c in ceses_dt %}
     <div class="resumen-cese mb-4" style="--i: {{ loop.index0 }};">

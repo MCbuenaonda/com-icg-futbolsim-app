@@ -97,6 +97,13 @@ def crear_indices():
     ownership_transactions.create_index("pais_id", name="pais_id")
     print("✅ Índices creados en 'ownership_transactions'")
 
+    # Evolución de especialidades (services/especialidades_service.py): por jugador (ficha), partido (resumen) y país (plantilla)
+    historial_esp = db['especialidades_historial']
+    historial_esp.create_index([("jugador_id", 1), ("fecha", -1)], name="jugador_fecha")
+    historial_esp.create_index([("juego_id", 1)], name="juego")
+    historial_esp.create_index([("pais_id", 1), ("fecha", 1)], name="pais_fecha")
+    print("✅ Índices creados en 'especialidades_historial'")
+
     fantasy_teams = db['fantasy_teams']
     # Once Ideal: uno por usuario y Mundial (ya no por fase; services/fantasy_service.py). Si en la base quedó el
     # índice único viejo user_fase, no molesta: el equipo nuevo no tiene fase_id (se indexa como null) y hay uno solo

@@ -34,7 +34,7 @@ db = client.get_database('mundial')
 
 TIPOS_IMAGEN = ("bandera", "plana", "jersey", "icono", "escudo")
 CARPETA_TIPO = {"plana": "bandera_plana"}               # el resto: carpeta = tipo
-VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 2, "tecnico": 1, "corporativo": 2, "marca": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
+VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 2, "tecnico": 1, "corporativo": 2, "marca": 1, "estadio": 2}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
 
 # {id: nombre} y {emoji: id} de 'paises' (se cargan una vez: nombres y banderas no cambian en runtime)
 _nombre_por_id: Optional[dict] = None
@@ -130,7 +130,7 @@ def url_estadio(ciudad_id) -> Optional[str]:
         _estadio_por_ciudad = {c["id"]: c["estadio_imagen"] for c in db["ciudades"].find(
             {"estadio_imagen": {"$exists": True}}, {"id": 1, "estadio_imagen": 1})}
     imagen = _estadio_por_ciudad.get(ciudad_id)
-    return f"{IMAGENES_PAISES_URL}/{imagen}" if imagen else None
+    return f"{IMAGENES_PAISES_URL}/{imagen}?v={VERSION_IMAGENES['estadio']}" if imagen else None
 
 
 # ids de jugadores con avatar (jugadores.avatar_imagen, asignado una vez por generar_avatares.py)
@@ -220,6 +220,42 @@ def _arte_mundial(anio=None):
         return None
 
 
+def _especialidades_de(codigos):
+    """Jinja: [{codigo, nombre, icono, descripcion}] de las especialidades de un jugador (config/especialidades.py)."""
+    try:
+        from services.especialidades import vista
+        return vista(codigos)
+    except Exception:
+        return []
+
+
+def _especialidades_ganadas_pais(pais_id):
+    """Jinja: {jugador_id: {codigos}} de las especialidades ganadas por rendimiento que conserva cada jugador."""
+    try:
+        from services.especialidades_service import ganadas_de_pais
+        return ganadas_de_pais(pais_id)
+    except Exception:
+        return {}
+
+
+def _especialidades_seleccion(pais_id):
+    """Jinja: total de especialidades de la selección contra base, piso y techo (especialidades_service.estado_seleccion)."""
+    try:
+        from services.especialidades_service import estado_seleccion
+        return estado_seleccion(pais_id)
+    except Exception:
+        return None
+
+
+def _patrocinios_pais(usuario, pais_id):
+    """Jinja: marcas de la selección y de cada jugador de su plantilla en el universo del usuario."""
+    try:
+        from services.corporativo_marcas_service import patrocinios_de_pais
+        return patrocinios_de_pais(usuario, pais_id)
+    except Exception:
+        return {"seleccion": [], "jugadores": {}, "total": 0}
+
+
 def _patrocinadores(usuario, tipo, ref_id):
     """Marcas que patrocinan a una selección o jugador en el universo del usuario (fichas; nunca rompe la vista)."""
     try:
@@ -243,7 +279,7 @@ GLOBALES_JINJA = {
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,
     "imagen_inicio": imagen_inicio, "img_estadio": url_estadio, "img_avatar": url_avatar,
-    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo, "logo_marca": url_logo_marca, "formacion": _formacion, "patrocinadores": _patrocinadores,
+    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo, "logo_marca": url_logo_marca, "formacion": _formacion, "patrocinadores": _patrocinadores, "patrocinios_pais": _patrocinios_pais, "especialidades_de": _especialidades_de, "especialidades_ganadas_pais": _especialidades_ganadas_pais, "especialidades_seleccion": _especialidades_seleccion,
     "corp_representantes": _corp_representantes, "img_foto_equipo": url_foto_equipo, "arte_mundial": _arte_mundial,
     "img_tecnico": url_avatar_tecnico, "dt_de_pais": _dt_de_pais,
 }

@@ -45,3 +45,6 @@ static/img/paises/
 # Docker
 Dockerfile
 .dockerignore
+
+# Estadios generados (generar_estadios.py)
+estadios_generados

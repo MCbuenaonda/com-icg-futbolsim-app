@@ -44,3 +44,6 @@ data_base64
 
 # Respaldos locales de scripts de datos (actualizar_jugadores_reales.py)
 respaldos/
+
+# Estadios generados (generar_estadios.py)
+estadios_generados/

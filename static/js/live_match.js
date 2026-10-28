@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="evento evento--${categoria} evento--${lado}${nuevo ? ' evento--nuevo' : ''}">
                 ${badgeMinuto(evento)}
                 <div class="evento__cuerpo">
-                    <div class="evento__tipo">${evento.tipo}${evento.equipo ? ` <span class="evento__equipo">${escaparHtml(evento.equipo)}</span>` : ''}</div>
+                    <div class="evento__tipo">${evento.tipo}${evento.equipo ? ` <span class="evento__equipo">${escaparHtml(evento.equipo)}</span>` : ''}${evento.especialidad_nombre ? ` <span class="evento__especialidad" title="La especialidad del jugador decidió la jugada"><i class="bi bi-stars"></i> ${escaparHtml(evento.especialidad_nombre)}</span>` : ''}</div>
                     <div class="evento__texto">${resaltarJugadores(evento.descripcion, evento.jugadores)}</div>
                 </div>
             </div>`;

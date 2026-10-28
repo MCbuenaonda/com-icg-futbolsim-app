@@ -49,11 +49,16 @@ def multiplicador(energia: float, perdida: float = PERDIDA_MAXIMA) -> float:
     return 1.0 - perdida * (UMBRAL_FATIGA - max(energia, 0.0)) / UMBRAL_FATIGA
 
 
+from config.especialidades import FACTOR_PULMON as _FACTOR_PULMON
+
+
 def _factor_gasto(jugador: dict, mod_clima: float) -> float:
     base = (jugador.get("_base") or {}).get("resistencia", jugador.get("resistencia", 60)) or 60
     factor = max(0.5, 1.0 - (float(base) - RESISTENCIA_REFERENCIA) * SENSIBILIDAD_RESISTENCIA)
     if jugador.get("linea_partido") == 1:
         factor *= FACTOR_PORTERO
+    if "pulmon" in (jugador.get("especialidades") or []):   # especialidad «Pulmón» (config/especialidades.py)
+        factor *= _FACTOR_PULMON
     return factor * (mod_clima or 1.0)
 
 

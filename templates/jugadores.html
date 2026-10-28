@@ -13,6 +13,10 @@
 {% set lc = logo_confederacion(sigla_conf) %}
 {% set pais_id = pais.id if pais else (jugadores[0].pais_id if jugadores else None) %}
 {% set nombre_pais = pais.nombre if pais else (jugadores[0].pais if jugadores else '') %}
+{# Marcas de la selección y de cada jugador en el universo del usuario (Corporativos > Marcas) #}
+{% set pp = patrocinios_pais(usuario_actual, pais_id) if puede('corporativos') else none %}
+{% set con_marca = (pp.jugadores | length) if pp else 0 %}
+{% set esp_ganadas = especialidades_ganadas_pais(pais_id) if pais_id else {} %}
 <div class="container-fluid py-2">
 
     <!-- Encabezado de la selección -->
@@ -30,11 +34,19 @@
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <div class="fixture-kpi"><span>Convocados</span><strong id="total-jugadores">{{ jugadores|length }}</strong></div>
                 <div class="fixture-kpi"><span>Goles</span><strong>{{ jugadores | sum(attribute='goles') }}</strong></div>
+                {% set es_sel = especialidades_seleccion(pais_id) if pais_id else none %}
+                {% if es_sel %}<div class="fixture-kpi esp-kpi" title="Especialidades de sus 22 jugadores actuales. Evolucionan con el rendimiento entre {{ es_sel.piso }} y {{ es_sel.techo }}; la base es {{ es_sel.base }}.">
+                    <span>Especialidades</span><strong>{{ es_sel.total }}<small>/{{ es_sel.base }}</small></strong>
+                    <div class="esp-kpi__barra" aria-hidden="true"><i style="width: {{ es_sel.pct }}%"></i><b style="left: {{ es_sel.pct_base }}%"></b></div>
+                </div>{% endif %}
+                {% if pp %}<div class="fixture-kpi" title="Jugadores con al menos una marca en tu universo"><span>Patrocinados</span><strong class="text-warning">{{ con_marca }}</strong></div>{% endif %}
                 <div class="fixture-kpi"><span>OVR medio</span><strong>{{ ((jugadores | sum(attribute='overall')) / (jugadores | length)) | round(1) if jugadores else '—' }}</strong></div>
                 {% if pais_id %}<a href="/paises/{{ pais_id }}" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-flag me-1"></i>Ver selección</a>{% endif %}
             </div>
         </div>
     </div>
+
+    {% if pp and pp.seleccion %}<div class="mb-3">{{ m.franja_marcas(pp.seleccion, 'La selección la patrocinan') }}</div>{% endif %}
 
     <!-- Buscador y filtro -->
     <div class="card panel-filtros mb-4">
@@ -54,6 +66,8 @@
                         <option value="Medio">Mediocampistas</option>
                         <option value="Delantero">Delanteros</option>
                         <option value="LEYENDAS">Solo leyendas</option>
+                        <option value="ESPECIALISTAS">Con especialidad</option>
+                        {% if pp %}<option value="MARCAS">Con patrocinio ({{ con_marca }})</option>{% endif %}
                     </select>
                 </div>
                 <div class="col-4 col-md-2">
@@ -73,7 +87,7 @@
         <h2 class="plantilla-linea__titulo"><i class="bi {{ icono }}"></i>{{ titulo }} <span class="vivo-contador">{{ grupo | length }}</span></h2>
         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3">
             {% for j in grupo | sort(attribute='numero') %}
-            <div class="col jugador-card-container" data-nombre="{{ j.nombre|lower }}" data-numero="{{ j.numero }}" data-posicion="{{ j.posicion }}" data-sector="{{ j.sector }}" data-leyenda="{{ 1 if j.leyenda else 0 }}">
+            <div class="col jugador-card-container" data-nombre="{{ j.nombre|lower }}" data-numero="{{ j.numero }}" data-posicion="{{ j.posicion }}" data-sector="{{ j.sector }}" data-leyenda="{{ 1 if j.leyenda else 0 }}" data-marcas="{{ (pp.jugadores.get(j.id) | length) if pp and pp.jugadores.get(j.id) else 0 }}" data-especialidades="{{ (j.especialidades or []) | length }}">
                 <a href="/jugadores/{{ j.id }}" class="card h-100 card-logo-fondo card-jugador ficha-jugador" style="--logo-color: {{ color }};">
                     {{ m.fondo_bandera(j.pais_id) }}
                     <div class="ficha-jugador__arriba">
@@ -93,7 +107,17 @@
                             {% if j.titular == 1 %}<span class="ficha-jugador__titular">Titular</span>{% endif %}
                             {% if j.edad %}<span class="ficha-jugador__edad">{{ j.edad }} años</span>{% endif %}
                         </div>
+                        {% set esps = especialidades_de(j.especialidades) %}
+                        {% set gj = esp_ganadas.get(j.id) or [] %}
+                        {% if esps %}<div class="esp-iconos">{% for e in esps %}<span class="esp-chip esp-chip--mini {{ 'esp-chip--ganada' if e.codigo in gj }}" title="{{ e.nombre }}: {{ e.descripcion }}{{ ' (ganada por rendimiento)' if e.codigo in gj }}"><i class="bi {{ e.icono }}"></i>{{ e.nombre }}{% if e.codigo in gj %} <i class="bi bi-arrow-up-circle-fill"></i>{% endif %}</span>{% endfor %}</div>{% endif %}
                     </div>
+                    {% set marcas_j = pp.jugadores.get(j.id) if pp else none %}
+                    {% if marcas_j %}
+                    <div class="ficha-jugador__marcas" title="Lo patrocinan en tu universo: {{ marcas_j | map(attribute='nombre') | join(', ') }}">
+                        <i class="bi bi-badge-ad-fill"></i>
+                        {% for mk in marcas_j %}<span class="ficha-jugador__marca" style="--marca: {{ mk.color }};"><img src="{{ mk.logo }}" alt="" loading="lazy">{% if marcas_j | length == 1 %}{{ mk.nombre }}{% endif %}</span>{% endfor %}
+                    </div>
+                    {% endif %}
                     <div class="ficha-jugador__metricas">
                         <div><span>Goles</span><strong>{{ j.goles or 0 }}</strong></div>
                         <div><span>Forma</span><strong class="text-info">{{ j.forma_actual }}%</strong></div>
@@ -140,6 +164,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // la posición: "Lateral izquierdo" no contiene "Defensa" y quedaba afuera.
             const sector = (card.getAttribute('data-sector') || card.getAttribute('data-posicion') || '').toLowerCase();
             const filtroLinea = posicionSelected === 'leyendas' ? card.getAttribute('data-leyenda') === '1'
+                : posicionSelected === 'marcas' ? Number(card.getAttribute('data-marcas')) > 0
+                : posicionSelected === 'especialistas' ? Number(card.getAttribute('data-especialidades')) > 0
                 : (posicionSelected === 'todas' || sector.includes(posicionSelected));
             const visible = (nombre.includes(query) || numero.includes(query)) && filtroLinea;
             card.classList.toggle('d-none', !visible);

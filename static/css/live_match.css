@@ -632,3 +632,7 @@
 /* Esquema del DT (config/formaciones.py): el inicial y, si lo cambió en vivo, el vigente */
 .once-dt__esquema { padding: 0 0.4rem; border-radius: 6px; background: rgba(34, 197, 94, 0.14); color: #bbf7d0; font-size: 0.68rem; }
 .once-dt__esquema--cambio { background: rgba(249, 115, 22, 0.2); color: #fed7aa; }
+
+/* Especialidad que decidió la jugada (config/especialidades.py) */
+.evento__especialidad { display: inline-flex; align-items: center; gap: 0.2rem; margin-left: 0.3rem; padding: 0 0.45rem; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 700; color: #ddd6fe; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.45); }

@@ -88,6 +88,39 @@
     </div>
   </div>
 
+  {% if cupos %}
+  {# Indicadores de lo que te queda disponible: giras (en curso y por ciclo) y promociones a marcas (por ronda) #}
+  <div class="corp-cupos mb-3" aria-label="Lo que tienes disponible">
+    <div class="corp-cupo {{ 'corp-cupo--agotado' if not cupos.giras_libres }}">
+      <i class="bi bi-airplane-fill corp-cupo__icono"></i>
+      <div class="min-w-0">
+        <span class="corp-cupo__titulo">Giras disponibles</span>
+        <strong>{{ cupos.giras_libres }}<small>/{{ cupos.giras_max }}</small></strong>
+        <div class="corp-cupo__puntos" aria-hidden="true">{% for i in range(cupos.giras_max) %}<i class="{{ 'is-libre' if i < cupos.giras_libres }}"></i>{% endfor %}</div>
+        <small class="corp-cupo__nota">{% if cupos.giras_en_curso %}{{ cupos.giras_en_curso }} en curso{% if cupos.vuelve_en %} · la próxima vuelve en {{ cupos.vuelve_en }} partido{{ 's' if cupos.vuelve_en != 1 }}{% endif %}{% else %}Ninguna en curso{% endif %}</small>
+      </div>
+    </div>
+    <div class="corp-cupo {{ 'corp-cupo--agotado' if not cupos.jugadores_ciclo }}">
+      <i class="bi bi-people-fill corp-cupo__icono"></i>
+      <div class="min-w-0">
+        <span class="corp-cupo__titulo">Jugadores de gira este ciclo</span>
+        <strong>{{ cupos.jugadores_ciclo }}<small>/{{ cupos.jugadores_ciclo_max }}</small></strong>
+        <div class="corp-cupo__puntos" aria-hidden="true">{% for i in range(cupos.jugadores_ciclo_max) %}<i class="{{ 'is-libre' if i < cupos.jugadores_ciclo }}"></i>{% endfor %}</div>
+        <small class="corp-cupo__nota">{% if cupos.jugadores_ciclo %}{{ cupos.disponibles }} de tus jugadores pueden salir ahora{% else %}Agotado · se renueva en {{ cupos.ciclo_faltan }} partido{{ 's' if cupos.ciclo_faltan != 1 }} (nuevo ciclo){% endif %}</small>
+      </div>
+    </div>
+    <div class="corp-cupo corp-cupo--marca {{ 'corp-cupo--agotado' if not cupos.promos.restantes }}">
+      <i class="bi bi-megaphone-fill corp-cupo__icono"></i>
+      <div class="min-w-0">
+        <span class="corp-cupo__titulo">Promociones a marcas</span>
+        <strong>{{ cupos.promos.restantes }}<small>/{{ cupos.promos.maximo }}</small></strong>
+        <div class="corp-cupo__puntos" aria-hidden="true">{% for i in range(cupos.promos.maximo) %}<i class="{{ 'is-libre' if i < cupos.promos.restantes }}"></i>{% endfor %}</div>
+        <small class="corp-cupo__nota">{% if cupos.promos.restantes %}En esta ronda{% else %}Agotadas{% endif %} · se renuevan en {{ cupos.promos.faltan }} partido{{ 's' if cupos.promos.faltan != 1 }}</small>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="corp-resumen-perfil mb-3">
     {% if exposicion %}
     {% set ns = namespace(a=0, partes=[]) %}{% for e in exposicion %}{% set ns.partes = ns.partes + [e.color ~ ' ' ~ ns.a ~ '% ' ~ (ns.a + e.pct) ~ '%'] %}{% set ns.a = ns.a + e.pct %}{% endfor %}
@@ -104,7 +137,7 @@
       <span><i class="bi bi-receipt text-warning me-1"></i>Honorarios esperados por ciclo: <strong class="text-white">{{ '{:,}'.format(honorarios_ciclo) }}</strong></span>
       <span><i class="bi bi-graph-up text-success me-1"></i>Neto acumulado de la cartera: <strong class="{{ 'text-success' if neto_total > 0 else 'text-danger' }}">{{ '{:+,}'.format(neto_total) }}</strong></span>
       {% set mr = marcas_resumen %}
-      <span><i class="bi bi-badge-ad-fill text-warning me-1"></i>Marcas: <strong class="text-white">{{ mr.activos if mr else 0 }}</strong> patrocinios{% if mr and mr.pago_ciclo %} · <strong class="text-info">+{{ '{:,}'.format(mr.pago_ciclo) }}</strong> por ciclo (tu comisión +{{ '{:,}'.format(mr.comision_ciclo) }}){% endif %}{% if mr and mr.en_riesgo %} · <span class="text-danger">{{ mr.en_riesgo }} en riesgo</span>{% endif %} · <a href="/corporativo/marcas">ver marcas</a> · giras en curso {{ giras_en_curso }} de {{ giras_limites.giras_restantes + giras_en_curso }} · {{ giras_limites.jugadores_restantes }} jugador{{ 'es' if giras_limites.jugadores_restantes != 1 }} de gira disponibles este ciclo</span>
+      <span><i class="bi bi-badge-ad-fill text-warning me-1"></i>Marcas: <strong class="text-white">{{ mr.activos if mr else 0 }}</strong> patrocinios{% if mr and mr.pago_ciclo %} · <strong class="text-info">+{{ '{:,}'.format(mr.pago_ciclo) }}</strong> por ciclo (tu comisión +{{ '{:,}'.format(mr.comision_ciclo) }}){% endif %}{% if mr and mr.en_riesgo %} · <span class="text-danger">{{ mr.en_riesgo }} en riesgo</span>{% endif %} · <a href="/corporativo/marcas">ver marcas</a></span>
       {% if senales.vender %}<span class="text-danger"><i class="bi bi-arrow-down-circle-fill me-1"></i>{{ senales.vender }} representado{{ 's' if senales.vender > 1 }} con señal de venta</span>{% endif %}
       {% if senales.renovacion %}<span class="text-warning"><i class="bi bi-arrow-repeat me-1"></i>{{ senales.renovacion }} representado{{ 's' if senales.renovacion > 1 }} pide{{ 'n' if senales.renovacion > 1 }} renovación: revisa la recomendación de cada uno</span>{% endif %}
       <span class="text-muted">Renovar cuesta ~60% de la prima de un fichaje (solo en los últimos 3 ciclos del contrato); rescindir, la mitad de los honorarios que faltan.</span>

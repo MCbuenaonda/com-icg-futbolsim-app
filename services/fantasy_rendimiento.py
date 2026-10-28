@@ -19,6 +19,7 @@ from bson import ObjectId
 from config import fantasy as CFF
 from services import estadisticas_service as E
 from services import fantasy_service as FS
+from services import especialidades as ES
 
 db = FS.db
 _cache = {"clave": None, "datos": None}
@@ -159,7 +160,7 @@ def ficha(jugador_id: int, usuario_id: Optional[str] = None) -> Optional[dict]:
     """Ficha del jugador para la ventana del Once Ideal: datos, forma, próximo partido, historial y lo que te pagó."""
     j = db["jugadores"].find_one({"id": jugador_id}, {"_id": 0, "id": 1, "nombre": 1, "edad": 1, "overall": 1, "posicion_id": 1,
                                                       "pais_id": 1, "numero": 1, "leyenda": 1, "rendimiento": 1, "pie_habil": 1,
-                                                      "estado_animo": 1})
+                                                      "estado_animo": 1, "especialidades": 1})
     if not j:
         return None
     pais = db["paises"].find_one({"id": j.get("pais_id")}, {"nombre": 1, "bandera": 1}) or {}
@@ -183,6 +184,7 @@ def ficha(jugador_id: int, usuario_id: Optional[str] = None) -> Optional[dict]:
         "id": j["id"], "nombre": j.get("nombre"), "edad": j.get("edad"), "overall": round(j.get("overall") or 0, 1),
         "numero": j.get("numero"), "leyenda": bool(j.get("leyenda")), "pie_habil": j.get("pie_habil"),
         "estado_animo": j.get("estado_animo"), "rendimiento": round(j.get("rendimiento") or 0, 1),
+        "especialidades": ES.vista(j.get("especialidades")),
         "pais_id": j.get("pais_id"), "pais": pais.get("nombre"), "bandera": pais.get("bandera") or "",
         "posicion": pos.get("nombre"), "siglas": pos.get("siglas"), "linea": CFF.LINEA_DE_POSICION.get(j.get("posicion_id")),
         "eliminado": eliminados.get(j.get("pais_id")),

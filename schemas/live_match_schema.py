@@ -31,6 +31,8 @@ class EventoOut(BaseModel):
     # Cambio de esquema en vivo (services/tecnicos.esquema_en_vivo): del y al
     esquema_de: Optional[str] = None
     esquema_a: Optional[str] = None
+    especialidad: Optional[str] = None   # especialidad del jugador que decidió la jugada (config/especialidades.py)
+    especialidad_nombre: Optional[str] = None
 
 
 class StartedMatchOut(BaseModel):

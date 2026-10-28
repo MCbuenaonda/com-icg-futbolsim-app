@@ -672,6 +672,14 @@ def _promos_ronda(user_id, ronda: int) -> int:
     return db["corp_patrocinios"].count_documents({"universo_id": user_id, "origen": "PROMOCION", "ronda": ronda})
 
 
+def promociones_disponibles(user_id) -> dict:
+    """Cupo de «Promover» de la ronda en curso: {restantes, usadas, maximo, faltan (partidos para la próxima ronda)}."""
+    _, ronda, faltan = _ronda_usuario(user_id)
+    usadas = _promos_ronda(user_id, ronda)
+    return {"restantes": max(0, C.MARCA_PROMOCIONES_POR_RONDA - usadas), "usadas": usadas,
+            "maximo": C.MARCA_PROMOCIONES_POR_RONDA, "faltan": faltan}
+
+
 def interesadas(user_id, contrato_id: str, ctx: Optional[dict] = None) -> dict:
     """Marcas que podrían patrocinar a este representado, por encaje, con la probabilidad de aceptar una promoción."""
     universo, sigla, corp, c, ciclo = _contrato_propio(user_id, contrato_id)
@@ -799,6 +807,35 @@ def patrocinadores_de(usuario: Optional[dict], tipo: str, ref_id: int) -> list:
     except Exception as e:
         print(f"[marcas] patrocinadores de {tipo} {ref_id}: {e}")
         return []
+
+
+def patrocinios_de_pais(usuario: Optional[dict], pais_id: int) -> dict:
+    """
+    Marcas de una selección y de cada jugador de su plantilla en el universo del usuario (vista de plantilla y ficha del
+    país): {"seleccion": [marcas], "jugadores": {jugador_id: [marcas]}, "total": n}. Una sola consulta de patrocinios.
+    """
+    vacio = {"seleccion": [], "jugadores": {}, "total": 0}
+    try:
+        if not usuario or pais_id is None:
+            return vacio
+        uid, cat = str(usuario["_id"]), catalogo()
+        pais_id = int(pais_id)
+        ids = [j["id"] for j in db["jugadores"].find({"pais_id": pais_id}, {"id": 1})]
+        salida = {"seleccion": [], "jugadores": {}, "total": 0}
+        for p in db["corp_patrocinios"].find({"universo_id": uid, "estado": "ACTIVO", "$or": [
+                {"tipo": "seleccion", "ref_id": pais_id}, {"tipo": "jugador", "ref_id": {"$in": ids}}]}):
+            if p["marca_id"] not in cat:
+                continue
+            mk = {**marca_vista(cat[p["marca_id"]]), "sigla": p["sigla"], "pago_ciclo": p["pago_ciclo"]}
+            if p["tipo"] == "seleccion":
+                salida["seleccion"].append(mk)
+            else:
+                salida["jugadores"].setdefault(p["ref_id"], []).append(mk)
+            salida["total"] += 1
+        return salida
+    except Exception as e:
+        print(f"[marcas] patrocinios del país {pais_id}: {e}")
+        return vacio
 
 
 def _salud(p: dict) -> dict:

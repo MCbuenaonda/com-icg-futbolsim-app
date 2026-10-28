@@ -164,6 +164,20 @@ def _proximo_partido_en(pais_id) -> Optional[int]:
     return min(d["posiciones"]) if d and d.get("posiciones") else None
 
 
+def _juega_en_ciclo_activo(pais_id) -> Optional[int]:
+    """
+    Si la selección todavía tiene partido por jugar en lo que queda del ciclo activo: cuántos partidos del torneo faltan
+    para el ÚLTIMO de ellos (None si ya no juega en este ciclo, o porque ya jugó o porque no tiene partido programado).
+    """
+    d = calendario_paises().get(pais_id)
+    if not d or not d.get("posiciones"):
+        return None
+    seq = U.seq_actual()
+    quedan = C.PARTIDOS_POR_CICLO - seq % C.PARTIDOS_POR_CICLO   # partidos que le quedan al ciclo activo
+    en_ciclo = [i for i in d["posiciones"] if i < quedan]
+    return max(en_ciclo) if en_ciclo else None
+
+
 def _motivo_no_disponible(uid, c: dict, seq: int, ciclo: int, en_curso: list) -> Optional[str]:
     if any(g["tipo"] == c["tipo"] and g["ref_id"] == c["ref_id"] for g in en_curso):
         return "Ya está de gira"
@@ -174,6 +188,11 @@ def _motivo_no_disponible(uid, c: dict, seq: int, ciclo: int, en_curso: list) ->
         if previa:
             falta = (previa.get("hasta_seq") or seq) + C.GIRA_JUGADOR_ENFRIAMIENTO_PARTIDOS - seq
             return f"Volvió de gira hace poco: puede salir en ~{max(1, falta)} partidos"
+        # Solo sale de gira si su selección ya no juega en el ciclo activo (no juega o ya jugó su partido del ciclo)
+        ultimo = _juega_en_ciclo_activo(_pais_de("jugador", c["ref_id"]))
+        if ultimo is not None:
+            return ("Su selección juega este ciclo: podrá salir de gira cuando juegue "
+                    + ("el próximo partido" if ultimo == 0 else f"su partido (en {ultimo + 1} partidos)"))
         return None
     if db["corp_giras"].find_one({"universo_id": uid, "tipo": "seleccion", "ref_id": c["ref_id"], "ciclo": {"$gt": ciclo - C.GIRA_ENFRIAMIENTO}}):
         return f"Hizo una gira hace poco (cada {C.GIRA_ENFRIAMIENTO} ciclos)"
@@ -573,7 +592,9 @@ def _ia_gira(estado, sigla: str, corp: dict, propios: list, ciclo: int, rng) -> 
     ocupados = {(g["tipo"], g["ref_id"]) for g in giras if g["estado"] == "EN_CURSO"}
     selecciones = [c for c in propios if c["tipo"] == "seleccion" and (c["tipo"], c["ref_id"]) not in ocupados
                    and (_proximo_partido_en(c["ref_id"]) is None or _proximo_partido_en(c["ref_id"]) >= C.GIRA_SELECCION_PARTIDOS)]
-    jugadores = [c for c in propios if c["tipo"] == "jugador" and (c["tipo"], c["ref_id"]) not in ocupados]
+    # Misma regla que el usuario: un jugador sale de gira solo si su selección ya no juega en el ciclo activo
+    jugadores = [c for c in propios if c["tipo"] == "jugador" and (c["tipo"], c["ref_id"]) not in ocupados
+                 and _juega_en_ciclo_activo(_pais_de("jugador", c["ref_id"])) is None]
     if selecciones and rng.random() < 0.5:
         elegidos = [rng.choice(selecciones)]
     elif jugadores:

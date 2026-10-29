@@ -17,8 +17,21 @@ def datos(esquema: str) -> dict:
     return F.FORMACIONES.get(esquema) or F.FORMACIONES[F.ESQUEMA_POR_DEFECTO]
 
 
-def lineas(esquema: str) -> List[int]:
-    return datos(esquema)["lineas"]
+def lineas(esquema: str, espejo: bool = False) -> List[int]:
+    """Línea de cada puesto (slot 1..11). espejo: los extremos (EI/ED) intercambian su línea (ver SLOTS_EXTREMOS)."""
+    base = datos(esquema)["lineas"]
+    if not espejo:
+        return base
+    i, d = (s - 1 for s in F.SLOTS_EXTREMOS)
+    salida = list(base)
+    salida[i], salida[d] = base[d], base[i]
+    return salida
+
+
+def faltan(cuenta: dict) -> int:
+    """Jugadores de campo que le faltan a un equipo (expulsados o lesionados sin cambio), con tope."""
+    en_campo = sum(cuenta.get(l, 0) for l in (2, 3, 4))
+    return max(0, min(F.TOPE_INFERIORIDAD, F.JUGADORES_DE_CAMPO - en_campo))
 
 
 def postura(esquema: str) -> float:
@@ -79,7 +92,11 @@ def bonos(zona: str, accion: str, esquema_ataque: str, esquema_defensa: str, cue
     contra = 0.0
     if accion in ("pase_profundo", "regate") and zona in ("defensa", "medio"):
         contra = F.CONTRAGOLPE * max(0.0, postura(esquema_defensa) - postura(esquema_ataque))
-    return F.ESCALA_PERFIL * a + max(sup, 0.0) + contra, F.ESCALA_PERFIL * d + max(-sup, 0.0)
+    # Inferioridad numérica: el que tiene menos jugadores de campo pierde puntos en todos sus duelos
+    inf_a = faltan(cuenta_ataque) * F.PUNTOS_INFERIORIDAD_ATAQUE
+    inf_d = faltan(cuenta_defensa) * F.PUNTOS_INFERIORIDAD_DEFENSA
+    return (F.ESCALA_PERFIL * a + max(sup, 0.0) + contra - inf_a,
+            F.ESCALA_PERFIL * d + max(-sup, 0.0) - inf_d)
 
 
 def bono_aereo(esquema_ataque: str, esquema_defensa: str) -> Tuple[float, float]:
@@ -111,9 +128,9 @@ def ventaja(esquema: str, esquema_rival: str) -> float:
     return round(v, 2)
 
 
-def reasignar_lineas(plantilla: list, esquema: str) -> None:
+def reasignar_lineas(plantilla: list, esquema: str, espejo: bool = False) -> None:
     """Cambio de esquema en vivo: cada jugador pasa a la línea que su puesto ('slot') tiene en el esquema nuevo."""
-    nuevas = lineas(esquema)
+    nuevas = lineas(esquema, espejo)
     for j in plantilla:
         slot = j.get("slot")
         if slot and 1 <= slot <= 11 and j.get("linea_partido") != 1:

@@ -79,18 +79,22 @@ def correr(datos, sigla_ceo, estrategia, corrida):
                 k = ("seleccion", pid)
                 if k in c.contratos:
                     r = R.renta_seleccion(c.contratos[k]["valor"], resultado)
-                    if REGLAS == "v2":
+                    if REGLAS in ("v2", "tv"):
                         h = R.honorario_partido("seleccion", c.contratos[k]["valor"])
                         r -= h
                         c.contratos[k]["hon_partidos"] = c.contratos[k].get("hon_partidos", 0) + h
+                    if REGLAS == "tv":
+                        r += _tv_partido(c.contratos[k], pid, resultado, paises, rng)
                     c.contratos[k]["renta"] += r
                     c.capital += r
                     c.renta_ciclo += r
+            if REGLAS == "tv" and c is next(iter(corps.values())):   # invitados de TV (una vez por partido, para todos)
+                _tv_invitados(corps, ap, valores_j, rng)
             for jid, aporte in ap["jugadores"].items():
                 k = ("jugador", jid)
                 if k in c.contratos:
                     r = R.renta_jugador(c.contratos[k]["valor"], aporte)
-                    if REGLAS == "v2":
+                    if REGLAS in ("v2", "tv"):
                         h = R.honorario_partido("jugador", c.contratos[k]["valor"])
                         r -= h
                         c.contratos[k]["hon_partidos"] = c.contratos[k].get("hon_partidos", 0) + h
@@ -106,10 +110,10 @@ def correr(datos, sigla_ceo, estrategia, corrida):
         for c in corps.values():
             patrimonio = c.capital + c.valor_cartera()
             gasto = 0
-            c.renta_ciclo += sum(_patrocinio(k, ct, paises) for k, ct in c.contratos.items()) if REGLAS == "v2" else 0
+            c.renta_ciclo += sum(_patrocinio(k, ct, paises) for k, ct in c.contratos.items()) if REGLAS in ("v2", "tv") else 0
             for k, ct in list(c.contratos.items()):
                 h = _honorario_ciclo(k, ct)
-                pat = _patrocinio(k, ct, paises) if REGLAS == "v2" else 0
+                pat = _patrocinio(k, ct, paises) if REGLAS in ("v2", "tv") else 0
                 gasto += h + ct["amort"]
                 resumen_renta[k[0]].append(ct["renta"] + pat - h)
                 ct["renta_total"] += ct["renta"] + pat
@@ -118,14 +122,14 @@ def correr(datos, sigla_ceo, estrategia, corrida):
                 if ct["restantes"] <= 0:
                     # vence: se renueva si rindió (renta >= 80% de lo que costó), pagando una prima nueva
                     if ct["renta_total"] >= 0.8 * ct["honorarios_total"]:
-                        prima = R.prima_renovacion(ct["valor"], 70) if REGLAS == "v2" else R.prima_referencia(ct["valor"])
+                        prima = R.prima_renovacion(ct["valor"], 70) if REGLAS in ("v2", "tv") else R.prima_referencia(ct["valor"])
                         c.capital -= prima
                         c.contratos[k] = Corp._contrato(ct["valor"], rng, prima)
                     else:
                         del c.contratos[k]
                         ocupados.discard(k)
             c.capital -= sum(_honorario_ciclo(k, ct) for k, ct in c.contratos.items())
-            c.capital += sum(_patrocinio(k, ct, paises) for k, ct in c.contratos.items()) if REGLAS == "v2" else 0
+            c.capital += sum(_patrocinio(k, ct, paises) for k, ct in c.contratos.items()) if REGLAS in ("v2", "tv") else 0
             utilidad = c.renta_ciclo - gasto
             es_ceo = c.sigla == sigla_ceo and despido is None
             if es_ceo:
@@ -141,7 +145,7 @@ def correr(datos, sigla_ceo, estrategia, corrida):
             c.variacion = nuevo / c.precio - 1 if c.precio else 0
             c.precio = nuevo if not c.precio else R.limitar_banda(nuevo, c.precio)
             c.rois.append(roi)
-            roi_sent = statistics.mean(c.rois[-C.CICLOS_VENTANA_ROI:]) if REGLAS == "v2" else roi
+            roi_sent = statistics.mean(c.rois[-C.CICLOS_VENTANA_ROI:]) if REGLAS in ("v2", "tv") else roi
             c.sentimiento = R.nuevo_sentimiento(c.sentimiento, roi_sent, 0, rng)
             c.utilidades_todas = getattr(c, "utilidades_todas", []) + [utilidad]
             c.historial.append((ciclo, round(roi * 100, 2), int(c.capital), c.confianza))
@@ -181,9 +185,45 @@ def correr(datos, sigla_ceo, estrategia, corrida):
     return corps, pagos_ceo, despido, resumen_renta
 
 
+def _tv_partido(ct, pid, resultado, paises, rng):
+    """Televisoras (modo tv): cada selección tiene siempre un contrato de TV; al terminar, el siguiente sale con la tarifa
+    corregida por los resultados (tv_forma) de una cadena al azar del país."""
+    tv = ct.get("tv")
+    pop = R.popularidad_seleccion((paises.get(pid) or {}).get("aficionados"))
+    if tv is None or tv["jugados"] >= tv["partidos"]:
+        forma = R.tv_forma(R.tv_pct(tv["res"])) if tv else 1.0
+        tv = ct["tv"] = {"tarifa": R.tv_tarifa(ct["valor"], pop, rng.choice([1, 2, 3]), rng.choice(list(C.TV_PERFIL)), forma),
+                         "partidos": rng.randint(*C.TV_PARTIDOS), "jugados": 0, "res": [], "exigencia": rng.uniform(0.45, 0.62)}
+    pago = tv["tarifa"][resultado]
+    tv["jugados"] += 1
+    tv["res"].append(resultado)
+    if tv["jugados"] == tv["partidos"]:
+        pago += R.tv_bono(tv["tarifa"], tv["partidos"], R.tv_pct(tv["res"]), tv["exigencia"])
+    return pago
+
+
+def _tv_invitados(corps, ap, valores_j, rng):
+    """Cada selección del partido con TV (en modo tv todas las representadas la tienen) lleva, con TV_INVITADO_PROB, a un
+    jugador representado al azar; cobra su corporativo (aproximación: sin las condiciones de gira/ciclo/renovación)."""
+    representadas = {k[1] for c in corps.values() for k in c.contratos if k[0] == "seleccion"}
+    jugadores = [(c, k) for c in corps.values() for k in c.contratos if k[0] == "jugador"]
+    usados = set()
+    for pid in ap["selecciones"]:
+        if pid not in representadas or not jugadores or rng.random() >= C.TV_INVITADO_PROB:
+            continue
+        c, k = rng.choice(jugadores)
+        if k in usados:
+            continue
+        usados.add(k)
+        pago = R.tv_invitado_pago(c.contratos[k]["valor"], R.popularidad_jugador(c.contratos[k]["valor"]), rng.choice([1, 2, 3]))
+        c.contratos[k]["renta"] += pago
+        c.capital += pago
+        c.renta_ciclo += pago
+
+
 def _honorario_ciclo(k, ct):
     """v1: honorario fijo por ciclo. v2: solo el mantenimiento (el resto se cobró por partido jugado)."""
-    if REGLAS == "v2":
+    if REGLAS in ("v2", "tv"):
         return R.honorario_mantenimiento(k[0], ct["valor"])
     return int(round(ct["valor"] * C.HONORARIO_POR_CICLO[k[0]]))
 

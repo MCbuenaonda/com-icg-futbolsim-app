@@ -25,7 +25,7 @@ CAMPOS_CORP = ("capital", "sentimiento", "precio", "variacion_ciclo", "patrimoni
                "saneamiento")
 CAMPOS_CONTRATO = ("renta_total", "renta_ciclo", "honorarios_total", "satisfaccion", "jugo_en_ciclo", "ciclos_sin_jugar",
                    "partidos", "foto_fase", "valor_actual", "activo", "fin_ciclo", "motivo_fin", "desde_ciclo", "hasta_ciclo",
-                   "prima", "origen", "pidio_salida_ciclo", "eventos_ciclo", "eventos_marcas")
+                   "prima", "origen", "pidio_salida_ciclo", "eventos_ciclo", "eventos_marcas", "tv_bono_hasta_seq")
 
 _cache_aportes: "OrderedDict[str, dict]" = OrderedDict()
 MAX_CACHE_APORTES = 3000
@@ -123,7 +123,7 @@ def ciclo_vacio() -> dict:
     """Acumulados del ciclo en curso de un corporativo. 'extra' = patrocinios de marcas, acuerdos y giras (ingresos);
     'gastos_extra' = costos de las giras; 'comision_ceo' = comisión de las marcas que cobra el CEO con el sueldo."""
     return {"renta": 0, "honorarios": 0, "amortizacion": 0, "sueldo": 0, "impago": False, "fichajes": 0,
-            "patrocinio": 0, "extra": 0, "gastos_extra": 0, "fama": {}, "comision_ceo": 0, "marcas_bruto": 0}
+            "patrocinio": 0, "extra": 0, "gastos_extra": 0, "fama": {}, "comision_ceo": 0, "marcas_bruto": 0, "tv": 0, "tv_invitados": 0}
 
 
 # --- Partido -------------------------------------------------------------------------------------
@@ -339,7 +339,8 @@ def cerrar_cuentas(estado: Estado, ciclo: int) -> None:
                      "honorarios": corp["ciclo_actual"]["honorarios"], "impago": corp["ciclo_actual"]["impago"],
                      "patrocinio": corp["ciclo_actual"]["patrocinio"], "extra": corp["ciclo_actual"]["extra"],
                      "gastos_extra": corp["ciclo_actual"]["gastos_extra"], "renta_esperada": esperada,
-                     "fama": corp["ciclo_actual"].get("fama") or {}})
+                     "fama": corp["ciclo_actual"].get("fama") or {}, "tv": corp["ciclo_actual"].get("tv", 0),
+                     "tv_invitados": corp["ciclo_actual"].get("tv_invitados", 0)})
         corp["historial"] = hist[-60:]
         corp["ciclo_actual"] = ciclo_vacio()
 

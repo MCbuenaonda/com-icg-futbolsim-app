@@ -152,6 +152,7 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
         context={
             "mot": mot,
             "planteo": planteo,
+            "tx_juego_id": id,
             "partido": partido,
             "stats_jugadores": None,
             "prefix": PREFIX_SIMULADOR_PATH,

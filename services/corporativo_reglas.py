@@ -350,14 +350,13 @@ def gira_jugador_ingreso_v2(costo: int, popularidad: float, forma_seleccion: flo
 
 def aporte_aficionados_jugador(forma_seleccion: float, forma_jugador: float, rng: random.Random) -> int:
     """
-    0 a GIRA_JUGADOR_AFICIONADOS_MAX aficionados para su selección por una gira de un jugador.
+    GIRA_JUGADOR_AFICIONADOS_MIN a _MAX (1 a 100) aficionados para su selección por una gira de un jugador.
     forma_seleccion: puntos de sus últimos 5 partidos / 15. forma_jugador: 0..1 (juega y aporta goles/asistencias).
-    Con malos resultados (selección que no suma y jugador que no juega) aporta 0.
+    Con malos resultados (selección que no suma y jugador que no juega) aporta el mínimo.
     """
     base = 0.6 * limitar(forma_seleccion, 0, 1) + 0.4 * limitar(forma_jugador, 0, 1)
-    if base < 0.15:
-        return 0
-    return int(round(C.GIRA_JUGADOR_AFICIONADOS_MAX * limitar(base * rng.uniform(0.7, 1.15), 0, 1)))
+    valor = int(round(C.GIRA_JUGADOR_AFICIONADOS_MAX * limitar(base * rng.uniform(0.7, 1.15), 0, 1)))
+    return max(C.GIRA_JUGADOR_AFICIONADOS_MIN, min(C.GIRA_JUGADOR_AFICIONADOS_MAX, valor))
 
 
 # --- Señales de comprar / vender -----------------------------------------------------------------
@@ -389,10 +388,10 @@ def _senal_cartera(datos: dict, pos: list, neg: list):
     if costos:
         if renta >= costos:
             buenos += 1
-            pos.append(f"Ya recuperó lo que costó: rindió {renta:,} contra {costos:,}")
+            pos.append(f"Ya recuperó lo que costó: rindió {int(round(renta)):,} contra {int(round(costos)):,}")
         else:
             malos += 1
-            neg.append(f"Rindió {renta:,} y costó {costos:,}")
+            neg.append(f"Rindió {int(round(renta)):,} y costó {int(round(costos)):,}")
     if (datos.get("ciclos_sin_jugar") or 0) >= 2:
         malos += 1
         neg.append(f"{datos['ciclos_sin_jugar']} ciclos sin jugar")
@@ -538,3 +537,63 @@ def riesgo_marca(eventos: dict, fidelidad: float) -> int:
     """0..100: riesgo de que la marca corte, por lo que pasó en el ciclo (roja, goleada, eliminación, sin jugar, mala forma)."""
     bruto = sum(C.MARCA_RIESGO[k] for k, v in (eventos or {}).items() if v and k in C.MARCA_RIESGO)
     return int(round(limitar(bruto * (1.3 - limitar(fidelidad, 0, 1)), 0, 100)))
+
+
+# --- Televisoras (config TV_*; services/corporativo_tv_service.py) -----------------------------------------------
+def tv_tarifa(valor: int, popularidad: float, nivel: int, perfil: str, forma: float = 1.0) -> Dict[str, int]:
+    """Pago por partido según el resultado + bono por partido del contrato (si cumple la exigencia)."""
+    base = valor * C.TV_BASE * popularidad * C.TV_NIVEL.get(nivel, 1.0) * forma
+    m = C.TV_PERFIL.get(perfil) or C.TV_PERFIL["generosa"]
+    return {k: max(1, int(round(base * m[k]))) for k in ("victoria", "empate", "derrota", "bono")}
+
+
+def tv_esperado(tarifa: Dict[str, int]) -> int:
+    """Pago medio por partido (sin bono), para comparar ofertas y para que la IA elija."""
+    return int(round(sum(tarifa[r] * p for r, p in C.TV_PROBABILIDAD_RESULTADO.items())))
+
+
+def tv_pct(resultados: Iterable[str]) -> Optional[float]:
+    """% de los puntos sacados (victoria 3, empate 1) en los partidos del contrato; None sin partidos."""
+    resultados = list(resultados)
+    if not resultados:
+        return None
+    return sum(3 if r == "victoria" else 1 if r == "empate" else 0 for r in resultados) / (3 * len(resultados))
+
+
+def tv_forma(pct: Optional[float]) -> float:
+    """Multiplicador de la tarifa del contrato SIGUIENTE según el % de puntos del anterior."""
+    if pct is None:
+        return 1.0
+    lo, hi = C.TV_FORMA_RANGO
+    return round(limitar(1 + C.TV_FORMA_PENDIENTE * (pct - C.TV_FORMA_REFERENCIA), lo, hi), 3)
+
+
+def tv_bono(tarifa: Dict[str, int], partidos: int, pct: Optional[float], exigencia: float) -> int:
+    return int(tarifa["bono"] * partidos) if pct is not None and pct >= exigencia else 0
+
+
+def tv_prob_renueva(fidelidad: float, pct: Optional[float]) -> float:
+    """La cadena actual ofrece seguir: más si es fiel y si el equipo rindió."""
+    return limitar(fidelidad + 1.2 * ((pct if pct is not None else C.TV_FORMA_REFERENCIA) - C.TV_FORMA_REFERENCIA), 0.05, 0.97)
+
+
+def tv_prob_compite(nivel: int, pct: Optional[float], popularidad: float) -> float:
+    """Otra cadena del país oferta en la renovación: más con buenos resultados y una selección popular."""
+    lo, hi = C.TV_PROB_COMPETENCIA
+    base = 0.30 + 1.3 * ((pct if pct is not None else C.TV_FORMA_REFERENCIA) - C.TV_FORMA_REFERENCIA) + 0.4 * (popularidad - 1)
+    return limitar(base - 0.05 * (nivel - 2), lo, hi)
+
+
+def tv_peso_inicial(nivel: int, popularidad: float) -> float:
+    """Qué cadena hace la primera oferta: las selecciones populares atraen a la líder de audiencia."""
+    return max(0.05, {1: 1.3 - 0.6 * (popularidad - 1), 2: 1.0, 3: 0.6 + 1.2 * (popularidad - 1)}[nivel])
+
+
+def tv_invitado_pago(valor: int, popularidad: float, nivel_cadena: int) -> int:
+    """Lo que cobra el corporativo cuando su jugador va de invitado a una transmisión (según el nivel del jugador)."""
+    return max(1, int(round(valor * C.TV_INVITADO_PAGO * popularidad * C.TV_NIVEL.get(nivel_cadena, 1.0))))
+
+
+def tv_invitado_aficionados(rng: random.Random, popularidad: float) -> int:
+    lo, hi = C.TV_INVITADO_AFICIONADOS
+    return int(round(limitar(rng.uniform(lo, hi) * popularidad, lo, hi)))

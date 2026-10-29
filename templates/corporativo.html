@@ -122,21 +122,33 @@
   {% if puesta_al_dia.atraso %}
   <div class="alert alert-info small"><i class="bi bi-hourglass-split me-1"></i>Tu universo se está poniendo al día con los partidos jugados mientras no estabas; recarga para seguir.</div>
   {% endif %}
-
-  <div class="row g-4">
-    <div class="col-xl-8">
-      {% if mi_corporativo and ofertas %}
-      <h2 class="vivo-titulo"><i class="bi bi-incognito text-warning"></i>Ofertas para ti</h2>
-      <div class="row g-3 row-cols-1 row-cols-md-2 mb-4">{% for o in ofertas %}<div class="col">{{ tarjeta_oferta(o) }}</div>{% endfor %}</div>
-      {% endif %}
-      {% if mi_corporativo %}
-      {% set mc = mi_corporativo %}
+  {% if mi_corporativo %}{% set mc = mi_corporativo %}{% set uc = mc.ultimo_ciclo %}{% set ca = mc.ciclo_actual %}
+  <div class="corp-kpis mb-3" role="list" aria-label="Indicadores de tu corporativo">
+    <div class="fixture-kpi" role="listitem"><span>Capital</span><strong>{{ '{:,}'.format(mc.capital) }}</strong></div>
+    <div class="fixture-kpi" role="listitem" title="Último ciclo cerrado"><span>ROI</span><strong class="{{ 'text-success' if uc and uc.roi > 0 else ('text-danger' if uc and uc.roi < 0 else '') }}">{{ ('%+.2f' | format(uc.roi * 100)) ~ '%' if uc else '—' }}</strong></div>
+    <div class="fixture-kpi" role="listitem"><span>Confianza</span><strong class="{{ 'text-success' if mc.confianza >= 50 else ('text-warning' if mc.confianza >= 35 else 'text-danger') }}">{{ mc.confianza }}</strong></div>
+    <div class="fixture-kpi" role="listitem" title="Ciclo en curso"><span>Partidos</span><strong>{{ '{:,}'.format(ca.renta or 0) }}</strong></div>
+    <div class="fixture-kpi" role="listitem" title="Ciclo en curso: derechos + invitados"><span>Televisoras</span><strong class="text-info">{{ '{:,}'.format((ca.tv or 0) + (ca.tv_invitados or 0)) }}</strong></div>
+    <div class="fixture-kpi" role="listitem" title="Ciclo en curso: marcas, acuerdos y giras"><span>Marcas y giras</span><strong class="text-warning">{{ '{:,}'.format((ca.extra or 0) - (ca.tv or 0) - (ca.tv_invitados or 0)) }}</strong></div>
+  </div>
+  {% set mkr = mc.marcas %}{% set tvr = mc.tv %}
+  {% endif %}
+  {% set n_dec = ((ofertas | length) if mi_corporativo else 0) + ((tvr.ofertas | length) if mi_corporativo and tvr else 0) + ((mkr.ofertas | length) if mi_corporativo and mkr else 0) + ((mc.propuestas | length) if mi_corporativo else 0) %}
+  <ul class="nav nav-pills corp-pestanas mb-3" role="tablist" id="corpPestanas">
+    {% if mi_corporativo %}<li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#cpResumen" type="button" role="tab" aria-controls="cpResumen"><i class="bi bi-speedometer2 me-1"></i>Resumen</button></li>{% endif %}
+    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#cpDecisiones" type="button" role="tab" aria-controls="cpDecisiones"><i class="bi bi-inbox-fill me-1"></i>{{ 'Decisiones' if mi_corporativo else ('Carrera' if u.estado == 'PAUSA' else 'Ofertas') }}{% if n_dec %} <span class="badge rounded-pill text-bg-warning">{{ n_dec }}</span>{% endif %}</button></li>
+    {% if mi_corporativo %}<li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#cpCartera" type="button" role="tab" aria-controls="cpCartera"><i class="bi bi-calendar-week me-1"></i>Cartera y calendario</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#cpIngresos" type="button" role="tab" aria-controls="cpIngresos"><i class="bi bi-cash-coin me-1"></i>Ingresos</button></li>{% endif %}
+    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#cpTrayectoria" type="button" role="tab" aria-controls="cpTrayectoria"><i class="bi bi-clock-history me-1"></i>Trayectoria</button></li>
+  </ul>
+  <div class="tab-content" id="corpPaneles">
+    {% if mi_corporativo %}
+    <!-- ===== RESUMEN ===== -->
+    <div class="tab-pane fade" id="cpResumen" role="tabpanel" tabindex="0">
       {% if mc.preaviso %}
       <div class="alert alert-warning small d-flex gap-2 align-items-center"><i class="bi bi-box-arrow-right"></i>
         <span>Estás en preaviso: al cierre del ciclo {{ mc.preaviso.hasta_ciclo }} pasas a <strong>{{ mc.preaviso.sigla }}</strong>. Sigues cobrando, pero no puedes operar en el mercado.</span></div>
       {% endif %}
-      <!-- ===== MI CORPORATIVO ===== -->
-      <h2 class="vivo-titulo"><i class="bi bi-briefcase-fill text-success"></i>Tu corporativo</h2>
       <div class="card card-logo-fondo card-logo-fondo--sin-brillo corp-mio-card mb-4" style="--logo-color: {{ mc.color }}; --corp-acento: {{ mc.acento }};">
         <img src="{{ mc.logo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
         <div class="card-body p-3 p-md-4">
@@ -207,6 +219,79 @@
             <p class="small text-muted mb-0">El primer balance llega al cierre del ciclo {{ reloj.ciclo }}. Cada partido de tus representados ya suma (o resta) a la renta del ciclo.</p>
             {% endif %}
           </div>
+          <div class="corp-panel mb-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+              <div class="corp-panel__titulo mb-0"><i class="bi bi-shop me-1"></i>Mercado</div>
+              {% if mc.ventana.abierta %}<span class="corp-oferta-estado corp-oferta-estado--ACEPTADA"><i class="bi bi-door-open-fill me-1"></i>Ventana abierta hasta el ciclo {{ mc.ventana.hasta_ciclo }}</span>
+              {% else %}<span class="corp-oferta-estado corp-oferta-estado--CONTRAOFERTA"><i class="bi bi-door-closed-fill me-1"></i>Ventana cerrada: solo libres</span>{% endif %}
+            </div>
+            <div class="corp-herramientas mb-2">
+              <a href="/corporativo/mercado" class="corp-herramienta"><i class="bi bi-search"></i><strong>Buscar talento</strong><small>Libres y figuras de rivales</small></a>
+              <button class="corp-herramienta" data-corp-accion="scouting" {{ 'disabled' if not mc.scouting_disponible }}><i class="bi bi-binoculars-fill"></i>
+                <strong>Informe de scouting</strong><small>{{ '{:,}'.format(mc.costo_scouting) }} · {{ 'uno por ciclo' if mc.scouting_disponible else 'ya pedido este ciclo' }}</small></button>
+              <button class="corp-herramienta" data-corp-accion="marketing" {{ 'disabled' if not mc.marketing_disponible }}><i class="bi bi-megaphone-fill"></i>
+                <strong>Campaña de marketing</strong><small>{% if mc.marketing_activo %}Activa hasta el ciclo {{ mc.marketing_hasta }}: patrocinios ×{{ economia.marketing.bono }}{% else %}{{ '{:,}'.format(mc.costo_marketing) }} · +5 reputación ({{ mc.reputacion }}) y patrocinios ×{{ economia.marketing.bono }} por {{ economia.marketing.ciclos }} ciclos{% endif %}</small></button>
+              <a href="/corporativo/bolsa" class="corp-herramienta"><i class="bi bi-graph-up-arrow"></i><strong>Bolsa y dividendo</strong><small>Cotizaciones, tus acciones y el dividendo</small></a>
+              <a href="/corporativo/marcas" class="corp-herramienta"><i class="bi bi-badge-ad-fill"></i><strong>Marcas y patrocinios</strong>
+                <small>{% if mkr and mkr.activos %}{{ mkr.activos }} patrocinio{{ 's' if mkr.activos != 1 }} · +{{ '{:,}'.format(mkr.pago_ciclo) }}/ciclo (tu comisión +{{ '{:,}'.format(mkr.comision_ciclo) }}){% if mkr.en_riesgo %} · {{ mkr.en_riesgo }} en riesgo{% endif %}{% else %}Promueve a tus representados con marcas{% endif %}</small></a>
+              {% set tvr = mc.tv %}
+              <a href="/corporativo/televisoras" class="corp-herramienta"><i class="bi bi-broadcast"></i><strong>Televisoras</strong>
+                <small>{% if tvr and tvr.activos %}{{ tvr.activos | length }} contrato{{ 's' if tvr.activos | length != 1 }} de transmisión{% if tvr.ofertas %} · {{ tvr.ofertas | length }} oferta{{ 's' if tvr.ofertas | length != 1 }}{% endif %}{% elif tvr and tvr.ofertas %}{{ tvr.ofertas | length }} oferta{{ 's' if tvr.ofertas | length != 1 }} por tus selecciones{% else %}Derechos de TV de tus selecciones{% endif %}</small></a>
+              <a href="/corporativo/ranking" class="corp-herramienta"><i class="bi bi-trophy"></i><strong>Ranking de CEOs</strong><small>Cómo vas contra los otros CEO</small></a>
+            </div>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="corp-panel h-100">
+                <div class="corp-panel__titulo"><i class="bi bi-people-fill me-1"></i>Confianza del directorio</div>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="corp-barra corp-barra--{{ 'ok' if mc.confianza >= 50 else ('alerta' if mc.confianza >= 35 else 'peligro') }} flex-grow-1"><i style="width: {{ mc.confianza }}%"></i></div><strong class="text-white">{{ mc.confianza }}</strong>
+                </div>
+                <small class="text-muted d-block mt-1">{% if mc.cargo.ultima_posicion %}Puesto <strong class="text-white">{{ mc.cargo.ultima_posicion }} de 10</strong> en ROI de los últimos 4 ciclos ({{ 'tier A espera top 3' if mc.tier == 'A' else ('tier B espera top 6' if mc.tier == 'B' else 'tier C espera top 8') }}). {% endif %}Por debajo de 35 llega un ultimátum; por debajo de 20 (o con el capital bajo el 25% del inicial), el despido.</small>
+                <div class="corp-panel__titulo mt-3"><i class="bi bi-cash-coin me-1"></i>Tu contrato</div>
+                <div class="small text-muted">Sueldo base <strong class="text-white">{{ '{:,}'.format(mc.cargo.sueldo_base) }}</strong> por ciclo
+                  + <strong class="text-white">{{ '%.1f' | format(mc.cargo.bono_pct * 100) }}%</strong> de bono sobre la utilidad media de 4 ciclos (25% en acciones).</div>
+                {% if mc.ultimo_pago %}<div class="small text-muted mt-1">Último cobro (ciclo {{ mc.ultimo_pago.ciclo }}): <strong class="text-success">+{{ '{:,}'.format(-mc.ultimo_pago.monto) }}</strong> a tu saldo{% if mc.ultimo_pago.bono_acciones %} y {{ '{:,}'.format(mc.ultimo_pago.bono_acciones) }} en acciones{% endif %}.</div>{% endif %}
+                {% if mc.acciones_bloqueadas %}<div class="small text-muted mt-1"><i class="bi bi-lock-fill text-warning me-1"></i>{{ mc.acciones_bloqueadas | length }} paquete{{ 's' if mc.acciones_bloqueadas | length != 1 }} de acciones bloqueadas ({{ '{:,}'.format(mc.acciones_bloqueadas_valor) }} al otorgarse): consolidan a los 3 ciclos y se pierden si te vas antes.</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="corp-panel h-100">
+                <div class="corp-panel__titulo"><i class="bi bi-bullseye me-1"></i>Objetivos de la temporada</div>
+                <ul class="corp-objetivos">{% for o in mc.objetivos %}
+                  <li><i class="bi {{ 'bi-check-circle-fill text-success' if o.ok else ('bi-circle' if o.ok is none else 'bi-x-circle text-danger') }}"></i>
+                    <span>{{ o.texto }} <small class="text-muted d-block">{{ o.detalle }}</small></span></li>{% endfor %}</ul>
+                <small class="text-muted">Al cierre de la temporada (cuando empiece el próximo Mundial): con 2 o más cumplidos te renuevan con aumento.</small>
+              </div>
+            </div>
+          </div>
+          {% set ec = economia %}
+          <details class="corp-explica mt-3">
+            <summary><i class="bi bi-lightbulb-fill"></i>Cómo gana dinero tu corporativo<i class="bi bi-chevron-down ms-auto"></i></summary>
+            <div class="corp-explica__grilla">
+              <div class="corp-explica__item corp-explica__item--partido"><i class="bi bi-dribbble"></i><strong>Cuando juegan</strong>
+                <span>Selección: ganar <b>+{{ ec.seleccion.victoria }}%</b>, empatar <b>+{{ ec.seleccion.empate }}%</b>, perder <b>{{ ec.seleccion.derrota }}%</b> de su valor.
+                  Jugador: jugar <b>+{{ ec.jugador.jugar }}%</b>, gol <b>+{{ ec.jugador.gol }}%</b>, asistencia <b>+{{ ec.jugador.asistencia }}%</b>, valla invicta <b>+{{ ec.jugador.valla }}%</b>, roja <b>{{ ec.jugador.roja }}%</b>.
+                  Ese partido cobra un honorario de {{ ec.honorario_partido.seleccion }}% (selección) o {{ ec.honorario_partido.jugador }}% (jugador).</span></div>
+              <div class="corp-explica__item corp-explica__item--fase"><i class="bi bi-trophy-fill"></i><strong>Fases</strong>
+                <span>Selección que avanza de fase <b>+{{ ec.seleccion.avance }}%</b>; eliminada <b>{{ ec.seleccion.eliminacion }}%</b>.</span></div>
+              <div class="corp-explica__item corp-explica__item--patrocinio"><i class="bi bi-cash-stack"></i><strong>Cada ciclo, juegue o no</strong>
+                <span>Patrocinio de <b>+{{ ec.patrocinio.seleccion }}%</b> (selección) o <b>+{{ ec.patrocinio.jugador }}%</b> (jugador) según su popularidad, y un mantenimiento de {{ ec.mantenimiento.seleccion }}% / {{ ec.mantenimiento.jugador }}%.</span></div>
+              <div class="corp-explica__item corp-explica__item--acciones"><i class="bi bi-airplane-fill"></i><strong>Entre partidos</strong>
+                <span>Acuerdos publicitarios (hasta {{ ec.acuerdos_max }} a la vez), giras de exhibición de selecciones sin partido en {{ ec.gira_ciclos }} ciclos y de jugadores, y marketing (patrocinios ×{{ ec.marketing.bono }} por {{ ec.marketing.ciclos }} ciclos).</span></div>
+            </div>
+            <p class="small text-muted mb-0 mt-2"><i class="bi bi-info-circle me-1"></i>Una selección juega, en promedio, una vez cada ~{{ (1 / ec.partidos_por_ciclo) | round | int }} ciclos: mira el calendario para fichar a quien juega pronto. Renovar cuesta el {{ ec.renovacion }}% de la prima de un fichaje (menos si está contento).</p>
+          </details>
+          <div class="d-flex gap-2 flex-wrap mt-3">
+            <a href="/corporativo/{{ mc.sigla }}" class="btn btn-success fw-bold rounded-pill px-4"><i class="bi bi-diagram-3-fill me-1"></i>Ver cartera</a>
+            <button class="btn btn-outline-danger rounded-pill px-3" data-corp-accion="renunciar" data-sigla="{{ mc.sigla }}"><i class="bi bi-door-open me-1"></i>Renunciar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CARTERA Y CALENDARIO ===== -->
+    <div class="tab-pane fade" id="cpCartera" role="tabpanel" tabindex="0">
           {% set cal = mc.calendario %}
           <!-- Calendario de la cartera: cuándo juega cada selección involucrada (corporativo_service.calendario_cartera) -->
           <div class="corp-panel corp-cal mb-3">
@@ -265,7 +350,6 @@
             {% endif %}
             {% else %}<p class="small text-muted mb-0">Todavía no representas a nadie.</p>{% endif %}
           </div>
-
           {% if mc.acuerdos or mc.giras %}
           <div class="corp-panel mb-3">
             <div class="corp-panel__titulo"><i class="bi bi-badge-ad-fill me-1"></i>Acuerdos publicitarios y giras</div>
@@ -288,7 +372,70 @@
             {% endfor %}
           </div>
           {% endif %}
+      <a href="/corporativo/{{ mc.sigla }}" class="btn btn-success fw-bold rounded-pill px-4"><i class="bi bi-diagram-3-fill me-1"></i>Ver cartera completa</a>
+    </div>
 
+    <!-- ===== INGRESOS ===== -->
+    <div class="tab-pane fade" id="cpIngresos" role="tabpanel" tabindex="0">
+          <div class="corp-panel mb-3">
+            <div class="corp-panel__titulo"><i class="bi bi-cash-coin me-1"></i>De dónde vienen tus ingresos · ciclo {{ reloj.ciclo }} en curso</div>
+            <div class="corp-cifras">
+              <div><span>Partidos</span><strong>{{ '{:,}'.format(ca.renta or 0) }}</strong></div>
+              <div><span>Televisoras</span><strong class="text-info">{{ '{:,}'.format(ca.tv or 0) }}</strong></div>
+              <div><span>Invitados en TV</span><strong class="text-info">{{ '{:,}'.format(ca.tv_invitados or 0) }}</strong></div>
+              <div><span>Marcas, acuerdos y giras</span><strong class="text-warning">{{ '{:,}'.format((ca.extra or 0) - (ca.tv or 0) - (ca.tv_invitados or 0)) }}</strong></div>
+              <div><span>Patrocinios (al cierre)</span><strong>{{ '{:,}'.format(uc.patrocinio or 0) if uc else '—' }}</strong></div>
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-lg-6">
+              <div class="corp-panel h-100">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                  <div class="corp-panel__titulo mb-0"><i class="bi bi-broadcast me-1"></i>Televisoras</div>
+                  <a href="/corporativo/televisoras" class="small">Ver todo</a>
+                </div>
+                {% if tvr and (tvr.activos or tvr.firmadas) %}
+                {% for c in tvr.activos + tvr.firmadas %}
+                <div class="corp-propuesta" style="--marca: {{ c.tele.color }};">
+                  <button type="button" class="tv-logo tv-logo--sm" data-tv-ficha="{{ c.tele.id }}" title="{{ c.tele.nombre }}"><img src="{{ c.tele.logo }}" alt=""></button>
+                  <div class="min-w-0 flex-grow-1 small">
+                    <div class="text-white fw-semibold">{{ c.pais }} <span class="text-muted fw-normal">· {{ c.tele.nombre }}</span></div>
+                    <div class="text-muted">{% if c.estado == 'FIRMADA' %}Firmado: empieza al terminar el actual{% else %}{{ c.jugados }}/{{ c.partidos }} partidos · cobrado {{ '{:,}'.format(c.cobrado) }}{% if c.aviso %} · <span class="text-warning">renovación abierta</span>{% endif %}{% endif %}</div>
+                  </div>
+                </div>
+                {% endfor %}
+                <div class="small text-muted mt-2">Total cobrado a las televisoras: <strong class="text-white">{{ '{:,}'.format(tvr.cobrado_total) }}</strong>{% if tvr.bonos_total %} (bonos {{ '{:,}'.format(tvr.bonos_total) }}){% endif %}</div>
+                {% else %}<p class="small text-muted mb-0">Ninguna selección tuya tiene televisora: las 3 cadenas de su país ofertan al cierre de cada ciclo.</p>{% endif %}
+                {% if tvr and tvr.invitaciones %}
+                <div class="corp-panel__titulo mt-3"><i class="bi bi-person-video3 me-1"></i>Tus jugadores invitados a la TV</div>
+                {% for x in tvr.invitaciones %}
+                <div class="corp-propuesta" style="--marca: {{ x.tele.color }};">
+                  {{ m.avatar(x.jugador_id, x.pais_id) }}
+                  <div class="min-w-0 flex-grow-1 small"><div class="text-white fw-semibold">{{ x.nombre }}</div>
+                    <div class="text-muted">Invitado de {{ x.tele.nombre }} · {{ x.fecha }} {{ x.hora or '' }} · cobra al jugarse el partido</div></div>
+                  <a href="/scouter/{{ x.juego_id }}" class="small" title="Ver la previa del partido"><i class="bi bi-chevron-right"></i></a>
+                </div>
+                {% endfor %}
+                {% endif %}
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="corp-panel h-100">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                  <div class="corp-panel__titulo mb-0"><i class="bi bi-badge-ad-fill me-1"></i>Marcas</div>
+                  <a href="/corporativo/marcas" class="small">Ver todo</a>
+                </div>
+                {% if mkr and mkr.activos %}
+                <div class="corp-cifras">
+                  <div><span>Patrocinios</span><strong>{{ mkr.activos }}</strong></div>
+                  <div><span>Por ciclo</span><strong class="text-info">+{{ '{:,}'.format(mkr.pago_ciclo) }}</strong></div>
+                  <div><span>Tu comisión</span><strong class="text-success">+{{ '{:,}'.format(mkr.comision_ciclo) }}</strong></div>
+                  <div><span>En riesgo</span><strong class="{{ 'text-danger' if mkr.en_riesgo else '' }}">{{ mkr.en_riesgo }}</strong></div>
+                </div>
+                {% else %}<p class="small text-muted mb-0">Sin patrocinios todavía: promueve a tus representados con las marcas interesadas.</p>{% endif %}
+              </div>
+            </div>
+          </div>
           {% if mc.movimientos %}
           <div class="corp-panel mb-3">
             <div class="corp-panel__titulo"><i class="bi bi-journal-text me-1"></i>Últimos movimientos</div>
@@ -300,24 +447,34 @@
             </div>
           </div>
           {% endif %}
-          <!-- Mercado -->
+    </div>
+    {% endif %}
+
+    <!-- ===== DECISIONES (con cargo) / OFERTAS DE TRABAJO o PAUSA (sin cargo) ===== -->
+    <div class="tab-pane fade" id="cpDecisiones" role="tabpanel" tabindex="0">
+      <div class="row g-4">
+        <div class="col-xl-8">
+          {% if mi_corporativo %}
+      {% if mi_corporativo and ofertas %}
+      <h2 class="vivo-titulo"><i class="bi bi-incognito text-warning"></i>Ofertas para ti</h2>
+      <div class="row g-3 row-cols-1 row-cols-md-2 mb-4">{% for o in ofertas %}<div class="col">{{ tarjeta_oferta(o) }}</div>{% endfor %}</div>
+      {% endif %}
           <div class="corp-panel mb-3">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-              <div class="corp-panel__titulo mb-0"><i class="bi bi-shop me-1"></i>Mercado</div>
-              {% if mc.ventana.abierta %}<span class="corp-oferta-estado corp-oferta-estado--ACEPTADA"><i class="bi bi-door-open-fill me-1"></i>Ventana abierta hasta el ciclo {{ mc.ventana.hasta_ciclo }}</span>
-              {% else %}<span class="corp-oferta-estado corp-oferta-estado--CONTRAOFERTA"><i class="bi bi-door-closed-fill me-1"></i>Ventana cerrada: solo libres</span>{% endif %}
+            <div class="corp-panel__titulo"><i class="bi bi-inbox me-1"></i>Para responder</div>
+            {% if tvr and tvr.ofertas %}
+            <div class="corp-panel__titulo mt-3"><i class="bi bi-broadcast text-info me-1"></i>Televisoras que quieren transmitir</div>
+            {% for o in tvr.ofertas %}
+            <div class="corp-propuesta" style="--marca: {{ o.tele.color }};">
+              <button type="button" class="tv-logo tv-logo--sm" data-tv-ficha="{{ o.tele.id }}" title="Ver la ficha de {{ o.tele.nombre }}"><img src="{{ o.tele.logo }}" alt=""></button>
+              <div class="min-w-0 flex-grow-1">
+                <div class="small text-white fw-semibold">{{ o.tele.nombre }} → {{ o.pais }} <span class="tv-chip tv-chip--{{ o.tipo | lower }}">{{ {'INICIAL': 'Primera oferta', 'RENOVACION': 'Renovación', 'COMPETENCIA': 'Otra cadena'}[o.tipo] }}</span></div>
+                <div class="small text-muted">{{ o.partidos }} partidos · {{ '{:,}'.format(o.tarifa.victoria) }} victoria / {{ '{:,}'.format(o.tarifa.empate) }} empate / {{ '{:,}'.format(o.tarifa.derrota) }} derrota · bono {{ '{:,}'.format(o.bono_total) }}</div>
+              </div>
+              <button class="btn btn-sm btn-success rounded-pill" data-tv-respuesta="aceptar" data-tv="{{ o.id }}" data-cadena="{{ o.tele.nombre }}" data-pais="{{ o.pais }}">Aceptar</button>
+              <button class="btn btn-sm btn-outline-secondary rounded-pill" data-tv-respuesta="rechazar" data-tv="{{ o.id }}" data-cadena="{{ o.tele.nombre }}" data-pais="{{ o.pais }}">Rechazar</button>
             </div>
-            <div class="corp-herramientas mb-2">
-              <a href="/corporativo/mercado" class="corp-herramienta"><i class="bi bi-search"></i><strong>Buscar talento</strong><small>Libres y figuras de rivales</small></a>
-              <button class="corp-herramienta" data-corp-accion="scouting" {{ 'disabled' if not mc.scouting_disponible }}><i class="bi bi-binoculars-fill"></i>
-                <strong>Informe de scouting</strong><small>{{ '{:,}'.format(mc.costo_scouting) }} · {{ 'uno por ciclo' if mc.scouting_disponible else 'ya pedido este ciclo' }}</small></button>
-              <button class="corp-herramienta" data-corp-accion="marketing" {{ 'disabled' if not mc.marketing_disponible }}><i class="bi bi-megaphone-fill"></i>
-                <strong>Campaña de marketing</strong><small>{% if mc.marketing_activo %}Activa hasta el ciclo {{ mc.marketing_hasta }}: patrocinios ×{{ economia.marketing.bono }}{% else %}{{ '{:,}'.format(mc.costo_marketing) }} · +5 reputación ({{ mc.reputacion }}) y patrocinios ×{{ economia.marketing.bono }} por {{ economia.marketing.ciclos }} ciclos{% endif %}</small></button>
-              <a href="/corporativo/bolsa" class="corp-herramienta"><i class="bi bi-graph-up-arrow"></i><strong>Bolsa y dividendo</strong><small>Cotizaciones, tus acciones y el dividendo</small></a>
-              {% set mkr = mc.marcas %}
-              <a href="/corporativo/marcas" class="corp-herramienta"><i class="bi bi-badge-ad-fill"></i><strong>Marcas y patrocinios</strong>
-                <small>{% if mkr and mkr.activos %}{{ mkr.activos }} patrocinio{{ 's' if mkr.activos != 1 }} · +{{ '{:,}'.format(mkr.pago_ciclo) }}/ciclo (tu comisión +{{ '{:,}'.format(mkr.comision_ciclo) }}){% if mkr.en_riesgo %} · {{ mkr.en_riesgo }} en riesgo{% endif %}{% else %}Promueve a tus representados con marcas{% endif %}</small></a>
-            </div>
+            {% endfor %}
+            {% endif %}
             {% if mkr and mkr.ofertas %}
             <div class="corp-panel__titulo mt-3"><i class="bi bi-badge-ad-fill text-warning me-1"></i>Marcas que quieren patrocinar</div>
             {% for o in mkr.ofertas %}
@@ -351,6 +508,7 @@
             </div>
             {% endfor %}
             {% endif %}
+            {% if not (tvr and tvr.ofertas) and not (mkr and mkr.ofertas) and not mc.propuestas %}<p class="small text-muted mb-0">No tienes ofertas de televisoras, marcas ni propuestas pendientes.</p>{% endif %}
             {% if mc.mis_ofertas %}
             <div class="corp-panel__titulo mt-3">Tus ofertas</div>
             {% for o in mc.mis_ofertas %}
@@ -376,63 +534,14 @@
             {% endfor %}
             {% endif %}
           </div>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <div class="corp-panel h-100">
-                <div class="corp-panel__titulo"><i class="bi bi-people-fill me-1"></i>Confianza del directorio</div>
-                <div class="d-flex align-items-center gap-2">
-                  <div class="corp-barra corp-barra--{{ 'ok' if mc.confianza >= 50 else ('alerta' if mc.confianza >= 35 else 'peligro') }} flex-grow-1"><i style="width: {{ mc.confianza }}%"></i></div><strong class="text-white">{{ mc.confianza }}</strong>
-                </div>
-                <small class="text-muted d-block mt-1">{% if mc.cargo.ultima_posicion %}Puesto <strong class="text-white">{{ mc.cargo.ultima_posicion }} de 10</strong> en ROI de los últimos 4 ciclos ({{ 'tier A espera top 3' if mc.tier == 'A' else ('tier B espera top 6' if mc.tier == 'B' else 'tier C espera top 8') }}). {% endif %}Por debajo de 35 llega un ultimátum; por debajo de 20 (o con el capital bajo el 25% del inicial), el despido.</small>
-                <div class="corp-panel__titulo mt-3"><i class="bi bi-cash-coin me-1"></i>Tu contrato</div>
-                <div class="small text-muted">Sueldo base <strong class="text-white">{{ '{:,}'.format(mc.cargo.sueldo_base) }}</strong> por ciclo
-                  + <strong class="text-white">{{ '%.1f' | format(mc.cargo.bono_pct * 100) }}%</strong> de bono sobre la utilidad media de 4 ciclos (25% en acciones).</div>
-                {% if mc.ultimo_pago %}<div class="small text-muted mt-1">Último cobro (ciclo {{ mc.ultimo_pago.ciclo }}): <strong class="text-success">+{{ '{:,}'.format(-mc.ultimo_pago.monto) }}</strong> a tu saldo{% if mc.ultimo_pago.bono_acciones %} y {{ '{:,}'.format(mc.ultimo_pago.bono_acciones) }} en acciones{% endif %}.</div>{% endif %}
-                {% if mc.acciones_bloqueadas %}<div class="small text-muted mt-1"><i class="bi bi-lock-fill text-warning me-1"></i>{{ mc.acciones_bloqueadas | length }} paquete{{ 's' if mc.acciones_bloqueadas | length != 1 }} de acciones bloqueadas ({{ '{:,}'.format(mc.acciones_bloqueadas_valor) }} al otorgarse): consolidan a los 3 ciclos y se pierden si te vas antes.</div>{% endif %}
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="corp-panel h-100">
-                <div class="corp-panel__titulo"><i class="bi bi-bullseye me-1"></i>Objetivos de la temporada</div>
-                <ul class="corp-objetivos">{% for o in mc.objetivos %}
-                  <li><i class="bi {{ 'bi-check-circle-fill text-success' if o.ok else ('bi-circle' if o.ok is none else 'bi-x-circle text-danger') }}"></i>
-                    <span>{{ o.texto }} <small class="text-muted d-block">{{ o.detalle }}</small></span></li>{% endfor %}</ul>
-                <small class="text-muted">Al cierre de la temporada (cuando empiece el próximo Mundial): con 2 o más cumplidos te renuevan con aumento.</small>
-              </div>
-            </div>
-          </div>
-          {% set ec = economia %}
-          <details class="corp-explica mt-3">
-            <summary><i class="bi bi-lightbulb-fill"></i>Cómo gana dinero tu corporativo<i class="bi bi-chevron-down ms-auto"></i></summary>
-            <div class="corp-explica__grilla">
-              <div class="corp-explica__item corp-explica__item--partido"><i class="bi bi-dribbble"></i><strong>Cuando juegan</strong>
-                <span>Selección: ganar <b>+{{ ec.seleccion.victoria }}%</b>, empatar <b>+{{ ec.seleccion.empate }}%</b>, perder <b>{{ ec.seleccion.derrota }}%</b> de su valor.
-                  Jugador: jugar <b>+{{ ec.jugador.jugar }}%</b>, gol <b>+{{ ec.jugador.gol }}%</b>, asistencia <b>+{{ ec.jugador.asistencia }}%</b>, valla invicta <b>+{{ ec.jugador.valla }}%</b>, roja <b>{{ ec.jugador.roja }}%</b>.
-                  Ese partido cobra un honorario de {{ ec.honorario_partido.seleccion }}% (selección) o {{ ec.honorario_partido.jugador }}% (jugador).</span></div>
-              <div class="corp-explica__item corp-explica__item--fase"><i class="bi bi-trophy-fill"></i><strong>Fases</strong>
-                <span>Selección que avanza de fase <b>+{{ ec.seleccion.avance }}%</b>; eliminada <b>{{ ec.seleccion.eliminacion }}%</b>.</span></div>
-              <div class="corp-explica__item corp-explica__item--patrocinio"><i class="bi bi-cash-stack"></i><strong>Cada ciclo, juegue o no</strong>
-                <span>Patrocinio de <b>+{{ ec.patrocinio.seleccion }}%</b> (selección) o <b>+{{ ec.patrocinio.jugador }}%</b> (jugador) según su popularidad, y un mantenimiento de {{ ec.mantenimiento.seleccion }}% / {{ ec.mantenimiento.jugador }}%.</span></div>
-              <div class="corp-explica__item corp-explica__item--acciones"><i class="bi bi-airplane-fill"></i><strong>Entre partidos</strong>
-                <span>Acuerdos publicitarios (hasta {{ ec.acuerdos_max }} a la vez), giras de exhibición de selecciones sin partido en {{ ec.gira_ciclos }} ciclos y de jugadores, y marketing (patrocinios ×{{ ec.marketing.bono }} por {{ ec.marketing.ciclos }} ciclos).</span></div>
-            </div>
-            <p class="small text-muted mb-0 mt-2"><i class="bi bi-info-circle me-1"></i>Una selección juega, en promedio, una vez cada ~{{ (1 / ec.partidos_por_ciclo) | round | int }} ciclos: mira el calendario para fichar a quien juega pronto. Renovar cuesta el {{ ec.renovacion }}% de la prima de un fichaje (menos si está contento).</p>
-          </details>
-          <div class="d-flex gap-2 flex-wrap mt-3">
-            <a href="/corporativo/{{ mc.sigla }}" class="btn btn-success fw-bold rounded-pill px-4"><i class="bi bi-diagram-3-fill me-1"></i>Ver cartera</a>
-            <button class="btn btn-outline-danger rounded-pill px-3" data-corp-accion="renunciar" data-sigla="{{ mc.sigla }}"><i class="bi bi-door-open me-1"></i>Renunciar</button>
-          </div>
-        </div>
-      </div>
-
-      {% elif u.estado == 'PAUSA' %}
+          {% else %}
+      {% if u.estado == 'PAUSA' %}
       <h2 class="vivo-titulo"><i class="bi bi-pause-circle-fill text-warning"></i>Carrera en pausa</h2>
       <div class="card corp-panel mb-4"><div class="card-body p-4 text-center">
         <i class="bi bi-cup-hot-fill fs-1 text-warning d-block mb-2"></i>
         <p class="mb-1 text-white fw-bold">Estás fuera del mercado {{ pausa_restante }} ciclo{{ 's' if pausa_restante != 1 }} más.</p>
         <p class="text-muted small mb-0">Cuando termine la pausa, los corporativos vuelven a considerar tu perfil.</p>
       </div></div>
-
       {% else %}
       <!-- ===== OFERTAS ===== -->
       <h2 class="vivo-titulo"><i class="bi bi-envelope-paper-fill text-info"></i>Ofertas de trabajo</h2>
@@ -453,18 +562,10 @@
       </div></div>
       {% endif %}
       {% endif %}
-
-      <!-- ===== MERCADO ===== -->
-      <h2 class="vivo-titulo"><i class="bi bi-buildings-fill text-success"></i>Los corporativos de tu universo
-        <a href="/corporativo/bolsa" class="btn btn-sm btn-outline-warning rounded-pill ms-auto"><i class="bi bi-graph-up-arrow me-1"></i>Bolsa FIFAV 10</a>
-        <a href="/corporativo/ranking" class="btn btn-sm btn-outline-light rounded-pill"><i class="bi bi-trophy me-1"></i>Ranking de CEOs</a></h2>
-      <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-xxl-3 mb-4">
-        {% for c in corporativos %}<div class="col">{{ tarjeta_corp(c) }}</div>{% endfor %}
-      </div>
-    </div>
-
+          {% endif %}
+        </div>
+        <div class="col-xl-4">
     <!-- ===== BANDEJA ===== -->
-    <div class="col-xl-4">
       <h2 class="vivo-titulo"><i class="bi bi-bell-fill text-warning"></i>Bandeja</h2>
       <div class="card corp-panel mb-4"><div class="card-body p-2">
         {% for a in avisos %}
@@ -477,7 +578,12 @@
         <p class="text-muted small text-center my-3">Sin novedades.</p>
         {% endfor %}
       </div></div>
+        </div>
+      </div>
+    </div>
 
+    <!-- ===== TRAYECTORIA ===== -->
+    <div class="tab-pane fade" id="cpTrayectoria" role="tabpanel" tabindex="0">
       {% if historial %}
       <h2 class="vivo-titulo"><i class="bi bi-clock-history text-info"></i>Trayectoria</h2>
       <div class="card corp-panel"><div class="card-body p-2">
@@ -490,6 +596,13 @@
         {% endfor %}
       </div></div>
       {% endif %}
+      <!-- ===== MERCADO ===== -->
+      <h2 class="vivo-titulo"><i class="bi bi-buildings-fill text-success"></i>Los corporativos de tu universo
+        <a href="/corporativo/bolsa" class="btn btn-sm btn-outline-warning rounded-pill ms-auto"><i class="bi bi-graph-up-arrow me-1"></i>Bolsa FIFAV 10</a>
+        <a href="/corporativo/ranking" class="btn btn-sm btn-outline-light rounded-pill"><i class="bi bi-trophy me-1"></i>Ranking de CEOs</a></h2>
+      <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-xxl-3 mb-4">
+        {% for c in corporativos %}<div class="col">{{ tarjeta_corp(c) }}</div>{% endfor %}
+      </div>
     </div>
   </div>
   {% endif %}
@@ -562,4 +675,26 @@
     });
 </script>
 <script src="/static/js/marcas.js?v=2"></script>
+<script src="/static/js/televisoras.js?v=1"></script>
+<script>
+    // Pestañas de la carrera: se abre la del #hash, si no la última que elegiste (localStorage) y si no Resumen
+    // (o, sin cargo, Ofertas). Espera a DOMContentLoaded: Bootstrap se carga al final de base.html.
+    document.addEventListener('DOMContentLoaded', () => {
+        const nav = document.getElementById('corpPestanas');
+        if (!nav) return;
+        const CLAVE = 'corp-pestana';
+        const botones = [...nav.querySelectorAll('[data-bs-target]')];
+        const porId = id => botones.find(b => b.dataset.bsTarget === '#' + id);
+        let elegido = porId((location.hash || '').slice(1));
+        if (!elegido) { try { elegido = porId(localStorage.getItem(CLAVE) || ''); } catch (e) { /* sin almacenamiento */ } }
+        elegido = elegido || botones[0];
+        if (elegido) bootstrap.Tab.getOrCreateInstance(elegido).show();
+        botones.forEach(b => b.addEventListener('shown.bs.tab', () => {
+            const id = b.dataset.bsTarget.slice(1);
+            try { localStorage.setItem(CLAVE, id); } catch (e) { /* sin almacenamiento */ }
+            history.replaceState(null, '', '#' + id);
+            window.dispatchEvent(new Event('resize'));   // Chart.js recalcula su tamaño al mostrarse
+        }));
+    });
+</script>
 {% endblock %}

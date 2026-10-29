@@ -151,6 +151,17 @@
                 </ul>
                 {% endif %}
 
+                <!-- Transmisión en tu universo (corporativo_tv_service.transmisiones): 1 o 2 cadenas y su invitado -->
+                {% set tvs = (transmisiones or {}).get(juego._id | string) %}
+                {% if tvs %}
+                <div class="partido-card__tv" title="{% for t in tvs %}{{ t.tele.nombre }} ({{ t.pais }}){% if t.invitado %}: invitado {{ t.invitado.nombre }}{% endif %}{{ ' · ' if not loop.last }}{% endfor %}">
+                    <i class="bi bi-broadcast"></i><strong>{{ tvs | length }} cadena{{ 's' if tvs | length > 1 }}</strong>
+                    {% for t in tvs %}<img src="{{ t.tele.logo }}" alt="{{ t.tele.nombre }}" loading="lazy">{% endfor %}
+                    {% set invs = tvs | selectattr('invitado') | list %}
+                    {% if invs %}<span class="text-truncate"><i class="bi bi-person-video3"></i>{{ invs | map(attribute='invitado.nombre') | join(', ') }}</span>{% endif %}
+                </div>
+                {% endif %}
+
                 <!-- Sede: ilustración del estadio -->
                 {% if juego.ubicacion %}
                 {% set img_juego = img_estadio(juego.ubicacion.id) %}

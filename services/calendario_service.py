@@ -229,8 +229,11 @@ def _efemerides(juegos: List[dict]) -> List[dict]:
     # ceses de técnicos
     nombres = {t["id"]: t["nombre"] for t in db["directores_tecnicos"].find({}, {"id": 1, "nombre": 1})}
     paises = {p["id"]: p for p in db["paises"].find({}, {"id": 1, "nombre": 1, "estado": 1, "federacion": 1})}
+    # los reemplazos en UNA consulta (antes una por cese: ~40 viajes a la base por cada armado)
+    reemplazos = {(r["pais_id"], r.get("desde_juego")): r for r in db["dt_cargos"].find(
+        {"motivo_inicio": "REEMPLAZO"}, {"pais_id": 1, "desde_juego": 1, "dt_id": 1, "regreso": 1})}
     for c in db["dt_cargos"].find({"motivo_fin": "CESE", "hasta_fecha_juego": {"$ne": None}}, {"juegos": 0}):
-        nuevo = db["dt_cargos"].find_one({"pais_id": c["pais_id"], "desde_juego": c.get("hasta_juego"), "motivo_inicio": "REEMPLAZO"}, {"dt_id": 1, "regreso": 1})
+        nuevo = reemplazos.get((c["pais_id"], c.get("hasta_juego")))
         pais = paises.get(c["pais_id"], {}).get("nombre", "")
         texto = f"{nombres.get(c['dt_id'], '?')} deja el banco de {pais} ({c.get('ganados', 0)}-{c.get('empatados', 0)}-{c.get('perdidos', 0)})"
         if nuevo:

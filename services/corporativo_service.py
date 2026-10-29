@@ -364,38 +364,44 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
     en_curso = A._giras_en_curso(user_id, sigla)
     seq_u = universo.get("cursor_seq") or U.seq_actual()
     lim_giras = A._limites(user_id, sigla, ciclo, en_curso)
+    previas_gira = A.previas_jugadores(user_id, seq_u, ciclo) if doc.get("es_del_usuario") else {}
     gira_este_ciclo = not lim_giras["giras_restantes"]   # (nombre viejo: ahora = sin lugar para otra gira en curso)
     from services import corporativo_marcas_service as M
     marcas_contrato = M.patrocinios_por_contrato(user_id, sigla) if doc.get("es_del_usuario") else {}
+    from services import corporativo_tv_service as TVS
+    tv_contrato = TVS.tv_por_contrato(user_id, sigla)   # televisora de cada selección (corporativo_tv_service)
+    tv_invitado = TVS.invitaciones_programadas(user_id, sigla)   # jugadores con una invitación a TV por delante
     selecciones, jugadores = [], []
     for c in U.contratos_activos(user_id, sigla):
         valor_c = (v["selecciones"] if c["tipo"] == "seleccion" else v["jugadores"]).get(c["ref_id"], 0)
         restantes = c["hasta_ciclo"] - ciclo + 1
         base = {"ref_id": c["ref_id"], "contrato_id": str(c["_id"]), "tipo_contrato": c["tipo"], "hasta_ciclo": c["hasta_ciclo"], "ciclos_restantes": restantes,
                 "satisfaccion": c["satisfaccion"], "origen": c.get("origen"), "renta_total": c.get("renta_total", 0),
-                "honorarios_total": c.get("honorarios_total", 0), "neto": c.get("renta_total", 0) - c.get("honorarios_total", 0),
+                "honorarios_total": c.get("honorarios_total", 0), "neto": int(round(c.get("renta_total", 0) - c.get("honorarios_total", 0))),
                 "partidos": c.get("partidos", 0), "honorario": R.honorario(c["tipo"], valor_c),
                 "costo_renovar": R.prima_renovacion(valor_c, c["satisfaccion"]), "puede_renovar": restantes <= C.CICLOS_AVISO_RENOVACION,
                 "costo_rescindir": _costo_rescision(c, valor_c, ciclo)}
         juego = juego_de(c["tipo"], c["ref_id"], ctx)
-        motivo_gira = A._motivo_no_disponible(user_id, c, seq_u, ciclo, en_curso) if doc.get("es_del_usuario") else None
+        motivo_gira = A._motivo_no_disponible(user_id, c, seq_u, ciclo, en_curso, previas_gira) if doc.get("es_del_usuario") else None
         if not motivo_gira and not lim_giras["giras_restantes"]:
             motivo_gira = f"Ya tienes {C.GIRAS_SIMULTANEAS} giras en curso"
         if not motivo_gira and c["tipo"] == "jugador" and not lim_giras["jugadores_restantes"]:
             motivo_gira = f"Ya mandaste {C.GIRA_JUGADORES_POR_CICLO} jugadores de gira este ciclo: espera al próximo"
         base.update(juego=juego, senal=senal_de(c["tipo"], c["ref_id"], valor_c, juego, ctx, c, ciclo),
                     patrocinio=R.patrocinio(c["tipo"], valor_c, popularidad(c["tipo"], c["ref_id"], valor_c)),
-                    acuerdo=acuerdos.get(str(c["_id"])), marcas=marcas_contrato.get(str(c["_id"]), []), ciclos_sin_jugar=c.get("ciclos_sin_jugar", 0),
+                    acuerdo=acuerdos.get(str(c["_id"])), marcas=marcas_contrato.get(str(c["_id"]), []), tv=tv_contrato.get(str(c["_id"])), invitado_tv=tv_invitado.get(c["ref_id"]) if c["tipo"] == "jugador" else None, ciclos_sin_jugar=c.get("ciclos_sin_jugar", 0),
                     gira_ok=motivo_gira is None, gira_motivo=motivo_gira,
                     de_gira=next((g for g in en_curso if g["tipo"] == c["tipo"] and g["ref_id"] == c["ref_id"]), None))
         if c["tipo"] == "seleccion":
             p = v["info_paises"].get(c["ref_id"], {})
-            selecciones.append({**base, **p, "valor": v["selecciones"].get(c["ref_id"], 0), "de_region": c["ref_id"] in region})
+            selecciones.append({**base, **p, "valor": v["selecciones"].get(c["ref_id"], 0), "de_region": c["ref_id"] in region,
+                                "conf_sigla": CONF_SIGLA.get(p.get("confederacion_id"), "")})
         else:
             j = v["info_jugadores"].get(c["ref_id"], {})
             p = v["info_paises"].get(j.get("pais_id"), {})
             jugadores.append({**base, **j, "pais": p.get("nombre"), "bandera": p.get("bandera"),
-                              "valor": v["jugadores"].get(c["ref_id"], 0), "de_region": j.get("pais_id") in region})
+                              "valor": v["jugadores"].get(c["ref_id"], 0), "de_region": j.get("pais_id") in region,
+                              "conf_sigla": CONF_SIGLA.get(p.get("confederacion_id"), "")})
     selecciones.sort(key=lambda x: -x["valor"])
     jugadores.sort(key=lambda x: -x["valor"])
     valor_cartera = sum(x["valor"] for x in selecciones) + sum(x["valor"] for x in jugadores)
@@ -588,7 +594,17 @@ def _bandeja_mercado(user_id, universo: dict, mi_corp: dict) -> dict:
     except Exception as e:
         print(f"[corporativos] resumen de marcas: {e}")
         marcas = None
-    return {"propuestas": propuestas, "mis_ofertas": mis_ofertas, "scouting": informe, "marcas": marcas,
+    try:   # televisoras: contratos vigentes y ofertas (corporativo_tv_service)
+        from services import corporativo_tv_service as TVS
+        tv = TVS.resumen(user_id, mi_corp["sigla"])
+        v_inv = valores()
+        tv["invitaciones"] = [{**x, "jugador_id": jid, "nombre": v_inv["info_jugadores"].get(jid, {}).get("nombre", "?"),
+                               "pais_id": v_inv["info_jugadores"].get(jid, {}).get("pais_id")}
+                              for jid, x in TVS.invitaciones_programadas(user_id, mi_corp["sigla"]).items()]
+    except Exception as e:
+        print(f"[corporativos] resumen de televisoras: {e}")
+        tv = None
+    return {"propuestas": propuestas, "mis_ofertas": mis_ofertas, "scouting": informe, "marcas": marcas, "tv": tv,
             "scouting_disponible": not informe or informe["ciclo"] != ciclo,
             "marketing_disponible": (corp or {}).get("marketing_ciclo") != ciclo,
             "costo_scouting": C.COSTO_SCOUTING, "costo_marketing": C.COSTO_MARKETING,

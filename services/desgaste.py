@@ -111,3 +111,11 @@ def accion(jugador: dict, tipo: str, mod_clima: float = 1.0) -> bool:
 def peso_para_salir(jugador: dict) -> float:
     """Peso al elegir a quién sacar en un cambio: el más cansado es mucho más probable."""
     return 1.0 + (ENERGIA_INICIAL - jugador.get("energia", ENERGIA_INICIAL)) ** 2 / 100.0
+
+
+def golpe(jugador: dict, cantidad: float) -> None:
+    """Pérdida directa de energía (sigue jugando con molestias tras una lesión leve: services/lesiones.py)."""
+    if "_base" not in jugador:
+        iniciar(jugador)
+    jugador["energia"] = max(0.0, jugador["energia"] - cantidad)
+    _refrescar(jugador)

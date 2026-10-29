@@ -87,12 +87,18 @@ async def juegos(request: Request, q: str = "", confederacion: str = "", grupo: 
         # Elecciones pendientes del Juego en Vivo del usuario (badge "Vas con X" en cada tarjeta)
         usuario = obtener_usuario_actual(request)
         sesiones_juego_en_vivo = sesiones_pendientes_usuario(usuario) if tiene_permiso(usuario, "juego_en_vivo") else {}
+        # Televisoras de TU universo que transmiten cada partido y su invitado (services/corporativo_tv_service.py)
+        transmisiones = {}
+        if tiene_permiso(usuario, "corporativos"):
+            from services.corporativo_tv_service import transmisiones as tv_transmisiones
+            transmisiones = tv_transmisiones(usuario, juegos)
 
         return templates.TemplateResponse(
             request=request,
             name="juegos.html",
             context={
                 "sesiones_juego_en_vivo": sesiones_juego_en_vivo,
+                "transmisiones": transmisiones,
                 "motivos": motivos,
                 "juegos": juegos,
                 "mundial": mundial_activo,
@@ -184,6 +190,13 @@ async def juego(request: Request, id: str):
         except Exception as e:
             print(f"Especialidades del partido: {e}")
             esp_cambios = []
+        # Lesiones del partido y bajas con que llegó cada selección (services/lesiones_service.py)
+        try:
+            from services.lesiones_service import lesiones_del_partido
+            parte_medico = lesiones_del_partido(juego) if juego and juego.get("resultado") else None
+        except Exception as e:
+            print(f"Lesiones del partido: {e}")
+            parte_medico = None
         # La foto del partido (Vertex AI): las ya generadas y, para quien puede generarlas, el cupo de hoy
         fotos, cupo_fotos = [], None
         if juego and juego.get("resultado"):
@@ -196,7 +209,7 @@ async def juego(request: Request, id: str):
         return templates.TemplateResponse(
             request=request,
             name="resumen.html",
-            context={"partido": juego, "detalle": detalle, "cronica": cronica, "ceses_dt": ceses_dt, "esp_cambios": esp_cambios,
+            context={"partido": juego, "detalle": detalle, "cronica": cronica, "ceses_dt": ceses_dt, "esp_cambios": esp_cambios, "parte_medico": parte_medico,
                      "fotos": fotos, "cupo_fotos": cupo_fotos, "fotos_por_dia": FOTO.FOTOS_POR_DIA}
         )
     except FileNotFoundError:

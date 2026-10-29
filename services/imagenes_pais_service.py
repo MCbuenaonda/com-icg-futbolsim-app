@@ -34,7 +34,7 @@ db = client.get_database('mundial')
 
 TIPOS_IMAGEN = ("bandera", "plana", "jersey", "icono", "escudo")
 CARPETA_TIPO = {"plana": "bandera_plana"}               # el resto: carpeta = tipo
-VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 2, "tecnico": 1, "corporativo": 2, "marca": 1, "estadio": 2}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
+VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 2, "tecnico": 1, "corporativo": 2, "marca": 1, "estadio": 2, "televisora": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
 
 # {id: nombre} y {emoji: id} de 'paises' (se cargan una vez: nombres y banderas no cambian en runtime)
 _nombre_por_id: Optional[dict] = None
@@ -108,6 +108,11 @@ def url_logo_corporativo(sigla: Optional[str]) -> Optional[str]:
     """Logo SVG de un Corporativo Deportivo (bucket corporativos/, generar_logos_corporativos.py)."""
     return (f"{IMAGENES_PAISES_URL}/corporativos/{quote((sigla or '').upper())}.svg?v={VERSION_IMAGENES['corporativo']}"
             if sigla else None)
+
+
+def url_logo_televisora(slug: Optional[str]) -> Optional[str]:
+    """Logo SVG de una televisora (bucket televisoras/, generar_televisoras.py)."""
+    return f"{IMAGENES_PAISES_URL}/televisoras/{quote(slug)}.svg?v={VERSION_IMAGENES['televisora']}" if slug else None
 
 
 def url_logo_marca(slug: Optional[str]) -> Optional[str]:
@@ -247,6 +252,47 @@ def _especialidades_seleccion(pais_id):
         return None
 
 
+def _lesionados_pais(pais_id):
+    """Jinja: {jugador_id: lesión vigente} de los que están de baja en una selección (services/lesiones_service.py)."""
+    try:
+        from services.lesiones_service import lesionados_de_pais
+        return lesionados_de_pais(int(pais_id))
+    except Exception:
+        return {}
+
+
+def _tv_pais(usuario, pais_id):
+    """Jinja: {vigente, cadenas}: la televisora que transmite a la selección en el universo del usuario y las 3 cadenas
+    del país (corporativo_tv_service)."""
+    try:
+        from services.corporativo_tv_service import del_pais, tele_vista, tv_de_pais
+        return {"vigente": tv_de_pais(usuario, pais_id), "cadenas": [tele_vista(t) for t in del_pais(int(pais_id))]}
+    except Exception:
+        return None
+
+
+def _transmision_partido(usuario, juego_id):
+    """Jinja: [{tele, pais, invitado|None, decidido}] de las cadenas de TU universo en un partido (corporativo_tv_service)."""
+    try:
+        from bson import ObjectId
+        from services.corporativo_tv_service import db as _db_tv, transmisiones
+        if not usuario or not juego_id or not ObjectId.is_valid(str(juego_id)):
+            return []
+        j = _db_tv["juegos"].find_one({"_id": ObjectId(str(juego_id))}, {"equipo_local.id": 1, "equipo_visitante.id": 1, "estado": 1})
+        return transmisiones(usuario, [j]).get(str(juego_id), []) if j else []
+    except Exception:
+        return []
+
+
+def _apariciones_tv(usuario, jugador_id):
+    """Jinja: apariciones de un jugador como invitado en TV en el universo del usuario (corporativo_tv_service)."""
+    try:
+        from services.corporativo_tv_service import invitaciones_de
+        return invitaciones_de(usuario, jugador_id)
+    except Exception:
+        return []
+
+
 def _patrocinios_pais(usuario, pais_id):
     """Jinja: marcas de la selección y de cada jugador de su plantilla en el universo del usuario."""
     try:
@@ -279,7 +325,7 @@ GLOBALES_JINJA = {
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,
     "imagen_inicio": imagen_inicio, "img_estadio": url_estadio, "img_avatar": url_avatar,
-    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo, "logo_marca": url_logo_marca, "formacion": _formacion, "patrocinadores": _patrocinadores, "patrocinios_pais": _patrocinios_pais, "especialidades_de": _especialidades_de, "especialidades_ganadas_pais": _especialidades_ganadas_pais, "especialidades_seleccion": _especialidades_seleccion,
+    "datos_arbitro": datos_arbitro, "imagen_perfil": imagen_perfil, "logo_corporativo": url_logo_corporativo, "logo_marca": url_logo_marca, "formacion": _formacion, "patrocinadores": _patrocinadores, "patrocinios_pais": _patrocinios_pais, "especialidades_de": _especialidades_de, "especialidades_ganadas_pais": _especialidades_ganadas_pais, "especialidades_seleccion": _especialidades_seleccion, "lesionados_pais": _lesionados_pais, "tv_pais": _tv_pais, "transmision_partido": _transmision_partido, "apariciones_tv": _apariciones_tv, "logo_televisora": url_logo_televisora,
     "corp_representantes": _corp_representantes, "img_foto_equipo": url_foto_equipo, "arte_mundial": _arte_mundial,
     "img_tecnico": url_avatar_tecnico, "dt_de_pais": _dt_de_pais,
 }

@@ -286,6 +286,7 @@
 
     <!-- POR QUÉ MIRAR ESTE PARTIDO (services/partidos_interes_service.py) -->
     {% if not stats_jugadores %}{% include "partials/motivos_partido.html" %}{% endif %}
+    {% if not stats_jugadores and tx_juego_id %}{% set tx_jugado = False %}{% include "partials/transmision.html" %}{% endif %}
     {% if not stats_jugadores and planteo %}{% set nombre_local, nombre_visita = partido.local, partido.visitante %}{% include "partials/planteo_probable.html" %}{% endif %}
 
     <!-- ENFRENTAMIENTOS ANTERIORES (mismo bloque que el Scouter) -->

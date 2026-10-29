@@ -188,6 +188,7 @@ def ficha(jugador_id: int, usuario_id: Optional[str] = None) -> Optional[dict]:
         "pais_id": j.get("pais_id"), "pais": pais.get("nombre"), "bandera": pais.get("bandera") or "",
         "posicion": pos.get("nombre"), "siglas": pos.get("siglas"), "linea": CFF.LINEA_DE_POSICION.get(j.get("posicion_id")),
         "eliminado": eliminados.get(j.get("pais_id")),
+        "lesion": FS._lesion_vista(j.get("lesion")),
         "nivel": nivel_de(jugador_id, d), "proximo": _proximo(j.get("pais_id"), _calendario()),
         "partidos": [{k: v for k, v in p.items() if k != "orden"} for p in historial[-20:]],
         "totales": {**totales, "partidos": len(historial)},
@@ -233,7 +234,8 @@ def _sugerir(uid: ObjectId, posicion_id: int, nivel: str, escuadra: int) -> List
     cal = _calendario()
 
     candidatos = []
-    for j in db["jugadores"].find({"posicion_id": posicion_id}, {"id": 1, "pais_id": 1, "leyenda": 1}):
+    for j in db["jugadores"].find({"posicion_id": posicion_id, "lesion.restantes": {"$not": {"$gt": 0}}},   # sin lesionados
+                                  {"id": 1, "pais_id": 1, "leyenda": 1}):
         jid = j["id"]
         p = d["percentil"].get(jid)
         if p is None or not (reglas["desde"] <= p < reglas["hasta"]):

@@ -21,8 +21,8 @@ _cache_valores = {"clave": None, "datos": None, "hasta": 0.0}
 
 
 def _ciclo_global() -> int:
-    reloj = db["corp_reloj"].find_one({"_id": "partidos"}) or {}
-    return R.ciclo_de_seq(int(reloj.get("seq") or 0))
+    from services.corporativo_universo_service import leer_reloj
+    return R.ciclo_de_seq(int(leer_reloj().get("seq") or 0))
 
 
 def valores() -> Dict[str, dict]:
@@ -73,7 +73,8 @@ def calendario_paises() -> Dict[int, dict]:
     """
     if _cache_calendario["datos"] is not None and time.time() < _cache_calendario["hasta"]:
         return _cache_calendario["datos"]
-    seq = int((db["corp_reloj"].find_one({"_id": "partidos"}) or {}).get("seq") or 0)
+    from services.corporativo_universo_service import leer_reloj
+    seq = int(leer_reloj().get("seq") or 0)
     pendientes = list(db["juegos"].find({"estado": "creado"}, {"equipo_local.id": 1, "equipo_visitante.id": 1, "fecha": 1, "hora": 1})
                       .sort([("fecha", 1), ("hora", 1)]))
     clave = (seq, len(pendientes))

@@ -76,11 +76,18 @@ async def jugador(request: Request, id: str):
         jugador = get_jugador(id, logger)
         bitacora = obtener_bitacora_jugador(jugador) if jugador else None
         evolucion = evolucion_jugador(jugador) if jugador else None   # especialidades: progreso, riesgo e historial
+        parte_medico = None   # lesión vigente e historial (services/lesiones_service.py)
+        if jugador:
+            try:
+                from services.lesiones_service import lesion_de, historial_de
+                parte_medico = {"actual": lesion_de(jugador), "historial": historial_de(jugador.get("id"))}
+            except Exception as e:
+                print(f"No se pudo leer el parte médico: {e}")
 
         return templates.TemplateResponse(
             request=request,
             name="jugador.html",
-            context={"jugador": jugador, "bitacora": bitacora, "evolucion": evolucion}
+            context={"jugador": jugador, "bitacora": bitacora, "evolucion": evolucion, "parte_medico": parte_medico}
         )
     except FileNotFoundError:
         print(f"Error: No se encontró la coleccion de paises")

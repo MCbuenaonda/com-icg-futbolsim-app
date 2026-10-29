@@ -25,6 +25,16 @@
         return el;
     }
 
+    // Satisfacción del representado (0-100): cara + número con el mismo corte que la cartera (≥60 contento, <30 molesto);
+    // la gira la sube
+    function satisfaccionHtml(j) {
+        if (j.satisfaccion == null) return '';
+        const s = j.satisfaccion;
+        const [cara, color, texto] = s >= 60 ? ['smile', 'text-success', 'contento'] : (s >= 30 ? ['neutral', 'text-warning', 'regular'] : ['frown', 'text-danger', 'molesto']);
+        const sube = j.motivo ? '' : ` · la gira le suma +${j.satisfaccion_sube}`;
+        return `<span class="gira-satis" title="Satisfacción ${s}/100 (${texto})${sube}"><i class="bi bi-emoji-${cara}-fill ${color}"></i> ${s}</span>`;
+    }
+
     async function abrir(preseleccion) {
         let d;
         try {
@@ -46,8 +56,8 @@
                   ${j.motivo || !tope ? 'disabled' : ''} ${!j.motivo && j.contrato_id === preseleccion && tope ? 'checked' : ''}>
                 ${UI.avatar ? UI.avatar(j.ref_id, j.pais_id) : ''}
                 <span class="min-w-0 flex-grow-1"><span class="d-block fw-semibold text-white text-truncate">${esc(j.nombre)}</span>
-                  <span class="d-block fs-8 text-muted">${j.motivo ? esc(j.motivo) : `Costo ${fmt(j.costo)} · recauda ${fmt(j.ingreso_min)}–${fmt(j.ingreso_max)} · hasta ${j.aficionados_max} aficionados · su selección: ${j.forma_seleccion}/15`}</span></span>
-                ${j.motivo ? '' : `<span class="gira-retorno" title="Retorno esperado sobre el costo">×${j.retorno}</span>`}
+                  <span class="d-block fs-8 text-muted">${j.motivo ? esc(j.motivo) : `Costo ${fmt(j.costo)} · recauda ${fmt(j.ingreso_min)}–${fmt(j.ingreso_max)} · ${j.aficionados_min ?? 1} a ${j.aficionados_max} aficionados · su selección: ${j.forma_seleccion}/15`}</span></span>
+                <span class="gira-fila__datos">${satisfaccionHtml(j)}${j.motivo ? '' : `<span class="gira-retorno" title="Retorno esperado sobre el costo">×${j.retorno}</span>`}</span>
               </label>`).join('')}</div>`;
         const boton = el.querySelector('#giraOrganizar');
         const cajas = [...el.querySelectorAll('input[type=checkbox]')];

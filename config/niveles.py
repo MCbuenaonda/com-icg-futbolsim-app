@@ -53,6 +53,7 @@ REGLAS_XP = {
     "CORP_ACCIONES":       {"xp": 5,    "tope_diario": 3,    "titulo": "Comprar acciones en la bolsa FIFAV 10", "icono": "bi-bar-chart-line-fill", "modulo": "corporativos"},
     "CORP_ACUERDO":        {"xp": 8,    "tope_diario": 2,    "titulo": "Firmar un acuerdo publicitario para un representado", "icono": "bi-badge-ad-fill", "modulo": "corporativos"},
     "CORP_PATROCINIO":     {"xp": 8,    "tope_diario": 3,    "titulo": "Conseguir un patrocinio de marca para un representado", "icono": "bi-badge-ad-fill", "modulo": "corporativos"},
+    "CORP_TV":             {"xp": 8,    "tope_diario": 3,    "titulo": "Firmar un contrato de transmisión para una selección", "icono": "bi-broadcast", "modulo": "corporativos"},
     "CORP_GIRA":           {"xp": 8,    "tope_diario": 2,    "titulo": "Organizar una gira de exhibición", "icono": "bi-airplane-fill", "modulo": "corporativos"},
 }
 XP_TRIVIA_BASE = 5
@@ -77,6 +78,7 @@ LOGROS = {
     "PRIMERA_PLATINO":    {"titulo": "Edición Platino",          "descripcion": "Conseguiste tu primera estampa Platino (un escudo)", "icono": "bi-gem"},
     "PRIMER_CARGO":       {"titulo": "Señor CEO",                "descripcion": "Asumiste la dirección de tu primer corporativo", "icono": "bi-briefcase-fill"},
     "PRIMER_FICHAJE":     {"titulo": "Agente de jugadores",      "descripcion": "Cerraste tu primer fichaje como CEO",            "icono": "bi-pen-fill"},
+    "PRIMER_CONTRATO_TV": {"titulo": "En horario estelar",       "descripcion": "Firmaste tu primer contrato de transmisión",     "icono": "bi-broadcast"},
     "ALUMNO_APLICADO":    {"titulo": "Alumno aplicado",          "descripcion": "Seguiste 10 consejos del Profe",                 "icono": "bi-mortarboard-fill"},
     "PRIMER_INFORME":     {"titulo": "Cuerpo técnico",           "descripcion": "Le pediste tu primer informe al Profe",          "icono": "bi-clipboard-data-fill"},
     "ASCENSO_TIER_A":     {"titulo": "Las grandes ligas",        "descripcion": "Llegaste a dirigir un corporativo tier A",      "icono": "bi-buildings-fill"},

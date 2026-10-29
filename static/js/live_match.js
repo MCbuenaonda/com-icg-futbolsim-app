@@ -215,6 +215,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // eventos de "relleno" (transición, preparación, presión; ~70% del total) se marcan para que el
     // filtro "Jugadas clave" (por defecto) los oculte vía CSS sin volver a renderizar.
     const TIPOS_RELLENO = ['EN TRANSICIÓN', 'PREPARACIÓN', 'PRESIÓN DEFENSIVA'];
+    // Lesión (services/lesiones.py): con 'sin_cambio' el lesionado se va y su equipo queda con uno menos; si hubo
+    // cambio, el '🔄 SUSTITUCIÓN' que sigue ya lo saca
+    const EVENTO_LESION = '🚑 LESIÓN';
+    const saleSinCambio = ev => ev.tipo === EVENTO_LESION && ev.sin_cambio;
     function categoriaEvento(tipo) {
         const t = tipo || '';
         if (t === '🟥 DT EXPULSADO') return 'dt-roja';
@@ -225,6 +229,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (t.includes('ROJA')) return 'roja';
         if (t.includes('AMARILLA')) return 'amarilla';
         if (t.includes('SUSTITUCIÓN')) return 'cambio';
+        if (t === EVENTO_LESION) return 'lesion';
         if (t.includes('ATAJADA') || t.includes('DISPARO') || t.includes('CÓRNER') || t.includes('TIRO LIBRE') || t.includes('ERROR')) return 'ocasion';
         if (t.includes('SILBATO') || t.includes('PITIDO') || t.includes('FINAL DEL') || t.includes('SAQUE DE CENTRO')) return 'hito';
         if (TIPOS_RELLENO.some(r => t.includes(r))) return 'relleno';
@@ -423,6 +428,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let canchaLineasIniciales = { local: [], visitante: [] };
     let canchaFormaciones = {};     // esquema -> línea de cada puesto (para el cambio de esquema en vivo)
     let canchaPlanteamiento = {};   // {local|visita: {esquema, etiqueta, postura, motivo}}
+    let canchaEspejo = {};          // {local|visita: bool}: qué extremo va de segundo delantero
 
     // Esquema vigente de un lado según los ajustes ya revelados (📋 AJUSTE TÁCTICO con esquema_a): la cancha se reacomoda
     function esquemaVigente(lado, data) {
@@ -435,7 +441,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function actualizarLineasPorEsquema(data) {
         ['local', 'visitante'].forEach(lado => {
             const esq = esquemaVigente(lado, data);
-            const lineas = (esq && canchaFormaciones[esq]) || canchaLineasIniciales[lado];
+            let lineas = (esq && canchaFormaciones[esq]) || canchaLineasIniciales[lado];
+            // El extremo que juega arriba se sortea por partido (services/formaciones.lineas): EI (puesto 9) y ED (11)
+            if (esq && canchaFormaciones[esq] && canchaEspejo[lado === 'local' ? 'local' : 'visita']) {
+                lineas = lineas.slice();
+                [lineas[8], lineas[10]] = [lineas[10], lineas[8]];
+            }
             if (lado === 'local') canchaLineasLocal = lineas; else canchaLineasVisitante = lineas;
         });
     }
@@ -498,6 +509,7 @@ document.addEventListener('DOMContentLoaded', function () {
             canchaLineasIniciales = { local: canchaLineasLocal, visitante: canchaLineasVisitante };
             canchaFormaciones = data.formaciones || {};
             canchaPlanteamiento = data.planteamiento || {};
+            canchaEspejo = data.espejo_extremos || {};
             canchaPlantillasMatchId = matchId;
         } catch (e) {
             // Sin conexión momentánea o partido recién terminado -- la etiqueta simplemente
@@ -582,7 +594,7 @@ document.addEventListener('DOMContentLoaded', function () {
         '👉 SILBATO INICIAL', '🚩 FINAL DEL PRIMER TIEMPO', '⏱️ TIEMPO EXTRA', '🥅 TANDA DE PENALTIS', '🏁 PITIDO FINAL',
         '⏱️ TIEMPO AÑADIDO', '🔵 COMIENZA EL SEGUNDO TIEMPO', '🔵 SEGUNDO TIEMPO EXTRA', '🖥️ REVISIÓN VAR',
         '🚩 SAQUE DE ESQUINA', '🎯 PENAL',
-        '🗣️ RECLAMO DEL DT', '🟨 DT AMONESTADO', '🟥 DT EXPULSADO', '📋 AJUSTE TÁCTICO'
+        '🗣️ RECLAMO DEL DT', '🟨 DT AMONESTADO', '🟥 DT EXPULSADO', '📋 AJUSTE TÁCTICO', '🚑 LESIÓN'
     ]);
     function esEventoVar(ev) { return (ev.tipo || '').startsWith('🖥️ VAR'); }
     function esEventoAviso(ev) {
@@ -613,7 +625,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const slot = enCancha.get(jugadores[1]);
                 enCancha.delete(jugadores[1]);
                 enCancha.set(jugadores[0], slot);
-            } else if (CANCHA_TIPOS_EXPULSION.has(ev.tipo) && jugadores.length >= 1) {
+            } else if ((CANCHA_TIPOS_EXPULSION.has(ev.tipo) || saleSinCambio(ev)) && jugadores.length >= 1) {
                 enCancha.delete(jugadores[0]);
             }
         });
@@ -1602,6 +1614,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // Recorre TODOS los eventos revelados hasta ahora y devuelve, por equipo: quién sigue en
     // cancha (arrancando del 11 inicial, actualizado por sustituciones/expulsiones ya reveladas)
     // y el rating acumulado de cada uno de esos jugadores.
+    // Energía (0-100) del jugador al minuto revelado (GET /matches/live -> 'energia', por id). Partidos anteriores a
+    // la curva de energía no la traen: null = sin barra. Sin dato todavía (recién entra) = fresco.
+    function energiaDe(data, nombre) {
+        const mapa = data.energia || {};
+        if (!Object.keys(mapa).length) return null;
+        const id = canchaIds[nombre];
+        const valor = id != null ? mapa[String(id)] : undefined;
+        return valor == null ? 100 : valor;
+    }
+
     function calcularEstadoJugadoresEnCancha(data) {
         const onceLocal = new Set(canchaTitularesLocal);
         const onceVisitante = new Set(canchaTitularesVisitante);
@@ -1610,7 +1632,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const expulsados = new Set();
         // Lo que hizo cada jugador (para los íconos de la lista) y los que ya no están en cancha
         const info = new Map();   // nombre -> { goles, asistencias, amarillas, roja, entro, salio }
-        const infoDe = nombre => { if (!info.has(nombre)) info.set(nombre, { goles: 0, asistencias: 0, amarillas: 0, roja: null, entro: null, salio: null }); return info.get(nombre); };
+        const infoDe = nombre => { if (!info.has(nombre)) info.set(nombre, { goles: 0, asistencias: 0, amarillas: 0, roja: null, entro: null, salio: null, lesion: null }); return info.get(nombre); };
         const fueraLocal = [], fueraVisitante = [];
         const fueraDe = equipo => equipo === data.local ? fueraLocal : (equipo === data.visitante ? fueraVisitante : null);
         // Arquero en cancha de cada equipo: el titular de línea 1, actualizado si sale de cambio
@@ -1647,6 +1669,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 expulsados.add(jugadores[0]);
                 infoDe(jugadores[0]).roja = minutoTexto(ev);
                 if (ev.tipo === '🟨🟥 DOBLE AMARILLA') infoDe(jugadores[0]).amarillas += 1;
+            } else if (ev.tipo === EVENTO_LESION && jugadores.length >= 1) {
+                infoDe(jugadores[0]).lesion = { minuto: minutoTexto(ev), nombre: ev.lesion || 'lesión', gravedad: ev.gravedad || 'leve', sale: !!ev.sale_lesionado };
+                if (ev.sin_cambio) {
+                    const once = onceDe(ev.equipo);
+                    if (once) once.delete(jugadores[0]);
+                    const fuera = fueraDe(ev.equipo);
+                    if (fuera && !fuera.includes(jugadores[0])) fuera.push(jugadores[0]);
+                    infoDe(jugadores[0]).salio = minutoTexto(ev);
+                }
             } else if (TIPOS_GOL_LISTA.has(ev.tipo) && jugadores.length >= 1) {
                 infoDe(jugadores[0]).goles += 1;
                 if (ev.tipo === '⚽ GOL' && jugadores[2]) infoDe(jugadores[2]).asistencias += 1;
@@ -1681,7 +1712,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const crudo = ratings.has(nombre) ? ratings.get(nombre) : RATING_BASE;
             const rating = Math.max(RATING_MIN, Math.min(max, crudo));
             return { nombre, posicion: canchaPlantillas[nombre] || '', rating, acciones: acciones.get(nombre) || [],
-                     info: info.get(nombre) || null, destacados: (canchaDestacados.jugadores || {})[nombre] || [] };
+                     info: info.get(nombre) || null, destacados: (canchaDestacados.jugadores || {})[nombre] || [],
+                     energia: energiaDe(data, nombre) };
         }
         const fueraDeCancha = nombre => ({ ...filaDe(nombre), fuera: true });
 
@@ -1803,6 +1835,17 @@ document.addEventListener('DOMContentLoaded', function () {
                         onerror="this.closest('.once-avatar').classList.add('once-avatar--sin-imagen')"></span>${dorsalHtml}</span>`;
     }
 
+    // Barra de desgaste físico (services/desgaste.py): verde fresco, ámbar desde 70 (empieza a rendir menos),
+    // rojo bajo 30 (fundido); el número lo dice también para quien no distingue colores
+    function barraEnergia(energia) {
+        const e = Math.max(0, Math.min(100, Math.round(energia)));
+        const nivel = e >= 70 ? 'alta' : (e >= 30 ? 'media' : 'baja');
+        const texto = e >= 70 ? 'Fresco' : (e >= 30 ? 'Cansado' : 'Fundido');
+        return `<span class="once-energia once-energia--${nivel}" title="Energía ${e}% · ${texto}" role="img" aria-label="Energía ${e} por ciento, ${texto.toLowerCase()}">
+            <span class="once-energia__barra"><span class="once-energia__relleno" style="width:${e}%"></span></span>
+            <span class="once-energia__valor">${e}</span></span>`;
+    }
+
     function renderFilaJugadorEnCancha(jugador, lado, paisId) {
         const fila = document.createElement('div');
         fila.className = 'list-group-item bg-dark text-white p-0 border-secondary border-opacity-10 small'
@@ -1824,6 +1867,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (inf.roja) iconos.push(`<span class="once-ico" title="Expulsado en el ${inf.roja}'">🟥<small>${inf.roja}'</small></span>`);
         if (inf.entro) iconos.push(`<span class="once-ico once-ico--entra" title="Entró en el ${inf.entro}'"><i class="bi bi-arrow-up-circle-fill"></i><small>${inf.entro}'</small></span>`);
         if (inf.salio) iconos.push(`<span class="once-ico once-ico--sale" title="Salió en el ${inf.salio}'"><i class="bi bi-arrow-down-circle-fill"></i><small>${inf.salio}'</small></span>`);
+        if (inf.lesion) iconos.push(`<span class="once-ico once-ico--lesion once-ico--${escaparHtml(inf.lesion.gravedad)}" title="${escaparHtml(`Lesión ${inf.lesion.gravedad} en el ${inf.lesion.minuto}': ${inf.lesion.nombre}${inf.lesion.sale ? '' : ' (sigue tocado)'}`)}">🚑<small>${inf.lesion.minuto}'</small></span>`);
+        const energiaHtml = (!jugador.fuera && jugador.energia != null) ? barraEnergia(jugador.energia) : '';
         // En qué top 10 / premios de Estadísticas está (antes de este partido)
         const dest = jugador.destacados || [];
         const textoDestacado = d => d.posicion ? `#${d.posicion} ${d.titulo}` : d.titulo;
@@ -1850,6 +1895,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     ${dorsalHtml}<span class="d-flex flex-column" style="min-width: 0;">
                         <span class="text-truncate">${canchaLeyendas.has(jugador.nombre) ? '<span class="insignia-leyenda insignia-leyenda--compacta" title="Leyenda"><i class="bi bi-award-fill"></i></span> ' : ''}${jugador.nombre}${posicionTexto}</span>
                         ${iconos.length || destacadoHtml ? `<span class="once-iconos">${iconos.join('')}${destacadoHtml}</span>` : ''}
+                        ${energiaHtml}
                     </span>
                 </span>
                 <span class="d-flex align-items-center gap-1">

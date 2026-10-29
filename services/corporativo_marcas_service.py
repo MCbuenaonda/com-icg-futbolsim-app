@@ -398,7 +398,10 @@ def _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre) -> 
                          "bi-x-octagon-fill", clave=f"marca-corte:{p['_id']}")
             continue
         pago = max(1, int(round(p["pago_ciclo"] / RONDAS_POR_CICLO)))
-        cobro = _cobrar(estado, corp, c, p, pago, ciclo, f"{marca['nombre']}: patrocinio de {nombre}")
+        en_tv = (c.get("tv_bono_hasta_seq") or 0) >= seq   # apareció hace poco como invitado en TV (corporativo_tv_service)
+        if en_tv:
+            pago = int(round(pago * C.TV_INVITADO_BONO_MARCAS))
+        cobro = _cobrar(estado, corp, c, p, pago, ciclo, f"{marca['nombre']}: patrocinio de {nombre}" + (" (+ por su aparición en TV)" if en_tv else ""))
         cambios = {"$inc": {"pagos": 1, "cobrado": cobro["cobrado"], "comision": cobro["comision"]}, "$set": {}}
         if ev or cierre:   # sin hechos en la ronda, el semáforo queda como estaba
             aviso = seq if riesgo >= C.MARCA_RIESGO_AVISO else None
@@ -540,6 +543,8 @@ def _candidatos(marca: dict, ctx: dict, ocup: dict, contratos: dict, reps: dict)
         if rep is None:
             rep = reps[k] = representado(k[0], k[1], ctx)
         e = R.encaje_marca(marca, rep)
+        if e and (c.get("tv_bono_hasta_seq") or 0) >= (getattr(_hilo, "ancla_seq", None) or 0):   # salió en TV: más interés
+            e = min(100, e + C.TV_INVITADO_ENCAJE)
         if e >= C.MARCA_ENCAJE_MINIMO:
             salida.append((e, c))
     salida.sort(key=lambda x: -x[0])

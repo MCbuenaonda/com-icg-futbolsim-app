@@ -143,6 +143,7 @@ document.addEventListener('DOMContentLoaded', function () {
             jug.forEach(j => {
                 html += `<div class="once-ficha ${j.eliminado ? 'once-ficha--eliminada' : ''}">
                     ${j.eliminado ? `<span class="once-ficha__eliminado"><i class="bi bi-person-x-fill"></i> ${E(j.motivo_eliminado || 'Eliminado')}</span>` : ''}
+                    ${!j.eliminado && j.lesion ? `<span class="once-ficha__eliminado once-ficha__lesion" title="${E(`${j.lesion.nombre}: no juega ni cobra hasta cumplir ${j.lesion.restantes} partido(s) de baja`)}">🚑 Baja · ${E(j.lesion.restantes)}</span>` : ''}
                     <button type="button" class="once-ficha__foto once-ficha__abrir" data-ficha="${j.id}" title="Ver la ficha de ${E(j.nombre)}" aria-label="Ver la ficha de ${E(j.nombre)}">
                         ${UI.avatar(j.id, j.pais_id)}<span class="avatar-dorsal">${E(j.numero ?? '')}</span>
                         <span class="once-ficha__estado ${claseNivel(j.id)}" title="${E(tituloNivel(j.id))}"></span></button>
@@ -391,6 +392,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const n = f.nivel || {};
         const t = f.totales;
         const prox = f.proximo ? (f.proximo.faltan === 0 ? `Juega el próximo partido vs ${E(f.proximo.rival)}` : `Juega en ${f.proximo.faltan} partidos vs ${E(f.proximo.rival)}`) : (f.eliminado ? E(f.eliminado) : 'Sin partido programado');
+        const lesionTxt = f.lesion ? `🚑 Lesionado (${E(f.lesion.nombre)}): baja por ${E(f.lesion.restantes)} partido${f.lesion.restantes == 1 ? '' : 's'} de su selección · ` : '';
         const enEquipo = equipoDe(f.id);
         const puedeAgregar = !vistaDesbloqueo && !enEquipo && !f.eliminado;
         $('fichaCuerpo').innerHTML = `
@@ -401,7 +403,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="small text-muted">${UI.bandera(f.bandera, { id: f.pais_id })} ${E(f.pais)} · ${E(f.posicion)} (${E(f.siglas)})${f.edad ? ` · ${E(f.edad)} años` : ''}</div>
                     <div class="d-flex flex-wrap gap-1 mt-2">
                         <span class="nivel-forma nivel-forma--${E(n.codigo || 'sin')}" title="Según sus últimos ${n.partidos || 0} partidos">${n.codigo === 'racha' ? '🔥 ' : ''}${E(n.etiqueta || 'Sin datos')}</span>
-                        <span class="ficha-pop__chip"><i class="bi bi-calendar-event"></i> ${prox}</span>
+                        ${lesionTxt ? `<span class="ficha-pop__chip text-danger">${lesionTxt.replace(/ · $/, "")}</span>` : ""}<span class="ficha-pop__chip"><i class="bi bi-calendar-event"></i> ${prox}</span>
                         <span class="ficha-pop__chip">OVR ${E(f.overall)}</span>
                         ${enEquipo ? `<span class="ficha-pop__chip ficha-pop__chip--ok"><i class="bi bi-check2"></i> En tu equipo ${enEquipo}</span>` : ''}
                     </div>

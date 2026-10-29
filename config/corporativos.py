@@ -100,9 +100,9 @@ FACTOR_AFICIONADOS = 0.05
 # --- Resultado por partido (fracción del valor del representado) ---------------------------------
 # Un representado juega poco (≈0,2 partidos por ciclo en eliminatorias, más en la fase final), así que la renta
 # por partido es alta y el honorario por ciclo bajo: el promedio queda apenas positivo, gana el que elige bien.
-RENTA_SELECCION = {"jugar": 0.025, "victoria": 0.080, "empate": 0.025, "derrota": -0.050,
+RENTA_SELECCION = {"jugar": 0.040, "victoria": 0.080, "empate": 0.025, "derrota": -0.050,
                    "avance_fase": 0.15, "eliminacion": -0.08}
-RENTA_JUGADOR = {"jugar": 0.030, "gol": 0.080, "asistencia": 0.050, "valla_invicta": 0.060, "roja": -0.080}
+RENTA_JUGADOR = {"jugar": 0.045, "gol": 0.080, "asistencia": 0.050, "valla_invicta": 0.060, "roja": -0.080}
 HONORARIO_POR_CICLO = {"seleccion": 0.005, "jugador": 0.004}   # (reglas viejas: costo fijo por ciclo; lo usa el simulador "antes")
 POSICIONES_VALLA_INVICTA = {1, 2, 3, 4, 5}   # portero + defensas (posiciones granulares de `posiciones`)
 
@@ -114,7 +114,9 @@ POSICIONES_VALLA_INVICTA = {1, 2, 3, 4, 5}   # portero + defensas (posiciones gr
 HONORARIO_MANTENIMIENTO = {"seleccion": 0.0010, "jugador": 0.0008}   # por ciclo, juegue o no
 HONORARIO_POR_PARTIDO = {"seleccion": 0.0120, "jugador": 0.0100}     # por partido jugado (la selección / el jugador que entra)
 PARTIDOS_ESPERADOS_POR_CICLO = 0.2                                     # para estimar el honorario "por ciclo" en vistas y rescisiones
-PATROCINIO_POR_CICLO = {"seleccion": 0.0012, "jugador": 0.0010}      # x popularidad (0,6 a 1,6)
+# v3 (más rentable, a pedido): el patrocinio por ciclo ×2,5 y la renta por jugar ×1,5 — un fichaje se recupera en
+# ~4-6 ciclos en vez de ~10 (simular_balance_corporativos.py; antes: patrocinio 0,0012/0,0010, jugar 0,025/0,030).
+PATROCINIO_POR_CICLO = {"seleccion": 0.0030, "jugador": 0.0025}      # x popularidad (0,6 a 1,6)
 POPULARIDAD_RANGO = (0.6, 1.6)
 AFICIONADOS_POPULARIDAD = (60000, 160000)     # selección: aficionados que dan la popularidad mínima / máxima
 # Renovación: el representado ya es de la casa, la prima es menor que la de un fichaje (y menor aún si está contento)
@@ -185,14 +187,16 @@ GIRA_RECAUDACION = (0.010, 0.030) # x valor, según aficionados (popularidad) y 
 GIRA_SATISFACCION = 8
 GIRA_ENFRIAMIENTO = 3             # ciclos entre giras de la misma selección (también tope GLOBAL de aficionados)
 GIRA_AFICIONADOS_PCT = (0.01, 0.03)
-# Gira de un jugador: ingreso por su popularidad y un aporte MÍNIMO de aficionados a su selección (0 a 10 por gira,
-# según su forma y la de su selección). La IA también las hace (el aporte es ínfimo); tope por selección y ciclo.
+# Gira de un jugador: ingreso por su popularidad y un aporte de aficionados a su selección (1 a 100 por gira, según su
+# forma y la de su selección; una selección tiene ~100.000 y un partido le mueve ~2.400). La IA también las hace;
+# tope por selección y ciclo entre todos los universos.
 GIRA_JUGADOR_COSTO = 0.004        # x valor del jugador
 GIRA_COSTO_MINIMO = 60            # organizar una gira nunca es gratis (un jugador poco conocido no la recupera)
 GIRA_JUGADOR_INGRESO = (0.006, 0.014)
 GIRA_JUGADOR_ENFRIAMIENTO = 3
-GIRA_JUGADOR_AFICIONADOS_MAX = 10
-TOPE_AFICIONADOS_GIRAS_JUGADOR = 50   # por selección y ciclo, entre todas las giras de todos los universos
+GIRA_JUGADOR_AFICIONADOS_MIN = 1
+GIRA_JUGADOR_AFICIONADOS_MAX = 100
+TOPE_AFICIONADOS_GIRAS_JUGADOR = 500  # por selección y ciclo, entre todas las giras de todos los universos
 GIRAS_POR_CICLO = 1               # (modelo viejo: una gira por ciclo)
 CAL_ACTIVIDAD_FLOJA = 2            # calendario de la cartera: un ciclo con ≤ 2 partidos de tus representados es «flojo»
 CAL_SUGERENCIAS_POR_HUECO = 3
@@ -201,11 +205,11 @@ GIRA_JUGADOR_PARTIDOS = 3          # una gira de jugadores dura 3 partidos del t
 GIRA_SELECCION_PARTIDOS = 6        # y la de una selección, 6 (sin partido propio durante la gira)
 GIRA_MAX_JUGADORES = 4             # jugadores en una misma gira
 GIRAS_SIMULTANEAS = 2              # giras en curso a la vez por corporativo
-GIRA_JUGADORES_POR_CICLO = 8       # jugadores de gira por corporativo y ciclo (que la ganancia no se dispare)
+GIRA_JUGADORES_POR_CICLO = 12      # jugadores de gira por corporativo y ciclo (que la ganancia no se dispare)
 GIRA_JUGADOR_ENFRIAMIENTO_PARTIDOS = 20   # un mismo jugador vuelve a salir de gira 20 partidos después de terminar
 GIRA_COSTO_MINIMO_JUGADOR = 25
 GIRA_JUGADOR_COSTO_V2 = 0.003      # x valor del jugador
-GIRA_JUGADOR_RETORNO = (1.25, 2.10)   # ingreso = costo x retorno (según popularidad, forma de su selección y si juega)
+GIRA_JUGADOR_RETORNO = (1.60, 2.70)   # ingreso = costo x retorno (según popularidad, forma de su selección y si juega)
 IA_PROB_ACUERDO = 0.25            # (acuerdos viejos: la IA ya no firma; las marcas los reemplazaron)
 IA_PROB_GIRA = 0.20               # por ciclo, que organice una gira
 
@@ -349,7 +353,7 @@ MARCA_PROMOCIONES_POR_CICLO = 3                       # (antes del ritmo por ron
 # responden promociones, resuelven rumores, vencen ofertas, se acercan y evalúan cortes. Vencimientos/renovaciones, al cierre.
 MARCA_PARTIDOS_RONDA = 4
 MARCA_OFERTA_PARTIDOS = 8                             # la oferta al usuario vence a los 8 partidos (2 rondas)
-MARCA_PROMOCIONES_POR_RONDA = 2                       # «Promover» del CEO: la marca responde en la ronda siguiente
+MARCA_PROMOCIONES_POR_RONDA = 3                      # «Promover» del CEO: la marca responde en la ronda siguiente
 MARCA_PROMOCION_BASE = 0.15                           # prob. = base + encaje + reputación + fama (corporativo_reglas.prob_promocion)
 # Riesgo de corte (0..100) al cierre de cada ciclo: lo que pasó en el ciclo x (1,3 - fidelidad de la marca)
 MARCA_RIESGO = {"roja": 30, "goleada": 22, "eliminada": 60, "sin_jugar": 12, "mala_forma": 14, "descontento": 8}
@@ -358,3 +362,41 @@ MARCA_RIESGO_CORTE = 55                               # corta (o corta si ya hab
 MARCA_PROB_RENUEVA = 0.55                             # al vencer, si quedó conforme (riesgo bajo)
 MARCA_PROB_REACCION = 0.70                            # que la marca comente en la red social el partido de su patrocinado
 MARCA_PROB_POST_IA = 0.50                             # firmas/renovaciones/despedidas de la IA que llegan a la red (las tuyas, siempre)
+
+# --- Televisoras: derechos de transmisión de las selecciones (services/corporativo_tv_service.py) ------------------
+# Cada selección representada recibe ofertas de las 3 cadenas de SU país (colección `televisoras`). El contrato es por
+# partidos DE LA SELECCIÓN y paga por resultado; si en el contrato sacó al menos la `exigencia` de la cadena (% de los
+# puntos), cobra un bono al final. A TV_AVISO_PARTIDOS del final la cadena actual ofrece seguir (o no) y las otras dos
+# pueden ofertar; si el contrato termina sin elegir, se firma una de las ofertas al azar. Igual para la IA (acepta la
+# mejor sola). Calibrado con simular_balance_corporativos.py ... tv: ver CLAUDE.md.
+TV_PARTIDOS = (3, 5)                  # duración del contrato, en partidos de la selección
+TV_BASE = 0.020                       # pago base por partido = valor de la selección × esto × popularidad × nivel × forma
+TV_NIVEL = {1: 0.80, 2: 1.00, 3: 1.25}   # cadena regional / nacional / líder de audiencia
+TV_PERFIL = {                         # multiplicador del pago base según el resultado, y del bono (por partido del contrato)
+    "generosa": {"victoria": 1.60, "empate": 1.15, "derrota": 0.75, "bono": 0.70},
+    "resultadista": {"victoria": 2.40, "empate": 1.00, "derrota": 0.35, "bono": 1.00},
+    "fiel": {"victoria": 1.80, "empate": 1.10, "derrota": 0.55, "bono": 0.80},
+}
+TV_PROBABILIDAD_RESULTADO = {"victoria": 0.37, "empate": 0.26, "derrota": 0.37}   # para el pago esperado (vistas e IA)
+TV_FORMA_REFERENCIA = 0.45            # % de puntos "normal": por encima el próximo contrato paga más, por debajo menos
+TV_FORMA_PENDIENTE = 1.0              # cuánto sube o baja la tarifa por punto de % sobre la referencia
+TV_FORMA_RANGO = (0.70, 1.30)
+TV_AVISO_PARTIDOS = 2                 # a cuántos partidos del final llegan las ofertas de renovación y de la competencia
+TV_PROB_OFERTA_INICIAL = 0.65         # por cierre de ciclo, a una selección representada sin TV
+TV_OFERTA_CICLOS = 1                  # una oferta inicial vence al cierre del ciclo siguiente (y se firma sola)
+TV_PROB_COMPETENCIA = (0.10, 0.85)    # que otra cadena del país oferte en la renovación (según resultados y popularidad)
+# Invitados de TV: la cadena que transmite un partido (contrato ACTIVO con una de las dos selecciones) puede llevar como
+# invitado especial a un jugador representado de cualquier corporativo del universo, elegido AL AZAR entre los que
+# cumplen: sin gira, su selección no juega en lo que queda del ciclo, contrato fuera de la ventana de renovación y sin
+# otra invitación reciente. Dos cadenas en el mismo partido nunca llevan al mismo. Paga al corporativo según el nivel
+# del jugador, suma aficionados a su selección (tope GLOBAL por selección y ciclo) y por unas rondas sus marcas pagan
+# más y las nuevas se le acercan con más facilidad. El del usuario se acepta solo (aviso en la bandeja).
+TV_INVITADO_PROB = 0.6                 # que una cadena con contrato lleve invitado a un partido
+TV_INVITADO_HORIZONTE = 3              # se elige cuando faltan 3 partidos o menos para ese partido
+TV_INVITADO_PAGO = 0.05                # x valor del jugador x popularidad x nivel de la cadena (~1,15 veces su renta de un partido)
+TV_INVITADO_ENFRIAMIENTO_PARTIDOS = 40 # el mismo jugador no vuelve a ser invitado hasta 40 partidos después
+TV_INVITADO_AFICIONADOS = (10, 60)
+TV_INVITADO_TOPE_AFICIONADOS = 200     # por selección y ciclo, entre todos los universos
+TV_INVITADO_BONO_MARCAS = 1.15         # sus patrocinios vigentes pagan +15%...
+TV_INVITADO_RONDAS_MARCAS = 2          # ...durante 2 rondas de marcas (8 partidos)
+TV_INVITADO_ENCAJE = 10                # y las marcas nuevas lo ven 10 puntos más interesante

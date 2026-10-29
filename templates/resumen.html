@@ -107,6 +107,36 @@
     </div>
     {% endif %}
 
+    {% set tx_juego_id, tx_jugado = partido._id | string, True %}{% include "partials/transmision.html" %}
+
+    <!-- PARTE MÉDICO: lesiones del partido (services/lesiones.py) y bajas con que llegó cada selección -->
+    {% set pmed = parte_medico %}
+    {% if pmed and (pmed.lesiones or pmed.bajas) %}
+    <div class="card card-seccion mb-4">
+        <div class="card-body p-3">
+            <h2 class="vivo-titulo"><i class="bi bi-heart-pulse-fill" style="color:#fb7185;"></i>Parte médico</h2>
+            {% if pmed.lesiones %}
+            <ul class="lesion-parte__lista list-unstyled mb-2">
+                {% for l in pmed.lesiones %}
+                <li>
+                    <span class="lesion-parte__punto lesion-parte__punto--{{ l.gravedad }}" aria-hidden="true"></span>
+                    {{ m.avatar(l.jugador_id, l.pais_id, 'sm', l.jugador_nombre) }}
+                    <a href="/jugadores/{{ l.jugador_id }}" class="fw-semibold">{{ l.jugador_nombre }}</a>
+                    <span>{{ l.nombre | capitalize }} en el {{ l.minuto }}'</span>
+                    <span class="badge rounded-pill text-bg-{{ l.color }}">{{ l.gravedad_nombre }}</span>
+                    <small class="text-muted">{{ l.baja_texto }}{{ ' · siguió jugando' if not l.salio }}</small>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            {% if pmed.bajas %}
+            <p class="small text-muted mb-0"><i class="bi bi-person-x me-1"></i>No jugaron por lesión:
+                {% for b in pmed.bajas %}<a href="/jugadores/{{ b.jugador_id }}">{{ b.nombre }}</a>{{ ', ' if not loop.last }}{% endfor %}.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- CESE DE DT: la federación cambió de técnico tras este partido (tecnicos_service.ceses_del_partido) -->
     {% for c in ceses_dt %}
     <div class="resumen-cese mb-4" style="--i: {{ loop.index0 }};">

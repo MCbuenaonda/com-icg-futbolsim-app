@@ -65,6 +65,20 @@ POSTURA_REFERENCIA = round(sum(FORMACIONES[e]["postura"] * w for e, w in USO_REF
 ESCALA_PERFIL = 5.0               # un perfil de +1 = +5 puntos de atributo en su duelo
 PUNTOS_SUPERIORIDAD = 2.0         # por jugador de más en la zona del duelo (contra lo normal de esa zona)
 TOPE_SUPERIORIDAD = 2             # jugadores de diferencia que cuentan como máximo
+# Inferioridad numérica (expulsión o lesionado sin cambio): el equipo con menos jugadores de campo pierde estos puntos
+# en TODOS sus duelos, en cualquier zona (cubre más terreno con menos gente); por jugador que le falta: con la pelota
+# (_ATAQUE) y defendiendo (_DEFENSA, pesa más: le sobran rivales sin marca). Más el desgaste extra
+# (FACTOR_DESGASTE_INFERIORIDAD). Calibrado con calibrar_inferioridad.py --diez contra el fútbol real (con 10 se recibe
+# ~50% más goles y se anota ~30% menos).
+PUNTOS_INFERIORIDAD_ATAQUE = 18.0
+PUNTOS_INFERIORIDAD_DEFENSA = 28.0
+TOPE_INFERIORIDAD = 3
+JUGADORES_DE_CAMPO = 10
+FACTOR_DESGASTE_INFERIORIDAD = 0.15   # +15% de gasto por minuto por jugador que falta
+# Extremos en los esquemas de dos puntas: en el catálogo el extremo DERECHO es el segundo delantero y el izquierdo
+# juega de medio (asimétrico: el ED anotaba ~4 veces más que el EI). Cada equipo sortea en cada partido cuál de los
+# dos va arriba (espejo), así se reparte.
+SLOTS_EXTREMOS = (9, 11)   # EI, ED (posicion_id = slot)
 # Lo "normal" en cada zona (4-4-2 contra 4-4-2), desde el equipo con la pelota: en su salida (defensa) sus defensas
 # contra los delanteros rivales; en el medio, medios contra medios; en ataque, sus delanteros contra los defensas rivales.
 LINEAS_DUELO = {"defensa": (2, 4), "medio": (3, 3), "ataque": (4, 2)}

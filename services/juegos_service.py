@@ -523,6 +523,11 @@ def registrar_resultado_juego(db: Database, juego_id: str, partido: dict, stats_
     # Calificación de cada jugador ({"<jugador_id>": rating}): ficha y forma del Once Ideal (fantasy_rendimiento)
     if partido.get("calificaciones"):
         objeto_resultado["calificaciones"] = partido["calificaciones"]
+    # Lesiones del partido, bajas por lesión con que llegó cada selección (services/lesiones.py; las bajas siguientes las
+    # aplica lesiones_service al terminar) y curva de energía de cada jugador (desgaste en la transmisión en vivo)
+    for campo in ("lesiones", "bajas_lesion", "energia", "espejo_extremos"):
+        if partido.get(campo) is not None:
+            objeto_resultado[campo] = partido[campo]
 
     # 4. Actualizar el registro en MongoDB
     update_data = {
@@ -862,6 +867,11 @@ def aplicar_efectos_secundarios(
         registrar_partido_especialidades(juego_id, stats_jugadores, goles_local, goles_visitante, juego_doc)
     except Exception as e:
         print(f"No se pudo registrar el partido para las especialidades: {e}")
+
+    # Lesiones (services/lesiones_service.py): los lesionados cumplen un partido de baja y las lesiones de este partido
+    # quedan en sus jugadores (el motor no alinea a los que están de baja). Idempotente; nunca lanza.
+    from services.lesiones_service import registrar_partido as registrar_partido_lesiones
+    registrar_partido_lesiones(db["juegos"].find_one({"_id": ObjectId(juego_id)}))
 
     # Crónica del partido (services/cronica_service.py): se escribe al terminar, con la cronología completa.
     # Nunca lanza; si el partido sigue en transmisión no hace nada y se escribe al abrir su resumen.

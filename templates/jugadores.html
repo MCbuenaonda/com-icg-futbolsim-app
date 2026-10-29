@@ -17,6 +17,7 @@
 {% set pp = patrocinios_pais(usuario_actual, pais_id) if puede('corporativos') else none %}
 {% set con_marca = (pp.jugadores | length) if pp else 0 %}
 {% set esp_ganadas = especialidades_ganadas_pais(pais_id) if pais_id else {} %}
+{% set lesionados = lesionados_pais(pais_id) if pais_id else {} %}
 <div class="container-fluid py-2">
 
     <!-- Encabezado de la selección -->
@@ -39,6 +40,7 @@
                     <span>Especialidades</span><strong>{{ es_sel.total }}<small>/{{ es_sel.base }}</small></strong>
                     <div class="esp-kpi__barra" aria-hidden="true"><i style="width: {{ es_sel.pct }}%"></i><b style="left: {{ es_sel.pct_base }}%"></b></div>
                 </div>{% endif %}
+                {% if lesionados %}<div class="fixture-kpi" title="De baja por lesión: no juegan hasta cumplir sus partidos"><span>Lesionados</span><strong class="text-danger">🚑 {{ lesionados | length }}</strong></div>{% endif %}
                 {% if pp %}<div class="fixture-kpi" title="Jugadores con al menos una marca en tu universo"><span>Patrocinados</span><strong class="text-warning">{{ con_marca }}</strong></div>{% endif %}
                 <div class="fixture-kpi"><span>OVR medio</span><strong>{{ ((jugadores | sum(attribute='overall')) / (jugadores | length)) | round(1) if jugadores else '—' }}</strong></div>
                 {% if pais_id %}<a href="/paises/{{ pais_id }}" class="btn btn-outline-light rounded-pill px-3"><i class="bi bi-flag me-1"></i>Ver selección</a>{% endif %}
@@ -68,6 +70,7 @@
                         <option value="LEYENDAS">Solo leyendas</option>
                         <option value="ESPECIALISTAS">Con especialidad</option>
                         {% if pp %}<option value="MARCAS">Con patrocinio ({{ con_marca }})</option>{% endif %}
+                        {% if lesionados %}<option value="LESIONADOS">Lesionados ({{ lesionados | length }})</option>{% endif %}
                     </select>
                 </div>
                 <div class="col-4 col-md-2">
@@ -87,7 +90,7 @@
         <h2 class="plantilla-linea__titulo"><i class="bi {{ icono }}"></i>{{ titulo }} <span class="vivo-contador">{{ grupo | length }}</span></h2>
         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-4 g-3">
             {% for j in grupo | sort(attribute='numero') %}
-            <div class="col jugador-card-container" data-nombre="{{ j.nombre|lower }}" data-numero="{{ j.numero }}" data-posicion="{{ j.posicion }}" data-sector="{{ j.sector }}" data-leyenda="{{ 1 if j.leyenda else 0 }}" data-marcas="{{ (pp.jugadores.get(j.id) | length) if pp and pp.jugadores.get(j.id) else 0 }}" data-especialidades="{{ (j.especialidades or []) | length }}">
+            <div class="col jugador-card-container" data-nombre="{{ j.nombre|lower }}" data-numero="{{ j.numero }}" data-posicion="{{ j.posicion }}" data-sector="{{ j.sector }}" data-leyenda="{{ 1 if j.leyenda else 0 }}" data-marcas="{{ (pp.jugadores.get(j.id) | length) if pp and pp.jugadores.get(j.id) else 0 }}" data-especialidades="{{ (j.especialidades or []) | length }}" data-lesionado="{{ 1 if lesionados.get(j.id) else 0 }}">
                 <a href="/jugadores/{{ j.id }}" class="card h-100 card-logo-fondo card-jugador ficha-jugador" style="--logo-color: {{ color }};">
                     {{ m.fondo_bandera(j.pais_id) }}
                     <div class="ficha-jugador__arriba">
@@ -106,6 +109,8 @@
                             {% if j.leyenda %}{{ m.insignia_leyenda() }}{% endif %}
                             {% if j.titular == 1 %}<span class="ficha-jugador__titular">Titular</span>{% endif %}
                             {% if j.edad %}<span class="ficha-jugador__edad">{{ j.edad }} años</span>{% endif %}
+                            {% set lj = lesionados.get(j.id) %}
+                            {% if lj %}<span class="ficha-jugador__lesion" title="{{ lj.nombre | capitalize }} ({{ lj.gravedad_nombre | lower }}): {{ lj.baja_texto }}">🚑 Baja · {{ lj.restantes }}</span>{% endif %}
                         </div>
                         {% set esps = especialidades_de(j.especialidades) %}
                         {% set gj = esp_ganadas.get(j.id) or [] %}
@@ -166,6 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const filtroLinea = posicionSelected === 'leyendas' ? card.getAttribute('data-leyenda') === '1'
                 : posicionSelected === 'marcas' ? Number(card.getAttribute('data-marcas')) > 0
                 : posicionSelected === 'especialistas' ? Number(card.getAttribute('data-especialidades')) > 0
+                : posicionSelected === 'lesionados' ? card.getAttribute('data-lesionado') === '1'
                 : (posicionSelected === 'todas' || sector.includes(posicionSelected));
             const visible = (nombre.includes(query) || numero.includes(query)) && filtroLinea;
             card.classList.toggle('d-none', !visible);

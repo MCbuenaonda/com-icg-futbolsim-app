@@ -142,6 +142,13 @@ def crear_nuevo_mundial() -> Dict[str, Any]:
     except Exception as e:
         print(f"No se pudieron asignar los técnicos: {e}")
 
+    # 5d. Lesiones: cada Mundial empieza con todos sanos (services/lesiones_service.py)
+    try:
+        from services.lesiones_service import limpiar_lesiones
+        limpiar_lesiones()
+    except Exception as e:
+        print(f"No se pudieron limpiar las lesiones: {e}")
+
     # 6. Poblar la colección 'internacional' con los países participantes
     poblar_paises_internacional(db, 1, nuevo_mundial_doc["_id"])
     
@@ -242,6 +249,7 @@ def restart_mundial():
                 "amarilla": 0,
                 "roja": 0,
                 "lesiones": 0,
+                "lesion": None,   # lesión vigente (services/lesiones_service.py): cada Mundial empieza sano
                 "titular": 0,
                 "rendimiento": 60,
                 "agilidad": 60,

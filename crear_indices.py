@@ -8,13 +8,35 @@ create_index es idempotente: si el índice ya existe con la misma definición no
 hace nada, así que este script se puede volver a correr sin riesgo.
 
 Correr localmente con: python3 crear_indices.py
+
+Cada índice se crea por separado: si uno falla (en el cluster compartido de Atlas un createIndexes a veces no confirma
+y da WTimeoutError) se avisa y se sigue con los demás. Al final imprime un resumen de creados y fallidos.
 """
 import certifi
+from pymongo.collection import Collection
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
+
+_resumen = {"ok": 0, "fallidos": []}
+_crear_original = Collection.create_index
+
+
+def _crear_seguro(self, keys, **kwargs):
+    try:
+        kwargs.setdefault("maxTimeMS", 60000)
+        nombre = _crear_original(self, keys, **kwargs)
+        _resumen["ok"] += 1
+        return nombre
+    except Exception as e:
+        _resumen["fallidos"].append(f"{self.name}.{kwargs.get('name') or keys}: {str(e)[:120]}")
+        print(f"   ⚠️ {self.name}.{kwargs.get('name') or keys}: {str(e)[:120]}")
+        return None
+
+
+Collection.create_index = _crear_seguro
 
 
 def crear_indices():
@@ -103,6 +125,10 @@ def crear_indices():
     historial_esp.create_index([("juego_id", 1)], name="juego")
     historial_esp.create_index([("pais_id", 1), ("fecha", 1)], name="pais_fecha")
     print("✅ Índices creados en 'especialidades_historial'")
+
+    # Lesiones (services/lesiones_service.py): historial por jugador (parte médico de la ficha)
+    db['lesiones_historial'].create_index([("jugador_id", 1), ("registrada_en", -1)], name="jugador_fecha")
+    print("✅ Índices creados en 'lesiones_historial'")
 
     fantasy_teams = db['fantasy_teams']
     # Once Ideal: uno por usuario y Mundial (ya no por fase; services/fantasy_service.py). Si en la base quedó el
@@ -195,6 +221,51 @@ def crear_indices():
     db['asistente_descartes'].create_index([("user_id", 1), ("dia", 1), ("clave", 1)], name="user_dia_clave")
     print("✅ Índices creados en 'asistente_descartes'")
 
+    # --- Revisión de consultas (explain + conteo por página) ---------------------------------------------------------
+    # jugadores: la consulta más común es por 'id' (stats post partido, fichas, Once Ideal) y no tenía índice
+    jugadores.create_index("id", name="id_unico", unique=True)
+    # juegos: partidos de una selección (ficha del país, cara a cara, scouter), de un jugador (bitácora), de una sede
+    juegos.create_index([("mundial_id", 1), ("estado", 1)], name="mundial_estado")
+    juegos.create_index([("equipo_local.id", 1), ("estado", 1)], name="local_estado")
+    juegos.create_index([("equipo_visitante.id", 1), ("estado", 1)], name="visita_estado")
+    juegos.create_index([("ubicacion.id", 1), ("estado", 1)], name="sede_estado")
+    juegos.create_index("resultado.participantes", name="participantes")
+    # Juego en Vivo: los únicos garantizan que un evento no se pague dos veces y una sesión por usuario y partido
+    # (también los crea configurar_juego_en_vivo.py)
+    db["match_live_sessions"].create_index([("usuario_id", 1), ("juego_id", 1)], unique=True, name="usuario_juego_unico")
+    db["match_live_sessions"].create_index([("juego_id", 1), ("estado", 1)], name="juego_estado")
+    db["point_transactions"].create_index([("sesion_id", 1), ("evento_idx", 1), ("regla_codigo", 1)], unique=True,
+                                          name="sesion_evento_regla_unico")
+    db["point_transactions"].create_index([("usuario_id", 1), ("creado_en", 1)], name="usuario_fecha")
+    # Directores técnicos: cargos por país / vigentes / relevos
+    db["dt_cargos"].create_index([("pais_id", 1), ("hasta_juego", 1)], name="pais_hasta")
+    db["dt_cargos"].create_index("hasta_juego", name="hasta_juego")
+    db["dt_cargos"].create_index([("motivo_inicio", 1), ("desde_juego", 1)], name="motivo_desde")
+    db["dt_cargos"].create_index("dt_id", name="dt_id")
+    db["directores_tecnicos"].create_index("pais_id", name="pais_id")
+    # Árbitros: los partidos solo guardan el nombre (datos_arbitro, perfil)
+    arbitros.create_index("nombre", name="nombre")
+    # Corporativos: giras y patrocinios por universo
+    db["corp_giras"].create_index([("universo_id", 1), ("estado", 1)], name="universo_estado")
+    db["corp_giras"].create_index([("universo_id", 1), ("tipo", 1), ("ref_id", 1)], name="universo_tipo_ref")
+    db["corp_patrocinios"].create_index([("universo_id", 1), ("sigla", 1), ("estado", 1)], name="universo_sigla_estado")
+    db["corp_patrocinios"].create_index([("universo_id", 1), ("estado", 1)], name="universo_estado")
+    print("✅ Índices de la revisión de consultas")
+
+    # Televisoras (services/corporativo_tv_service.py): vigentes por universo, por país y por cadena
+    db["corp_tv_contratos"].create_index([("universo_id", 1), ("estado", 1)], name="universo_estado")
+    db["corp_tv_contratos"].create_index([("universo_id", 1), ("sigla", 1), ("estado", 1)], name="universo_sigla_estado")
+    db["corp_tv_contratos"].create_index([("universo_id", 1), ("pais_id", 1), ("estado", 1)], name="universo_pais_estado")
+    db["corp_tv_contratos"].create_index([("universo_id", 1), ("televisora_id", 1)], name="universo_televisora")
+    db["corp_tv_invitados"].create_index([("universo_id", 1), ("estado", 1)], name="universo_estado")
+    db["corp_tv_invitados"].create_index([("universo_id", 1), ("juego_id", 1)], name="universo_juego")
+    db["corp_tv_invitados"].create_index([("universo_id", 1), ("jugador_id", 1), ("decidido_seq", -1)], name="universo_jugador")
+    db["corp_tv_invitados"].create_index([("universo_id", 1), ("decidido_seq", -1)], name="universo_seq")
+    print("✅ Índices de televisoras")
+
 
 if __name__ == "__main__":
     crear_indices()
+    print(f"\nListo: {_resumen['ok']} índices confirmados, {len(_resumen['fallidos'])} con problema")
+    for f in _resumen["fallidos"]:
+        print("  -", f)

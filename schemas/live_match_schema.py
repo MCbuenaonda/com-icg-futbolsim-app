@@ -33,6 +33,11 @@ class EventoOut(BaseModel):
     esquema_a: Optional[str] = None
     especialidad: Optional[str] = None   # especialidad del jugador que decidió la jugada (config/especialidades.py)
     especialidad_nombre: Optional[str] = None
+    # Lesión (services/lesiones.py): cuál, gravedad, si sale y si su equipo se queda con uno menos
+    lesion: Optional[str] = None
+    gravedad: Optional[str] = None
+    sale_lesionado: Optional[bool] = None
+    sin_cambio: Optional[bool] = None
 
 
 class StartedMatchOut(BaseModel):
@@ -93,6 +98,8 @@ class LiveMatchOut(BaseModel):
     segundos_transcurridos: float
     segundos_restantes: float
     finalizado: bool
+    # Energía (0-100) de cada jugador al minuto que se está revelando: {"<jugador_id>": energía}
+    energia: Dict[str, int] = {}
 
 
 class EquipoTablaGrupoOut(BaseModel):
@@ -138,3 +145,5 @@ class PlantillasLiveOut(BaseModel):
     # y el planteamiento inicial de cada lado {local|visita: {esquema, etiqueta, postura, motivo}} (sin los cambios: spoiler)
     formaciones: Dict[str, List[int]] = {}
     planteamiento: Dict[str, Any] = {}
+    # Qué extremo jugó de segundo delantero en cada lado ({local|visita: bool}, services/formaciones.lineas)
+    espejo_extremos: Dict[str, bool] = {}

@@ -328,6 +328,35 @@
             {% endif %}
         </div>
     </div>
+
+    {# TELEVISORAS (corporativo_tv_service): quién transmite a la selección en tu universo y las 3 cadenas del país #}
+    {% set tvp = tv_pais(usuario_actual, pais.id) %}
+    {% if tvp and tvp.cadenas %}
+    <div class="card card-logo-fondo card-seccion mb-4" style="--logo-color: #38bdf8;">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <h2 class="vivo-titulo mb-0"><i class="bi bi-broadcast text-info"></i>Televisión en tu universo</h2>
+                <a href="/corporativo/televisoras" class="btn btn-sm btn-outline-light rounded-pill px-3">Ver televisoras</a>
+            </div>
+            {% set v = tvp.vigente %}
+            {% if v %}
+            <div class="tv-contrato mb-3" style="--tv: {{ v.tele.color }};">
+                <button type="button" class="tv-logo tv-logo--lg" data-tv-ficha="{{ v.tele.id }}" title="Ver la ficha de {{ v.tele.nombre }}"><img src="{{ v.tele.logo }}" alt="{{ v.tele.nombre }}"></button>
+                <div class="min-w-0"><div class="fw-semibold text-white">{{ v.tele.nombre }} transmite a {{ pais.nombre }} <span class="text-muted fw-normal">· contrato de {{ v.sigla }}</span></div>
+                    <div class="small text-muted">{{ v.jugados }} de {{ v.partidos }} partidos · ~{{ '{:,}'.format(v.esperado) }} por partido{% if v.pct is not none %} · {{ v.pct }}% de los puntos{% endif %}</div></div>
+            </div>
+            {% else %}
+            <p class="small text-muted">En tu universo ninguna cadena transmite todavía a {{ pais.nombre }}: ofertan por ella cuando un corporativo la representa.</p>
+            {% endif %}
+            <div class="d-flex flex-wrap gap-2">
+                {% for t in tvp.cadenas %}
+                <button type="button" class="tv-mini" style="--tv: {{ t.color }};" data-tv-ficha="{{ t.id }}" title="{{ t.papel_nombre }} · {{ t.nivel_nombre }} · {{ t.perfil_nombre }}"><img src="{{ t.logo }}" alt="">{{ t.nombre }}</button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/televisoras.js?v=1" defer></script>
+    {% endif %}
     {% endif %}
 
     {% if cuerpo_tecnico and cuerpo_tecnico.dt %}

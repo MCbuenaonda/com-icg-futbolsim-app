@@ -408,10 +408,14 @@ def _relevos(limite: int, paises: Optional[dict] = None) -> List[dict]:
     paises = paises or {p["id"]: p for p in db["paises"].find({}, {"id": 1, "nombre": 1, "bandera": 1, "federacion": 1})}
     nombres = {t["id"]: t["nombre"] for t in db["directores_tecnicos"].find({}, {"id": 1, "nombre": 1})}
     salida = []
-    for c in ultimos_cambios(limite):
+    cambios = ultimos_cambios(limite)
+    # los cargos que terminaron en cada relevo, en UNA consulta (antes una por relevo)
+    salientes = {(s["pais_id"], s.get("dt_id"), s.get("hasta_juego")): s for s in db["dt_cargos"].find(
+        {"hasta_juego": {"$in": [c.get("desde_juego") for c in cambios if c.get("desde_juego")]}},
+        {"pais_id": 1, "dt_id": 1, "hasta_juego": 1, "ganados": 1, "empatados": 1, "perdidos": 1, "cese_por_eliminacion": 1})} if cambios else {}
+    for c in cambios:
         p = paises.get(c["pais_id"], {})
-        saliente = db["dt_cargos"].find_one({"pais_id": c["pais_id"], "dt_id": c.get("reemplaza_a"), "hasta_juego": c.get("desde_juego")},
-                                            {"ganados": 1, "empatados": 1, "perdidos": 1, "cese_por_eliminacion": 1}) or {}
+        saliente = salientes.get((c["pais_id"], c.get("reemplaza_a"), c.get("desde_juego"))) or {}
         salida.append({"pais_id": c["pais_id"], "pais": p.get("nombre"), "bandera": p.get("bandera"),
                        "fecha_txt": fecha_corta(c.get("desde_fecha_juego")), "por_eliminacion": saliente.get("cese_por_eliminacion"),
                        "record_sale": f'{saliente.get("ganados", 0)}-{saliente.get("empatados", 0)}-{saliente.get("perdidos", 0)}' if saliente else None,

@@ -35,9 +35,10 @@ FORMACION_DEFAULT = "4-3-3"   # la única válida con un once de "1 por puesto" 
 # --- Pago por partido (saldo) --------------------------------------------------------------------------------------
 # Cada partido que juega un jugador alineado paga: por jugar + por su desempeño (calificación del partido) + un % de
 # sus puntos fantasy (con la postura de la formación). Con la estampa del jugador en el álbum, todo ×1.5.
-# Por jugar, según la línea: el delantero cobra menos de base porque los goles ya le suman (así ninguna formación paga
-# claramente más que otra; calibrar_fantasy.py).
-PAGO_POR_PARTIDO = {"PORTERO": 25, "DEFENSA": 25, "MEDIO": 25, "DELANTERO": 12}
+# Por jugar, según la línea: el delantero y el medio cobran algo menos de base porque los goles ya les suman (así
+# ninguna formación paga claramente más que otra; calibrar_fantasy.py). Recalibrado cuando los medios pasaron a anotar
+# ~30% de los goles (antes 5%; el delantero cobraba 12): ~65 por jornada en las 8 formaciones.
+PAGO_POR_PARTIDO = {"PORTERO": 25, "DEFENSA": 25, "MEDIO": 22, "DELANTERO": 20}
 FRACCION_SUPLENTE = 0.5            # si entró de cambio
 RATING_BASE_PAGO = 6.8             # = simular_service.RATING_BASE: desde ahí cada punto de calificación paga
 PAGO_POR_PUNTO_RATING = 15
@@ -46,7 +47,7 @@ PORCENTAJE_MONTO_POR_PUNTOS = 0.20
 # la valla invicta vale más en una defensiva.
 # Lo que deja en promedio un equipo armado con titulares de selecciones vivas por jornada (calibrar_fantasy.py: 65-67
 # en cualquier formación). Lo usan la vista y El Profe para estimar cuándo se recupera un desbloqueo.
-PAGO_ESPERADO_JORNADA = 66
+PAGO_ESPERADO_JORNADA = 65
 POSTURA_GOL = 0.10
 POSTURA_VALLA = 0.60
 

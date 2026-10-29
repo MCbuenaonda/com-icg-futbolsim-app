@@ -14,7 +14,7 @@ Colecciones (todas con universo_id, PERMANENTES como el resto de corp_*):
                   de jugadores (todos los universos) con tope por selección y ciclo.
 
 Aficionados reales (paises.aficionados, globales): solo las giras de SELECCIÓN del usuario (+1% a +3%, una cada
-GIRA_ENFRIAMIENTO ciclos por selección entre todos los usuarios) y un aporte mínimo de las giras de jugadores (0 a 10,
+GIRA_ENFRIAMIENTO ciclos por selección entre todos los usuarios) y un aporte de las giras de jugadores (1 a 100,
 tope TOPE_AFICIONADOS_GIRAS_JUGADOR por selección y ciclo). Las giras de selección de la IA no los tocan.
 Las acciones del usuario corren con el candado del universo; el cierre de ciclo, dentro de poner_al_dia.
 """
@@ -178,13 +178,26 @@ def _juega_en_ciclo_activo(pais_id) -> Optional[int]:
     return max(en_ciclo) if en_ciclo else None
 
 
-def _motivo_no_disponible(uid, c: dict, seq: int, ciclo: int, en_curso: list) -> Optional[str]:
+def _filtro_enfriamiento_jugador(uid, seq: int, ciclo: int) -> dict:
+    return {"universo_id": uid, "tipo": "jugador",
+            "$or": [{"hasta_seq": {"$gt": seq - C.GIRA_JUGADOR_ENFRIAMIENTO_PARTIDOS}},
+                    {"hasta_seq": None, "ciclo": {"$gt": ciclo - C.GIRA_JUGADOR_ENFRIAMIENTO}}]}
+
+
+def previas_jugadores(uid, seq: int, ciclo: int) -> dict:
+    """{ref_id: gira} de los jugadores en enfriamiento, en UNA consulta (para listas: antes era una por representado)."""
+    return {g["ref_id"]: g for g in db["corp_giras"].find(_filtro_enfriamiento_jugador(uid, seq, ciclo), {"ref_id": 1, "hasta_seq": 1})}
+
+
+def _motivo_no_disponible(uid, c: dict, seq: int, ciclo: int, en_curso: list, previas: Optional[dict] = None) -> Optional[str]:
+    """previas: lo que devuelve previas_jugadores() (si se pasa, no consulta la base por cada jugador)."""
     if any(g["tipo"] == c["tipo"] and g["ref_id"] == c["ref_id"] for g in en_curso):
         return "Ya está de gira"
     if c["tipo"] == "jugador":
-        previa = db["corp_giras"].find_one({"universo_id": uid, "tipo": "jugador", "ref_id": c["ref_id"],
-                                            "$or": [{"hasta_seq": {"$gt": seq - C.GIRA_JUGADOR_ENFRIAMIENTO_PARTIDOS}},
-                                                    {"hasta_seq": None, "ciclo": {"$gt": ciclo - C.GIRA_JUGADOR_ENFRIAMIENTO}}]})
+        if previas is not None:
+            previa = previas.get(c["ref_id"])
+        else:
+            previa = db["corp_giras"].find_one({**_filtro_enfriamiento_jugador(uid, seq, ciclo), "ref_id": c["ref_id"]})
         if previa:
             falta = (previa.get("hasta_seq") or seq) + C.GIRA_JUGADOR_ENFRIAMIENTO_PARTIDOS - seq
             return f"Volvió de gira hace poco: puede salir en ~{max(1, falta)} partidos"
@@ -202,12 +215,13 @@ def _motivo_no_disponible(uid, c: dict, seq: int, ciclo: int, en_curso: list) ->
     return None
 
 
-def _cotizar(uid, c: dict, seq: int, ciclo: int, en_curso: list) -> dict:
+def _cotizar(uid, c: dict, seq: int, ciclo: int, en_curso: list, previas: Optional[dict] = None) -> dict:
     valor = _valor(c["tipo"], c["ref_id"])
     pais = _pais_de(c["tipo"], c["ref_id"])
     pop = _popularidad(c["tipo"], c["ref_id"], valor)
     base = {"contrato_id": str(c["_id"]), "tipo": c["tipo"], "ref_id": c["ref_id"], "nombre": _nombre(c["tipo"], c["ref_id"]),
-            "pais_id": pais, "motivo": _motivo_no_disponible(uid, c, seq, ciclo, en_curso)}
+            "pais_id": pais, "motivo": _motivo_no_disponible(uid, c, seq, ciclo, en_curso, previas),
+            "satisfaccion": int(round(c.get("satisfaccion") or 0)), "satisfaccion_sube": C.GIRA_SATISFACCION}
     if c["tipo"] == "seleccion":
         lo, hi = C.GIRA_RECAUDACION
         return {**base, "costo": R.gira_costo(valor), "ingreso_min": int(valor * lo * pop / 1.1), "ingreso_max": int(valor * hi * pop / 1.1),
@@ -215,7 +229,8 @@ def _cotizar(uid, c: dict, seq: int, ciclo: int, en_curso: list) -> dict:
     costo = R.gira_jugador_costo_v2(valor)
     retorno = R.gira_jugador_retorno(pop, forma_selecciones().get(pais, 0), _forma_jugador(c))
     return {**base, "costo": costo, "ingreso_min": int(costo * retorno * 0.85), "ingreso_max": int(costo * retorno * 1.15),
-            "retorno": round(retorno, 2), "partidos": C.GIRA_JUGADOR_PARTIDOS, "aficionados_max": C.GIRA_JUGADOR_AFICIONADOS_MAX,
+            "retorno": round(retorno, 2), "partidos": C.GIRA_JUGADOR_PARTIDOS, "aficionados_min": C.GIRA_JUGADOR_AFICIONADOS_MIN,
+            "aficionados_max": C.GIRA_JUGADOR_AFICIONADOS_MAX,
             "forma_seleccion": round(forma_selecciones().get(pais, 0) * 15)}
 
 
@@ -233,7 +248,8 @@ def giras_jugadores(user_id) -> dict:
     universo, sigla, corp = _cargo(user_id)
     ciclo, seq = U.ciclo_en_curso(universo), _seq_universo(universo)
     en_curso = _giras_en_curso(user_id, sigla)
-    jugadores = [_cotizar(user_id, c, seq, ciclo, en_curso) for c in U.contratos_activos(user_id, sigla) if c["tipo"] == "jugador"]
+    previas = previas_jugadores(user_id, seq, ciclo)
+    jugadores = [_cotizar(user_id, c, seq, ciclo, en_curso, previas) for c in U.contratos_activos(user_id, sigla) if c["tipo"] == "jugador"]
     jugadores.sort(key=lambda x: (x["motivo"] is not None, -x["ingreso_max"]))
     return {"jugadores": jugadores, **_limites(user_id, sigla, ciclo, en_curso), "capital": int(corp.get("capital", 0))}
 
@@ -423,6 +439,13 @@ def cerrar_ciclo_acciones(estado, ciclo: int) -> None:
     _procesar_acuerdos(estado, ciclo)   # solo los acuerdos viejos, hasta que venzan
     _procesar_giras(estado, ciclo)
     _ia_acciones(estado, ciclo)
+    try:   # televisoras: representaciones terminadas, eliminadas, ofertas nuevas (corporativo_tv_service)
+        from services import corporativo_marcas_service as M
+        from services.corporativo_tv_service import cerrar_ciclo_tv
+        M.iniciar_lote()
+        cerrar_ciclo_tv(estado, ciclo)
+    except Exception as e:
+        print(f"[corporativos] televisoras del ciclo {ciclo}: {e}")
     try:   # marcas y patrocinios (usa los eventos del ciclo: se limpian después)
         from services.corporativo_marcas_service import cerrar_ciclo_marcas
         cerrar_ciclo_marcas(estado, ciclo)
@@ -529,7 +552,8 @@ def _sumar_aficionados_gira(pais_id, delta: int, motivo: str) -> int:
         return 0
 
 
-def _aporte_agrupado(pais_id, ciclo: int, aporte: int) -> int:
+def _aporte_agrupado(pais_id, ciclo: int, aporte: int, prefijo: str = "", tope: Optional[int] = None,
+                     motivo: Optional[str] = None, clave_historial: str = "giras_jugadores") -> int:
     """
     Giras de jugadores: suma un aporte mínimo a su selección con tope por selección y ciclo (entre todos los
     universos) y deja UN registro por selección y ciclo en historial_aficionados («🌍 Giras de jugadores»).
@@ -537,18 +561,20 @@ def _aporte_agrupado(pais_id, ciclo: int, aporte: int) -> int:
     """
     if pais_id is None:
         return 0
-    clave = f"{pais_id}:{ciclo}"
+    clave = f"{prefijo}{pais_id}:{ciclo}"
+    tope = C.TOPE_AFICIONADOS_GIRAS_JUGADOR if tope is None else tope
+    motivo = motivo or MOTIVO_GIRAS_JUGADORES
     try:
         db["corp_giras_aficionados"].update_one({"_id": clave}, {"$setOnInsert": {"pais_id": pais_id, "ciclo": ciclo, "aficionados": 0, "giras": 0}},
                                                 upsert=True)
     except DuplicateKeyError:
         pass
     doc = db["corp_giras_aficionados"].find_one({"_id": clave}) or {}
-    suma = max(0, min(aporte, C.TOPE_AFICIONADOS_GIRAS_JUGADOR - int(doc.get("aficionados") or 0)))
+    suma = max(0, min(aporte, tope - int(doc.get("aficionados") or 0)))
     if not suma:
         return 0
     act = db["corp_giras_aficionados"].find_one_and_update(
-        {"_id": clave, "aficionados": {"$lte": C.TOPE_AFICIONADOS_GIRAS_JUGADOR - suma}},
+        {"_id": clave, "aficionados": {"$lte": tope - suma}},
         {"$inc": {"aficionados": suma, "giras": 1}}, return_document=ReturnDocument.AFTER)
     if not act:
         return 0
@@ -556,10 +582,11 @@ def _aporte_agrupado(pais_id, ciclo: int, aporte: int) -> int:
         from services.fanbase_service import _aplicar_delta_aficionados
         total = _aplicar_delta_aficionados(db["paises"], pais_id, suma)
         db["historial_aficionados"].update_one(
-            {"_id": f"giras_jugadores:{clave}"},
+            {"_id": f"{clave_historial}:{clave}"},
             {"$set": {"pais_id": pais_id, "partido_id": None, "aficionados_ganados_perdidos": act["aficionados"],
                       "aficionados_totales_resultantes": total,
-                      "motivo": f"{MOTIVO_GIRAS_JUGADORES}: +{act['aficionados']} aficionados ({act['giras']} gira{'s' if act['giras'] > 1 else ''})"},
+                      "motivo": (f"{motivo}: +{act['aficionados']} aficionados ({act['giras']} gira{'s' if act['giras'] > 1 else ''})" if not prefijo else
+                                f"{motivo}: +{act['aficionados']} aficionados ({act['giras']} aparición{'es' if act['giras'] > 1 else ''})")},
              "$setOnInsert": {"created_at": datetime.now()}}, upsert=True)
     except Exception as e:
         print(f"[corporativos] no se pudo registrar el aporte de las giras de jugadores: {e}")
@@ -583,22 +610,60 @@ def _ia_acciones(estado, ciclo: int) -> None:
             _ia_gira(estado, sigla, corp, propios, ciclo, rng)
 
 
+def _giras_recientes(estado, ciclo: int) -> list:
+    """Giras del universo que todavía pesan en las reglas (en curso, del ciclo o en enfriamiento): una consulta por
+    puesta al día; las que organiza la IA después se suman en memoria (las reglas comparan ciclo y partido por sí solas,
+    así que la lista puede crecer sin volver a leer, aunque se procesen varios ciclos antes de escribir el lote)."""
+    if getattr(estado, "_giras_recientes", None) is None:
+        seq = ciclo * C.PARTIDOS_POR_CICLO
+        estado._giras_recientes = list(db["corp_giras"].find(
+            {"universo_id": estado.uid, "$or": [{"estado": "EN_CURSO"},
+                                                {"hasta_seq": {"$gt": seq - C.GIRA_JUGADOR_ENFRIAMIENTO_PARTIDOS}},
+                                                {"ciclo": {"$gt": ciclo - max(C.GIRA_ENFRIAMIENTO, C.GIRA_JUGADOR_ENFRIAMIENTO)}}]},
+            {"sigla": 1, "tipo": 1, "ref_id": 1, "hasta_seq": 1, "ciclo": 1, "estado": 1, "grupo_id": 1}))
+    return estado._giras_recientes
+
+
 def _ia_gira(estado, sigla: str, corp: dict, propios: list, ciclo: int, rng) -> None:
-    """La IA organiza giras v2: una selección sin partidos cerca o 1-2 jugadores (sus giras de selección no suman aficionados)."""
+    """
+    La IA organiza giras v2 con las MISMAS reglas que el usuario (_motivo_no_disponible y _limites): giras simultáneas
+    por grupo, cupo de jugadores por ciclo, máximo por gira, enfriamiento de cada jugador (en partidos) y de cada
+    selección (en ciclos), y un jugador solo sale si su selección ya no juega en el ciclo. Sus giras de selección no
+    suman aficionados reales.
+    """
     seq = ciclo * C.PARTIDOS_POR_CICLO
     giras = _cargar_giras(estado)
-    if sum(1 for g in giras if g["sigla"] == sigla and g["estado"] == "EN_CURSO") >= C.GIRAS_SIMULTANEAS:
+    recientes = _giras_recientes(estado, ciclo)
+    grupos = {g.get("grupo_id") or g["_id"] for g in giras if g["sigla"] == sigla and g["estado"] == "EN_CURSO"}
+    if len(grupos) >= C.GIRAS_SIMULTANEAS:
         return
+    usados = sum(1 for g in recientes if g["sigla"] == sigla and g["tipo"] == "jugador" and g.get("ciclo") == ciclo
+                 and g.get("estado") in ("EN_CURSO", "COBRADA"))
+    cupo = max(0, C.GIRA_JUGADORES_POR_CICLO - usados)
+
+    def _en_enfriamiento(c):
+        for g in recientes:
+            if g["tipo"] != c["tipo"] or g["ref_id"] != c["ref_id"]:
+                continue
+            if c["tipo"] == "jugador":
+                if (g.get("hasta_seq") or 0) > seq - C.GIRA_JUGADOR_ENFRIAMIENTO_PARTIDOS or (
+                        g.get("hasta_seq") is None and (g.get("ciclo") or 0) > ciclo - C.GIRA_JUGADOR_ENFRIAMIENTO):
+                    return True
+            elif (g.get("ciclo") or 0) > ciclo - C.GIRA_ENFRIAMIENTO:
+                return True
+        return False
+
     ocupados = {(g["tipo"], g["ref_id"]) for g in giras if g["estado"] == "EN_CURSO"}
     selecciones = [c for c in propios if c["tipo"] == "seleccion" and (c["tipo"], c["ref_id"]) not in ocupados
+                   and not _en_enfriamiento(c)
                    and (_proximo_partido_en(c["ref_id"]) is None or _proximo_partido_en(c["ref_id"]) >= C.GIRA_SELECCION_PARTIDOS)]
     # Misma regla que el usuario: un jugador sale de gira solo si su selección ya no juega en el ciclo activo
     jugadores = [c for c in propios if c["tipo"] == "jugador" and (c["tipo"], c["ref_id"]) not in ocupados
-                 and _juega_en_ciclo_activo(_pais_de("jugador", c["ref_id"])) is None]
+                 and not _en_enfriamiento(c) and _juega_en_ciclo_activo(_pais_de("jugador", c["ref_id"])) is None] if cupo else []
     if selecciones and rng.random() < 0.5:
         elegidos = [rng.choice(selecciones)]
     elif jugadores:
-        elegidos = rng.sample(jugadores, min(len(jugadores), rng.choice([1, 2])))
+        elegidos = rng.sample(jugadores, min(len(jugadores), rng.choice([1, 2]), cupo, C.GIRA_MAX_JUGADORES))
     else:
         return
     grupo = f"{estado.uid}:{sigla}:g{seq}:ia"
@@ -611,6 +676,7 @@ def _ia_gira(estado, sigla: str, corp: dict, propios: list, ciclo: int, rng) -> 
     for d in docs:
         M._ins("corp_giras", d)
         giras.append(d)
+        recientes.append(d)
     corp["capital"] -= costo
     corp["ciclo_actual"]["gastos_extra"] += costo
 

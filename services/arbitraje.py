@@ -32,6 +32,7 @@ ANADIDO_POR_TIPO = {
     "🟥 TARJETA ROJA": 0.6, "🟨🟥 DOBLE AMARILLA": 0.6,
     "🎯 PENAL": 0.6,
     "🥵 DESGASTE": 0.2,
+    "🚑 LESIÓN": 0.7,
     "🟥 DT EXPULSADO": 0.5,
     "🟨 TARJETA AMARILLA": 0.1,
 }
@@ -192,7 +193,7 @@ ROL_POR_TIPO = {
     "🔄 SUSTITUCIÓN": "cuarto", "⏱️ TIEMPO AÑADIDO": "cuarto", "🖥️ REVISIÓN VAR": "cuarto",
 }
 TIPOS_DECISION_VAR = {"🖥️ VAR - GOL ANULADO", "🖥️ VAR - TARJETA REVISADA", "🖥️ VAR - PENAL ANULADO",
-                      "🖥️ VAR - CONFIRMADO", "🖥️ VAR - ROJA DIRECTA"}
+                      "🖥️ VAR - CONFIRMADO", "🖥️ VAR - ROJA DIRECTA", "🖥️ VAR - PENAL"}
 TIPOS_JUEZ_DE_LINEA = {"🚩 FUERA DE LUGAR", "🚩 SAQUE DE ESQUINA"}
 
 

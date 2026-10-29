@@ -81,7 +81,7 @@ def analizar(juego: dict) -> dict:
     otro = {"L": "V", "V": "L"}
     leyendas = {"L": _leyendas(loc.get("id")), "V": _leyendas(vis.get("id"))}
 
-    goles, rojas, var, cambios, tanda, desgaste = [], [], [], [], [], []
+    goles, rojas, var, cambios, tanda, desgaste, lesiones = [], [], [], [], [], [], []
     atajadas, porteros, amarillas, errores, desviados = Counter(), defaultdict(Counter), Counter(), Counter(), Counter()
     marcador = {"L": 0, "V": 0}
     en_tanda = alargue = False
@@ -176,6 +176,9 @@ def analizar(juego: dict) -> dict:
             cambios.append({"min": m, "adic": ad, "per": per, "seg": seg, "lado": ld, "entra": js[0], "sale": js[1], "leyenda": js[0] in leyendas[ld]})
         elif t == "🥵 DESGASTE" and ld and js:
             desgaste.append({"min": m, "lado": ld, "jugador": js[0]})
+        elif t == "🚑 LESIÓN" and ld and js and e.get("sale_lesionado"):
+            lesiones.append({"min": m, "lado": ld, "jugador": js[0], "lesion": e.get("lesion") or "una lesión",
+                             "sin_cambio": bool(e.get("sin_cambio")), "equipo": e.get("equipo")})
         elif t == "🟥 DT EXPULSADO" and ld:
             dt_expulsiones.append({"min": m, "adic": ad, "per": per, "seg": seg, "lado": ld, "dt": e.get("dt") or ""})
         elif t == "📋 AJUSTE TÁCTICO" and ld:
@@ -195,7 +198,7 @@ def analizar(juego: dict) -> dict:
     titulares = {"L": res.get("titulares_local") or [], "V": res.get("titulares_visitante") or []}
     h = {
         "id": str(juego.get("_id")), "nombre": nombre, "gl": gl, "gv": gv, "pl": pl, "pv": pv, "tanda": tanda, "hubo_tanda": hubo_tanda,
-        "alargue": alargue, "ganador": ganador, "goles": goles, "rojas": rojas, "var": var, "cambios": cambios, "desgaste": desgaste,
+        "alargue": alargue, "ganador": ganador, "goles": goles, "rojas": rojas, "var": var, "cambios": cambios, "desgaste": desgaste, "lesiones": lesiones,
         "atajadas": atajadas, "porteros": porteros, "amarillas": amarillas, "errores": errores, "desviados": desviados,
         "ranking": {"L": loc.get("rankin"), "V": vis.get("rankin")}, "fase_id": juego.get("fase_id"), "fase": _fase(juego.get("fase_id")),
         "grupo": juego.get("grupo"), "confederacion_id": juego.get("confederacion_id"), "tag": juego.get("tag") or "",
@@ -510,6 +513,11 @@ ARBITRO_TARJETAS = {
     "pocas": ["{arb} casi no tuvo que sacar tarjetas: apenas {n_txt}.", "Partido limpio: {arb} mostró apenas {n_txt}."],
 }
 CAMBIOS_LEYENDA = ["Desde el banco entró la leyenda {jug} ({min}) para cambiar la cara de {e}.", "{e} apostó por la experiencia: ingresó {jug}, una leyenda, en el {min}."]
+LESION_FR = ["Mala noticia para {equipo}: {jug} se fue lesionado en el {min}' ({lesion}).",
+             "En el {min}' {jug} tuvo que dejar la cancha por {lesion}.",
+             "El {min}' trajo una baja: {jug}, con {lesion}, no pudo seguir."]
+LESION_SIN_CAMBIO_FR = ["Sin cambios disponibles, {equipo} jugó el resto con uno menos.",
+                        "Como ya no le quedaban cambios, {equipo} terminó con diez."]
 DESGASTE_FR = ["El cansancio se hizo sentir en el tramo final, sobre todo en {jug}.", "En el último cuarto de hora las piernas pesaban: {jug} pedía el cambio a gritos."]
 ALARGUE = ["El empate llevó el partido a la prórroga.", "No alcanzaron los 90 minutos: hubo tiempo extra.", "Fueron necesarios 30 minutos más."]
 TANDA_FR = ["En la tanda, {g} fue más certero: {pg}-{pp}.", "Los penales sonrieron a {g}, que convirtió {pg} contra {pp}.",
@@ -774,6 +782,11 @@ def redactar(h: dict) -> dict:
         parrafos.append(r.choice(SEGUNDO_SIN_GOLES))
     if h["desgaste"] and r.random() < .7:
         parrafos[-1] += " " + r.choice(DESGASTE_FR).format(jug=h["desgaste"][-1]["jugador"])
+    for l in (h.get("lesiones") or [])[:2]:   # lesiones que sacaron a alguien de la cancha (services/lesiones.py)
+        frase = r.choice(LESION_FR).format(jug=l["jugador"], min=l["min"], lesion=l["lesion"], equipo=l["equipo"])
+        if l["sin_cambio"]:
+            frase += " " + r.choice(LESION_SIN_CAMBIO_FR).format(equipo=l["equipo"])
+        parrafos[-1] += " " + frase
 
     # --- Alargue y penales ---
     if h["alargue"]:

@@ -154,6 +154,72 @@
         </div>
     </div>
 
+    <!-- Parte médico (services/lesiones_service.py): la lesión vigente (no juega hasta cumplir sus partidos de baja) y las
+         anteriores; las lesiones las decide el motor durante el partido (services/lesiones.py) -->
+    {% set pm = parte_medico %}
+    {% if pm and (pm.actual.activa or pm.historial) %}
+    <div class="card card-seccion lesion-parte mb-4 {{ 'lesion-parte--activa' if pm.actual.activa }}">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <h3 class="h6 fw-bold mb-0"><i class="bi bi-heart-pulse-fill text-danger me-1"></i>Parte médico</h3>
+                {% if pm.actual.activa %}
+                <span class="badge text-bg-{{ pm.actual.color }}">🚑 Lesionado · {{ pm.actual.baja_texto }}</span>
+                {% else %}
+                <span class="badge text-bg-success">Disponible</span>
+                {% endif %}
+            </div>
+            {% if pm.actual.activa %}
+            <p class="mb-3">
+                <strong class="text-capitalize">{{ pm.actual.nombre }}</strong> ({{ pm.actual.gravedad_nombre | lower }})
+                {% if pm.actual.rival %} en el {{ pm.actual.minuto }}' contra {{ pm.actual.rival }}{% endif %}.
+                No juega hasta que su selección cumpla {{ pm.actual.baja_texto | replace(' de baja', '') }} más.
+            </p>
+            {% endif %}
+            {% if pm.historial %}
+            <span class="historial-grupo">Historial de lesiones</span>
+            <ul class="lesion-parte__lista list-unstyled mb-0">
+                {% for h in pm.historial %}
+                <li>
+                    <span class="lesion-parte__punto lesion-parte__punto--{{ h.gravedad }}" aria-hidden="true"></span>
+                    <span class="text-capitalize">{{ h.nombre }}</span>
+                    <span class="badge rounded-pill text-bg-{{ h.color }} bg-opacity-75">{{ h.gravedad_nombre }}</span>
+                    <small class="text-muted">{{ h.minuto }}'{% if h.rival %} vs {{ h.rival }}{% endif %}{% if h.fecha %} · {{ h.fecha }}{% endif %} · {{ 'sin baja' if not h.partidos else (h.partidos ~ ' partido' ~ ('s' if h.partidos != 1 else '') ~ ' de baja') }}{{ ' · siguió jugando' if not h.salio }}</small>
+                    {% if h.juego_id %}<a href="/juegos/{{ h.juego_id }}" class="small ms-1">ver partido</a>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- En televisión (corporativo_tv_service.invitaciones_de): sus apariciones como invitado especial en las transmisiones
+         de tu universo (la cadena, el partido, lo que cobró su corporativo y los aficionados que sumó) -->
+    {% if puede('corporativos') %}
+    {% set apariciones = apariciones_tv(usuario_actual, jugador.id) %}
+    {% if apariciones %}
+    <div class="card card-seccion mb-4" style="border-left: 3px solid #38bdf8;">
+        <div class="card-body p-3 p-md-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <h3 class="h6 fw-bold mb-0"><i class="bi bi-broadcast text-info me-1"></i>En televisión</h3>
+                <span class="small text-muted">{{ apariciones | selectattr('estado', 'equalto', 'REALIZADA') | list | length }} aparición(es) en tu universo</span>
+            </div>
+            {% for a in apariciones %}
+            <div class="tv-aparicion">
+                <button type="button" class="tv-logo" style="--tv: {{ a.tele.color }};" data-tv-ficha="{{ a.tele.id }}" title="Ver la ficha de {{ a.tele.nombre }}"><img src="{{ a.tele.logo }}" alt="{{ a.tele.nombre }}"></button>
+                <div class="min-w-0 flex-grow-1">
+                    <div class="small fw-semibold text-white">{{ a.tele.nombre }} <span class="text-muted fw-normal">· {{ a.local }} vs {{ a.visita }}</span></div>
+                    <div class="fs-8 text-muted">{{ a.fecha or '' }}{% if a.estado == 'PROGRAMADA' %} · <span class="text-info">próxima aparición</span>{% else %}{% if a.pago %} · su corporativo ({{ a.sigla }}) cobró {{ '{:,}'.format(a.pago) }}{% endif %}{% if a.aficionados %} · +{{ a.aficionados }} aficionados a su selección{% endif %}{% endif %}</div>
+                </div>
+                <a href="/juegos/{{ a.juego_id }}" class="small" title="Ver el partido"><i class="bi bi-chevron-right"></i></a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <script src="/static/js/televisoras.js?v=1" defer></script>
+    {% endif %}
+    {% endif %}
+
     <!-- Evolución de sus especialidades (services/especialidades_service.evolucion_jugador): se ganan y se pierden con el
          rendimiento partido a partido; las leyendas no evolucionan -->
     {% if evolucion and not evolucion.leyenda %}{% set ev = evolucion %}

@@ -1,0 +1,39 @@
+{#
+  Transmisión de un partido en TU universo (corporativo_tv_service.transmisiones vía el global transmision_partido):
+  las cadenas que tienen los derechos de alguna de las dos selecciones y su invitado especial. Requiere tx_juego_id.
+  Detalle previo /simulador/?id=, Scouter y resumen /juegos/{id} (ahí, en pasado).
+#}
+{% if puede('corporativos') %}
+{% set tvs = transmision_partido(usuario_actual, tx_juego_id) %}
+{% if tvs %}
+<div class="card card-seccion mb-4">
+  <div class="card-body p-3">
+    <h2 class="vivo-titulo"><i class="bi bi-broadcast" style="color:#38bdf8;"></i>{{ 'Lo transmitieron' if tx_jugado else 'Transmisión' }}
+      <small class="text-muted fw-normal ms-1">en tu universo · {{ tvs | length }} cadena{{ 's' if tvs | length > 1 }}</small></h2>
+    <div class="tx-bloque">
+      {% for t in tvs %}
+      <div class="tx-cadena" style="--tv: {{ t.tele.color }};">
+        <button type="button" class="tv-logo tv-logo--lg" data-tv-ficha="{{ t.tele.id }}" title="Ver la ficha de {{ t.tele.nombre }}"><img src="{{ t.tele.logo }}" alt="{{ t.tele.nombre }}"></button>
+        <div class="min-w-0">
+          <div class="fw-semibold text-white text-truncate">{{ t.tele.nombre }}</div>
+          <div class="small text-muted">Derechos de {{ t.pais }} · {{ t.tele.nivel_nombre | lower }}</div>
+          {% if t.invitado %}
+          <a class="tx-invitado text-decoration-none" href="/jugadores/{{ t.invitado.jugador_id }}">
+            {{ m.avatar(t.invitado.jugador_id, t.invitado.pais_id, '', t.invitado.nombre) }}
+            <span class="min-w-0"><span class="text-white">{{ 'Invitado' if tx_jugado or t.invitado.estado == 'REALIZADA' else 'Invitado especial' }}: <strong>{{ t.invitado.nombre }}</strong></span>
+              <small class="d-block text-muted">representado por {{ t.invitado.sigla }}{% if t.invitado.pago %} · cobró {{ '{:,}'.format(t.invitado.pago) }}{% endif %}{% if t.invitado.aficionados %} · +{{ t.invitado.aficionados }} aficionados{% endif %}</small></span>
+          </a>
+          {% elif t.decidido %}
+          <div class="tx-invitado text-muted"><i class="bi bi-person-dash"></i>Sin invitado en esta transmisión</div>
+          {% else %}
+          <div class="tx-invitado text-muted"><i class="bi bi-hourglass-split"></i>Invitado por confirmar (se elige cuando falten 3 partidos)</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<script src="/static/js/televisoras.js?v=1" defer></script>
+{% endif %}
+{% endif %}

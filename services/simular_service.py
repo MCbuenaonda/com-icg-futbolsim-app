@@ -6,6 +6,8 @@ from collections import defaultdict
 import random
 from services import reglas_leyendas, desgaste, arbitraje, tecnicos, formaciones as FS
 from services import especialidades as ES
+from services import lesiones as LS
+from config import lesiones as CL
 from config import especialidades as CE_ESP
 from config import formaciones as CF
 
@@ -24,8 +26,14 @@ POSICIONES = {
 # y se resuelven como tiro libre (ver ejecutar_tiro_libre) -- el resto sigue el flujo normal
 # de falta (la pelota queda con el equipo infringido, sin remate).
 PROB_TIRO_LIBRE_PELIGROSO = 0.30
+# Un defensa especialista en tiros libres cobra solo esta fracción; el resto, el mejor medio o delantero
+PROB_TL_ESPECIALISTA_DEFENSA = 0.25
+PROB_TL_MEDIO = 0.6   # sin especialista (o si cede): el mejor medio cobra este porcentaje, el mejor delantero el resto
 # Falta en el tercio de ataque que fue DENTRO del área: penal en juego (lo cobra el central, el VAR puede revisarlo)
-PROB_PENAL_FALTA_ATAQUE = 0.011
+PROB_PENAL_FALTA_ATAQUE = 0.013
+# Falta en ataque que el central cobró afuera y el VAR convierte en penal (se multiplica por la intervención del VAR).
+# Con las dos: ~0,30 penales por partido (antes 0,19; en el fútbol real 0,28-0,36). calibrar_inferioridad.py --penales
+PROB_PENAL_VAR = 0.0025
 # Fuera de lugar por posesión en zona de ataque (antes 0.05 = ~20 por partido; el real es 3-5)
 PROB_FUERA_DE_LUGAR = 0.0095
 # Roja directa que cobra el central, y la que ve solo el VAR sobre una falta simple (ambas x agresividad x rigor)
@@ -226,7 +234,7 @@ FRASES_PREPARACION_CORNER = [
 ]
 
 # funcion para seleccionar plantilla titular
-def seleccionar_plantilla_titular(plantilla_db: list, esquema="4-3-3", pesos_leyendas=None) -> list:
+def seleccionar_plantilla_titular(plantilla_db: list, esquema="4-3-3", pesos_leyendas=None, espejo: bool = False) -> list:
     """
     Un titular por posición (posicion_id 1..11, cada uno en la línea que marca la formación).
     Leyendas (ver services/reglas_leyendas.py): el DT sortea cuántas arrancan (0 a 3) y en qué
@@ -234,7 +242,8 @@ def seleccionar_plantilla_titular(plantilla_db: list, esquema="4-3-3", pesos_ley
     banco. Todos los demás puestos salen como siempre, al azar
     entre los jugadores normales de esa posición.
     """
-    formacion_objetivo = FORMACIONES.get(esquema, FORMACIONES["4-3-3"])
+    # espejo: en los esquemas de dos puntas, cuál de los extremos va arriba (services/formaciones.lineas)
+    formacion_objetivo = FS.lineas(esquema if esquema in FORMACIONES else "4-3-3", espejo)
     titulares = []
     leyendas = [j for j in plantilla_db if reglas_leyendas.es_leyenda(j)]
     jugadores_disponibles = [j for j in plantilla_db if not reglas_leyendas.es_leyenda(j)]
@@ -450,8 +459,22 @@ def ejecutar_tiro_libre(equipo_atacante: dict, defensor_marcador: dict, portero_
     # sin usar hasta ahora); si no hay, el de mejor precisión + potencia de disparo -- mismo
     # criterio que ya usa simular_tanda_penaltis para ordenar cobradores de penal.
     especialistas = [j for j in candidatos if j.get("especialista_tiros_libres")]
-    pool = especialistas if especialistas else candidatos
-    cobrador = max(pool, key=lambda j: j.get("precision_tiro", 60) + j.get("fuerza_disparo", 60))
+    # Si el especialista es un defensa, a veces le cede el cobro a un medio o delantero (en el fútbol real los tiros
+    # libres los patean sobre todo ellos; los defensas hacían ~40% de sus goles de tiro libre)
+    if especialistas and (especialistas[0].get("linea_partido") != 2 or random.random() < PROB_TL_ESPECIALISTA_DEFENSA):
+        pool = especialistas
+        cobrador = max(pool, key=lambda j: j.get("precision_tiro", 60) + j.get("fuerza_disparo", 60))
+    else:
+        # el mejor medio o el mejor delantero (más seguido el medio, como en el fútbol real)
+        def _mejor(linea):
+            de_linea = [j for j in candidatos if j.get("linea_partido") == linea]
+            return max(de_linea, key=lambda j: j.get("precision_tiro", 60) + j.get("fuerza_disparo", 60)) if de_linea else None
+        medio, delantero = _mejor(3), _mejor(4)
+        opciones = [j for j in (medio, delantero) if j]
+        if len(opciones) == 2:
+            cobrador = medio if random.random() < PROB_TL_MEDIO else delantero
+        else:
+            cobrador = opciones[0] if opciones else max(candidatos, key=lambda j: j.get("precision_tiro", 60) + j.get("fuerza_disparo", 60))
 
     nombre_equipo = equipo_atacante["nombre"]
 
@@ -652,12 +675,20 @@ PROB_LEYENDA_SI_PIERDE = 0.7
 UMBRAL_CAMBIO_ENERGIA = 45
 PROB_CAMBIO_BASE = 0.025
 PROB_CAMBIO_POR_CANSANCIO = 0.35
+# Quién recibe un pase en la zona de ataque, por línea (4 delanteros, 3 medios que llegan, 2 defensas que suben).
+# Calibrado con calibrar_inferioridad.py --goles: reparto de goles por línea cercano al real (~50% delanteros,
+# ~30% medios, ~15% defensas).
+RECEPTOR_ATAQUE = {4: 0.55, 3: 0.38, 2: 0.07}
+TIRO_MEDIO_ATAQUE = 6   # peso del remate de un medio con la pelota en la zona de ataque (delantero 7, defensa 3)
+# Cada cuánto (segundos de juego) se guarda la energía de cada jugador para la transmisión en vivo
+MUESTREO_ENERGIA = 120
 
 
 def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: int, max_cambios: int, segundos_acumulados: float, stats_jugadores: dict, eventos_visibles: dict, arbitros: dict, zona_balon: str, va_perdiendo: bool = False,
-                         situacion: str = "", lectura: float = 0.0):
+                         situacion: str = "", lectura: float = 0.0, sale_forzado: dict = None):
     """Procesa el cambio de un jugador titular por uno de la banca. Se invoca solo en paradas
-    de juego del 2º tiempo -- ver el llamador en simular_partido_realista."""
+    de juego del 2º tiempo -- ver el llamador en simular_partido_realista -- o, con 'sale_forzado', cuando un
+    jugador se lesiona (cualquier minuto, también el arquero: entra uno de su posición si hay)."""
     if sustituciones_realizadas >= max_cambios:
         return sustituciones_realizadas
 
@@ -673,6 +704,11 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
         j for j in titulares
         if j.get("linea_partido") != 1 and not stats_jugadores[j["id"]].get("expulsado", False) and not stats_jugadores[j["id"]].get("entro_de_cambio", False)
     ]
+    if sale_forzado is not None:
+        if sale_forzado not in titulares:
+            return sustituciones_realizadas
+        candidatos_salir = [sale_forzado]
+        va_perdiendo, situacion = False, ""   # por lesión: entra el de su posición, sin buscar una leyenda
 
     if not candidatos_salir:
         return sustituciones_realizadas
@@ -703,6 +739,9 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
         j for j in banca
         if reglas_leyendas.puede_entrar(j, sale_jugador, titulares, expulsados)
     ]
+    if sale_forzado is not None and sale_jugador.get("linea_partido") == 1:
+        # Arquero lesionado: entra el arquero suplente (si no hay, cualquiera se pone los guantes)
+        habilitados = [j for j in habilitados if j.get("posicion_id") == sale_jugador.get("posicion_id")] or habilitados
     if not habilitados:
         return sustituciones_realizadas
 
@@ -755,9 +794,14 @@ def realizar_sustitucion(equipo: dict, bancas: dict, sustituciones_realizadas: i
         "atajadas_penales": 0,
         "lado": stats_jugadores[sale_jugador["id"]]["lado"]
     }
+    if linea_saliente == 1:   # arquero que entra por un arquero lesionado: sus métricas de portero
+        stats_jugadores[entra_jugador["id"]].update({"atajadas": 0, "desvios": 0, "goles_encajados": 0, "errores_graves": 0})
 
     motivo_cambio = ""
-    if especialidad_cambio and situacion in CE_ESP.TEXTO_CAMBIO:
+    if sale_forzado is not None:
+        motivo_cambio = f" {sale_jugador['nombre']} sale lesionado."
+        especialidad_cambio = None
+    elif especialidad_cambio and situacion in CE_ESP.TEXTO_CAMBIO:
         motivo_cambio = " " + CE_ESP.TEXTO_CAMBIO[situacion].format(e=entra_jugador["nombre"], esp=CE_ESP.ESPECIALIDADES[especialidad_cambio]["nombre"])
     eventos_visibles.append(construir_evento(
         segundos_acumulados, equipo["nombre"], "🔄 SUSTITUCIÓN",
@@ -1073,6 +1117,14 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
     plantilla_local_temp = list(collection.find({"pais_id": id_local}))
     plantilla_visitante_temp = list(collection.find({"pais_id": id_visitante}))
+    # Los lesionados con partidos de baja (services/lesiones_service.py) no juegan: ni titulares ni en el banco
+    def _de_baja(j):
+        return int((j.get("lesion") or {}).get("restantes") or 0) > 0
+    bajas_lesion = [{"jugador_id": j["id"], "nombre": j["nombre"], "pais_id": j.get("pais_id"),
+                     "lesion": (j.get("lesion") or {}).get("nombre"), "restantes": j["lesion"]["restantes"]}
+                    for j in plantilla_local_temp + plantilla_visitante_temp if _de_baja(j)]
+    plantilla_local_temp = [j for j in plantilla_local_temp if not _de_baja(j)]
+    plantilla_visitante_temp = [j for j in plantilla_visitante_temp if not _de_baja(j)]
     if tiempo_extra:   # eliminación directa o serie: rige la especialidad «Partidos grandes» (services/especialidades.py)
         for j in plantilla_local_temp + plantilla_visitante_temp:
             j["_partido_grande"] = True
@@ -1089,11 +1141,13 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                 plan.update(esquema=esq, postura=FS.postura(esq), etiqueta=FS.datos(esq)["etiqueta"], motivo="(forzado)")
     tactica_elegida_local, tactica_elegida_visita = plan_local["esquema"], plan_visita["esquema"]
 
-    # 11 titulares
+    # 11 titulares. En los esquemas de dos puntas cada equipo sortea qué extremo va arriba (config/formaciones.SLOTS_EXTREMOS)
+    espejo_local, espejo_visita = random.random() < 0.5, random.random() < 0.5
     plantilla_local = seleccionar_plantilla_titular(plantilla_local_temp, esquema=tactica_elegida_local,
-                                                    pesos_leyendas=tecnicos.pesos_cantidad_leyendas(dt_local))
+                                                    pesos_leyendas=tecnicos.pesos_cantidad_leyendas(dt_local), espejo=espejo_local)
     plantilla_visitante = seleccionar_plantilla_titular(plantilla_visitante_temp, esquema=tactica_elegida_visita,
-                                                        pesos_leyendas=tecnicos.pesos_cantidad_leyendas(dt_visita))
+                                                        pesos_leyendas=tecnicos.pesos_cantidad_leyendas(dt_visita), espejo=espejo_visita)
+    espejo_por_equipo = {pais_local["nombre"]: espejo_local, pais_visitante["nombre"]: espejo_visita}
 
     # Nombres del 11 inicial, capturados ANTES de que 'plantilla_local'/'plantilla_visitante'
     # empiecen a mutar con sustituciones/expulsiones (son la misma lista que queda referenciada
@@ -1213,6 +1267,73 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     fin_descuento = None
 
     ultimo_tick_desgaste = 0.0
+    # Curva de energía de cada jugador ({id: [[segundo, energía], ...]}, cada MUESTREO_ENERGIA segundos): la
+    # transmisión en vivo muestra el desgaste de cada uno al minuto que se está revelando
+    curva_energia = {}
+    ultimo_muestreo = -MUESTREO_ENERGIA
+    lesiones_partido = []
+
+    def _muestrear_energia(forzar=False):
+        nonlocal ultimo_muestreo
+        if not forzar and segundos_acumulados - ultimo_muestreo < MUESTREO_ENERGIA:
+            return
+        ultimo_muestreo = segundos_acumulados
+        for j in equipo_local["plantilla"] + equipo_visitante["plantilla"]:
+            serie = curva_energia.setdefault(str(j["id"]), [])
+            valor = int(round(j.get("energia", 100)))
+            if not serie or serie[-1][1] != valor or forzar:
+                serie.append([int(segundos_acumulados), valor])
+
+    def _lesionar(jugador, equipo, origen):
+        """Un jugador se lesiona (services/lesiones.py): se narra, y si no puede seguir sale (cambio forzado o, sin
+        cambios, su equipo se queda con uno menos). Devuelve True si salió de la cancha."""
+        nonlocal segundos_acumulados, jugador_con_balon, portero_local, portero_visitante
+        st = stats_jugadores.get(jugador["id"])
+        if not st or st.get("lesion") or jugador not in equipo["plantilla"]:
+            return False
+        nombre_eq = equipo["nombre"]
+        les = LS.sortear(origen)
+        es_portero = jugador.get("linea_partido") == 1
+        con_cambio = cambios_realizados[nombre_eq] < max_cambios and bool(bancas[nombre_eq])
+        sale = LS.debe_salir(les["gravedad"])
+        if not con_cambio and (es_portero or les["gravedad"] != "grave"):
+            sale = False   # sin cambios solo deja la cancha una lesión grave (y el arquero aguanta siempre: nadie más va al arco)
+        segundos_acumulados += _costo_segundos(CL.SEGUNDOS_ATENCION)
+        evento = construir_evento(
+            segundos_acumulados, nombre_eq, "🚑 LESIÓN",
+            LS.texto_evento(jugador["nombre"], les, origen, sale, con_cambio, nombre_eq, es_portero),
+            [jugador["nombre"]], zona_balon, lesion=les["nombre"], gravedad=les["gravedad"], sale_lesionado=sale,
+            sin_cambio=bool(sale and not con_cambio))
+        eventos_visibles.append(evento)
+        st["lesion"] = {**les, "minuto": int(segundos_acumulados // 60), "origen": origen, "salio": sale}
+        lesiones_partido.append({"jugador_id": jugador["id"], "jugador_nombre": jugador["nombre"], "equipo": nombre_eq,
+                                 "lado": st.get("lado"), "pais_id": jugador.get("pais_id"), "origen": origen,
+                                 "minuto": int(segundos_acumulados // 60), "salio": sale, **les})
+        if not sale:
+            desgaste.golpe(jugador, CL.ENERGIA_TOCADO)
+            return False
+        if con_cambio:
+            antes = cambios_realizados[nombre_eq]
+            cambios_realizados[nombre_eq] = realizar_sustitucion(
+                equipo, bancas, antes, max_cambios, segundos_acumulados, stats_jugadores, eventos_visibles, arbitros,
+                zona_balon, sale_forzado=jugador)
+            if cambios_realizados[nombre_eq] == antes:   # nadie habilitado para entrar (regla de leyendas)
+                evento["sin_cambio"] = True
+                evento["descripcion"] = evento["descripcion"].replace(CL.TEXTO_SALE_CAMBIO, LS.texto_sin_cambio(nombre_eq))
+            elif bancos[nombre_eq].activo:
+                bancos[nombre_eq].aplicar(equipo["plantilla"])
+        if jugador in equipo["plantilla"]:   # sin cambio: se va y su equipo sigue con uno menos
+            equipo["plantilla"].remove(jugador)
+        st["salio_lesionado"] = True
+        st["energia_final"] = round(jugador.get("energia", 100), 1)
+        # Referencias del motor que podían apuntar al que salió
+        portero_local = next((j for j in equipo_local["plantilla"] if j.get("linea_partido") == 1), portero_local)
+        portero_visitante = next((j for j in equipo_visitante["plantilla"] if j.get("linea_partido") == 1), portero_visitante)
+        if jugador_con_balon is jugador:
+            de_campo = [j for j in equipo["plantilla"] if j.get("linea_partido") != 1]
+            jugador_con_balon = random.choice(de_campo or equipo["plantilla"])
+        _muestrear_energia(forzar=True)
+        return True
 
     def _avisar_cansancio(jugadores_fundidos):
         for jf in jugadores_fundidos:
@@ -1223,9 +1344,20 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                 [jf["nombre"]], zona_balon
             ))
 
-    def _penal_en_juego(infractor, victima):
-        """Falta dentro del área: el central marca penal y patea el especialista (o el mejor) del equipo atacante."""
+    def _penal_en_juego(infractor, victima, por_var=False):
+        """Falta dentro del área: el central marca penal y patea el especialista (o el mejor) del equipo atacante.
+        por_var: el central había cobrado afuera (o dejado seguir) y el VAR lo llama al monitor."""
         nonlocal segundos_acumulados
+        if por_var:
+            eventos_visibles.append(construir_evento(
+                segundos_acumulados, equipo_con_balon["nombre"], "🖥️ REVISIÓN VAR",
+                arbitraje.texto_pedido(arbitros, "falta", infractor["nombre"]), [infractor["nombre"]], "ataque"))
+            segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_VAR_ROJA_PENAL)
+            eventos_visibles.append(construir_evento(
+                segundos_acumulados, equipo_con_balon["nombre"], "🖥️ VAR - PENAL",
+                f"{arbitros['var']} llama a {arbitros['central']} al monitor: el contacto de {infractor['nombre']} sobre "
+                f"{victima['nombre']} fue dentro del área. ¡Penal!", [victima["nombre"], infractor["nombre"]], "ataque",
+                arbitro_rol="var", arbitros=arbitros, var_decision="revierte"))
         pateadores = [j for j in equipo_con_balon["plantilla"] if j.get("linea_partido") != 1] or equipo_con_balon["plantilla"]
         tirador = min(pateadores, key=lambda j: (0 if j.get("especialista_penales") else 1,
                                                  -(j.get("precision_tiro", 60) + j.get("compostura", 60))))
@@ -1290,7 +1422,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     texto_ajuste = tecnicos.texto(tecnicos.TEXTOS_AJUSTE[nuevo], dt=banco.nombre, equipo=eq["nombre"])
                     extra_esquema = {}
                     if a != de:
-                        FS.reasignar_lineas(eq["plantilla"], a)
+                        FS.reasignar_lineas(eq["plantilla"], a, espejo_por_equipo[eq["nombre"]])
                         tactica_por_equipo[eq["nombre"]] = a
                         plan["cambios"].append({"minuto": int(minuto), "de": de, "a": a, "ajuste": nuevo})
                         texto_ajuste += f" Pasa del {de} al {a}."
@@ -1361,9 +1493,20 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
         # --- DESGASTE POR TIEMPO JUGADO (cada ~30s de reloj) ---
         if segundos_acumulados - ultimo_tick_desgaste >= 30:
-            _avisar_cansancio(desgaste.paso_del_tiempo(
-                equipo_local["plantilla"] + equipo_visitante["plantilla"], segundos_acumulados - ultimo_tick_desgaste, mod_desgaste))
+            tramo = segundos_acumulados - ultimo_tick_desgaste
+            # Con uno menos los que quedan corren más (config/formaciones.FACTOR_DESGASTE_INFERIORIDAD)
+            for eq_t in (equipo_local, equipo_visitante):
+                extra = 1 + CF.FACTOR_DESGASTE_INFERIORIDAD * FS.faltan(FS.cuentas(eq_t["plantilla"]))
+                _avisar_cansancio(desgaste.paso_del_tiempo(eq_t["plantilla"], tramo, mod_desgaste * extra))
             ultimo_tick_desgaste = segundos_acumulados
+            # Lesión muscular: solo los que tienen poca energía (services/lesiones.py); a lo sumo una por tramo
+            en_riesgo = [(j, eq) for eq in (equipo_local, equipo_visitante) for j in eq["plantilla"]
+                         if j.get("linea_partido") != 1 and j.get("energia", 100) < CL.UMBRAL_MUSCULAR]
+            for j, eq in en_riesgo:
+                if random.random() < LS.prob_muscular(j.get("energia", 100), j.get("edad"), tramo):
+                    _lesionar(j, eq, "muscular")
+                    break
+            _muestrear_energia()
 
         if hay_dt:
             _turno_dt()
@@ -1435,6 +1578,9 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
         if zona_balon == "ataque":
             if posicion_jugador == 4:
                 opciones, pesos = ["tiro", "regate", "pase"], [7, 31, 62]
+            elif posicion_jugador == 3:
+                # el medio que llega al área también remata (RECEPTOR_ATAQUE)
+                opciones, pesos = ["tiro", "pase", "regate"], [TIRO_MEDIO_ATAQUE, 64, 30]
             else:
                 opciones, pesos = ["tiro", "pase", "regate"], [3, 67, 30]
 
@@ -1485,6 +1631,10 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     zona_balon = "medio"
 
                 siguiente_linea = 4 if zona_balon == "ataque" else (3 if zona_balon == "medio" else 2)
+                if zona_balon == "ataque":
+                    # En ataque también llegan los medios (y a veces un defensa que sube): antes recibían solo los delanteros
+                    # y los medios hacían ~5% de los goles (en el fútbol real, ~30%). RECEPTOR_ATAQUE
+                    siguiente_linea = random.choices(list(RECEPTOR_ATAQUE), weights=list(RECEPTOR_ATAQUE.values()))[0]
                 candidatos = [j for j in equipo_con_balon["plantilla"] if j.get("linea_partido") == siguiente_linea and j["id"] != jugador_con_balon["id"]]
 
                 if not candidatos:
@@ -1610,6 +1760,12 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                             ))
                             procesar_expulsion(defensor_marcador, equipo_defensor, stats_jugadores, eventos_visibles, segundos_acumulados, zona_balon, es_doble_amarilla=False)
 
+                    # ¿La víctima se lesiona? (services/lesiones.py) Se resuelve al reanudar, después del tiro libre o penal
+                    lesion_pendiente = None
+                    if random.random() < LS.prob_por_falta(defensor_marcador.get("agresividad", 60),
+                                                           roja=stats_jugadores[defensor_marcador["id"]].get("expulsado", False)):
+                        lesion_pendiente = (jugador_con_balon, equipo_con_balon)
+
                     # Falta en el tercio de ataque: probabilidad de que sea un tiro libre
                     # directo en posición de disparo (ver PROB_TIRO_LIBRE_PELIGROSO y
                     # ejecutar_tiro_libre), en vez de solo continuar el juego con la pelota.
@@ -1620,6 +1776,8 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     resultado_tl = None
                     if zona_balon == "ataque" and random.random() < PROB_PENAL_FALTA_ATAQUE:
                         resultado_tl = _penal_en_juego(defensor_marcador, jugador_con_balon)
+                    elif zona_balon == "ataque" and random.random() < PROB_PENAL_VAR * var_revisa:
+                        resultado_tl = _penal_en_juego(defensor_marcador, jugador_con_balon, por_var=True)
                     elif zona_balon == "ataque" and random.random() < PROB_TIRO_LIBRE_PELIGROSO:
                         resultado_tl, _, segundos_acumulados = ejecutar_tiro_libre(
                             equipo_con_balon, defensor_marcador, portero_rival, equipo_defensor,
@@ -1640,6 +1798,8 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                             jugador_con_balon = portero_rival
                             zona_balon = "defensa"
                         posible_asistente = None
+                        if lesion_pendiente:
+                            _lesionar(*lesion_pendiente, "contacto")
                         _intentar_sustitucion()
                         continue
 
@@ -1648,6 +1808,8 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     # Antes esta rama caía en el mismo swap de posesión de más abajo que un robo
                     # de balón limpio, como si cometer la falta premiara al infractor con el
                     # balón (se veía como un cambio de posesión ilógico en la cronología).
+                    if lesion_pendiente:
+                        _lesionar(*lesion_pendiente, "contacto")
                     _intentar_sustitucion()
                     continue
 
@@ -1784,6 +1946,12 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                             [defensor_marcador["nombre"], jugador_con_balon["nombre"]], zona_balon
                         ))
 
+                    # ¿La víctima se lesiona? (services/lesiones.py) Se resuelve al reanudar, después del tiro libre o penal
+                    lesion_pendiente = None
+                    if random.random() < LS.prob_por_falta(defensor_marcador.get("agresividad", 60),
+                                                           roja=stats_jugadores[defensor_marcador["id"]].get("expulsado", False)):
+                        lesion_pendiente = (jugador_con_balon, equipo_con_balon)
+
                     # Mismo caso que en la rama de "pase fallido": posibilidad de tiro libre
                     # directo si la falta fue en el tercio de ataque. Esta rama NO reasigna
                     # 'zona_balon' en el hand-off normal de más abajo, así que aquí todavía vale
@@ -1791,6 +1959,8 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     resultado_tl = None
                     if zona_balon == "ataque" and random.random() < PROB_PENAL_FALTA_ATAQUE:
                         resultado_tl = _penal_en_juego(defensor_marcador, jugador_con_balon)
+                    elif zona_balon == "ataque" and random.random() < PROB_PENAL_VAR * var_revisa:
+                        resultado_tl = _penal_en_juego(defensor_marcador, jugador_con_balon, por_var=True)
                     elif zona_balon == "ataque" and random.random() < PROB_TIRO_LIBRE_PELIGROSO:
                         resultado_tl, _, segundos_acumulados = ejecutar_tiro_libre(
                             equipo_con_balon, defensor_marcador, portero_rival, equipo_defensor,
@@ -1811,12 +1981,16 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                             jugador_con_balon = portero_rival
                             zona_balon = "defensa"
                         posible_asistente = None
+                        if lesion_pendiente:
+                            _lesionar(*lesion_pendiente, "contacto")
                         _intentar_sustitucion()
                         continue
 
                     # Mismo criterio que en la rama de "pase fallido": si no hubo tiro libre
                     # directo, el equipo ATACANTE (el que sufrió la falta) conserva la pelota y
                     # reanuda con un tiro libre indirecto/rápido -- no es un cambio de posesión.
+                    if lesion_pendiente:
+                        _lesionar(*lesion_pendiente, "contacto")
                     _intentar_sustitucion()
                     continue
 
@@ -2044,6 +2218,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     eventos_visibles.append(construir_evento(
         segundos_final, "Árbitro", "🏁 PITIDO FINAL", descripcion_final, [], zona_balon, periodo=periodo_actual
     ))
+    _muestrear_energia(forzar=True)
 
     # -------------------------------------------------------------------------
     # EVALUACIÓN DE TANDA DE PENALTIS
@@ -2097,7 +2272,14 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
         "marcador_global_local": goles_local + goles_ida_local,
         "marcador_global_visita": goles_visitante + goles_ida_visita,
         "titulares_local": nombres_titulares_local,
-        "titulares_visitante": nombres_titulares_visitante
+        "titulares_visitante": nombres_titulares_visitante,
+        # Lesiones del partido (services/lesiones.py; las bajas las aplica services/lesiones_service.py al terminar),
+        # los que no pudieron jugar por una lesión anterior y la curva de energía de cada jugador (transmisión en vivo)
+        "lesiones": lesiones_partido,
+        # Qué extremo jugó de segundo delantero en cada lado (la cancha en vivo dibuja las líneas con esto)
+        "espejo_extremos": {"local": espejo_local, "visita": espejo_visita},
+        "bajas_lesion": bajas_lesion,
+        "energia": curva_energia,
     }
 
     # Generar la opinión periodística final

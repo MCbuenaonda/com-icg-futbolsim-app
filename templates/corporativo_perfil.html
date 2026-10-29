@@ -36,6 +36,22 @@
 {% endif %}
 {%- endmacro %}
 
+{% macro datos_cartera(x, tipo) -%}
+{%- set jg = x.juego or {} -%}
+{%- set flags = [] -%}
+{%- if jg.estado == 'programado' and jg.en_ciclos == 0 %}{% set _ = flags.append('pronto') %}{% endif -%}
+{%- if jg.estado == 'eliminada' %}{% set _ = flags.append('eliminada') %}{% endif -%}
+{%- if x.de_gira %}{% set _ = flags.append('gira') %}{% elif x.gira_ok %}{% set _ = flags.append('gira_ok') %}{% endif -%}
+{%- if x.marcas %}{% set _ = flags.append('marca') %}{% endif -%}
+{%- if x.tv %}{% set _ = flags.append('tv') %}{% endif -%}
+{%- if x.senal and x.senal.renovacion %}{% set _ = flags.append('renov') %}{% endif -%}
+{%- if x.senal and x.senal.senal == 'vender' %}{% set _ = flags.append('vender') %}{% endif -%}
+{%- if x.ciclos_restantes is not none and x.ciclos_restantes <= 2 %}{% set _ = flags.append('vence') %}{% endif -%}
+data-cartera="1" data-tipo="{{ tipo }}" data-nombre="{{ (x.nombre ~ ' ' ~ (x.pais or '')) | lower }}" data-conf="{{ x.conf_sigla or '' }}"
+data-valor="{{ x.valor or 0 }}" data-neto="{{ x.neto or 0 }}" data-ciclos="{{ x.ciclos_restantes or 0 }}" data-satis="{{ x.satisfaccion or 0 }}"
+data-faltan="{{ jg.faltan if jg.estado == 'programado' and jg.faltan is not none else 9999 }}" data-flags="{{ flags | join(' ') }}"
+{%- endmacro %}
+
 {% macro detalle_contrato(x) -%}
 <div class="corp-contrato">
   <div class="corp-contrato__datos">
@@ -44,6 +60,9 @@
     <span title="Patrocinio por ciclo, juegue o no">Patrocinio <strong class="text-info">+{{ '{:,}'.format(x.patrocinio) }}</strong></span>
     <span title="Honorario esperado por ciclo: mantenimiento + partidos jugados">Honorario <strong>{{ '{:,}'.format(x.honorario) }}</strong>/ciclo</span>
     {% if x.marcas %}<span class="corp-marcas" title="Marcas que lo patrocinan">{% for mk in x.marcas %}<img src="{{ mk.logo }}" alt="{{ mk.nombre }}" style="--marca: {{ mk.color }};" class="corp-marca-logo {{ 'corp-marca-logo--riesgo' if mk.aviso }}" title="{{ mk.nombre }}: {{ '{:,}'.format(mk.pago_ciclo) }} por ciclo hasta el ciclo {{ mk.hasta_ciclo }}{{ ' · ¡revisando el patrocinio!' if mk.aviso }}">{% endfor %}</span>{% endif %}
+    {% if x.invitado_tv %}<button type="button" class="tv-mini" style="--tv: {{ x.invitado_tv.tele.color }};" data-tv-ficha="{{ x.invitado_tv.tele.id }}" title="Invitado especial de {{ x.invitado_tv.tele.nombre }} ({{ x.invitado_tv.fecha }}): cobra al jugarse el partido"><img src="{{ x.invitado_tv.tele.logo }}" alt=""><i class="bi bi-person-video3"></i>Invitado</button>{% endif %}
+    {% if x.tv %}<button type="button" class="tv-mini" style="--tv: {{ x.tv.color }};" data-tv-ficha="{{ x.tv.id }}" title="La transmite {{ x.tv.nombre }}: {{ x.tv.jugados }} de {{ x.tv.partidos }} partidos del contrato"><img src="{{ x.tv.logo }}" alt="">{{ x.tv.jugados }}/{{ x.tv.partidos }}</button>
+    {% elif x.tipo_contrato == 'seleccion' %}<a href="/corporativo/televisoras" class="tv-mini text-decoration-none" title="Sin televisora: las cadenas de su país ofertan al cierre de cada ciclo"><i class="bi bi-broadcast"></i>Sin TV</a>{% endif %}
     {% if x.acuerdo %}<span class="corp-marca" style="--marca: {{ x.acuerdo.colores[0] }};" title="Acuerdo publicitario hasta el ciclo {{ x.acuerdo.hasta_ciclo }}"><i class="bi bi-badge-ad-fill"></i>{{ x.acuerdo.marca }} +{{ '{:,}'.format(x.acuerdo.pago_ciclo) }}</span>{% endif %}
     <span title="Satisfacción del representado: por debajo de 30 pide salir">
       <i class="bi bi-emoji-{{ 'smile' if x.satisfaccion >= 60 else ('neutral' if x.satisfaccion >= 30 else 'frown') }}-fill {{ 'text-success' if x.satisfaccion >= 60 else ('text-warning' if x.satisfaccion >= 30 else 'text-danger') }}"></i> {{ x.satisfaccion }}</span>
@@ -144,11 +163,63 @@
     </div>
     {% endif %}
   </div>
-  <h2 class="vivo-titulo"><i class="bi bi-flag-fill text-success"></i>Selecciones representadas <span class="text-muted small fw-normal">({{ selecciones | length }})</span></h2>
+  <!-- Filtros y orden de la cartera (en el navegador, sin recargar): busca por nombre o país, filtra por tipo,
+       confederación y situación (juega pronto, de gira, con marca, pide renovación...) y ordena -->
+  {% set confs = ((selecciones + jugadores) | map(attribute='conf_sigla') | select | unique | sort | list) %}
+  <div class="card panel-filtros corp-filtros mb-3" id="filtrosCartera">
+    <div class="card-body p-2 p-md-3">
+      <div class="row g-2 align-items-center">
+        <div class="col-12 col-md-4">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="search" id="fcBuscar" class="form-control" placeholder="Buscar por nombre o país…" aria-label="Buscar representado">
+          </div>
+        </div>
+        <div class="col-6 col-md-2">
+          <select id="fcTipo" class="form-select form-select-sm" aria-label="Tipo">
+            <option value="">Todos</option><option value="seleccion">Selecciones</option><option value="jugador">Jugadores</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <select id="fcConf" class="form-select form-select-sm" aria-label="Confederación">
+            <option value="">Toda confederación</option>
+            {% for c in confs %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-8 col-md-3">
+          <select id="fcOrden" class="form-select form-select-sm" aria-label="Ordenar por">
+            <option value="valor:desc">Mayor valor</option>
+            <option value="neto:desc">Mejor neto</option>
+            <option value="neto:asc">Peor neto</option>
+            <option value="faltan:asc">Juega antes</option>
+            <option value="ciclos:asc">Contrato por vencer</option>
+            <option value="satis:desc">Más satisfechos</option>
+            <option value="satis:asc">Menos satisfechos</option>
+            <option value="nombre:asc">Nombre (A-Z)</option>
+          </select>
+        </div>
+        <div class="col-4 col-md-1">
+          <button type="button" id="fcLimpiar" class="btn btn-sm btn-outline-secondary w-100" title="Limpiar filtros"><i class="bi bi-x-circle"></i></button>
+        </div>
+      </div>
+      <div class="corp-filtros__chips mt-2" role="group" aria-label="Situación">
+        {% for codigo, texto, icono in [('pronto', 'Juega este ciclo', 'bi-calendar-event'), ('gira_ok', 'Puede salir de gira', 'bi-airplane'),
+                                        ('gira', 'De gira', 'bi-airplane-fill'), ('marca', 'Con marca', 'bi-badge-ad-fill'), ('tv', 'Con televisora', 'bi-broadcast'),
+                                        ('renov', 'Pide renovación', 'bi-arrow-repeat'), ('vence', 'Vence pronto', 'bi-hourglass-split'),
+                                        ('vender', 'Señal de venta', 'bi-arrow-down-circle'), ('eliminada', 'Selección eliminada', 'bi-x-octagon')] %}
+        <button type="button" class="corp-filtro-chip" data-flag="{{ codigo }}" aria-pressed="false"><i class="bi {{ icono }}"></i>{{ texto }}</button>
+        {% endfor %}
+        <span class="ms-auto small text-muted" id="fcConteo"></span>
+      </div>
+    </div>
+  </div>
+  <div id="fcVacio" class="text-center text-muted py-4 d-none"><i class="bi bi-funnel fs-3 d-block mb-1"></i>Ningún representado coincide con los filtros.</div>
+
+  <h2 class="vivo-titulo" data-seccion="seleccion"><i class="bi bi-flag-fill text-success"></i>Selecciones representadas <span class="text-muted small fw-normal">({{ selecciones | length }})</span></h2>
   {% if selecciones %}
-  <div class="row g-2 row-cols-1 row-cols-md-2 row-cols-xl-3 mb-4">
+  <div class="row g-2 row-cols-1 row-cols-md-2 row-cols-xl-3 mb-4" data-rejilla="seleccion">
     {% for s in selecciones %}
-    <div class="col">
+    <div class="col" {{ datos_cartera(s, 'seleccion') }}>
       <a href="/paises/{{ s.ref_id }}" class="corp-fila">
         {{ m.bandera(s.bandera, tipo='escudo', pais_id=s.ref_id) }}
         <div class="min-w-0 flex-grow-1">
@@ -164,11 +235,11 @@
   </div>
   {% else %}{{ m.estado_vacio('bi-flag', 'Sin selecciones', 'Este corporativo no representa selecciones por ahora.') }}{% endif %}
 
-  <h2 class="vivo-titulo"><i class="bi bi-person-fill text-info"></i>Jugadores representados <span class="text-muted small fw-normal">({{ jugadores | length }})</span></h2>
+  <h2 class="vivo-titulo" data-seccion="jugador"><i class="bi bi-person-fill text-info"></i>Jugadores representados <span class="text-muted small fw-normal">({{ jugadores | length }})</span></h2>
   {% if jugadores %}
-  <div class="row g-2 row-cols-1 row-cols-md-2 row-cols-xl-3 mb-4">
+  <div class="row g-2 row-cols-1 row-cols-md-2 row-cols-xl-3 mb-4" data-rejilla="jugador">
     {% for j in jugadores %}
-    <div class="col">
+    <div class="col" {{ datos_cartera(j, 'jugador') }}>
       <a href="/jugadores/{{ j.ref_id }}" class="corp-fila">
         {{ m.avatar(j.ref_id, j.pais_id) }}
         <div class="min-w-0 flex-grow-1">
@@ -229,5 +300,7 @@
     });
 </script>
 <script src="/static/js/marcas.js?v=2"></script>
-<script src="/static/js/giras.js?v=1"></script>
+<script src="/static/js/televisoras.js?v=1"></script>
+<script src="/static/js/giras.js?v=3"></script>
+<script src="/static/js/cartera.js?v=1"></script>
 {% endblock %}

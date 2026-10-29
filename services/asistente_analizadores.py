@@ -373,6 +373,24 @@ def _consejos_corporativo_v2(ctx: Contexto, sigla: str, ciclo: int, nombre_ref) 
             "Rinde mal y pide renovación: no lo renueves; véndelo si te ofrecen algo o rescinde antes de que te cueste más.", f"/corporativo/{sigla}", "Ver cartera",
             porque=[m["texto"] for m in sn["motivos"] if m["tono"] == "neg"][:3], confianza="media", riesgo="medio", urgencia=30,
             nivel_minimo="ANALISIS", clave=f"corporativo:vender:{c['_id']}"))
+    # Televisoras (corporativo_tv_service): ofertas por los derechos de tus selecciones y renovaciones abiertas
+    try:
+        from services import corporativo_tv_service as TVS
+        rtv = TVS.resumen(ctx.uid_str, sigla)
+        firmadas = {f["sigue_a"] for f in rtv["firmadas"] if f}
+        for o in rtv["ofertas"][:3]:
+            if o["sigue_a"] and o["sigue_a"] in firmadas:
+                continue
+            tipo_txt = {"INICIAL": "quiere transmitir", "RENOVACION": "ofrece seguir con", "COMPETENCIA": "quiere quedarse con"}.get(o["tipo"], "oferta por")
+            salida.append(consejo(
+                "corporativo", "URGENTE" if o["sigue_a"] else "OPORTUNIDAD", f"{o['tele']['nombre']} {tipo_txt} {o['pais']}",
+                f"{o['partidos']} partidos: {o['tarifa']['victoria']:,} por victoria, {o['tarifa']['empate']:,} por empate y {o['tarifa']['derrota']:,} por derrota, "
+                f"más un bono de {o['bono_total']:,} si saca el {o['exigencia']}% de los puntos. "
+                + ("Si no eliges antes de que termine el contrato, se firma una oferta al azar." if o["sigue_a"] else "Si no respondes, se firma sola al cierre del ciclo."),
+                "/corporativo/televisoras", "Responder", numeros=[f"~{o['esperado']:,} por partido"], urgencia=65 if o["sigue_a"] else 45,
+                clave=f"corporativo:tv:{o['id']}"))
+    except Exception as e:
+        print(f"[asistente] televisoras: {e}")
     # Marcas y patrocinios (corporativo_marcas_service): ofertas sin responder, patrocinios en riesgo y a quién promover
     try:
         from services import corporativo_marcas_service as MK
@@ -813,6 +831,11 @@ def verificar_hecho(uid: ObjectId, clave: str, desde: datetime) -> Optional[bool
             if p and p.get("estado") in ("ACTIVO", "RECHAZADA"):
                 return True
             return False if p and p.get("estado") == "VENCIDA" else None
+        if tipo == "tv" and len(partes) >= 3:
+            d = db['corp_tv_contratos'].find_one({"_id": ":".join(partes[2:])}, {"estado": 1})
+            if d and d.get("estado") in ("ACTIVO", "FIRMADA", "RECHAZADA"):
+                return True
+            return False if d and d.get("estado") == "VENCIDA" else None
         if tipo == "gira":
             return db['corp_giras'].count_documents({"universo_id": uid_str, "es_usuario": True, "creado_en": {"$gte": desde_utc}}, limit=1) > 0 or None
         if tipo == "accion" and len(partes) == 3:

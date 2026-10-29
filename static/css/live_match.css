@@ -532,6 +532,18 @@
 .once-ico--entra { color: #22c55e; }
 .once-ico--asistencia { color: #22c55e; font-size: .68rem; }
 .once-ico--sale { color: #f87171; }
+.once-ico--lesion small { color: #fda4af; }
+.once-ico--grave small { color: #f87171; }
+/* Desgaste físico de cada jugador al minuto revelado (live_match.js barraEnergia) */
+.once-energia { display: inline-flex; align-items: center; gap: .35rem; margin-top: .2rem; width: 7.5rem; max-width: 100%; }
+.once-energia__barra { flex: 1; height: 4px; border-radius: 4px; background: rgba(148, 163, 184, 0.18); overflow: hidden; }
+.once-energia__relleno { display: block; height: 100%; border-radius: 4px; transition: width .8s ease, background-color .8s ease; }
+.once-energia__valor { font-size: .62rem; font-weight: 700; font-variant-numeric: tabular-nums; color: #cbd5e1; min-width: 1.4rem; text-align: right; }
+.once-energia--alta .once-energia__relleno { background: #22c55e; }
+.once-energia--media .once-energia__relleno { background: #f59e0b; }
+.once-energia--baja .once-energia__relleno { background: #ef4444; }
+.once-energia--baja .once-energia__valor { color: #fca5a5; }
+@media (prefers-reduced-motion: reduce) { .once-energia__relleno { transition: none; } }
 .once-fila--fuera { opacity: .55; }
 .once-fila--fuera:first-of-type, .list-group-item:not(.once-fila--fuera) + .once-fila--fuera { border-top: 1px dashed rgba(255, 255, 255, .18) !important; }
 .once-fila--destacada .once-fila { box-shadow: inset 3px 0 0 #fbbf24; }

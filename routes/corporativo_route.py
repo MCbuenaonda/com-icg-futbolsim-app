@@ -111,6 +111,18 @@ def corporativo_marcas(request: Request):
     return templates.TemplateResponse(request=request, name="corporativo_marcas.html", context=datos)
 
 
+@route_vistas.get("/televisoras", response_class=HTMLResponse, name="corporativo_televisoras")
+def corporativo_televisoras(request: Request):
+    from services import corporativo_tv_service as tv
+    usuario = obtener_usuario_actual(request)
+    if not usuario:
+        return RedirectResponse(url=request.url_for("login"), status_code=303)
+    datos = tv.vista_televisoras(usuario["_id"])
+    if not datos:
+        return RedirectResponse(url=request.url_for("corporativo_inicio"), status_code=303)
+    return templates.TemplateResponse(request=request, name="corporativo_televisoras.html", context=datos)
+
+
 @route_vistas.get("/{sigla}", response_class=HTMLResponse, name="corporativo_perfil")
 def corporativo_perfil(sigla: str, request: Request):
     usuario = obtener_usuario_actual(request)
@@ -209,6 +221,24 @@ def responder_patrocinio(pat_id: str, respuesta: str, request: Request):
     if respuesta not in ("aceptar", "rechazar"):
         raise HTTPException(status_code=400, detail="Respuesta inválida")
     return _accion(marcas.responder_oferta, _usuario_api(request)["_id"], pat_id, respuesta == "aceptar")
+
+
+# --- Televisoras (services/corporativo_tv_service.py) ---
+@route.get("/televisoras/{tele_id}", name="corporativos_televisora")
+def televisora_ficha(tele_id: int, request: Request):
+    from services import corporativo_tv_service as tv
+    datos = _accion(tv.ficha, _usuario_api(request)["_id"], tele_id)
+    if not datos:
+        raise HTTPException(status_code=404, detail="Esa televisora no existe")
+    return datos
+
+
+@route.post("/tv/{tv_id}/{respuesta}", name="corporativos_responder_tv")
+def responder_tv(tv_id: str, respuesta: str, request: Request):
+    from services import corporativo_tv_service as tv
+    if respuesta not in ("aceptar", "rechazar"):
+        raise HTTPException(status_code=400, detail="Respuesta inválida")
+    return _accion(tv.responder, _usuario_api(request)["_id"], tv_id, respuesta == "aceptar")
 
 
 # --- Giras (services/corporativo_acciones_service.py) ---

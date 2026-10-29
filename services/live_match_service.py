@@ -28,6 +28,8 @@ import logging
 import math
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
+
+from services import formaciones as FS
 from bson import ObjectId
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
@@ -306,7 +308,29 @@ def obtener_estado_live() -> Optional[Dict[str, Any]]:
         "segundos_transcurridos": estado_transmision["elapsed_segundos"],
         "segundos_restantes": estado_transmision["segundos_restantes"],
         "finalizado": estado_transmision["finalizado_por_tiempo"],
+        "energia": energia_al_segundo(resultado.get("energia") or {}, estado_transmision["eventos_visibles"]),
     }
+
+
+def energia_al_segundo(curvas: Dict[str, list], eventos_visibles: List[Dict[str, Any]]) -> Dict[str, int]:
+    """
+    Energía de cada jugador en el último segundo ya revelado, desde la curva que guarda el motor
+    (resultado.energia = {id: [[segundo, energía], ...]}, simular_service.MUESTREO_ENERGIA). Sin muestra previa
+    (todavía no entró, o el partido es anterior a esto) no se manda: el navegador asume energía completa.
+    """
+    if not curvas or not eventos_visibles:
+        return {}
+    segundo = max(int(e.get("segundos_acumulados") or 0) for e in eventos_visibles)
+    salida = {}
+    for jid, serie in curvas.items():
+        valor = None
+        for s, e in serie:
+            if s > segundo:
+                break
+            valor = e
+        if valor is not None:
+            salida[jid] = int(valor)
+    return salida
 
 
 def obtener_tabla_grupo_partido_en_vivo() -> Optional[Dict[str, Any]]:
@@ -487,6 +511,7 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
     # Táctica persistida por registrar_resultado_juego; el 11 titular viene en el orden de
     # FORMACIONES[tactica] (ver seleccionar_plantilla_titular), así que la línea de cada titular
     # (1 POR, 2 DEF, 3 MED, 4 DEL) es la del mismo índice en esa formación.
+    espejo = {k: bool(v) for k, v in (resultado.get("espejo_extremos") or {}).items()}
     tactica_local = (juego.get("equipo_local") or {}).get("tactica") or "4-3-3"
     tactica_visitante = (juego.get("equipo_visitante") or {}).get("tactica") or "4-3-3"
     return {
@@ -499,8 +524,9 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
         "titulares_visitante": resultado.get("titulares_visitante", []),
         "tactica_local": tactica_local,
         "tactica_visitante": tactica_visitante,
-        "lineas_local": FORMACIONES.get(tactica_local, FORMACIONES["4-3-3"]),
-        "lineas_visitante": FORMACIONES.get(tactica_visitante, FORMACIONES["4-3-3"]),
+        "lineas_local": FS.lineas(tactica_local if tactica_local in FORMACIONES else "4-3-3", espejo.get("local", False)),
+        "lineas_visitante": FS.lineas(tactica_visitante if tactica_visitante in FORMACIONES else "4-3-3", espejo.get("visita", False)),
+        "espejo_extremos": espejo,
         # DT de cada lado: solo quién es (sus reclamos, amonestación, expulsión y ajustes salen de los eventos ya
         # revelados, en el navegador, para no adelantar nada de la transmisión)
         "dt": _dts_en_vivo(resultado.get("dt") or {}, id_local, id_visita),

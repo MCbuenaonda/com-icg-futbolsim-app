@@ -1322,6 +1322,8 @@ body {
 .evento--amarilla { --ev-color: #facc15; background: linear-gradient(90deg, rgba(250, 204, 21, 0.1), rgba(0, 0, 0, 0.22) 45%); }
 .evento--roja { --ev-color: #ef4444; background: linear-gradient(90deg, rgba(239, 68, 68, 0.14), rgba(0, 0, 0, 0.22) 45%); }
 .evento--var { --ev-color: #a78bfa; }
+/* Lesión (services/lesiones.py) */
+.evento--lesion { --ev-color: #fb7185; background: linear-gradient(90deg, rgba(251, 113, 133, 0.12), rgba(0, 0, 0, 0.22) 45%); }
 /* Director técnico (services/tecnicos.py): ajustes y reclamos en violeta; su amarilla y su roja con el color de la tarjeta */
 .evento--dt { --ev-color: #c084fc; }
 .evento--dt-amarilla { --ev-color: #facc15; background: linear-gradient(90deg, rgba(192, 132, 252, 0.1), rgba(0, 0, 0, 0.22) 45%); }
@@ -1503,6 +1505,17 @@ body {
     background: color-mix(in srgb, var(--logo-color) 20%, transparent); border: 1px solid color-mix(in srgb, var(--logo-color) 45%, transparent); }
 .ficha-jugador__titular { padding: 0 0.45rem; border-radius: 999px; font-size: 0.66rem; font-weight: 800; color: #0b1220; background: #4ade80; }
 .ficha-jugador__edad { font-size: 0.7rem; color: var(--bs-secondary-color); }
+/* Lesión vigente (services/lesiones_service.py): chip en la plantilla y parte médico en la ficha */
+.ficha-jugador__lesion { font-size: 0.66rem; font-weight: 700; padding: 0.05rem 0.4rem; border-radius: 999px;
+    background: rgba(239, 68, 68, 0.16); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.35); white-space: nowrap; }
+.lesion-parte { border: 1px solid rgba(148, 163, 184, 0.18); }
+.lesion-parte--activa { border-color: rgba(239, 68, 68, 0.45); background: linear-gradient(120deg, rgba(239, 68, 68, 0.1), transparent 55%); }
+.lesion-parte__lista li { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; padding: 0.35rem 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1); }
+.lesion-parte__lista li:last-child { border-bottom: 0; }
+.lesion-parte__punto { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: #38bdf8; flex: none; }
+.lesion-parte__punto--moderada { background: #f59e0b; }
+.lesion-parte__punto--grave { background: #ef4444; }
 .ficha-jugador__metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin-top: auto; }
 .ficha-jugador__metricas > div { padding: 0.3rem; border-radius: 10px; text-align: center; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.06); }
 .ficha-jugador__metricas span { display: block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; color: var(--bs-secondary-color); }
@@ -4669,6 +4682,10 @@ a.cal-record:hover { color: var(--tinta-1); border-color: var(--c); }
 .gira-fila--off { opacity: 0.5; cursor: not-allowed; }
 .gira-fila .avatar-jugador { width: 2rem; height: 2rem; flex: 0 0 auto; }
 .gira-retorno { font-weight: 800; font-size: 0.8rem; color: #86efac; }
+.gira-fila__datos { display: flex; align-items: center; gap: 0.6rem; flex: none; }
+@media (max-width: 575.98px) { .gira-fila__datos { flex-direction: column; align-items: flex-end; gap: 0.15rem; } }
+.gira-satis { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.78rem; font-weight: 700; color: #e2e8f0;
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
 .corp-gira-barra { height: 5px; margin-top: 0.3rem; max-width: 16rem; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
 .corp-gira-barra span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #0ea5e9, #22d3ee); transition: width 0.4s ease; }
 .corp-de-gira { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700;
@@ -4845,3 +4862,90 @@ a.cal-record:hover { color: var(--tinta-1); border-color: var(--c); }
 .esp-kpi__barra { position: relative; width: 100%; min-width: 4rem; height: 0.3rem; margin-top: 0.25rem; border-radius: 999px; background: rgba(255, 255, 255, 0.1); }
 .esp-kpi__barra i { display: block; height: 100%; border-radius: 999px; background: #8b5cf6; }
 .esp-kpi__barra b { position: absolute; top: -0.15rem; width: 2px; height: 0.6rem; background: #fff; opacity: 0.6; }
+
+/* Filtros de la cartera del corporativo (static/js/cartera.js) */
+.corp-filtros__chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.corp-filtro-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(0, 0, 0, 0.25); color: var(--text-main); }
+.corp-filtro-chip:hover { border-color: rgba(34, 197, 94, 0.5); }
+.corp-filtro-chip.is-activo { border-color: #22c55e; background: rgba(34, 197, 94, 0.18); color: #bbf7d0; }
+
+/* --- Televisoras (/corporativo/televisoras, static/js/televisoras.js; chips en la cartera y el inicio) --- */
+.tv-logo { display: inline-grid; place-items: center; width: 64px; height: 44px; min-width: 64px; padding: 4px 6px; border-radius: 10px;
+    background: #0b1220; border: 1px solid color-mix(in srgb, var(--tv, #38bdf8) 40%, transparent); }
+.tv-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.tv-logo--lg { width: 96px; height: 64px; min-width: 96px; }
+.tv-logo--sm { width: 48px; height: 32px; min-width: 48px; }
+button.tv-logo { cursor: pointer; transition: transform 0.2s ease; }
+button.tv-logo:hover { transform: scale(1.04); }
+.tv-ofertas, .tv-contratos { display: grid; gap: 0.6rem; }
+.tv-oferta { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; padding: 0.8rem 1rem; border-radius: 14px;
+    background: linear-gradient(120deg, color-mix(in srgb, var(--tv) 16%, transparent), #111a2e 60%);
+    border: 1px solid color-mix(in srgb, var(--tv) 45%, transparent); }
+.tv-contrato { display: flex; align-items: flex-start; gap: 0.9rem; padding: 0.8rem 1rem; border-radius: 14px; background: #111a2e;
+    border: 1px solid rgba(255, 255, 255, 0.07); border-left: 3px solid var(--tv); }
+.tv-contrato--firmado { border-style: dashed; border-left-style: solid; }
+.tv-contrato .img-pais, .tv-oferta .img-pais { height: 0.9rem; }
+.tv-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.05rem 0.5rem; margin-left: 0.25rem; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 700; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); color: #cbd5e1; }
+.tv-chip--renovacion { color: #86efac; border-color: rgba(34, 197, 94, 0.4); }
+.tv-chip--competencia { color: #fde68a; border-color: rgba(245, 158, 11, 0.45); }
+.tv-tarifa { display: inline-flex; flex-wrap: wrap; gap: 0.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tv-tarifa span { display: inline-flex; align-items: center; gap: 0.25rem; }
+.tv-res { display: inline-grid; place-items: center; width: 1.2rem; height: 1.2rem; border-radius: 4px; font-size: 0.65rem; font-weight: 800; color: #0b1220; }
+.tv-res--V { background: #22c55e; } .tv-res--E { background: #f59e0b; } .tv-res--D { background: #ef4444; color: #fff; }
+.tv-avance { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); overflow: hidden; max-width: 22rem; }
+.tv-avance span { display: block; height: 100%; border-radius: 99px; background: var(--tv); }
+.tv-filtros .form-control, .tv-filtros .form-select { width: auto; max-width: 14rem; }
+@media (max-width: 575.98px) { .tv-filtros .form-control, .tv-filtros .form-select { max-width: none; flex: 1 1 45%; } }
+.tv-catalogo { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.6rem; }
+@media (max-width: 575.98px) { .tv-catalogo { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tv-celda { position: relative; display: flex; flex-direction: column; gap: 0.3rem; padding: 0.7rem; border-radius: 14px; text-align: left; min-width: 0;
+    background: radial-gradient(circle at 50% 20%, #1b2740, #0d1424); border: 1px solid rgba(255, 255, 255, 0.07); color: var(--bs-secondary-color);
+    font-size: 0.72rem; transition: transform 0.2s ease, border-color 0.2s ease; }
+.tv-celda:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--tv) 60%, transparent); color: #fff; }
+.tv-celda__logo { display: grid; place-items: center; height: 58px; }
+.tv-celda__logo img { max-width: 100%; max-height: 58px; object-fit: contain; }
+.tv-celda__nombre { font-weight: 700; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-celda__pais { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-celda__pais .img-pais { height: 0.8rem; }
+.tv-celda__datos { display: flex; justify-content: space-between; gap: 0.3rem; font-variant-numeric: tabular-nums; }
+.tv-nivel { color: #38bdf8; letter-spacing: -0.15rem; }
+.tv-celda__activa { position: absolute; top: 0.45rem; right: 0.5rem; color: #38bdf8; }
+.tv-ficha { overflow: hidden; border-top: 4px solid #38bdf8; }
+.tv-ficha__portada { display: grid; place-items: center; height: 150px; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--tv) 25%, #1b2740), #0b1220); }
+.tv-ficha__portada img { max-width: 75%; max-height: 110px; }
+.tv-ficha__tarifa { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; }
+@media (max-width: 420px) { .tv-ficha__tarifa { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tv-ficha__tarifa > div { display: grid; justify-items: center; padding: 0.45rem; border-radius: 10px; background: rgba(255, 255, 255, 0.04); }
+.tv-ficha__tarifa strong { color: #fff; font-variant-numeric: tabular-nums; }
+.tv-ficha__tarifa small { color: var(--bs-secondary-color); font-size: 0.68rem; }
+.tv-ficha__hist { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.35rem 0; border-top: 1px solid rgba(255, 255, 255, 0.06); font-size: 0.8rem; }
+.tv-hermana { width: 84px; height: 52px; padding: 4px; border-radius: 10px; background: #0b1220; border: 1px solid rgba(255, 255, 255, 0.1); }
+.tv-hermana img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.tv-mini { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.05rem 0.45rem 0.05rem 0.15rem; border-radius: 999px; font-size: 0.68rem;
+    border: 1px solid color-mix(in srgb, var(--tv, #38bdf8) 45%, transparent); color: #cbd5e1; }
+.tv-mini img { height: 1rem; max-width: 2.6rem; object-fit: contain; }
+.mk-pestanas .nav-link.active[data-bs-target^="#tv"] { background: #38bdf8; }
+
+/* --- Carrera de Corporativos en pestañas (templates/corporativo.html) --- */
+.corp-kpis { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.corp-kpis .fixture-kpi { flex: 1 1 8.5rem; }
+.corp-pestanas { flex-wrap: nowrap; overflow-x: auto; gap: 0.35rem; padding-bottom: 0.2rem; scrollbar-width: thin; }
+.corp-pestanas .nav-link { white-space: nowrap; color: var(--bs-secondary-color); font-weight: 700; border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08); }
+.corp-pestanas .nav-link.active { background: #22c55e; color: #052e16; border-color: #22c55e; }
+.corp-pestanas .nav-link .badge { font-size: 0.65rem; }
+
+/* --- Transmisión de un partido (corporativo_tv_service.transmisiones): tarjetas de /juegos y bloque del detalle --- */
+.partido-card__tv { display: flex; align-items: center; gap: 0.4rem; margin: 0 0.75rem 0.6rem; position: relative; z-index: 1; padding: 0.3rem 0.55rem; border-radius: 10px; min-width: 0;
+    font-size: 0.72rem; color: #bae6fd; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); }
+.partido-card__tv img { height: 1rem; max-width: 2.8rem; object-fit: contain; }
+.partido-card__tv .bi-person-video3 { margin-right: 0.2rem; }
+.tx-bloque { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.7rem; }
+.tx-cadena { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 0.85rem; border-radius: 14px; background: #111a2e;
+    border: 1px solid rgba(255, 255, 255, 0.07); border-left: 3px solid var(--tv, #38bdf8); min-width: 0; }
+.tx-invitado { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.3rem; font-size: 0.8rem; }
+.tx-invitado .avatar-jugador { width: 1.6rem; height: 1.6rem; }
+.tv-aparicion { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.tv-aparicion:first-child { border-top: 0; }

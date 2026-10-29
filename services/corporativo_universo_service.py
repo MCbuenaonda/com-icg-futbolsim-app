@@ -75,6 +75,24 @@ def _crear_indices() -> None:
 
 
 # --- Reloj global --------------------------------------------------------------------------------
+_cache_reloj = {"hasta": 0.0, "doc": None}
+SEGUNDOS_CACHE_RELOJ = 2.0
+
+
+def leer_reloj() -> dict:
+    """El reloj global (un documento chico que una página leía ~20 veces): caché de 2 s en el proceso. Avanza una vez
+    por partido terminado y aquí mismo se invalida al escribirlo, así que la demora no cambia nada."""
+    import time as _t
+    ahora = _t.time()
+    if _cache_reloj["doc"] is None or ahora >= _cache_reloj["hasta"]:
+        _cache_reloj.update(doc=db["corp_reloj"].find_one({"_id": "partidos"}) or {}, hasta=ahora + SEGUNDOS_CACHE_RELOJ)
+    return _cache_reloj["doc"]
+
+
+def _invalidar_reloj() -> None:
+    _cache_reloj.update(doc=None, hasta=0.0)
+
+
 def registrar_partido(juego_id, juego_doc: Optional[dict] = None) -> None:
     """Anota un partido terminado en el registro global. Idempotente y NUNCA lanza (no frena la simulación)."""
     try:
@@ -83,8 +101,10 @@ def registrar_partido(juego_id, juego_doc: Optional[dict] = None) -> None:
             return
         seq = db["corp_reloj"].find_one_and_update({"_id": "partidos"}, {"$inc": {"seq": 1}}, upsert=True,
                                                    return_document=ReturnDocument.AFTER)["seq"]
+        _invalidar_reloj()
         juego_doc = juego_doc or {}
         _actualizar_ventana(seq, juego_doc)
+        _invalidar_reloj()
         db["corp_registro_partidos"].insert_one({
             "seq": seq, "juego_id": juego_id, "mundial_id": juego_doc.get("mundial_id"), "fase_id": juego_doc.get("fase_id"),
             "registrado_en": datetime.utcnow(),
@@ -113,7 +133,7 @@ def _actualizar_ventana(seq: int, juego_doc: dict) -> None:
 
 def ventana_traspasos(ciclo: int) -> dict:
     """{"abierta": bool, "hasta_ciclo": n} para el ciclo dado."""
-    reloj = db["corp_reloj"].find_one({"_id": "partidos"}) or {}
+    reloj = leer_reloj()
     desde = reloj.get("ventana_desde_seq")
     if not desde:
         return {"abierta": False, "hasta_ciclo": None}
@@ -122,7 +142,7 @@ def ventana_traspasos(ciclo: int) -> dict:
 
 
 def seq_actual() -> int:
-    return int((db["corp_reloj"].find_one({"_id": "partidos"}) or {}).get("seq") or 0)
+    return int(leer_reloj().get("seq") or 0)
 
 
 def estado_reloj(universo: Optional[dict] = None) -> dict:
@@ -230,6 +250,7 @@ def poner_al_dia(user_id) -> dict:
     from services import corporativo_bolsa_service as bolsa
     from services import corporativo_marcas_service as marcas
     from services import corporativo_acciones_service as acciones
+    from services import corporativo_tv_service as tv
 
     ahora = datetime.utcnow()
     universo = db["corp_universos"].find_one_and_update(
@@ -250,6 +271,9 @@ def poner_al_dia(user_id) -> dict:
             if entrada["juego_id"] in aportes:
                 economia.procesar_partido(estado, aportes[entrada["juego_id"]], universo["ultimo_ciclo"] + 1, entrada["juego_id"])
                 marcas.reacciones_partido(estado, aportes[entrada["juego_id"]], universo["ultimo_ciclo"] + 1, entrada["juego_id"])
+                marcas.iniciar_lote()   # televisoras: pagan el partido de cada selección (corporativo_tv_service)
+                tv.procesar_partido(estado, aportes[entrada["juego_id"]], universo["ultimo_ciclo"] + 1, entrada["juego_id"], seq)
+                tv.realizar_invitados(estado, entrada["juego_id"], universo["ultimo_ciclo"] + 1, seq)   # invitados de TV
             fichajes.resolver_pendientes(estado, universo, seq, universo["ultimo_ciclo"] + 1)
             acciones.procesar_giras_partido(estado, seq, universo["ultimo_ciclo"] + 1)    # giras: cobran partido a partido
             if seq % C.MARCA_PARTIDOS_RONDA == 0 and seq % C.PARTIDOS_POR_CICLO:          # ronda de marcas (la del cierre va en el cierre)
@@ -279,6 +303,9 @@ def poner_al_dia(user_id) -> dict:
             if resumen["ciclos"] >= C.CICLOS_MAXIMOS_POR_PEDIDO:
                 resumen["atraso"] = seq < seq_actual()
                 break
+        if not resumen["atraso"]:   # al día: las cadenas eligen a los invitados de los próximos partidos
+            marcas.iniciar_lote()
+            tv.programar_invitados(estado, universo["ultimo_ciclo"] + 1, universo["cursor_seq"])
         estado.guardar()
         _guardar_avance(universo)
     finally:

@@ -89,6 +89,7 @@
     <!-- Enfrentamientos anteriores (mismo bloque que el detalle del partido) -->
     {% include "partials/enfrentamientos.html" %}
     {% if planteo %}{% set nombre_local, nombre_visita = home.nombre, away.nombre %}{% include "partials/planteo_probable.html" %}{% endif %}
+    {% set tx_juego_id, tx_jugado = match_id, False %}{% include "partials/transmision.html" %}
 
     <div class="row g-4 mb-4">
         <!-- Comparativa -->

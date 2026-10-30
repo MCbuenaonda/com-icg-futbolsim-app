@@ -353,7 +353,7 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="{{ url_for('static', path='/css/live_match.css') }}?v=20261029a">
+<link rel="stylesheet" href="{{ url_for('static', path='/css/live_match.css') }}?v=20261029c">
 
 <script>
     // Configuración que depende del usuario (permisos); el resto de la lógica vive en static/js/live_match.js
@@ -362,6 +362,7 @@
         juegoEnVivoHabilitado: {{ 'true' if puede('juego_en_vivo') else 'false' }},
     };
 </script>
-<script src="{{ url_for('static', path='/js/live_match.js') }}?v=20261029a"></script>
+<script src="{{ url_for('static', path='/js/cancha_jugada.js') }}?v=20261029a"></script>
+<script src="{{ url_for('static', path='/js/live_match.js') }}?v=20261029b"></script>
 {% endblock %}
 

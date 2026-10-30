@@ -90,10 +90,10 @@
 {% elif n.partidos %}
 <!-- Sus números en el puesto (línea, 4to, VAR) -->
 {% if arbitro.rol in ('linea1', 'linea2') %}
-{% set kpis = [('Partidos', n.partidos, 'como ' ~ arbitro.rol_nombre, '#22c55e', 100),
-               ('Fueras de lugar', n.offsides, n.offsides_prom ~ ' por partido', '#38bdf8', k.pct or 0),
+{% set kpis = [('Partidos', n.partidos, 'como ' ~ arbitro.rol_nombre, '#f97316', 100),
+               ('Fueras de lugar', n.offsides, n.offsides_prom ~ ' por partido · puesto: ' ~ k.liga, '#38bdf8', k.pct or 0),
                ('Córners señalados', n.corners, n.corners_prom ~ ' por partido', '#a855f7', [100, n.corners * 10] | min),
-               ('Por partido', n.offsides_prom, 'fueras de lugar · puesto: ' ~ k.liga, '#f97316', k.pct or 0)] %}
+               ('Saques de banda', n.bandas, n.bandas_prom ~ ' por partido · puesto: ' ~ (k.liga_bandas or 0), '#22c55e', k.pct_bandas or 0)] %}
 {% elif arbitro.rol == 'cuarto' %}
 {% set kpis = [('Partidos', n.partidos, 'como 4to árbitro', '#22c55e', 100),
                ('Cambios anunciados', n.cambios, n.cambios_prom ~ ' por partido', '#a855f7', k.pct or 0),

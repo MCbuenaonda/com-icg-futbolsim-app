@@ -52,9 +52,26 @@ data-valor="{{ x.valor or 0 }}" data-neto="{{ x.neto or 0 }}" data-ciclos="{{ x.
 data-faltan="{{ jg.faltan if jg.estado == 'programado' and jg.faltan is not none else 9999 }}" data-flags="{{ flags | join(' ') }}"
 {%- endmacro %}
 
-{% macro detalle_contrato(x) -%}
+{% macro detalle_contrato(x, promos=None) -%}
+{%- set jg = x.juego or {} -%}
+{%- set detalle = {
+  'contrato_id': x.contrato_id, 'nombre': x.nombre, 'tipo': x.tipo_contrato, 'pais': x.pais or '', 'satisfaccion': x.satisfaccion,
+  'neto': x.neto, 'renta_total': x.renta_total, 'honorarios_total': x.honorarios_total, 'patrocinio': x.patrocinio, 'honorario': x.honorario,
+  'partidos': x.partidos, 'ciclos_restantes': x.ciclos_restantes, 'hasta_ciclo': x.hasta_ciclo, 'ciclos_sin_jugar': x.ciclos_sin_jugar,
+  'puede_renovar': x.puede_renovar, 'costo_renovar': x.costo_renovar, 'costo_rescindir': x.costo_rescindir,
+  'gira_ok': x.gira_ok, 'gira_motivo': x.gira_motivo, 'de_gira': x.de_gira is not none,
+  'juego': {'estado': jg.get('estado'), 'faltan': jg.get('faltan'), 'rival': jg.get('rival'), 'en_ciclos': jg.get('en_ciclos')},
+  'marcas': (x.marcas or []) | map(attribute='nombre') | list, 'marcas_aviso': (x.marcas or []) | selectattr('aviso') | map(attribute='nombre') | list,
+  'marcas_pago': (x.marcas or []) | sum(attribute='pago_ciclo'),
+  'patrocinadores': x.marcas or [], 'invitaciones_tv': x.invitaciones_tv or [],
+  'tv': ({'nombre': x.tv.nombre, 'jugados': x.tv.jugados, 'partidos': x.tv.partidos} if x.tv else None),
+  'invitado_tv': ({'nombre': x.invitado_tv.tele.nombre, 'fecha': x.invitado_tv.fecha} if x.invitado_tv else None),
+  'renovacion': ({'decision': x.senal.renovacion.decision, 'texto': x.senal.renovacion.texto} if x.senal and x.senal.renovacion else None)
+} -%}
 <div class="corp-contrato">
-  <div class="corp-contrato__datos">
+  <div class="corp-contrato__datos corp-contrato__datos--detalle" data-detalle-contrato='{{ detalle | tojson }}' role="button" tabindex="0"
+       title="Ver el detalle: ingresos, acciones disponibles y cómo subir su satisfacción">
+    <span class="corp-contrato__info" aria-hidden="true"><i class="bi bi-info-circle-fill"></i></span>
     {{ chip_senal(x.senal) }}
     <span title="Lo que rindió (partidos, patrocinios, acuerdos) menos honorarios en este contrato">Neto <strong class="{{ 'text-success' if x.neto > 0 else ('text-danger' if x.neto < 0 else '') }}">{{ '{:+,}'.format(x.neto) }}</strong></span>
     <span title="Patrocinio por ciclo, juegue o no">Patrocinio <strong class="text-info">+{{ '{:,}'.format(x.patrocinio) }}</strong></span>
@@ -68,7 +85,8 @@ data-faltan="{{ jg.faltan if jg.estado == 'programado' and jg.faltan is not none
       <i class="bi bi-emoji-{{ 'smile' if x.satisfaccion >= 60 else ('neutral' if x.satisfaccion >= 30 else 'frown') }}-fill {{ 'text-success' if x.satisfaccion >= 60 else ('text-warning' if x.satisfaccion >= 30 else 'text-danger') }}"></i> {{ x.satisfaccion }}</span>
   </div>
   <div class="d-flex gap-1 flex-wrap">
-    {% if x.marcas | length < 3 %}<button class="btn btn-sm btn-outline-warning rounded-pill" data-promover="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}" title="Presentarlo a una marca interesada"><i class="bi bi-megaphone"></i> Promover</button>{% endif %}
+    {% if x.marcas | length < 3 %}{% set sin_promos = promos and not promos.restantes %}<button class="btn btn-sm btn-outline-warning rounded-pill" data-promover="{{ x.contrato_id }}" data-nombre="{{ x.nombre }}"
+            {{ 'disabled' if sin_promos }} title="{{ ('Ya usaste tus promociones de esta ronda: se renuevan en ' ~ promos.faltan ~ ' partido' ~ ('s' if promos.faltan != 1 else '')) if sin_promos else 'Presentarlo a una marca interesada' }}"><i class="bi bi-megaphone"></i> Promover</button>{% endif %}
     {% if x.de_gira %}<span class="corp-de-gira" title="Cobra partido a partido hasta volver"><i class="bi bi-airplane-fill"></i> De gira</span>
     {% elif x.tipo_contrato == 'jugador' %}<button class="btn btn-sm btn-outline-info rounded-pill" data-gira-grupal="{{ x.contrato_id }}"
             {{ 'disabled' if not x.gira_ok }} title="{{ x.gira_motivo or 'Gira de exhibición: elige uno o varios jugadores' }}"><i class="bi bi-airplane"></i> Gira</button>
@@ -128,13 +146,14 @@ data-faltan="{{ jg.faltan if jg.estado == 'programado' and jg.faltan is not none
         <small class="corp-cupo__nota">{% if cupos.jugadores_ciclo %}{{ cupos.disponibles }} de tus jugadores pueden salir ahora{% else %}Agotado · se renueva en {{ cupos.ciclo_faltan }} partido{{ 's' if cupos.ciclo_faltan != 1 }} (nuevo ciclo){% endif %}</small>
       </div>
     </div>
-    <div class="corp-cupo corp-cupo--marca {{ 'corp-cupo--agotado' if not cupos.promos.restantes }}">
+    <div class="corp-cupo corp-cupo--marca {{ 'corp-cupo--agotado' if not cupos.promos.restantes }}" id="cupoPromos"
+         data-restantes="{{ cupos.promos.restantes }}" data-maximo="{{ cupos.promos.maximo }}" data-faltan="{{ cupos.promos.faltan }}">
       <i class="bi bi-megaphone-fill corp-cupo__icono"></i>
       <div class="min-w-0">
         <span class="corp-cupo__titulo">Promociones a marcas</span>
-        <strong>{{ cupos.promos.restantes }}<small>/{{ cupos.promos.maximo }}</small></strong>
-        <div class="corp-cupo__puntos" aria-hidden="true">{% for i in range(cupos.promos.maximo) %}<i class="{{ 'is-libre' if i < cupos.promos.restantes }}"></i>{% endfor %}</div>
-        <small class="corp-cupo__nota">{% if cupos.promos.restantes %}En esta ronda{% else %}Agotadas{% endif %} · se renuevan en {{ cupos.promos.faltan }} partido{{ 's' if cupos.promos.faltan != 1 }}</small>
+        <strong><span data-promos-restantes>{{ cupos.promos.restantes }}</span><small>/{{ cupos.promos.maximo }}</small></strong>
+        <div class="corp-cupo__puntos" aria-hidden="true" data-promos-puntos>{% for i in range(cupos.promos.maximo) %}<i class="{{ 'is-libre' if i < cupos.promos.restantes }}"></i>{% endfor %}</div>
+        <small class="corp-cupo__nota" data-promos-nota>{% if cupos.promos.restantes %}En esta ronda{% else %}Agotadas{% endif %} · se renuevan en {{ cupos.promos.faltan }} partido{{ 's' if cupos.promos.faltan != 1 }}</small>
       </div>
     </div>
   </div>
@@ -229,7 +248,7 @@ data-faltan="{{ jg.faltan if jg.estado == 'programado' and jg.faltan is not none
         </div>
         <strong class="corp-valor">{{ '{:,}'.format(s.valor) }}</strong>
       </a>
-      {% if corp.es_del_usuario %}{{ detalle_contrato(s) }}{% endif %}
+      {% if corp.es_del_usuario %}{{ detalle_contrato(s, cupos.promos if cupos else None) }}{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -249,7 +268,7 @@ data-faltan="{{ jg.faltan if jg.estado == 'programado' and jg.faltan is not none
         </div>
         <strong class="corp-valor">{{ '{:,}'.format(j.valor) }}</strong>
       </a>
-      {% if corp.es_del_usuario %}{{ detalle_contrato(j) }}{% endif %}
+      {% if corp.es_del_usuario %}{{ detalle_contrato(j, cupos.promos if cupos else None) }}{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -299,7 +318,9 @@ data-faltan="{{ jg.faltan if jg.estado == 'programado' and jg.faltan is not none
         }
     });
 </script>
-<script src="/static/js/marcas.js?v=2"></script>
+{% if satisfaccion_reglas %}<script>window.CORP_SATISFACCION = {{ satisfaccion_reglas | tojson }};</script>{% endif %}
+<script src="/static/js/marcas.js?v=3"></script>
+<script src="/static/js/corp_detalle.js?v=2"></script>
 <script src="/static/js/televisoras.js?v=1"></script>
 <script src="/static/js/giras.js?v=3"></script>
 <script src="/static/js/cartera.js?v=1"></script>

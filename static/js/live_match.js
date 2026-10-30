@@ -559,11 +559,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // necesariamente el que figura en 'evento.equipo', ver arriba) es el local -- este es el
     // criterio correcto tanto para espejar la posición como para elegir el color del trazo.
     function esCanchaAtacanteLocal(evento) {
+        if (evento.balon && evento.balon.l != null) return evento.balon.l === 1;   // recorrido nuevo: lo dice el motor
         const esEquipoLocal = esCanchaEquipoLocal(evento.equipo);
         return CANCHA_TIPOS_EQUIPO_DEFENSOR.has(evento.tipo) ? !esEquipoLocal : esEquipoLocal;
     }
 
     function canchaPosicionVisual(evento) {
+        if (evento.balon) return { x: evento.balon.d[0], y: evento.balon.d[1] };   // ya absolutas (services/balon.py)
         const { x, y } = evento.posicion_balon;
         return { x: esCanchaAtacanteLocal(evento) ? x : (100 - x), y };
     }
@@ -662,7 +664,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const atacaLocal = esCanchaAtacanteLocal(evento);
         const empuje = CANCHA_EMPUJE_POR_ZONA[evento.zona] ?? CANCHA_EMPUJE_POR_ZONA.mediocampo;
         // Una sustitución no es una jugada: el que entra aparece en su posición, no corre al balón
-        const protagonistas = evento.tipo === CANCHA_TIPO_SUSTITUCION ? [] : (evento.jugadores || []);
+        // Con el recorrido nuevo los protagonistas los mueve el animador (reproducirJugada), paso a paso
+        const conAnimador = evento.balon && window.CanchaJugada && !canchaMovimientoReducido && evento.tipo !== '🚩 FUERA DE LUGAR';
+        const protagonistas = (evento.tipo === CANCHA_TIPO_SUSTITUCION || conAnimador) ? [] : (evento.jugadores || []);
         const fichas = [];
 
         [['local', canchaLineasLocal], ['visitante', canchaLineasVisitante]].forEach(([lado, lineas]) => {
@@ -852,6 +856,13 @@ document.addEventListener('DOMContentLoaded', function () {
             if (animacion) el.classList.add(animacion);
 
             const aplicarPosicion = () => {
+                if (!esNueva && eventoBase.balon && window.CanchaJugada && !canchaMovimientoReducido) {
+                    // el equipo se desplaza en bloque durante toda la jugada, sin llegar antes que la pelota
+                    const ms = Math.round(Math.max(800, canchaPresupuestoMs * 0.85));
+                    el.style.transition = `left ${ms}ms ease-in-out, top ${ms}ms ease-in-out, opacity 0.45s ease, scale 0.3s ease`;
+                } else {
+                    el.style.transition = '';
+                }
                 el.style.left = `${f.x}%`;
                 el.style.top = `${(f.y / 68) * 100}%`;
                 el.classList.remove('cancha-jugador--oculto');
@@ -926,37 +937,41 @@ document.addEventListener('DOMContentLoaded', function () {
         canchaEtiquetaJugador.style.transform = `translate(${anchorX}%, ${anchorY}%)`;
     }
 
-    function dibujarTrazoBalon(desde, hasta, tipo, esLocal) {
+    // Trazo del recorrido del balón: recto para pases, tiros y conducciones; en arco para los balones aéreos.
+    // opciones.ms = cuánto tarda en dibujarse (lo mismo que el balón en recorrerlo); opciones.curva = el tipo de paso.
+    function dibujarTrazoBalon(desde, hasta, tipo, esLocal, opciones = {}) {
         if (!canchaTrazos) return;
         const x1 = canchaXaSvg(desde.x), y1 = desde.y;
         const x2 = canchaXaSvg(hasta.x), y2 = hasta.y;
         const largo = Math.hypot(x2 - x1, y2 - y1) || 0.01;
+        const ms = opciones.ms || 600;
+        const aereo = opciones.curva === 'aereo';
 
-        const linea = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        linea.setAttribute('x1', x1.toFixed(1));
-        linea.setAttribute('y1', y1.toFixed(1));
-        linea.setAttribute('x2', x2.toFixed(1));
-        linea.setAttribute('y2', y2.toFixed(1));
+        const trazo = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        // En arco: el punto de control se levanta "hacia arriba" de la pantalla, proporcional al largo
+        const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2 - (aereo ? Math.min(14, largo * 0.35) : 0);
+        trazo.setAttribute('d', aereo
+            ? `M ${x1.toFixed(1)} ${y1.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`
+            : `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)}`);
         const claseColor = esLocal ? 'cancha-trazo--local' : 'cancha-trazo--visitante';
         const claseFuerza = esCanchaTipoDisparo(tipo) ? ' cancha-trazo--fuerte' : '';
-        linea.setAttribute('class', `cancha-trazo ${claseColor}${claseFuerza}`);
-        linea.style.strokeDasharray = `${largo}`;
-        linea.style.strokeDashoffset = `${largo}`;
-        canchaTrazos.appendChild(linea);
+        const claseCurva = opciones.curva === 'conduccion' ? ' cancha-trazo--conduccion' : (aereo ? ' cancha-trazo--aereo' : '');
+        trazo.setAttribute('class', `cancha-trazo ${claseColor}${claseFuerza}${claseCurva}`);
+        canchaTrazos.appendChild(trazo);
+        const total = trazo.getTotalLength ? trazo.getTotalLength() || largo : largo;
+        trazo.style.strokeDasharray = `${total}`;
+        trazo.style.strokeDashoffset = `${total}`;
 
-        // Fuerza reflow para que el navegador registre el estado inicial (trazo "invisible",
-        // dashoffset == largo) antes de animar a 0 -- mismo truco que el reinicio del pulso del
-        // balón más abajo, si no el cambio a dashoffset:0 se aplicaría de una sin transición.
-        void linea.getBoundingClientRect();
-        linea.style.transition = 'stroke-dashoffset 0.6s linear, opacity 0.4s ease 0.6s';
-        linea.style.strokeDashoffset = '0';
+        // Fuerza reflow para que el navegador registre el trazo "invisible" antes de animarlo a 0
+        void trazo.getBoundingClientRect();
+        trazo.style.transition = `stroke-dashoffset ${ms}ms ${aereo ? 'ease-in-out' : 'linear'}, opacity 0.4s ease ${ms}ms`;
+        trazo.style.strokeDashoffset = '0';
 
-        // Se retira del SVG un instante después de terminar de dibujarse, para no acumular
-        // trazos de jugadas viejas superpuestos indefinidamente.
+        // Se retira poco después de dibujarse, para no acumular trazos de jugadas viejas
         setTimeout(() => {
-            linea.style.opacity = '0';
-            setTimeout(() => linea.remove(), 450);
-        }, 700);
+            trazo.style.opacity = '0';
+            setTimeout(() => trazo.remove(), 450);
+        }, ms + 400);
     }
 
     // Mapa de Calor: acumula TODOS los eventos con posicion_balon revelados hasta el momento
@@ -1008,12 +1023,16 @@ document.addEventListener('DOMContentLoaded', function () {
         const bctx = buffer.getContext('2d');
         const radio = Math.max(ancho, alto) * 0.07;
 
+        const marcas = [];
         puntos.forEach(evento => {
-            const { x, y } = canchaPosicionVisual(evento);
+            marcas.push({ ...canchaPosicionVisual(evento), alfa: 0.22 });
+            ((evento.balon && evento.balon.q) || []).forEach(([x, y]) => marcas.push({ x, y, alfa: 0.1 }));
+        });
+        marcas.forEach(({ x, y, alfa }) => {
             const px = (x / 100) * ancho;
             const py = (y / 68) * alto;
             const rg = bctx.createRadialGradient(px, py, 0, px, py, radio);
-            rg.addColorStop(0, 'rgba(0,0,0,0.22)');
+            rg.addColorStop(0, `rgba(0,0,0,${alfa})`);
             rg.addColorStop(1, 'rgba(0,0,0,0)');
             bctx.fillStyle = rg;
             bctx.beginPath();
@@ -1212,6 +1231,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const COLA_PASO_MAX_MS = 2600;
     const COLA_MAX_PENDIENTES = 8;     // si se acumulan (pestaña en segundo plano), se saltan los más viejos
     let colaCancha = [], colaDatos = null, colaPartido = null, colaAnimados = 0, colaTimer = null;
+    let colaLibreEn = 0;                 // hasta cuándo dura la jugada que se está animando (no se corta)
+    let canchaMsPorEvento = 4800;        // cada cuánto revela un evento la transmisión (ms_por_evento del payload)
 
     function encolarCancha(data) {
         const eventos = data.eventos || [];
@@ -1223,13 +1244,18 @@ document.addEventListener('DOMContentLoaded', function () {
             reiniciarJugadoresCanchaSiCambioPartido(data.match_id);
         }
         colaDatos = data;
+        if (data.ms_por_evento) canchaMsPorEvento = data.ms_por_evento;
         for (let k = colaAnimados + 1; k <= eventos.length; k++) {
             const ev = eventos[k - 1];
             if (ev.posicion_balon || esEventoAviso(ev) || k === eventos.length) colaCancha.push(k);
         }
         colaAnimados = Math.max(colaAnimados, eventos.length);
         if (colaCancha.length > COLA_MAX_PENDIENTES) colaCancha = colaCancha.slice(-COLA_MAX_PENDIENTES);
-        if (!colaTimer) pasoCola();
+        if (!colaTimer) {
+            const espera = colaLibreEn - Date.now();
+            if (espera > 0) colaTimer = setTimeout(pasoCola, espera);   // deja terminar la jugada en curso
+            else pasoCola();
+        }
     }
 
     function pasoCola() {
@@ -1237,14 +1263,21 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!colaCancha.length || !colaDatos) return;
         const k = colaCancha.shift();
         const parcial = { ...colaDatos, eventos: (colaDatos.eventos || []).slice(0, k) };
+        const ev = parcial.eventos[k - 1];
+        // Cada jugada llena el tiempo hasta el próximo evento; si hay varias esperando, se reparten ese tiempo
+        // (un aviso solo se muestra, no lleva jugada)
+        const animada = window.CanchaJugada && !canchaMovimientoReducido;
+        const base = animada ? canchaMsPorEvento * 0.92 : COLA_PASO_MAX_MS;
+        canchaPresupuestoMs = (ev && esEventoAviso(ev))
+            ? COLA_PASO_MIN_MS
+            : Math.max(COLA_PASO_MIN_MS, base / (1 + colaCancha.length));
+        colaLibreEn = Date.now() + canchaPresupuestoMs;
         try {
+            renderJugadoresCancha(parcial);   // primero el bloque: después el animador mueve a los protagonistas
             renderCancha(parcial);
-            renderJugadoresCancha(parcial);
         } catch (e) { console.error(e); }
         if (!colaCancha.length) return;
-        // repartir lo que queda en el tiempo hasta el próximo poll
-        const paso = Math.max(COLA_PASO_MIN_MS, Math.min(COLA_PASO_MAX_MS, (POLL_MS - 200) / colaCancha.length));
-        colaTimer = setTimeout(pasoCola, paso);
+        colaTimer = setTimeout(pasoCola, canchaPresupuestoMs);
     }
 
     function renderCancha(data) {
@@ -1284,62 +1317,71 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const esLocal = esCanchaAtacanteLocal(ultimoConPosicion);
         const posicionNueva = canchaPosicionVisual(ultimoConPosicion);
-        dibujarTrazoBalon(canchaPosicionActual, posicionNueva, ultimoConPosicion.tipo, esLocal);
-
-        const leftBalonPct = Math.max(0, Math.min(100, posicionNueva.x));
-        const topBalonPct = Math.max(0, Math.min(100, (posicionNueva.y / 68) * 100));
-        const leftBalon = `${leftBalonPct}%`;
-        const topBalon = `${topBalonPct}%`;
-        canchaBalon.style.left = leftBalon;
-        canchaBalon.style.top = topBalon;
+        if (window.CanchaJugada && !canchaMovimientoReducido) {
+            // Jugada animada: toques sin narrar, pase/centro/tiro con su curva y los jugadores que la protagonizan
+            canchaPosicionActual = reproducirJugada(ultimoConPosicion, data, posicionNueva, esLocal) || posicionNueva;
+            return;
+        } else {
+            // Movimiento reducido (o sin el módulo): un solo salto como antes
+            canchaBalon.style.transition = '';
+            canchaBalon.style.transform = '';
+            canchaBalon.style.opacity = '';
+            dibujarTrazoBalon(canchaPosicionActual, posicionNueva, ultimoConPosicion.tipo, esLocal);
+            canchaBalon.style.left = `${Math.max(0, Math.min(100, posicionNueva.x))}%`;
+            canchaBalon.style.top = `${Math.max(0, Math.min(100, (posicionNueva.y / 68) * 100))}%`;
+            mostrarEtiquetaJugada(ultimoConPosicion, data, posicionNueva);
+            aplicarEfectoBalon(ultimoConPosicion.tipo);
+        }
         canchaPosicionActual = posicionNueva;
+    }
 
-        // Nombre del jugador protagonista del evento (siempre el primero de la lista, ver
-        // simular_service.py -- el protagonista va primero en cada evento) junto al balón, tanto
-        // en el tooltip como en la etiqueta flotante que se desvanece sola. Se le suma la
-        // posición granular (POR/LD/LI/MC/ED/etc., desde canchaPlantillas -- pedidas una vez por
-        // partido, ver actualizarPlantillasSiCorresponde). El equipo (evento.equipo, tal cual lo
-        // arma el backend) va en su propio renglón arriba del nombre, y el tipo de evento
-        // (ej. "⚽ GOL", "🛑 FALTA") en un renglón aparte abajo.
-        const jugadorPrincipal = (ultimoConPosicion.jugadores && ultimoConPosicion.jugadores[0]) || '';
+    // Nombre del jugador protagonista del evento (siempre el primero de la lista, ver simular_service.py) junto al
+    // balón, tanto en el tooltip como en la etiqueta flotante que se desvanece sola, con su posición granular
+    // (POR/LD/MC... de canchaPlantillas). El equipo (evento.equipo) va arriba del nombre y el tipo de evento abajo.
+    function mostrarEtiquetaJugada(evento, data, pos) {
+        const leftBalonPct = Math.max(0, Math.min(100, pos.x));
+        const topBalonPct = Math.max(0, Math.min(100, (pos.y / 68) * 100));
+        const jugadorPrincipal = (evento.jugadores && evento.jugadores[0]) || '';
         const posicionSigla = canchaPlantillas[jugadorPrincipal] || '';
-        const tipoEvento = ultimoConPosicion.tipo || '';
-        const equipoEvento = ultimoConPosicion.equipo || '';
+        const tipoEvento = evento.tipo || '';
+        // El equipo del propio jugador cuando está en cancha (en un saque de banda el evento es del que saca, pero el
+        // nombrado es el que la mandó afuera); si no, el del evento
+        const fichaPrincipal = typeof fichaDe === 'function' ? fichaDe(jugadorPrincipal) : null;
+        const equipoEvento = fichaPrincipal ? (fichaPrincipal.esLocal ? data.local : data.visitante) : (evento.equipo || '');
         let textoNombre = jugadorPrincipal;
         if (posicionSigla) textoNombre += ` · ${posicionSigla}`;
 
         const textoTooltip = [equipoEvento, textoNombre, tipoEvento].filter(Boolean).join(' — ');
         canchaBalon.title = textoTooltip || 'Posición del balón';
-        if (canchaEtiquetaJugador && (jugadorPrincipal || tipoEvento)) {
-            if (canchaEtiquetaJugadorEquipo) {
-                canchaEtiquetaJugadorEquipo.textContent = equipoEvento;
-                canchaEtiquetaJugadorEquipo.hidden = !equipoEvento;
-                // Color según el equipo tal cual figura en 'evento.equipo' (no 'esLocal', que
-                // identifica a quién ATACA en la jugada -- para tipos defensor-atribuidos, ver
-                // CANCHA_TIPOS_EQUIPO_DEFENSOR, son equipos distintos). Equipos neutros
-                // (Árbitro/VAR) quedan en gris en vez de heredar el color de un lado.
-                const esNeutro = !equipoEvento || (equipoEvento !== data.local && equipoEvento !== data.visitante);
-                canchaEtiquetaJugadorEquipo.style.color = esNeutro
-                    ? '#b9c2cc'
-                    : (esCanchaEquipoLocal(equipoEvento) ? '#3987e5' : '#e66767');
-            }
-            if (canchaEtiquetaJugadorNombre) {
-                canchaEtiquetaJugadorNombre.textContent = textoNombre;
-                canchaEtiquetaJugadorNombre.hidden = !jugadorPrincipal;
-            }
-            if (canchaEtiquetaJugadorTipo) {
-                canchaEtiquetaJugadorTipo.textContent = tipoEvento;
-                canchaEtiquetaJugadorTipo.hidden = !tipoEvento;
-            }
-            posicionarEtiquetaJugador(leftBalonPct, topBalonPct);
-            canchaEtiquetaJugador.classList.add('cancha-etiqueta-jugador--visible');
-            clearTimeout(canchaEtiquetaJugadorTimeout);
-            canchaEtiquetaJugadorTimeout = setTimeout(() => {
-                canchaEtiquetaJugador.classList.remove('cancha-etiqueta-jugador--visible');
-            }, 2500);
+        if (!canchaEtiquetaJugador || !(jugadorPrincipal || tipoEvento)) return;
+        if (canchaEtiquetaJugadorEquipo) {
+            canchaEtiquetaJugadorEquipo.textContent = equipoEvento;
+            canchaEtiquetaJugadorEquipo.hidden = !equipoEvento;
+            // Color según 'evento.equipo' (no según quién ataca: en faltas o robos son equipos distintos);
+            // los neutros (Árbitro/VAR) en gris
+            const esNeutro = !equipoEvento || (equipoEvento !== data.local && equipoEvento !== data.visitante);
+            canchaEtiquetaJugadorEquipo.style.color = esNeutro
+                ? '#b9c2cc'
+                : (esCanchaEquipoLocal(equipoEvento) ? '#3987e5' : '#e66767');
         }
+        if (canchaEtiquetaJugadorNombre) {
+            canchaEtiquetaJugadorNombre.textContent = textoNombre;
+            canchaEtiquetaJugadorNombre.hidden = !jugadorPrincipal;
+        }
+        if (canchaEtiquetaJugadorTipo) {
+            canchaEtiquetaJugadorTipo.textContent = tipoEvento;
+            canchaEtiquetaJugadorTipo.hidden = !tipoEvento;
+        }
+        posicionarEtiquetaJugador(leftBalonPct, topBalonPct);
+        canchaEtiquetaJugador.classList.add('cancha-etiqueta-jugador--visible');
+        clearTimeout(canchaEtiquetaJugadorTimeout);
+        canchaEtiquetaJugadorTimeout = setTimeout(() => {
+            canchaEtiquetaJugador.classList.remove('cancha-etiqueta-jugador--visible');
+        }, 2500);
+    }
 
-        const tipo = ultimoConPosicion.tipo || '';
+    function aplicarEfectoBalon(tipo) {
+        tipo = tipo || '';
         let claseEfecto = null;
         if (tipo.startsWith('⚽')) {
             claseEfecto = 'cancha-balon--gol';
@@ -1348,12 +1390,166 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (tipo.includes('TARJETA AMARILLA')) {
             claseEfecto = 'cancha-balon--tarjeta-amarilla';
         }
-
         if (claseEfecto) {
             canchaBalon.classList.remove('cancha-balon--gol', 'cancha-balon--tarjeta-amarilla', 'cancha-balon--tarjeta-roja');
             void canchaBalon.offsetWidth; // fuerza reflow para poder re-disparar la animación en el próximo gol/tarjeta
             canchaBalon.classList.add(claseEfecto);
         }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Animador de jugadas (static/js/cancha_jugada.js arma el guion): el balón recorre cada paso con su curva
+    // (raso, aéreo con sombra, tiro, conducción, colocar), cada receptor corre a donde le llega la pelota, el que
+    // conduce va pegado a ella y el arquero se estira. Todo dentro del tiempo que hay hasta el próximo evento.
+    // ---------------------------------------------------------------------------------------------
+    const canchaMovimientoReducido = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    let canchaAnimacionId = 0;
+    let canchaPresupuestoMs = 1500;   // lo fija pasoCola para cada evento
+    let canchaBalonSombra = null;
+    const canchaRedes = {};
+    const ALTURA_BALON_PX = 20;
+
+    function prepararElementosJugada() {
+        if (!canchaWrapperEl) return;
+        if (!canchaBalonSombra) {
+            canchaBalonSombra = document.createElement('div');
+            canchaBalonSombra.className = 'cancha-balon-sombra';
+            canchaWrapperEl.insertBefore(canchaBalonSombra, canchaBalon);
+        }
+        ['izq', 'der'].forEach(lado => {
+            if (canchaRedes[lado]) return;
+            const red = document.createElement('div');
+            red.className = `cancha-red cancha-red--${lado}`;
+            canchaWrapperEl.appendChild(red);
+            canchaRedes[lado] = red;
+        });
+    }
+
+    function fichaDe(nombre) {
+        if (!nombre) return null;
+        const local = canchaFichas.get(`local|${nombre}`);
+        if (local) return { el: local, esLocal: true };
+        const visita = canchaFichas.get(`visitante|${nombre}`);
+        return visita ? { el: visita, esLocal: false } : null;
+    }
+
+    // Lleva la ficha de un jugador a un punto de la cancha (un paso detrás de la pelota, mirando al arco rival)
+    function moverFicha(nombre, punto, ms, ease = 'ease-in-out', separacion = 2.2) {
+        const f = fichaDe(nombre);
+        if (!f || !punto) return null;
+        const x = limitar(punto.x + (f.esLocal ? -separacion : separacion), CANCHA_X_MIN, CANCHA_X_MAX);
+        const y = limitar(punto.y, CANCHA_Y_MIN, CANCHA_Y_MAX);
+        f.el.style.transition = `left ${Math.round(ms)}ms ${ease}, top ${Math.round(ms)}ms ${ease}, opacity 0.45s ease, scale 0.3s ease`;
+        f.el.style.left = `${x}%`;
+        f.el.style.top = `${(y / 68) * 100}%`;
+        return f.el;
+    }
+
+    function marcarFicha(nombre, clase, ms) {
+        const f = fichaDe(nombre);
+        if (!f) return;
+        f.el.classList.remove(clase);
+        void f.el.offsetWidth;
+        f.el.classList.add(clase);
+        if (ms) setTimeout(() => f.el.classList.remove(clase), ms);
+    }
+
+    function dibujarBalonEn(paso, f) {
+        let x, y, altura = 0, opacidad = 1;
+        if (paso.curva === 'colocar') {
+            // la pelota se repone: se desvanece donde estaba y aparece donde se reanuda
+            const antes = f < 0.5;
+            ({ x, y } = antes ? paso.desde : paso.hasta);
+            opacidad = antes ? 1 - 2 * f : 2 * f - 1;
+        } else if (paso.curva === 'parado') {
+            ({ x, y } = paso.hasta);
+        } else {
+            ({ x, y, altura } = CanchaJugada.posicion(paso, f));
+            if (paso.curva === 'fuera' && f > 0.85) opacidad = 1 - (f - 0.85) * 3;
+        }
+        const left = `${Math.max(0, Math.min(100, x))}%`;
+        const top = `${Math.max(0, Math.min(100, (y / 68) * 100))}%`;
+        canchaBalon.style.left = left;
+        canchaBalon.style.top = top;
+        canchaBalon.style.opacity = String(Math.max(0, opacidad));
+        canchaBalon.style.transform = altura ? `translateY(${-altura * ALTURA_BALON_PX}px) scale(${1 + altura * 0.45})` : '';
+        if (canchaBalonSombra) {
+            canchaBalonSombra.style.left = left;
+            canchaBalonSombra.style.top = top;
+            canchaBalonSombra.style.opacity = String(Math.max(0, opacidad) * (0.55 - altura * 0.25));
+            canchaBalonSombra.style.transform = `scale(${1 - altura * 0.35})`;
+        }
+    }
+
+    function iniciarPaso(paso, evento, data, g) {
+        if (['raso', 'aereo', 'tiro', 'conduccion', 'fuera'].includes(paso.curva)) {
+            dibujarTrazoBalon(paso.desde, paso.hasta, paso.curva === 'tiro' ? evento.tipo : '', paso.l === 1, { ms: paso.ms, curva: paso.curva });
+        }
+        if (paso.curva === 'conduccion' && paso.portador) {
+            moverFicha(paso.portador, paso.hasta, paso.ms, 'linear');
+        } else if (paso.portador) {
+            moverFicha(paso.portador, paso.desde, Math.min(300, paso.ms));
+        }
+        if (paso.receptor && paso.receptor !== paso.portador) moverFicha(paso.receptor, paso.hasta, paso.ms * 0.95);
+        if (paso.marca) moverFicha(paso.marca, paso.hasta, paso.ms, 'ease-in-out', -1.5);
+        if (paso.arquero) setTimeout(() => moverFicha(paso.arquero, paso.hasta, Math.max(180, paso.ms * 0.35), 'ease-out', 0), paso.ms * 0.6);
+        if (!paso.principal) return;
+        const protagonista = paso.receptor || paso.portador || paso.marca || paso.arquero;
+        if (protagonista) marcarFicha(protagonista, 'cancha-jugador--activo', 2200);
+        mostrarEtiquetaJugada(evento, data, paso.hasta);
+        setTimeout(() => finalizarJugada(paso, evento, g), paso.ms);
+    }
+
+    function finalizarJugada(paso, evento, g) {
+        aplicarEfectoBalon(evento.tipo);
+        if (g.efecto === 'gol') {
+            const red = canchaRedes[paso.hasta.x >= 50 ? 'der' : 'izq'];
+            if (red) { red.classList.remove('cancha-red--sacude'); void red.offsetWidth; red.classList.add('cancha-red--sacude'); }
+            if (paso.portador) marcarFicha(paso.portador, 'cancha-jugador--gol', 2400);
+        } else if (g.efecto === 'atajada' && paso.arquero) {
+            marcarFicha(paso.arquero, 'cancha-jugador--estirada', 900);
+        } else if (evento.tipo === '🟨 TARJETA AMARILLA' && evento.jugadores) {
+            marcarFicha(evento.jugadores[0], 'cancha-jugador--amarilla', 2200);
+        }
+    }
+
+    function reproducirJugada(evento, data, posNueva, atacaLocal) {
+        prepararElementosJugada();
+        const id = ++canchaAnimacionId;
+        const g = evento.balon
+            ? CanchaJugada.guion(evento, canchaPosicionActual)
+            : CanchaJugada.guionViejo(evento, canchaPosicionActual, posNueva, atacaLocal);
+        const presupuesto = canchaPresupuestoMs * 0.92;
+        const pasos = CanchaJugada.repartir(g.pasos, presupuesto);
+        // Si sobra tiempo después de una jugada abierta, el que se quedó con la pelota la controla y avanza un poco
+        // hacia el arco rival (menos de lo que la transmisión repone de golpe: el próximo evento sale de ahí)
+        const principal = pasos[pasos.length - 1];
+        const sobra = presupuesto - pasos.reduce((a, p) => a + p.ms, 0);
+        const quien = principal.receptor || (principal.curva === 'conduccion' ? principal.portador : null);
+        if (sobra > 500 && !g.efecto && ['raso', 'aereo', 'conduccion'].includes(principal.curva) && fichaDe(quien)) {
+            const sentido = fichaDe(quien).esLocal ? 1 : -1;
+            const hasta = { x: limitar(principal.hasta.x + sentido * 2, 1, 99), y: principal.hasta.y };
+            pasos.push({ desde: principal.hasta, hasta, curva: 'conduccion', portador: quien, receptor: quien, l: principal.l, ms: Math.round(sobra * 0.9) });
+            g.final = hasta;
+        }
+        let acumulado = 0;
+        pasos.forEach(p => { p.inicio = acumulado; acumulado += p.ms; });
+        canchaBalon.style.transition = 'none';   // el balón lo mueve el animador, no la transición CSS
+
+        pasos.forEach(p => {
+            if (p.inicio === 0) iniciarPaso(p, evento, data, g);
+            else setTimeout(() => { if (id === canchaAnimacionId) iniciarPaso(p, evento, data, g); }, p.inicio);
+        });
+        const comienzo = performance.now();
+        const cuadro = ahora => {
+            if (id !== canchaAnimacionId) return;
+            const t = ahora - comienzo;
+            const paso = pasos.find(p => t < p.inicio + p.ms) || pasos[pasos.length - 1];
+            dibujarBalonEn(paso, Math.min(1, Math.max(0, (t - paso.inicio) / paso.ms)));
+            if (t < acumulado) requestAnimationFrame(cuadro);
+        };
+        requestAnimationFrame(cuadro);
+        return g.final;
     }
 
     function actualizarInfoPartido(data) {

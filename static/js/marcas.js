@@ -90,6 +90,17 @@
                 if (m) bootstrap.Modal.getOrCreateInstance(m).hide();
                 avisar(d.mensaje, 'success');
                 prom.innerHTML = '<i class="bi bi-hourglass-split"></i> Promovido';
+                // cupo de la ronda ya descontado: el contador del perfil se actualiza y, si se agotó, se bloquea «Promover»
+                if (d.promos) {
+                    document.dispatchEvent(new CustomEvent('corp:promos', { detail: d.promos }));
+                    if (d.promos.restantes <= 0) {
+                        document.querySelectorAll('[data-promover-marca]').forEach(b => {
+                            if (b === prom) return;
+                            b.disabled = true;
+                            b.title = 'Ya usaste tus promociones de esta ronda';
+                        });
+                    }
+                }
             } catch (e) { avisar(e.message, 'danger'); prom.disabled = false; }
             return;
         }

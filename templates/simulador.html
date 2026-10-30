@@ -151,7 +151,7 @@
         {% if img_partido %}<img src="{{ img_partido }}" alt="" aria-hidden="true" class="marcador-tv__estadio" onerror="this.remove()">{% endif %}
         <div class="card-body p-3 p-md-4">
             <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
-                {% if conf_sigla %}<span class="resumen-chip resumen-chip--conf">{% if lc %}<img src="{{ lc.url }}" alt="">{% endif %}{{ conf_sigla }}</span>{% endif %}
+                {% if conf_sigla %}<a href="/confederacion/{{ partido.confederacion_id }}" class="resumen-chip resumen-chip--conf resumen-chip--enlace" title="Ver el detalle de {{ conf_sigla }}">{% if lc %}<img src="{{ lc.url }}" alt="">{% endif %}{{ conf_sigla }}</a>{% endif %}
                 {% if partido.grupo %}<span class="resumen-chip"><i class="bi bi-grid-3x3-gap-fill"></i>{{ partido.grupo }}</span>{% endif %}
                 {% if partido.jornada %}<span class="resumen-chip"><i class="bi bi-flag"></i>{{ partido.jornada }}{% if partido.tipo %} · {{ partido.tipo | upper }}{% endif %}</span>{% endif %}
                 {% if partido.fecha %}<span class="resumen-chip"><i class="bi bi-calendar-event"></i>{{ partido.fecha | fecha_es }} · {{ partido.hora or '00:00' }}</span>{% endif %}

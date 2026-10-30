@@ -61,7 +61,10 @@
     <div class="sd-oportunidades">
         {% for o in r.oportunidades %}
         <article class="sd-oportunidad" style="--i: {{ loop.index0 }};">
-            {% if o.estadio_img %}<img class="sd-oportunidad__img" src="{{ o.estadio_img }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">{% endif %}
+            {% set bandera_fondo = img_pais(o.pais_id, 'plana') if o.pais_id else None %}
+            <div class="sd-oportunidad__foto"{% if bandera_fondo %} style="--bandera-url: url('{{ bandera_fondo }}');"{% endif %}>
+                {% if o.estadio_img %}<img class="sd-oportunidad__img" src="{{ o.estadio_img }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">{% endif %}
+            </div>
             <div class="sd-oportunidad__cuerpo">
                 <div class="d-flex justify-content-between align-items-start gap-2">
                     <div class="min-w-0">
@@ -137,6 +140,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const mostrarAlerta = (mensaje, tipo) => UI.mostrarAlertaEn(alertaDirectorio, mensaje, tipo);
 
+    // Bandera del país de fondo, a sangre, en el área del estadio (bandera_plana: hecha para background-size: cover)
+    function banderaFondo(paisId) {
+        const url = paisId != null && window.UI ? UI.urlImagenPais(paisId, 'plana') : null;
+        return url ? ` style="--bandera-url: url('${UI.escapar(url)}')"` : '';
+    }
+
     function tarjetaCiudad(c, i) {
         const e = UI.escapar;
         let estadoHtml = '<span class="sd-estado sd-estado--libre">Disponible</span>';
@@ -159,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return `
             <div class="col-12 col-md-6 col-xl-4">
                 <article class="sd-sede ${clase} ${c.tengo_estampa ? 'sd-sede--sinergia' : ''}" style="--i: ${i % POR_PAGINA};">
-                    <div class="sd-sede__foto">
+                    <div class="sd-sede__foto"${banderaFondo(c.pais_id)}>
                         ${c.estadio_img ? `<img src="${e(c.estadio_img)}" alt="Estadio de ${e(c.nombre)}" loading="lazy" decoding="async" onerror="this.remove()">` : ''}
                         <span class="sd-sede__pais">${UI.bandera('', { id: c.pais_id })} ${e(c.pais_nombre || '-')}</span>
                         ${estadoHtml}

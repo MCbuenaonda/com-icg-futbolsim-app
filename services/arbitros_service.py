@@ -6,7 +6,7 @@ evento arbitral dice quién actuó ('arbitro', 'arbitro_rol', ver services/arbit
 con asignar_arbitros_partidos.py). Qué se cuenta de cada puesto:
   - central: faltas y tarjetas del partido (mismo criterio que estadisticas_service._contar_faltas_tarjetas), expulsiones,
     penales cobrados, resultados y su rigor (arbitros.rigor);
-  - jueces de línea: fueras de lugar y córners que señalaron;
+  - jueces de línea: fueras de lugar, córners y saques de banda que señalaron;
   - 4to árbitro: cambios anunciados, revisiones del VAR que pidió y minutos de descuento que marcó;
   - VAR: revisiones, cuántas dio por buenas (confirma) y cuántas por malas (revierte), goles anulados.
 Todo sale de una sola consulta con proyección, cacheada por cantidad de partidos jugados.
@@ -29,6 +29,7 @@ ROLES = [("central", "Central"), ("linea1", "Línea 1"), ("linea2", "Línea 2"),
 NOMBRE_ROL = dict(ROLES)
 ROL_POR_PUESTO = {puesto: rol for rol, puesto in arbitraje.PUESTOS.items()}
 TIPOS_CORNER = {"🚩 SAQUE DE ESQUINA", "🖐️ DESVÍO A CÓRNER"}
+TIPO_BANDA = "↔️ SAQUE DE BANDA"
 
 # Cómo se muestra cada puesto en el directorio: la métrica principal (barra de cada ficha), las 3 métricas de la
 # ficha, los órdenes posibles y los destacados (título, color, métrica, al revés = el menor, texto)
@@ -43,12 +44,12 @@ PESTANAS = {
                                ("🟥 Más expulsiones", "#ef4444", "expulsiones", False, "{v} expulsiones")]},
     "linea": {"icono": "bi-flag-fill", "color": "#38bdf8",
               "principal": ("Fueras de lugar", "offsides_prom", "por partido"),
-              "metricas": [("Fueras de lugar", "offsides"), ("Córners", "corners"), ("Córners/PJ", "corners_prom")],
+              "metricas": [("Fueras de lugar", "offsides"), ("Córners", "corners"), ("Saques de banda", "bandas")],
               "ordenes": [("partidos", "más partidos"), ("offsides", "más fueras de lugar"), ("offsides_prom", "más fueras de lugar/PJ"),
-                          ("corners", "más córners")],
+                          ("corners", "más córners"), ("bandas", "más saques de banda")],
               "destacados": [("🚩 Bandera rápida", "#38bdf8", "offsides", False, "{v} fueras de lugar"),
                              ("📐 Más córners señalados", "#a855f7", "corners", False, "{v} córners"),
-                             ("🎯 Más fueras de lugar por partido", "#22c55e", "offsides_prom", False, "{v} por partido")]},
+                             ("↔️ Más saques de banda", "#22c55e", "bandas", False, "{v} saques de banda")]},
     "cuarto": {"icono": "bi-stopwatch-fill", "color": "#a855f7",
                "principal": ("Cambios anunciados", "cambios_prom", "por partido"),
                "metricas": [("Cambios", "cambios"), ("Revisiones", "revisiones_pedidas"), ("Añadido/tiempo", "anadido_prom")],
@@ -106,6 +107,8 @@ def _acciones_del_partido(res: dict) -> Dict[tuple, Counter]:
                 acciones[(nombre, rol)]["offsides"] += 1
             elif tipo in TIPOS_CORNER:
                 acciones[(nombre, rol)]["corners"] += 1
+            elif tipo == TIPO_BANDA:
+                acciones[(nombre, rol)]["bandas"] += 1
         elif rol == "cuarto":
             if tipo == "🔄 SUSTITUCIÓN":
                 acciones[(nombre, rol)]["cambios"] += 1
@@ -149,7 +152,8 @@ def _fila(a: dict, rol: str, c: Counter) -> dict:
                     pct_gana_visitante=round(100 * c["gana_visitante"] / n) if n else 0,
                     rigor=a.get("rigor") or 0, rigor_etiqueta=a.get("rigor_etiqueta") or arbitraje.etiqueta_rigor(a.get("rigor")))
     elif rol in ("linea1", "linea2"):
-        fila.update(offsides=c["offsides"], corners=c["corners"], offsides_prom=prom(c["offsides"]), corners_prom=prom(c["corners"]))
+        fila.update(offsides=c["offsides"], corners=c["corners"], offsides_prom=prom(c["offsides"]), corners_prom=prom(c["corners"]),
+                    bandas=c["bandas"], bandas_prom=prom(c["bandas"]))
     elif rol == "cuarto":
         fila.update(cambios=c["cambios"], revisiones_pedidas=c["revisiones_pedidas"], cambios_prom=prom(c["cambios"]),
                     carteles=c["carteles"], anadido_min=c["anadido_min"],
@@ -211,7 +215,8 @@ def _chips(rol: str, c: Counter) -> List[str]:
         return chips + ([f"🎯 {_plural(c['penales'], 'penal', 'penales')}"] if c["penales"] else [])
     if rol in ("linea1", "linea2"):
         chips = [f"🚩 {_plural(c['offsides'], 'fuera de lugar', 'fueras de lugar')}"]
-        return chips + ([f"📐 {_plural(c['corners'], 'córner', 'córners')}"] if c["corners"] else [])
+        chips += [f"📐 {_plural(c['corners'], 'córner', 'córners')}"] if c["corners"] else []
+        return chips + ([f"↔️ {_plural(c['bandas'], 'saque de banda', 'saques de banda')}"] if c["bandas"] else [])
     if rol == "cuarto":
         chips = [f"🔄 {_plural(c['cambios'], 'cambio', 'cambios')}"]
         if c["revisiones_pedidas"]:
@@ -288,4 +293,6 @@ def comparar_con_colegas(perfil: Dict[str, Any]) -> Dict[str, Any]:
     if rol == "central":
         resultado.update(liga_tarjetas=resultado["liga"], pct_mas_estricto=resultado["pct"],
                          liga_faltas=round(sum(f["faltas_prom"] for f in colegas) / n, 1), pct_mas_faltas=pct("faltas_prom"))
+    elif rol in ("linea1", "linea2"):
+        resultado.update(liga_bandas=round(sum(f["bandas_prom"] for f in colegas) / n, 1), pct_bandas=pct("bandas_prom"))
     return resultado

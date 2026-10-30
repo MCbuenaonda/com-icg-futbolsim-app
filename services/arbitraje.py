@@ -35,6 +35,7 @@ ANADIDO_POR_TIPO = {
     "🚑 LESIÓN": 0.7,
     "🟥 DT EXPULSADO": 0.5,
     "🟨 TARJETA AMARILLA": 0.1,
+    "↔️ SAQUE DE BANDA": 0.02,   # ~45 por partido: cada uno es una pausa corta
 }
 ANADIDO_RANGO = {1: (1, 4), 2: (2, 8), 3: (0, 2), 4: (1, 3)}
 
@@ -194,7 +195,7 @@ ROL_POR_TIPO = {
 }
 TIPOS_DECISION_VAR = {"🖥️ VAR - GOL ANULADO", "🖥️ VAR - TARJETA REVISADA", "🖥️ VAR - PENAL ANULADO",
                       "🖥️ VAR - CONFIRMADO", "🖥️ VAR - ROJA DIRECTA", "🖥️ VAR - PENAL"}
-TIPOS_JUEZ_DE_LINEA = {"🚩 FUERA DE LUGAR", "🚩 SAQUE DE ESQUINA"}
+TIPOS_JUEZ_DE_LINEA = {"🚩 FUERA DE LUGAR", "🚩 SAQUE DE ESQUINA", "↔️ SAQUE DE BANDA"}
 
 
 def asignar_arbitros(eventos: List[dict], arbitros: dict) -> None:

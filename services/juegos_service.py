@@ -285,7 +285,7 @@ def armar_detalle_partido(juego: Dict[str, Any]) -> Dict[str, Any]:
         return jugadores.get((pais_id, nombre)) or {}
 
     eventos_vista, goles = [], {"local": [], "visitante": []}
-    conteo = {lado: {"al_arco": 0, "desviados": 0, "faltas": 0, "amarillas": 0, "rojas": 0, "offside": 0, "cambios": 0}
+    conteo = {lado: {"al_arco": 0, "desviados": 0, "faltas": 0, "amarillas": 0, "rojas": 0, "offside": 0, "cambios": 0, "banda": 0}
               for lado in ("local", "visitante")}
     for ev in eventos:
         tipo, lado = ev.get("tipo") or "", lado_de(ev.get("equipo"))
@@ -312,6 +312,8 @@ def armar_detalle_partido(juego: Dict[str, Any]) -> Dict[str, Any]:
             c["rojas"] += 1
         elif "FUERA DE LUGAR" in tipo:
             c["offside"] += 1
+        elif "SAQUE DE BANDA" in tipo:
+            c["banda"] += 1
         elif categoria == "cambio":
             c["cambios"] += 1
 
@@ -332,6 +334,8 @@ def armar_detalle_partido(juego: Dict[str, Any]) -> Dict[str, Any]:
         ("Rojas", conteo["local"]["rojas"], conteo["visitante"]["rojas"], ""),
         ("Cambios", conteo["local"]["cambios"], conteo["visitante"]["cambios"], ""),
     ]
+    if conteo["local"]["banda"] or conteo["visitante"]["banda"]:   # los partidos viejos no tienen saques de banda
+        comparativa.insert(6, ("Saques de banda", conteo["local"]["banda"], conteo["visitante"]["banda"], ""))
 
     # Lo que hizo cada jugador (mismos íconos que "Jugadores en Cancha" de /en-vivo): goles del partido (la tanda no
     # cuenta), asistencias, amarillas, roja, y el minuto en que entró o salió. Y quiénes entraron de cambio.
@@ -525,7 +529,7 @@ def registrar_resultado_juego(db: Database, juego_id: str, partido: dict, stats_
         objeto_resultado["calificaciones"] = partido["calificaciones"]
     # Lesiones del partido, bajas por lesión con que llegó cada selección (services/lesiones.py; las bajas siguientes las
     # aplica lesiones_service al terminar) y curva de energía de cada jugador (desgaste en la transmisión en vivo)
-    for campo in ("lesiones", "bajas_lesion", "energia", "espejo_extremos"):
+    for campo in ("lesiones", "bajas_lesion", "energia", "espejo_extremos", "recorrido"):
         if partido.get(campo) is not None:
             objeto_resultado[campo] = partido[campo]
 
@@ -2023,6 +2027,7 @@ PESOS_INTENSIDAD_EVENTOS = [
     ("FALTA", 2),
     ("SUSTITUCIÓN", 1),
     ("FUERA DE LUGAR", 1),
+    ("SAQUE DE BANDA", 0),   # ~45 por partido: no inclinan la intensidad
     ("TIEMPO EXTRA", 0),
     ("PITIDO FINAL", 0),
     ("SILBATO INICIAL", 0),

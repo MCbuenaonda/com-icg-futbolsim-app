@@ -738,7 +738,9 @@ def promover(user_id, contrato_id: str, marca_id: int) -> dict:
                                                "creado_en": datetime.utcnow()})
         except DuplicateKeyError:
             raise ValueError("Ya promoviste a este representado con esa marca en esta ronda")
-    return {"ok": True, "mensaje": f"Le presentaste {_nombre(c['tipo'], c['ref_id'])} a {marca['nombre']}: responde en {faltan} partido{'s' if faltan != 1 else ''}."}
+    return {"ok": True, "mensaje": f"Le presentaste {_nombre(c['tipo'], c['ref_id'])} a {marca['nombre']}: responde en {faltan} partido{'s' if faltan != 1 else ''}.",
+            # cupo de la ronda ya descontado: la vista actualiza el contador y bloquea «Promover» si se agotó
+            "promos": promociones_disponibles(user_id)}
 
 
 def responder_oferta(user_id, pat_id: str, aceptar: bool) -> dict:

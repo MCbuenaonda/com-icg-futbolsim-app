@@ -180,13 +180,14 @@ def svg_poster(anio) -> Optional[str]:
     return _cache_svg[clave]
 
 
-def svg_mascota(anio) -> Optional[str]:
+def svg_mascota(anio, animada: bool = False) -> Optional[str]:
+    """animada: con la hoja de animación dentro del SVG (respira, parpadea, gesto según la pose, balón): solo el inicio."""
     d = _datos(anio)
     if not d:
         return None
-    clave = ("mascota", d["anio"], d["arte"]["version"])
+    clave = ("mascota", d["anio"], d["arte"]["version"], animada)
     if clave not in _cache_svg:
-        _cache_svg[clave] = MA.dibujar(d["arte"]["mascota"], d["colores"], d["anio"])
+        _cache_svg[clave] = MA.dibujar(d["arte"]["mascota"], d["colores"], d["anio"], animada=animada)
     return _cache_svg[clave]
 
 

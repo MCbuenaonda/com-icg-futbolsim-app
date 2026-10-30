@@ -874,6 +874,12 @@ body {
 }
 .goleador-fila:hover::after, .goleador-fila:focus-visible::after { animation: card-logo-fondo-brillo 1s ease-in-out; }
 .goleador-fila__pos { width: 24px; text-align: center; font-weight: 800; color: #fff; text-shadow: 0 1px 3px #000; }
+/* Rostro grande en el Top 10 de goleadores: círculo más grande y encuadre acercado a la cara (el avatar trae la camiseta) */
+.goleador-fila .avatar-jugador { width: 3.8rem; height: 3.8rem; border: 2px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45); transition: transform 0.2s ease, border-color 0.2s ease; }
+.goleador-fila .avatar-jugador img { width: 150%; height: 150%; max-width: none; margin-top: 40%; }
+.goleador-fila:hover .avatar-jugador, .goleador-fila:focus-visible .avatar-jugador { transform: scale(1.08); border-color: #f59e0b; }
+@media (prefers-reduced-motion: reduce) { .goleador-fila .avatar-jugador { transition: none; } }
 .goleador-fila__nombre { flex: 1; min-width: 0; text-align: left; font-weight: 600; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .goleador-fila__pais { display: block; font-size: 0.75rem; font-weight: 500; color: #cbd5e1; }
 .goleador-fila__goles { color: #f59e0b; font-weight: 800; white-space: nowrap; }
@@ -1389,6 +1395,10 @@ body {
     color: #cbd5e1; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08); }
 .resumen-chip--conf { font-weight: 800; color: color-mix(in srgb, var(--logo-color) 55%, #fff); border-color: color-mix(in srgb, var(--logo-color) 45%, transparent); }
 .resumen-chip--conf img { height: 0.95rem; filter: brightness(0) invert(1); opacity: 0.85; }
+/* Chips de confederación que llevan a /confederacion/{id} (partidos pendientes, detalle del partido y ficha del país) */
+a.resumen-chip--enlace, a.partido-card__conf--enlace { text-decoration: none; cursor: pointer; transition: filter 0.15s ease, transform 0.15s ease, background-color 0.15s ease; }
+a.resumen-chip--enlace:hover, a.resumen-chip--enlace:focus-visible,
+a.partido-card__conf--enlace:hover, a.partido-card__conf--enlace:focus-visible { filter: brightness(1.25); transform: translateY(-1px); text-decoration: underline; text-underline-offset: 2px; }
 .resumen-equipo { color: inherit; text-decoration: none; transition: transform 0.2s ease; }
 .resumen-equipo:hover { color: inherit; transform: translateY(-2px); }
 .resumen-equipo .img-pais { height: 4.2rem; border-radius: 8px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
@@ -3506,9 +3516,34 @@ a.cdr-llave:hover { border-color: rgba(250, 204, 21, 0.55); transform: translate
 .hero-sede__barra span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #059669, #34d399); box-shadow: 0 0 10px rgba(52, 211, 153, .5); }
 .hero-sede__visual { display: flex; align-items: center; gap: 1.25rem; flex-shrink: 0; }
 .hero-sede__arte { display: flex; align-items: flex-end; text-decoration: none; }
-.hero-sede__poster { width: 96px; border-radius: 6px; box-shadow: 0 10px 22px rgba(0, 0, 0, .55); transform: rotate(-4deg); transition: transform .2s ease; }
-.hero-sede__arte:hover .hero-sede__poster { transform: rotate(0) scale(1.04); }
-.hero-sede__mascota { width: 82px; margin-left: -22px; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .5)); }
+/* Póster y mascota animados (inicio). Se usan las propiedades sueltas translate/rotate/scale para que la entrada, el
+   vaivén y el hover no se pisen entre sí. La mascota además se anima por dentro (mascota.svg?animada=1). */
+.hero-sede__poster-marco { position: relative; display: block; width: 96px; border-radius: 6px; overflow: hidden; z-index: 1;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, .55); rotate: -4deg; transform-origin: 50% 0;
+    transition: scale .25s ease, box-shadow .25s ease; }
+/* hasta que cargan las imágenes (clase is-listo, script en home.html) no se ven; después entran y se animan */
+.hero-sede__arte:not(.is-listo) .hero-sede__poster-marco, .hero-sede__arte:not(.is-listo) .hero-sede__mascota { opacity: 0; }
+.hero-sede__arte.is-listo .hero-sede__poster-marco {
+    animation: poster-entra .9s cubic-bezier(.2, .9, .3, 1.25) backwards, poster-flota 6.5s ease-in-out .9s infinite; }
+.hero-sede__poster { display: block; width: 100%; }
+/* destello que cruza el póster cada tanto, como papel satinado */
+.hero-sede__poster-marco::after { content: ""; position: absolute; inset: -30% -60%; pointer-events: none;
+    background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .5) 50%, transparent 58%);
+    translate: -100% 0; animation: poster-brillo 7s ease-in-out 1.6s infinite; }
+.hero-sede__arte:hover .hero-sede__poster-marco { scale: 1.07; animation-play-state: paused, paused; box-shadow: 0 16px 30px rgba(0, 0, 0, .6); }
+.hero-sede__arte:hover .hero-sede__poster-marco::after { animation-duration: 1.2s; animation-delay: 0s; }
+.hero-sede__mascota { position: relative; z-index: 2; width: 82px; margin-left: -22px; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .5));
+    transform-origin: 50% 100%; transition: translate .25s cubic-bezier(.3, 1.6, .5, 1); }
+.hero-sede__arte.is-listo .hero-sede__mascota { animation: mascota-entra .8s cubic-bezier(.3, 1.6, .5, 1) .45s backwards; }
+.hero-sede__arte:hover .hero-sede__mascota { translate: 0 -8px; }
+@keyframes poster-entra { from { opacity: 0; translate: 0 -46px; rotate: -14deg; } to { opacity: 1; translate: 0 0; rotate: -4deg; } }
+@keyframes poster-flota { 0%, 100% { translate: 0 0; rotate: -4deg; } 50% { translate: 0 -5px; rotate: -2deg; } }
+@keyframes poster-brillo { 0%, 72% { translate: -100% 0; } 88%, 100% { translate: 100% 0; } }
+@keyframes mascota-entra { 0% { opacity: 0; scale: .3; translate: 0 20px; } 60% { opacity: 1; scale: 1.08; translate: 0 -10px; } 100% { scale: 1; translate: 0 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .hero-sede__arte .hero-sede__poster-marco, .hero-sede__poster-marco::after, .hero-sede__arte .hero-sede__mascota { animation: none !important; opacity: 1 !important; }
+    .hero-sede__poster-marco::after { display: none; }
+}
 .hero-sede__copa { height: 150px; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .5)); }
 /* Aro dorado de "Cupos definidos", como una medalla */
 .hero-sede__cupos {
@@ -3535,7 +3570,7 @@ a.cdr-llave:hover { border-color: rgba(250, 204, 21, 0.55); transform: translate
     .hero-sede__header, .hero-sede__cuerpo { padding-inline: 1rem; }
     .hero-sede__cupos { width: 128px; height: 128px; }
     .hero-sede__cupos strong { font-size: 1.6rem; }
-    .hero-sede__poster { width: 78px; }
+    .hero-sede__poster-marco { width: 78px; }
     .hero-sede__mascota { width: 66px; }
 }
 @media (prefers-reduced-motion: reduce) { .hero-sede__punto { animation: none; } }
@@ -3705,13 +3740,34 @@ a.cdr-llave:hover { border-color: rgba(250, 204, 21, 0.55); transform: translate
 .sd-sede--sinergia:hover { border-color: rgba(250, 204, 21, 0.6); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35), 0 0 24px rgba(250, 204, 21, 0.15); }
 .sd-sede--mia { border-color: rgba(56, 189, 248, 0.45); }
 .sd-sede--ocupada { opacity: 0.72; }
-.sd-sede--ocupada .sd-sede__foto img { filter: grayscale(0.7); }
-.sd-sede__foto { position: relative; aspect-ratio: 16 / 9; display: grid; place-items: center; overflow: hidden;
+.sd-sede--ocupada .sd-sede__foto img { filter: grayscale(0.7) drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55)); }
+/* Área del estadio (tarjetas de sede y oportunidades): la bandera del país a sangre como marca de agua (--bandera-url,
+   bandera_plana), desvanecida hacia los bordes y ondeando lento; encima dos haces de reflectores y el estadio con su
+   sombra. Al pasar el mouse la bandera se aviva y el estadio se acerca. */
+.sd-sede__foto, .sd-oportunidad__foto { position: relative; display: grid; place-items: center; overflow: hidden; isolation: isolate;
     background: radial-gradient(70% 80% at 50% 60%, rgba(34, 197, 94, 0.14), transparent 70%), linear-gradient(180deg, #0f1b30, #0b1426); }
-.sd-sede__foto img { width: 92%; height: 92%; object-fit: contain; transition: transform 0.5s ease; }
+.sd-sede__foto { aspect-ratio: 16 / 9; }
+.sd-sede__foto::before, .sd-oportunidad__foto::before { content: ""; position: absolute; inset: -8%; z-index: -1; pointer-events: none;
+    background: var(--bandera-url, none) center / cover no-repeat; opacity: 0.3; filter: saturate(1.2);
+    -webkit-mask-image: radial-gradient(120% 95% at 50% 35%, #000 30%, transparent 82%);
+    mask-image: radial-gradient(120% 95% at 50% 35%, #000 30%, transparent 82%);
+    transition: opacity 0.4s ease; animation: sd-bandera-ondea 16s ease-in-out infinite; }
+@keyframes sd-bandera-ondea { 0%, 100% { transform: scale(1.04) translate(0, 0) skewY(0deg); } 50% { transform: scale(1.1) translate(-2.5%, 1.5%) skewY(-1.2deg); } }
+.sd-sede:hover .sd-sede__foto::before, .sd-oportunidad:hover .sd-oportunidad__foto::before { opacity: 0.48; }
+.sd-sede__foto img, .sd-oportunidad__foto img { position: relative; z-index: 1; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55)); transition: transform 0.5s ease; }
+.sd-sede__foto img { width: 92%; height: 92%; object-fit: contain; }
 .sd-sede:hover .sd-sede__foto img { transform: scale(1.06) rotate(-1deg); }
-.sd-sede__foto::after { content: ""; position: absolute; inset: auto 0 0 0; height: 40%; background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.95)); }
-.sd-sede__pais, .sd-sede__top, .sd-sede__sinergia, .sd-estado { position: absolute; z-index: 1; display: inline-flex; align-items: center; gap: 0.3rem;
+.sd-oportunidad:hover .sd-oportunidad__foto img { transform: scale(1.06); }
+/* reflectores desde las esquinas de arriba + fundido hacia el cuerpo de la tarjeta */
+.sd-sede__foto::after, .sd-oportunidad__foto::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(180deg, transparent 58%, rgba(15, 23, 42, 0.95)),
+                conic-gradient(from 150deg at 6% -8%, transparent 0deg, rgba(255, 255, 255, 0.13) 14deg, transparent 32deg),
+                conic-gradient(from 178deg at 94% -8%, transparent 0deg, rgba(255, 255, 255, 0.13) 18deg, transparent 36deg);
+    transition: opacity 0.4s ease; opacity: 0.85; }
+.sd-sede:hover .sd-sede__foto::after, .sd-oportunidad:hover .sd-oportunidad__foto::after { opacity: 1; }
+.sd-sede--ocupada .sd-sede__foto::before { filter: grayscale(0.8); opacity: 0.18; }
+@media (prefers-reduced-motion: reduce) { .sd-sede__foto::before, .sd-oportunidad__foto::before { animation: none; } }
+.sd-sede__pais, .sd-sede__top, .sd-sede__sinergia, .sd-estado { position: absolute; z-index: 2; display: inline-flex; align-items: center; gap: 0.3rem;
     padding: 0.18rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; backdrop-filter: blur(6px); }
 .sd-sede__pais { left: 10px; bottom: 10px; color: #fff; background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.15); }
 .sd-sede__pais { white-space: nowrap; max-width: calc(100% - 20px); }
@@ -3756,7 +3812,8 @@ a.sd-proximo:hover { background: rgba(56, 189, 248, 0.15); }
     background: linear-gradient(160deg, rgba(250, 204, 21, 0.1), rgba(15, 23, 42, 0.95) 45%); border: 1px solid rgba(250, 204, 21, 0.28);
     transition: transform 0.25s ease, box-shadow 0.25s ease; animation: sd-entrar 0.5s ease both; animation-delay: calc(var(--i) * 70ms); }
 .sd-oportunidad:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 22px rgba(250, 204, 21, 0.15); }
-.sd-oportunidad__img { width: 100%; height: 7.5rem; object-fit: contain; padding: 0.4rem 0.6rem 0; }
+.sd-oportunidad__foto { height: 8.5rem; grid-template: 100% / 100%; }   /* la fila ocupa el alto: la imagen no se desborda */
+.sd-oportunidad__img { width: 100%; height: 100%; min-height: 0; object-fit: contain; padding: 0.5rem 0.6rem 0.4rem; }
 .sd-oportunidad__cuerpo { padding: 0.6rem 0.9rem 0.9rem; display: flex; flex-direction: column; flex: 1; }
 .sd-oportunidad__n { display: flex; flex-direction: column; align-items: center; line-height: 1; padding: 0.35rem 0.55rem; border-radius: 12px;
     color: #1a1300; background: linear-gradient(135deg, #fde68a, #facc15); box-shadow: 0 0 14px rgba(250, 204, 21, 0.35); }
@@ -4815,6 +4872,86 @@ a.cal-record:hover { color: var(--tinta-1); border-color: var(--c); }
 .corp-cupo__puntos i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
 .corp-cupo__puntos i.is-libre { background: var(--cupo); }
 .corp-cupo__nota { display: block; font-size: 0.7rem; color: var(--bs-secondary-color); }
+/* El número del cupo late al cambiar (al promover, static/js/corp_detalle.js) */
+.corp-cupo__cambio { display: inline-block; animation: corp-cupo-cambio 0.6s ease-out; }
+@keyframes corp-cupo-cambio { 0% { transform: scale(1.6); color: var(--cupo); } 100% { transform: scale(1); } }
+
+/* Franja de datos del representado: abre el detalle del contrato (corp_detalle.js) */
+.corp-contrato__datos--detalle { cursor: pointer; border-radius: 10px; padding: 0.15rem 0.35rem; margin-left: -0.35rem;
+    transition: background-color 0.15s ease; align-items: center; }
+.corp-contrato__datos--detalle:hover, .corp-contrato__datos--detalle:focus-visible { background: rgba(255, 255, 255, 0.06); outline: none; }
+.corp-contrato__datos--detalle:focus-visible { box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.5); }
+.corp-contrato__info { color: #38bdf8; opacity: 0.75; }
+.corp-contrato__datos--detalle:hover .corp-contrato__info { opacity: 1; }
+
+/* Modal «Detalle del contrato» */
+.cd-seccion { padding: 0.9rem 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.cd-seccion:first-child { padding-top: 0; }
+.cd-seccion:last-child { border-bottom: 0; padding-bottom: 0; }
+.cd-titulo { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bs-secondary-color); margin-bottom: 0.6rem; }
+.cd-subtitulo { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
+.cd-satis { display: flex; align-items: center; gap: 1rem; }
+.cd-satis__valor { font-size: 2.4rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.cd-satis__valor small { font-size: 0.85rem; color: var(--bs-secondary-color); font-weight: 600; }
+.cd-satis__valor--bien, .cd-satis__estado--bien { color: #22c55e; }
+.cd-satis__valor--medio, .cd-satis__estado--medio { color: #f59e0b; }
+.cd-satis__valor--mal, .cd-satis__estado--mal { color: #ef4444; }
+.cd-satis__estado { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.35rem; }
+.cd-barra { position: relative; height: 0.65rem; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: visible; }
+.cd-barra__relleno { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+.cd-barra__relleno--bien { background: #22c55e; }
+.cd-barra__relleno--medio { background: #f59e0b; }
+.cd-barra__relleno--mal { background: #ef4444; }
+.cd-barra__proyeccion { position: absolute; top: 0; bottom: 0; border-radius: 0 999px 999px 0;
+    background: repeating-linear-gradient(45deg, rgba(34, 197, 94, 0.55) 0 4px, rgba(34, 197, 94, 0.2) 4px 8px); }
+.cd-barra__marca { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: #f8fafc; opacity: 0.6; }
+.cd-barra__marca--bien { background: #22c55e; opacity: 0.9; }
+.cd-barra__leyenda { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.66rem; color: var(--bs-secondary-color); margin-top: 0.3rem; flex-wrap: wrap; }
+.cd-proyeccion { margin-top: 0.7rem; padding: 0.45rem 0.7rem; border-radius: 10px; font-size: 0.8rem; color: #bbf7d0;
+    background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.25); }
+.cd-reglas, .cd-acciones { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.cd-regla { display: flex; align-items: center; gap: 0.6rem; font-size: 0.8rem; padding: 0.35rem 0.5rem; border-radius: 10px; background: rgba(255, 255, 255, 0.03); }
+.cd-regla--ok { background: rgba(34, 197, 94, 0.08); }
+.cd-regla--alerta { background: rgba(239, 68, 68, 0.1); }
+.cd-delta { flex: 0 0 auto; min-width: 2.3rem; text-align: center; font-weight: 800; border-radius: 999px; padding: 0.1rem 0.4rem; font-size: 0.78rem; }
+.cd-delta--sube { color: #22c55e; background: rgba(34, 197, 94, 0.15); }
+.cd-delta--baja { color: #ef4444; background: rgba(239, 68, 68, 0.15); }
+.cd-accion { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0.65rem; border-radius: 12px; background: rgba(255, 255, 255, 0.04); font-size: 0.82rem; }
+.cd-accion--no { opacity: 0.75; }
+.cd-accion__icono { font-size: 1.1rem; color: #facc15; flex: 0 0 auto; }
+.cd-renov { margin-top: 0.15rem; }
+.cd-renov--renovar { color: #22c55e; }
+.cd-renov--esperar { color: #f59e0b; }
+.cd-renov--no_renovar { color: #ef4444; }
+.cd-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.5rem; }
+.cd-dato { padding: 0.45rem 0.65rem; border-radius: 10px; background: rgba(255, 255, 255, 0.04); }
+.cd-dato span { display: block; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--bs-secondary-color); }
+.cd-dato strong { color: #fff; font-variant-numeric: tabular-nums; }
+/* Ícono que despliega las reglas de satisfacción */
+.cd-info { margin-left: auto; display: inline-flex; align-items: center; gap: 0.3rem; border: 1px solid rgba(56, 189, 248, 0.35);
+    background: rgba(56, 189, 248, 0.08); color: #38bdf8; border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.68rem;
+    font-weight: 700; text-transform: none; letter-spacing: 0; cursor: pointer; transition: background-color 0.15s ease; }
+.cd-info:hover, .cd-info.is-abierto { background: rgba(56, 189, 248, 0.2); }
+.cd-reglas-bloque:not([hidden]) { animation: cd-desplegar 0.25s ease-out; }
+@keyframes cd-desplegar { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.cd-cuenta { margin-left: 0.3rem; padding: 0 0.45rem; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 0.68rem; }
+/* Patrocinadores y televisión del representado */
+.cd-lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.cd-marca, .cd-tv { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0.65rem; border-radius: 12px; background: rgba(255, 255, 255, 0.04); font-size: 0.82rem; }
+.cd-marca { border-left: 3px solid var(--marca); }
+.cd-marca__logo { width: 2.6rem; height: 2.6rem; object-fit: contain; border-radius: 8px; background: rgba(255, 255, 255, 0.92); padding: 0.2rem; flex: 0 0 auto; }
+.cd-tv__logo { width: 2.6rem; height: 2.6rem; flex: 0 0 auto; border-radius: 8px; background: rgba(255, 255, 255, 0.92); padding: 0.2rem; display: grid; place-items: center; }
+.cd-tv__logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.cd-tv--proxima { border: 1px dashed rgba(56, 189, 248, 0.4); }
+.cd-tv__partido { display: inline-flex; align-items: center; gap: 0.3rem; color: #e2e8f0; text-decoration: none; flex-wrap: wrap; }
+.cd-tv__partido:hover { color: #fff; text-decoration: underline; }
+.cd-tv__partido .img-pais { width: 1.1rem; height: auto; }
+.cd-tv__estado { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px;
+    color: #38bdf8; background: rgba(56, 189, 248, 0.12); }
+.cd-tv__estado--hecha { color: #22c55e; background: rgba(34, 197, 94, 0.12); }
+.cd-vacio { display: flex; gap: 0.6rem; align-items: flex-start; font-size: 0.8rem; color: var(--bs-secondary-color); padding: 0.6rem 0.7rem;
+    border-radius: 12px; border: 1px dashed rgba(255, 255, 255, 0.12); }
+.cd-vacio i { font-size: 1.1rem; color: #64748b; }
 
 /* Marcas de cada jugador en la plantilla (/jugadores/pais/{id}) y en la ficha del país */
 .ficha-jugador__marcas { position: relative; z-index: 1; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin: 0 0.85rem 0.5rem;

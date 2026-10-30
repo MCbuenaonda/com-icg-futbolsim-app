@@ -44,8 +44,9 @@ def poster(request: Request, anio: int):
 
 
 @route_imagenes.get("/{anio}/mascota.svg", name="arte_mascota")
-def mascota(request: Request, anio: int):
-    return _svg(request, AS.svg_mascota(anio))
+def mascota(request: Request, anio: int, animada: bool = False):
+    """?animada=1: la versión con animación (la usa el encabezado del inicio)."""
+    return _svg(request, AS.svg_mascota(anio, animada))
 
 
 @route_vistas.get("/arte", response_class=HTMLResponse, name="arte_mundial")

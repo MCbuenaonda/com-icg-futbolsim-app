@@ -37,7 +37,7 @@
                 </div>
                 <div class="col-12 col-md min-w-0 text-center text-md-start">
                     <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 flex-wrap mb-1">
-                        {% if lc %}<span class="resumen-chip resumen-chip--conf"><img src="{{ lc.url }}" alt="">{{ sigla }}</span>{% endif %}
+                        {% if lc %}<a href="/confederacion/{{ pais.confederacion_id }}" class="resumen-chip resumen-chip--conf resumen-chip--enlace" title="Ver el detalle de {{ sigla }}"><img src="{{ lc.url }}" alt="">{{ sigla }}</a>{% endif %}
                         <span class="resumen-chip">{{ m.bandera(pais.bandera, pais_id=pais.id) }} {{ pais.siglas }} · ISO {{ pais.iso }}</span>
                         {% if 'ELIMINADO' in estado %}<span class="ficha-pais__estado ficha-pais__estado--fuera">{{ pais.estado | replace('_', ' ') | title }}</span>
                         {% elif 'CALIFICADO' in estado or 'GANADOR' in estado %}<span class="ficha-pais__estado ficha-pais__estado--ok">{{ pais.estado | replace('_', ' ') | title }}</span>

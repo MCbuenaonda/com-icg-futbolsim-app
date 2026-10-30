@@ -254,6 +254,10 @@ def obtener_estado_live() -> Optional[Dict[str, Any]]:
 
     resultado = juego.get("resultado") or {}
     eventos = resultado.get("eventos", [])
+    # Recorrido del balón (services/balon.py): se guarda aparte, alineado por índice, y aquí se une a cada evento
+    recorrido = resultado.get("recorrido") or []
+    if len(recorrido) == len(eventos):
+        eventos = [{**e, "balon": r} if r else e for e, r in zip(eventos, recorrido)]
     transmision = juego.get("transmision", {})
     nombre_local = (juego.get("equipo_local") or {}).get("nombre", "?")
     nombre_visitante = (juego.get("equipo_visitante") or {}).get("nombre", "?")
@@ -309,6 +313,7 @@ def obtener_estado_live() -> Optional[Dict[str, Any]]:
         "segundos_restantes": estado_transmision["segundos_restantes"],
         "finalizado": estado_transmision["finalizado_por_tiempo"],
         "energia": energia_al_segundo(resultado.get("energia") or {}, estado_transmision["eventos_visibles"]),
+        "ms_por_evento": int(1000 * transmision.get("duracion_segundos", DURACION_TRANSMISION_SEGUNDOS) / max(1, len(eventos))),
     }
 
 

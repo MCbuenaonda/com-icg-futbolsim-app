@@ -4,6 +4,8 @@ from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
 from collections import defaultdict
 import random
+import contextvars
+from services import balon as BL
 from services import reglas_leyendas, desgaste, arbitraje, tecnicos, formaciones as FS
 from services import especialidades as ES
 from services import lesiones as LS
@@ -92,6 +94,9 @@ TIPOS_CERCA_DEL_ARCO = {
 }
 
 def _posicion_balon_sintetica(zona_balon: str, tipo: str = None) -> dict:
+    if tipo == "↔️ SAQUE DE BANDA":   # sobre una de las dos líneas de banda
+        x_min, x_max = RANGO_X_POR_ZONA.get(zona_balon, (33, 66))
+        return {"x": round(random.uniform(x_min, x_max), 1), "y": random.choice((0.8, 67.2))}
     if tipo in TIPOS_CERCA_DEL_ARCO:
         x_min, x_max = RANGO_X_CERCA_DEL_ARCO
         y_min, y_max = RANGO_Y_ANCHO_ARCO
@@ -99,6 +104,18 @@ def _posicion_balon_sintetica(zona_balon: str, tipo: str = None) -> dict:
         x_min, x_max = RANGO_X_POR_ZONA.get(zona_balon, (33, 66))
         y_min, y_max = (0, 68)
     return {"x": round(random.uniform(x_min, x_max), 1), "y": round(random.uniform(y_min, y_max), 1)}
+
+# Recorrido del balón del partido que se está simulando (services/balon.py): lo activa simular_partido_realista y lo
+# consulta construir_evento. Fuera de una simulación queda en None y la posición se sortea como antes.
+_SEGUIDOR_BALON: contextvars.ContextVar = contextvars.ContextVar("seguidor_balon", default=None)
+
+
+def _toque_balon(nombre: str, tipo: str = "raso") -> None:
+    """Pase o conducción que el motor no narra: la transmisión lo anima antes del próximo evento."""
+    seguidor = _SEGUIDOR_BALON.get()
+    if seguidor is not None:
+        seguidor.toque(nombre, tipo)
+
 
 def construir_evento(segundos_acumulados: float, equipo: str, tipo: str, descripcion: str,
                       jugadores: list, zona_balon: str, es_preparacion: bool = False,
@@ -129,6 +146,12 @@ def construir_evento(segundos_acumulados: float, equipo: str, tipo: str, descrip
     if arbitro_rol:
         evento["arbitro_rol"] = arbitro_rol
         evento["arbitro"] = (arbitros or {}).get(arbitro_rol)
+    seguidor = _SEGUIDOR_BALON.get()
+    if seguidor is not None:
+        balon = seguidor.evento(tipo, jugadores)
+        if balon:
+            evento["balon"] = balon
+            evento["posicion_balon"] = seguidor.posicion_rel(balon)
     evento.update(extra)
     return evento
 
@@ -199,6 +222,24 @@ FRASES_TRANSICION_PASE = [
 FRASES_TRANSICION_REGATE = [
     "{defensor} le saca el balón a {atacante} con un cierre limpio y {equipo} recupera el control...",
     "Buen cierre de {defensor}: le quita la pelota a {atacante} sin cometer falta y arranca la contra...",
+]
+# Saques de banda: de las pérdidas sin falta, en PROB_BANDA_PERDIDA la pelota se va por la banda tras el error del que
+# atacaba (saca el rival: la posesión cambia como siempre) y en PROB_BANDA_DESPEJE el defensor gana el duelo pero la
+# manda afuera (saca el que atacaba y CONSERVA la pelota). Los marca el juez de línea de ese lado. Calibrado con
+# calibrar_inferioridad.py (~40-50 por partido entre los dos, goles por partido sin cambio).
+PROB_BANDA_PERDIDA = 0.27
+PROB_BANDA_DESPEJE = 0.13
+RANGO_SEGUNDOS_BANDA = (1, 3)   # encima de la jugada que ya se contó: el saque reemplaza a la transición
+TIPO_SAQUE_BANDA = "↔️ SAQUE DE BANDA"
+FRASES_BANDA_PERDIDA = [
+    "El intento de {atacante} se va por la banda. {juez} levanta el banderín: saque de banda para {equipo}.",
+    "{atacante} no controla y la pelota sale por el costado; saca de banda {equipo}.",
+    "Se le escapa larga a {atacante} y se va afuera. Lateral para {equipo}, marca {juez}.",
+]
+FRASES_BANDA_DESPEJE = [
+    "{defensor} llega al cruce y la manda a la tribuna: saque de banda para {equipo}.",
+    "Cierre de {defensor}, que prefiere sacarla por el costado. {juez} indica lateral para {equipo}.",
+    "{defensor} la despeja afuera sin complicarse; {equipo} sacará de banda.",
 ]
 FRASES_PRESION_FALTA_PASE = [
     "{defensor} acosa la salida de {atacante} y va al choque para disputar la esférica...",
@@ -1241,6 +1282,26 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     jugador_con_balon = random.choice(medios_iniciales if medios_iniciales else equipo_local["plantilla"])
     zona_balon = "medio"
 
+    # Recorrido del balón (services/balon.py): sigue al estado real del motor y al carril de cada jugador en su formación
+    carriles_cache = {}
+
+    def _carril(nombre):
+        for eq in (equipo_local, equipo_visitante):
+            for j in eq["plantilla"]:
+                if j["nombre"] != nombre:
+                    continue
+                if j.get("linea_partido") == 1:
+                    return 34.0
+                clave = (tactica_por_equipo[eq["nombre"]], espejo_por_equipo[eq["nombre"]])
+                if clave not in carriles_cache:
+                    esquema = clave[0] if clave[0] in FORMACIONES else "4-3-3"
+                    carriles_cache[clave] = BL.carriles(FS.lineas(esquema, clave[1]))
+                return carriles_cache[clave].get(j.get("slot"))
+        return None
+
+    token_balon = _SEGUIDOR_BALON.set(BL.Seguidor(
+        lambda: (equipo_con_balon is equipo_local, zona_balon, jugador_con_balon["nombre"]), _carril))
+
     eventos_visibles.append(construir_evento(
         segundos_acumulados, "Árbitro Central", "👉 SILBATO INICIAL",
         f"¡Arranca el partido entre {equipo_local['nombre']} y {equipo_visitante['nombre']}!",
@@ -1334,6 +1395,41 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
             jugador_con_balon = random.choice(de_campo or equipo["plantilla"])
         _muestrear_energia(forzar=True)
         return True
+
+    def _saque_banda(atacante, defensor):
+        """Pérdida sin falta: ¿la pelota salió por la banda? None = no salió (robo de siempre); "rival" = se va tras el
+        error del que atacaba y saca el rival (la posesión cambia como siempre); "conserva" = el defensor la mandó
+        afuera y saca el que atacaba (sigue con la pelota un compañero, en la misma zona). Lo marca el juez de línea."""
+        nonlocal segundos_acumulados, jugador_con_balon
+        r = random.random()
+        if r < PROB_BANDA_PERDIDA:
+            tipo = "rival"
+        elif r < PROB_BANDA_PERDIDA + PROB_BANDA_DESPEJE:
+            tipo = "conserva"
+        else:
+            return None
+        rol = arbitraje.rol_juez_de_linea(equipo_con_balon is equipo_local, periodo_actual)
+        juez = arbitros.get(rol, "El juez de línea")
+        if tipo == "rival":
+            saca, protagonista = equipo_defensor, atacante
+            texto = random.choice(FRASES_BANDA_PERDIDA).format(atacante=atacante["nombre"], equipo=saca["nombre"], juez=juez)
+        else:
+            saca, protagonista = equipo_con_balon, defensor
+            texto = random.choice(FRASES_BANDA_DESPEJE).format(defensor=defensor["nombre"], equipo=saca["nombre"], juez=juez)
+            st_def = stats_jugadores.get(defensor["id"])
+            if st_def and st_def.get("recuperaciones", 0) > 0:   # la mandó afuera: no se quedó con la pelota
+                st_def["recuperaciones"] -= 1
+        st = stats_jugadores.get(protagonista["id"])
+        if st is not None:
+            st["saques_banda_provocados"] = st.get("saques_banda_provocados", 0) + 1
+        eventos_visibles.append(construir_evento(
+            segundos_acumulados, saca["nombre"], TIPO_SAQUE_BANDA, texto, [protagonista["nombre"]], zona_balon,
+            arbitro_rol=rol, arbitros=arbitros))
+        segundos_acumulados += _costo_segundos(RANGO_SEGUNDOS_BANDA)
+        if tipo == "conserva":
+            companeros = [j for j in equipo_con_balon["plantilla"] if j is not atacante and j.get("linea_partido") != 1]
+            jugador_con_balon = random.choice(companeros or [atacante])
+        return tipo
 
     def _avisar_cansancio(jugadores_fundidos):
         for jf in jugadores_fundidos:
@@ -1652,6 +1748,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     posible_asistente = {"id": jugador_con_balon["id"], "nombre": jugador_con_balon["nombre"]}
 
                 jugador_con_balon = candidatos[0] if random.random() < 0.70 else random.choice(candidatos)
+                _toque_balon(jugador_con_balon["nombre"], "aereo" if accion == "despeje" else "raso")
 
             else:
                 posible_asistente = None
@@ -1837,11 +1934,18 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     ))
 
                 else:
+                    # ¿Salió por la banda? (saque de banda: lo marca el juez de línea)
+                    banda = _saque_banda(jugador_con_balon, defensor_marcador)
+                    if banda == "conserva":   # el defensor la mandó afuera: el que atacaba sigue con la pelota
+                        posible_asistente = None
+                        _intentar_sustitucion()
+                        continue
                     # Turnover "silencioso": no hubo falta ni el robo en zona defensiva de
                     # arriba -- es la mayoría de las pérdidas de balón (todo pase fallido fuera
                     # de esos dos casos). Antes no generaba ningún evento, lo que se sentía como
                     # un salto abrupto de posesión en la línea de tiempo.
-                    eventos_visibles.append(construir_evento(
+                    if not banda:
+                      eventos_visibles.append(construir_evento(
                         segundos_acumulados, equipo_defensor["nombre"], "⚡ EN TRANSICIÓN",
                         random.choice(FRASES_TRANSICION_PASE).format(
                             defensor=defensor_marcador["nombre"], atacante=jugador_con_balon["nombre"],
@@ -1898,6 +2002,8 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                         f"¡Gran maniobra individual de {jugador_con_balon['nombre']} dejando atrás a la defensa!",
                         [jugador_con_balon["nombre"]], zona_balon
                     ))
+                else:
+                    _toque_balon(jugador_con_balon["nombre"], "conduccion")
             else:
                 posible_asistente = None
 
@@ -1998,7 +2104,13 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
                     # Turnover "silencioso" tras un regate fallido sin falta -- a diferencia de
                     # la rama de pase, aquí no existe ningún sub-caso con evento propio: el 100%
                     # de estos casos caía sin narración antes de este cambio.
-                    eventos_visibles.append(construir_evento(
+                    banda = _saque_banda(jugador_con_balon, defensor_marcador)
+                    if banda == "conserva":   # el defensor la mandó afuera: el que atacaba sigue con la pelota
+                        posible_asistente = None
+                        _intentar_sustitucion()
+                        continue
+                    if not banda:
+                      eventos_visibles.append(construir_evento(
                         segundos_acumulados, equipo_defensor["nombre"], "⚡ EN TRANSICIÓN",
                         random.choice(FRASES_TRANSICION_REGATE).format(
                             defensor=defensor_marcador["nombre"], atacante=jugador_con_balon["nombre"],
@@ -2240,6 +2352,10 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
 
     # Cálculo de métricas avanzadas del partido
     metricas_partido = calcular_metricas_equipo(stats_jugadores, goles_local, goles_visitante)
+    # Saques de banda que sacó cada equipo (los marca el juez de línea; el evento es del que saca)
+    for lado, eq in (("local", equipo_local), ("visitante", equipo_visitante)):
+        metricas_partido[lado]["saques_banda"] = sum(
+            1 for e in eventos_visibles if e.get("tipo") == TIPO_SAQUE_BANDA and e.get("equipo") == eq["nombre"])
 
     # Cálculo final de calificaciones (Ratings)
     for stat in stats_jugadores.values():
@@ -2280,6 +2396,9 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
         "espejo_extremos": {"local": espejo_local, "visita": espejo_visita},
         "bajas_lesion": bajas_lesion,
         "energia": curva_energia,
+        # Recorrido del balón de cada evento (services/balon.py), alineado por índice con 'eventos' (None en los avisos).
+        # Va aparte para no engordar a quienes leen 'resultado.eventos' (Estadísticas lee los de todo el Mundial)
+        "recorrido": [e.pop("balon", None) for e in eventos_visibles],
     }
 
     # Generar la opinión periodística final
@@ -2295,4 +2414,5 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     for j in equipo_local["plantilla"] + equipo_visitante["plantilla"]:
         if j.get("id") in stats_jugadores:
             stats_jugadores[j["id"]]["energia_final"] = round(j.get("energia", 100), 1)
+    _SEGUIDOR_BALON.reset(token_balon)
     return resultado, stats_jugadores

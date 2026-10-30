@@ -139,6 +139,57 @@
 .cancha-trazo--fuerte {
     stroke-width: 1.1;
 }
+/* Conducción: punteado (la pelota va pegada al pie); aéreo: más fino y translúcido (va por el aire) */
+.cancha-trazo--conduccion { stroke-dasharray: 0.9 0.9 !important; stroke-width: 0.45; }
+.cancha-trazo--aereo { stroke-width: 0.4; opacity: 0.75; }
+
+/* Animador de jugadas (live_match.js, reproducirJugada): la sombra se queda en el piso mientras el balón sube en los
+   pases aéreos, la red del arco se sacude con el gol y el arquero se estira en la atajada. */
+.cancha-balon-sombra {
+    position: absolute;
+    width: 12px;
+    height: 6px;
+    margin-left: -6px;
+    margin-top: 3px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    filter: blur(1px);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 2;
+    will-change: transform;
+}
+.cancha-red {
+    position: absolute;
+    top: 44.6%;
+    height: 10.8%;
+    width: 1.6%;
+    pointer-events: none;
+    z-index: 1;
+    background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.35) 0 1px, transparent 1px 4px),
+                      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.35) 0 1px, transparent 1px 4px);
+    opacity: 0.45;
+}
+.cancha-red--izq { left: 0; transform-origin: right center; }
+.cancha-red--der { right: 0; transform-origin: left center; }
+.cancha-red--sacude { animation: cancha-red-sacude 0.9s ease-out; }
+@keyframes cancha-red-sacude {
+    0% { opacity: 0.45; scale: 1 1; }
+    20% { opacity: 1; scale: 1.9 1.12; }
+    45% { scale: 1.2 0.96; }
+    70% { scale: 1.5 1.04; }
+    100% { opacity: 0.45; scale: 1 1; }
+}
+.cancha-jugador--estirada { animation: cancha-jugador-estirada 0.9s ease-out; }
+@keyframes cancha-jugador-estirada {
+    0% { rotate: 0deg; scale: 1; }
+    30% { rotate: -70deg; scale: 1.2; }
+    70% { rotate: -70deg; scale: 1.15; }
+    100% { rotate: 0deg; scale: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cancha-red--sacude, .cancha-jugador--estirada { animation: none; }
+}
 /* Etiquetas de lado: qué equipo ataca hacia cada extremo de la cancha (local siempre hacia la
    derecha, visitante siempre hacia la izquierda -- ver canchaPosicionVisual() en el script). */
 .cancha-etiqueta {
@@ -335,6 +386,7 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
     transition: left 0.6s ease, top 0.6s ease;
     z-index: 2;
+    will-change: transform;   /* el animador lo mueve en cada cuadro: capa propia */
 }
 .cancha-balon--gol {
     animation: cancha-pulse-gol 1.1s ease-out 2;
@@ -389,6 +441,9 @@
     cursor: default;
     user-select: none;
     transition: left 0.8s ease, top 0.8s ease, opacity 0.45s ease, scale 0.3s ease;
+    /* Capa propia: la sombra con filtro (drop-shadow) del jersey queda dibujada y no se recalcula en cada cuadro
+       que el balón o los demás se mueven (sin esto, con el animador de jugadas la página caía a 1-3 cuadros/s) */
+    will-change: transform;
 }
 .cancha-jugador--visitante { --equipo-color: #e66767; }
 .cancha-jugador__jersey {

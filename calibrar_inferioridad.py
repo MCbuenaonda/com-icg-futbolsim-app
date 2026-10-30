@@ -2,7 +2,7 @@
 Calibración del realismo del partido. SOLO LECTURA: usa el arnés de calibrar_formaciones (lecturas en caché sobre
 el motor) y no escribe nada.
 
-    python calibrar_inferioridad.py [N]           # N partidos normales: goles, penales, reparto de goles por línea
+    python calibrar_inferioridad.py [N]           # N partidos normales: goles, penales, saques de banda, tarjetas, reparto por línea
     python calibrar_inferioridad.py [N] --diez    # el LOCAL juega todo el partido con 10 (efecto de la inferioridad)
 
 Referencias del fútbol real: con 10 se recibe ~50% más goles y se anota ~30% menos; 0,28-0,36 penales por partido
@@ -40,6 +40,8 @@ POSICION = {j["id"]: j.get("posicion_id") for j in CFM._db_real["jugadores"].fin
 def main(n: int) -> None:
     random.seed(91)
     goles, gf_local, gc_local, penales, goles_pen = [], [], [], [], 0
+    bandas, tarjetas, eventos = [], [], []
+    banda_tipo = Counter()
     por_linea, por_puesto, tl_por_linea = Counter(), Counter(), Counter()
     for local, visita in CFM._pares(n, 91):
         p, stats = S.simular_partido_realista(local, visita)
@@ -47,6 +49,12 @@ def main(n: int) -> None:
         gf_local.append(p["goles_local"])
         gc_local.append(p["goles_visitante"])
         penales.append(sum(1 for e in p["eventos"] if e["tipo"] == "🎯 PENAL"))
+        bandas.append(sum(1 for e in p["eventos"] if e["tipo"] == S.TIPO_SAQUE_BANDA))
+        banda_tipo.update("conserva" if "despeja" in e["descripcion"] or "cierre" in e["descripcion"].lower()
+                          or "manda a la tribuna" in e["descripcion"] or "despeja afuera" in e["descripcion"] else "rival"
+                          for e in p["eventos"] if e["tipo"] == S.TIPO_SAQUE_BANDA)
+        tarjetas.append(sum(1 for e in p["eventos"] if "AMARILLA" in e["tipo"] or "ROJA" in e["tipo"]))
+        eventos.append(len(p["eventos"]))
         goles_pen += sum(1 for e in p["eventos"] if e["tipo"] == "⚽ GOL" and e.get("de_penal"))
         for jid, st in stats.items():
             if st.get("goles"):
@@ -59,6 +67,8 @@ def main(n: int) -> None:
     print(f"goles/partido {statistics.mean(goles):.3f} (±{ic:.3f}) · local anota {statistics.mean(gf_local):.3f} "
           f"(±{1.96 * statistics.stdev(gf_local) / n ** 0.5:.3f}) y recibe {statistics.mean(gc_local):.3f} (±{1.96 * statistics.stdev(gc_local) / n ** 0.5:.3f})")
     print(f"penales {statistics.mean(penales):.3f} por partido · convertidos {100 * goles_pen / max(1, sum(penales)):.0f}%")
+    print(f"saques de banda {statistics.mean(bandas):.1f} por partido {dict(banda_tipo)} · tarjetas {statistics.mean(tarjetas):.2f}"
+          f" · eventos {statistics.mean(eventos):.0f}")
     total = sum(por_linea.values()) or 1
     print("goles por línea:", {k: f"{100 * v / total:.0f}%" for k, v in por_linea.most_common()},
           "· de tiro libre:", dict(tl_por_linea))

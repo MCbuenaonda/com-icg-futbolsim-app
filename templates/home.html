@@ -125,9 +125,22 @@
                 {% set arte = arte_mundial() %}
                 {% if arte %}
                 <a href="/mundial/arte" class="hero-sede__arte" title="Póster oficial y mascota: {{ arte.mascota_nombre }}">
-                    <img src="{{ arte.poster_url }}" alt="Póster del Mundial {{ arte.pais }} {{ arte.anio }}" class="hero-sede__poster" decoding="async">
-                    <img src="{{ arte.mascota_url }}" alt="{{ arte.mascota_nombre }}, la mascota" class="hero-sede__mascota" decoding="async">
+                    {# Animados (styles.css «Póster y mascota animados»): el póster entra cayendo, flota y lo cruza un destello;
+                       la mascota aparece de un salto y se anima por dentro (?animada=1: respira, parpadea, gesto según su pose) #}
+                    <span class="hero-sede__poster-marco"><img src="{{ arte.poster_url }}" alt="Póster del Mundial {{ arte.pais }} {{ arte.anio }}" class="hero-sede__poster" decoding="async"></span>
+                    <img src="{{ arte.mascota_url }}&animada=1" alt="{{ arte.mascota_nombre }}, la mascota" class="hero-sede__mascota" decoding="async">
                 </a>
+                <script>
+                    // La entrada (póster que cae, mascota que salta) espera a que carguen las dos imágenes; tope de 2,5 s
+                    (() => {
+                        const arte = document.currentScript.previousElementSibling;
+                        const listo = () => arte.classList.add('is-listo');
+                        const imgs = [...arte.querySelectorAll('img')];
+                        Promise.all(imgs.map(i => i.complete ? null : new Promise(ok => { i.addEventListener('load', ok, { once: true }); i.addEventListener('error', ok, { once: true }); })))
+                            .then(listo);
+                        setTimeout(listo, 2500);
+                    })();
+                </script>
                 {% else %}
                 <img src="{{ imagen_inicio('copa') }}" alt="Copa del Mundo de la FIFAV" title="Copa del Mundo de la FIFAV" decoding="async" class="hero-sede__copa" onerror="this.remove()">
                 {% endif %}

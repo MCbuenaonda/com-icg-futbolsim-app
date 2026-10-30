@@ -38,6 +38,8 @@ class EventoOut(BaseModel):
     gravedad: Optional[str] = None
     sale_lesionado: Optional[bool] = None
     sin_cambio: Optional[bool] = None
+    # Recorrido del balón (services/balon.py): origen, destino, trayectoria y toques sin narrar, en coordenadas absolutas
+    balon: Optional[Dict[str, Any]] = None
 
 
 class StartedMatchOut(BaseModel):
@@ -100,6 +102,8 @@ class LiveMatchOut(BaseModel):
     finalizado: bool
     # Energía (0-100) de cada jugador al minuto que se está revelando: {"<jugador_id>": energía}
     energia: Dict[str, int] = {}
+    # Cada cuánto se revela un evento (ms): la cancha reparte la animación de cada jugada en ese intervalo
+    ms_por_evento: Optional[int] = None
 
 
 class EquipoTablaGrupoOut(BaseModel):

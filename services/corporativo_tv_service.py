@@ -676,6 +676,43 @@ def invitaciones_de(usuario: Optional[dict], jugador_id: int) -> List[dict]:
         return []
 
 
+def invitaciones_por_jugador(user_id, jugador_ids: List[int], por_jugador: int = 10) -> Dict[int, List[dict]]:
+    """{jugador_id: [invitaciones a TV, la más reciente primero]} de varios jugadores en una sola consulta (detalle de
+    cada representado en el perfil del corporativo). Incluye las programadas y las ya realizadas, con el partido."""
+    if not jugador_ids:
+        return {}
+    try:
+        from bson import ObjectId
+        from services.fecha_service import formatear_fecha_es
+        docs = list(db[COL_INV].find({"universo_id": user_id, "jugador_id": {"$in": [int(j) for j in jugador_ids]},
+                                       "estado": {"$in": ["PROGRAMADA", "REALIZADA"]}},
+                                      {"jugador_id": 1, "juego_id": 1, "televisora_id": 1, "estado": 1, "pago": 1, "aficionados": 1,
+                                       "fecha": 1, "hora": 1, "decidido_seq": 1}).sort("decidido_seq", -1))
+        ids = {ObjectId(d["juego_id"]) for d in docs if ObjectId.is_valid(d.get("juego_id", ""))}
+        juegos = {str(j["_id"]): j for j in db["juegos"].find({"_id": {"$in": list(ids)}},
+                                                              {"equipo_local.nombre": 1, "equipo_local.bandera": 1, "equipo_visitante.nombre": 1,
+                                                               "equipo_visitante.bandera": 1, "fecha": 1, "hora": 1})}
+        cat = catalogo()
+        salida: Dict[int, List[dict]] = {}
+        for d in docs:
+            t = cat.get(d["televisora_id"])
+            lista = salida.setdefault(d["jugador_id"], [])
+            if not t or len(lista) >= por_jugador:
+                continue
+            j = juegos.get(d["juego_id"], {})
+            fecha = j.get("fecha") or d.get("fecha")
+            vista = tele_vista(t)
+            lista.append({"cadena": vista["nombre"], "logo": vista["logo"], "tele_id": vista["id"], "papel": vista.get("papel_nombre", ""),
+                          "estado": d["estado"], "pago": d.get("pago"), "aficionados": d.get("aficionados"), "juego_id": d["juego_id"],
+                          "local": (j.get("equipo_local") or {}).get("nombre"), "visita": (j.get("equipo_visitante") or {}).get("nombre"),
+                          "bandera_local": (j.get("equipo_local") or {}).get("bandera"), "bandera_visita": (j.get("equipo_visitante") or {}).get("bandera"),
+                          "fecha": formatear_fecha_es(fecha) if fecha else "", "hora": j.get("hora") or d.get("hora")})
+        return salida
+    except Exception as e:
+        print(f"[corporativos] invitaciones a TV de la cartera: {e}")
+        return {}
+
+
 def invitaciones_programadas(user_id, sigla: str) -> Dict[int, dict]:
     """{jugador_id: invitación} de tus jugadores con una invitación por delante (chip de la cartera e Ingresos)."""
     salida = {}

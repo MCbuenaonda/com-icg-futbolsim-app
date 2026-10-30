@@ -108,7 +108,7 @@
                 <!-- Fecha/hora, confederación y grupo -->
                 <div class="partido-card__top">
                     <span class="partido-card__fecha"><i class="bi bi-calendar-event"></i>{{ juego.fecha }}<span class="partido-card__hora"><i class="bi bi-clock"></i>{{ juego.hora }}</span></span>
-                    <span class="partido-card__conf">{% if lc %}<img src="{{ lc.url }}" alt="">{% endif %}{{ sigla_conf or 'Partido' }}</span>
+                    {% if sigla_conf %}<a href="/confederacion/{{ juego.confederacion_id }}" class="partido-card__conf partido-card__conf--enlace" title="Ver el detalle de {{ sigla_conf }}">{% if lc %}<img src="{{ lc.url }}" alt="">{% endif %}{{ sigla_conf }}</a>{% else %}<span class="partido-card__conf">Partido</span>{% endif %}
                 </div>
                 <div class="partido-card__meta">
                     <span>{{ juego.grupo }}</span><span>·</span><span>{{ juego.jornada }}</span>{% if juego.tipo %}<span class="partido-card__tipo">{{ juego.tipo | upper }}</span>{% endif %}

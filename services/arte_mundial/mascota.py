@@ -104,7 +104,7 @@ def _ojos(cx, cy, expresion, sep=40, r=21, color_iris="#2b1d14", grandes=False):
         partes.append(f'<ellipse cx="{x}" cy="{cy}" rx="{r}" ry="{r * 1.12:.1f}" fill="#ffffff" {_trazo()}/>')
         partes.append(f'<circle cx="{x + 4}" cy="{cy + 3}" r="{r * .58:.1f}" fill="{color_iris}"/>')
         partes.append(f'<circle cx="{x + 9}" cy="{cy - 4}" r="{r * .22:.1f}" fill="#ffffff"/>')
-    return "".join(partes)
+    return f'<g class="m-ojos">{"".join(partes)}</g>'
 
 
 def _cejas(cx, cy, expresion, sep=40):
@@ -169,7 +169,7 @@ def _brazo(hombro, mano, color, guante="#ffffff"):
 
 
 def _ondas_saludo(x, y):
-    return "".join(f'<path d="M{x + 30 + i * 10} {y - 30 - i * 6}q12 12 0 26" fill="none" stroke="{C}" stroke-width="4" stroke-linecap="round" opacity=".6"/>' for i in range(2))
+    return '<g class="m-ondas">' + "".join(f'<path d="M{x + 30 + i * 10} {y - 30 - i * 6}q12 12 0 26" fill="none" stroke="{C}" stroke-width="4" stroke-linecap="round" opacity=".6"/>' for i in range(2)) + '</g>'
 
 
 def _short(u, y=420):
@@ -511,7 +511,53 @@ def _panuelo(pal, y):
 # =================================================================================================================
 # Composición
 # =================================================================================================================
-def dibujar(receta: Dict, colores_bandera: List[dict], anio) -> str:
+def _brazo_animable(hombro, mano, color, lado):
+    """Brazo en su propio grupo, con el origen de giro en el hombro (para el saludo y el festejo animados)."""
+    return f'<g class="m-brazo m-brazo--{lado}" style="transform-origin:{hombro[0]}px {hombro[1]}px">{_brazo(hombro, mano, color)}</g>'
+
+
+# Animación de la mascota (solo con animada=True: el inicio la pide con ?animada=1; álbum, palmarés y En Vivo usan el
+# dibujo fijo). CSS dentro del SVG: funciona aunque se muestre como <img>. Cada pose tiene su gesto.
+_ANIM_BASE = """
+.m-cuerpo{transform-origin:250px 570px;animation:m-respira 3.2s ease-in-out infinite}
+.m-cabeza{transform-origin:250px 290px;animation:m-cabeza 4.6s ease-in-out infinite}
+.m-ojos{transform-box:fill-box;transform-origin:center;animation:m-parpadeo 5.2s infinite}
+.m-balon{transform-box:fill-box;transform-origin:center}
+.m-sombra{transform-box:fill-box;transform-origin:center;animation:m-sombra 3.2s ease-in-out infinite}
+.m-ondas{animation:m-ondas 1.1s ease-in-out infinite}
+@keyframes m-respira{0%,100%{transform:scale(1,1)}50%{transform:scale(1.012,.985) translateY(4px)}}
+@keyframes m-cabeza{0%,100%{transform:rotate(0)}30%{transform:rotate(-2.5deg)}70%{transform:rotate(2deg)}}
+@keyframes m-parpadeo{0%,93%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.1)}}
+@keyframes m-sombra{0%,100%{transform:scaleX(1)}50%{transform:scaleX(1.04)}}
+@keyframes m-ondas{0%,100%{opacity:.15}50%{opacity:.8}}
+@keyframes m-salta{0%,100%{transform:translateY(0) rotate(0)}45%{transform:translateY(-34px) rotate(180deg)}55%{transform:translateY(-34px) rotate(200deg)}}
+@keyframes m-gira{to{transform:rotate(360deg)}}
+@keyframes m-empuje{0%,100%{transform:translateX(0) rotate(0)}40%{transform:translateX(16px) rotate(90deg)}}
+"""
+_ANIM_POSE = {
+    "saludar": """.m-brazo--d{animation:m-saludo 1.1s ease-in-out infinite}
+@keyframes m-saludo{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(14deg)}}
+.m-balon{animation:m-salta 1.8s cubic-bezier(.4,0,.6,1) infinite}""",
+    "festejar": """.m-brazo--i{animation:m-festejo-i .7s ease-in-out infinite}
+.m-brazo--d{animation:m-festejo-d .7s ease-in-out infinite}
+@keyframes m-festejo-i{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+@keyframes m-festejo-d{0%,100%{transform:rotate(8deg)}50%{transform:rotate(-8deg)}}
+.m-balon{animation:m-salta 1.4s cubic-bezier(.4,0,.6,1) infinite}""",
+    "patear": """.m-brazo--i{animation:m-balanceo 1.6s ease-in-out infinite}
+@keyframes m-balanceo{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+.m-balon{animation:m-empuje 1.6s ease-in-out infinite}""",
+    "pisar": """.m-brazo--d{animation:m-balanceo 2.2s ease-in-out infinite}
+@keyframes m-balanceo{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+.m-balon{animation:m-gira 6s linear infinite}""",
+}
+
+
+def _hoja_animacion(pose: str) -> str:
+    css = _ANIM_BASE + _ANIM_POSE.get(pose, "")
+    return f'<style>{css}@media (prefers-reduced-motion:reduce){{*{{animation:none!important}}}}</style>'
+
+
+def dibujar(receta: Dict, colores_bandera: List[dict], anio, animada: bool = False) -> str:
     pal = P.de_bandera(colores_bandera)
     rnd = random.Random(receta["semilla"])
     base, pose, expresion, acc = receta["base"], receta["pose"], receta["expresion"], receta.get("accesorio", "ninguno")
@@ -533,7 +579,7 @@ def dibujar(receta: Dict, colores_bandera: List[dict], anio) -> str:
         capas.append(_short(u, 418))
         capas.append(_pierna((222, 466), pi, u, color_brazo) + _pierna((278, 466), pd, u, color_brazo))
         capas.append(cuerpo)
-        capas.append(_brazo(hombros[0], mi, color_brazo) + _brazo(hombros[1], md, color_brazo))
+        capas.append(_brazo_animable(hombros[0], mi, color_brazo, "i") + _brazo_animable(hombros[1], md, color_brazo, "d"))
         if acc in ("bufanda",):
             pass  # en las frutas la bufanda taparía la cara: se usa el pañuelo
         if acc in ("bufanda", "pañuelo"):   # pañuelo chico al cuello, sin tapar el número
@@ -551,21 +597,21 @@ def dibujar(receta: Dict, colores_bandera: List[dict], anio) -> str:
         capas.append(_camiseta_animal(u, numero))
         if "caparazon" in a.get("extras", []):
             capas.append(f'<path d="M170 300Q120 360 170 430" fill="none" stroke="#5c940d" stroke-width="22" stroke-linecap="round"/>')
-        capas.append(_brazo((186, 304), mi, piel) + _brazo((314, 304), md, piel))
+        capas.append(_brazo_animable((186, 304), mi, piel, "i") + _brazo_animable((314, 304), md, piel, "d"))
         if acc == "bufanda":
             capas.append(_bufanda(pal, 272))
         elif acc == "pañuelo":
             capas.append(_panuelo(pal, 278))
-        capas.append(cabeza_atras + cabeza)
+        capas.append(f'<g class="m-cabeza">{cabeza_atras}{cabeza}</g>')
         if acc not in ("ninguno", "bufanda", "pañuelo") and not set(a.get("extras", [])) & {"astas", "cuernos", "cresta", "penacho", "cuerno_unico", "osiconos", "melena"}:
             capas.append(_accesorio(acc, pal, 100))
     if pose == "saludar":
         capas.append(_ondas_saludo(*md))
-    sombra = f'<ellipse cx="250" cy="575" rx="170" ry="16" fill="#000" opacity=".18"/>'
-    balon = _balon(bx, by, br, contorno=C, idc="balon_mascota")
+    sombra = f'<ellipse class="m-sombra" cx="250" cy="575" rx="170" ry="16" fill="#000" opacity=".18"/>'
+    balon = f'<g class="m-balon">{_balon(bx, by, br, contorno=C, idc="balon_mascota")}</g>'
     from services.arte_mundial.poster import estilos_fuentes
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {ANCHO} {ALTO}" width="{ANCHO}" height="{ALTO}" stroke-linecap="round">'
-            f'{estilos_fuentes()}{sombra}{"".join(capas)}{balon}</svg>')
+            f'{estilos_fuentes()}{_hoja_animacion(pose) if animada else ""}{sombra}<g class="m-cuerpo">{"".join(capas)}</g>{balon}</svg>')
 
 
 def receta_aleatoria(bases: List[str], accesorios: List[str], r: random.Random) -> Dict:

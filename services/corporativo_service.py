@@ -346,6 +346,30 @@ def reglas_economia() -> dict:
     }
 
 
+def reglas_satisfaccion(tier: str) -> dict:
+    """Qué mueve la satisfacción de un representado (las mismas constantes que aplica corporativo_ciclo_service), para
+    explicarlo en el detalle de cada contrato del perfil."""
+    s = C.SATISFACCION
+    return {
+        "sube": [
+            {"clave": "partido", "texto": "Cada partido que juega", "valor": s["partido_jugado"], "solo": "jugador"},
+            {"clave": "victoria", "texto": "Cada victoria de la selección", "valor": s["victoria_seleccion"], "solo": "seleccion"},
+            {"clave": "gira", "texto": "Al salir de gira de exhibición", "valor": C.GIRA_SATISFACCION},
+            {"clave": "renovar", "texto": f"Al renovarle el contrato (en sus últimos {C.CICLOS_AVISO_RENOVACION} ciclos)", "valor": C.SATISFACCION_RENOVACION},
+            {"clave": "tier_a", "texto": "Por ciclo, si tu corporativo es Tier A", "valor": s["tier_a"], "activo": tier == "A"},
+        ],
+        "baja": [
+            {"clave": "sin_jugar", "texto": "Ciclo sin jugar (en la banca o con su selección eliminada)", "valor": s["ciclo_sin_jugar"]},
+            {"clave": "perdidas", "texto": "Si tu corporativo cierra el ciclo con pérdidas", "valor": s["ciclo_perdidas"]},
+            {"clave": "impago", "texto": "Si no alcanza el capital para pagar su honorario", "valor": s["impago"]},
+            {"clave": "salida", "texto": "Si le niegas una salida que pidió", "valor": s["salida_negada"]},
+        ],
+        "umbrales": {"pide_salir": C.SATISFACCION_PIDE_SALIR, "marcas": 35, "renovacion": 60,
+                     "descuento_renovacion": int(C.DESCUENTO_RENOVACION_SATISFACCION * 100)},
+        "tier": tier,
+    }
+
+
 def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
     if sigla not in C.CORPORATIVO_POR_SIGLA:
         return None
@@ -371,8 +395,12 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
     from services import corporativo_tv_service as TVS
     tv_contrato = TVS.tv_por_contrato(user_id, sigla)   # televisora de cada selección (corporativo_tv_service)
     tv_invitado = TVS.invitaciones_programadas(user_id, sigla)   # jugadores con una invitación a TV por delante
+    contratos_corp = U.contratos_activos(user_id, sigla)
+    # historial de invitaciones a TV de tus jugadores (detalle de cada representado), en una sola consulta
+    tv_historial = TVS.invitaciones_por_jugador(user_id, [c["ref_id"] for c in contratos_corp if c["tipo"] == "jugador"]) \
+        if doc.get("es_del_usuario") else {}
     selecciones, jugadores = [], []
-    for c in U.contratos_activos(user_id, sigla):
+    for c in contratos_corp:
         valor_c = (v["selecciones"] if c["tipo"] == "seleccion" else v["jugadores"]).get(c["ref_id"], 0)
         restantes = c["hasta_ciclo"] - ciclo + 1
         base = {"ref_id": c["ref_id"], "contrato_id": str(c["_id"]), "tipo_contrato": c["tipo"], "hasta_ciclo": c["hasta_ciclo"], "ciclos_restantes": restantes,
@@ -389,7 +417,8 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
             motivo_gira = f"Ya mandaste {C.GIRA_JUGADORES_POR_CICLO} jugadores de gira este ciclo: espera al próximo"
         base.update(juego=juego, senal=senal_de(c["tipo"], c["ref_id"], valor_c, juego, ctx, c, ciclo),
                     patrocinio=R.patrocinio(c["tipo"], valor_c, popularidad(c["tipo"], c["ref_id"], valor_c)),
-                    acuerdo=acuerdos.get(str(c["_id"])), marcas=marcas_contrato.get(str(c["_id"]), []), tv=tv_contrato.get(str(c["_id"])), invitado_tv=tv_invitado.get(c["ref_id"]) if c["tipo"] == "jugador" else None, ciclos_sin_jugar=c.get("ciclos_sin_jugar", 0),
+                    acuerdo=acuerdos.get(str(c["_id"])), marcas=marcas_contrato.get(str(c["_id"]), []), tv=tv_contrato.get(str(c["_id"])), invitado_tv=tv_invitado.get(c["ref_id"]) if c["tipo"] == "jugador" else None,
+                    invitaciones_tv=tv_historial.get(c["ref_id"], []) if c["tipo"] == "jugador" else [], ciclos_sin_jugar=c.get("ciclos_sin_jugar", 0),
                     gira_ok=motivo_gira is None, gira_motivo=motivo_gira,
                     de_gira=next((g for g in en_curso if g["tipo"] == c["tipo"] and g["ref_id"] == c["ref_id"]), None))
         if c["tipo"] == "seleccion":
@@ -421,6 +450,7 @@ def obtener_perfil_corporativo(user_id, sigla: str) -> Optional[dict]:
         "giras_limites": lim_giras, "giras_en_curso": len({g.get("grupo_id") or g["_id"] for g in en_curso}),
         "marcas_resumen": M.resumen(user_id, sigla) if doc.get("es_del_usuario") else None,
         "cupos": _cupos_vista(lim_giras, en_curso, seq_u, jugadores, M.promociones_disponibles(user_id)) if doc.get("es_del_usuario") else None,
+        "satisfaccion_reglas": reglas_satisfaccion(C.CORPORATIVO_POR_SIGLA[sigla]["tier"]) if doc.get("es_del_usuario") else None,
         "senales": {"vender": sum(1 for x in selecciones + jugadores if x["senal"]["senal"] == "vender"),
                     "renovacion": sum(1 for x in selecciones + jugadores if x["senal"].get("renovacion"))},
     }

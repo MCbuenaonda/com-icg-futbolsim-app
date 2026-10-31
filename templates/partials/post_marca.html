@@ -14,6 +14,12 @@
                 <span class="x-post-tipo ms-auto"><i class="bi {{ post.icono }}"></i>{{ post.etiqueta }}</span>
             </div>
             <div class="fs-7 text-body-emphasis mt-1 x-post-texto">{{ post.texto }}</div>
+            {% if post.firma_dueno and post.marca.dueno %}
+            <div class="x-firma-dueno" title="{{ post.marca.dueno.rasgo_nombre }}">
+                {% if post.marca.dueno.avatar_url %}<img class="tv-cara" src="{{ post.marca.dueno.avatar_url }}" alt="" loading="lazy" onerror="this.remove()">{% endif %}
+                <span class="fs-8 text-secondary">— <strong class="text-body-emphasis">{{ post.marca.dueno.nombre }}</strong>, dueño de {{ post.marca.nombre }}</span>
+            </div>
+            {% endif %}
             {% if post.refs %}
             <div class="d-flex flex-wrap gap-1 mt-2">
                 {% for r in post.refs %}

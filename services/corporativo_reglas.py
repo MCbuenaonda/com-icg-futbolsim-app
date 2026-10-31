@@ -515,7 +515,8 @@ def encaje_marca(marca: dict, rep: dict) -> int:
         extra = 42 if rep.get("leyenda") else 0
     else:
         extra = 10
-    ajuste = (6 if rep.get("partidos_2") else 0) - (30 if rep.get("eliminada") else 0)
+    from services.prensa import EFECTO_ENCAJE_MARCA
+    ajuste = (6 if rep.get("partidos_2") else 0) - (30 if rep.get("eliminada") else 0) + EFECTO_ENCAJE_MARCA * (rep.get("prensa") or 0.0)
     return int(round(limitar(base + extra + ajuste, 0, 100)))
 
 
@@ -533,10 +534,12 @@ def prob_promocion(encaje: float, reputacion: float, fama: float = 50) -> float:
                          + 0.15 * limitar(reputacion, 0, 100) / 100 + 0.10 * limitar(fama, 0, 100) / 100, 0.05, 0.92), 2)
 
 
-def riesgo_marca(eventos: dict, fidelidad: float) -> int:
-    """0..100: riesgo de que la marca corte, por lo que pasó en el ciclo (roja, goleada, eliminación, sin jugar, mala forma)."""
+def riesgo_marca(eventos: dict, fidelidad: float, prensa: float = 0.0) -> int:
+    """0..100: riesgo de que la marca corte, por lo que pasó en el ciclo (roja, goleada, eliminación, sin jugar, mala forma) y por
+    la imagen del representado en la prensa ('prensa' = reputación mediática centrada −100..100: mala imagen suma, buena resta)."""
+    from services.prensa import EFECTO_RIESGO_MARCA
     bruto = sum(C.MARCA_RIESGO[k] for k, v in (eventos or {}).items() if v and k in C.MARCA_RIESGO)
-    return int(round(limitar(bruto * (1.3 - limitar(fidelidad, 0, 1)), 0, 100)))
+    return int(round(limitar(bruto * (1.3 - limitar(fidelidad, 0, 1)) - prensa * EFECTO_RIESGO_MARCA, 0, 100)))
 
 
 # --- Televisoras (config TV_*; services/corporativo_tv_service.py) -----------------------------------------------

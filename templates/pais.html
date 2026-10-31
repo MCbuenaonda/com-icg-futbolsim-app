@@ -355,7 +355,7 @@
             </div>
         </div>
     </div>
-    <script src="/static/js/televisoras.js?v=1" defer></script>
+    <script src="/static/js/televisoras.js?v=5" defer></script>
     {% endif %}
     {% endif %}
 
@@ -587,6 +587,7 @@
         </div>
     </div>
 </div>
+  {% set prensa_items = prensa_sobre("pais", pais.id) %}{% set prensa_rep = prensa_reputacion("pais", pais.id) %}{% set prensa_titulo = "Lo que dice la prensa de " ~ pais.nombre %}{% include "partials/prensa_lista.html" %}
 {% endblock %}
 
 {% block extra_scripts %}

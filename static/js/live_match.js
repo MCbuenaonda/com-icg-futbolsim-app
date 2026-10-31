@@ -218,6 +218,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Lesión (services/lesiones.py): con 'sin_cambio' el lesionado se va y su equipo queda con uno menos; si hubo
     // cambio, el '🔄 SUSTITUCIÓN' que sigue ya lo saca
     const EVENTO_LESION = '🚑 LESIÓN';
+    const TIPOS_DT = ['🗣️ RECLAMO DEL DT', '🟨 DT AMONESTADO', '🟥 DT EXPULSADO', '📋 AJUSTE TÁCTICO'];
     const saleSinCambio = ev => ev.tipo === EVENTO_LESION && ev.sin_cambio;
     function categoriaEvento(tipo) {
         const t = tipo || '';
@@ -450,6 +451,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (lado === 'local') canchaLineasLocal = lineas; else canchaLineasVisitante = lineas;
         });
     }
+    let canchaArbitros = {};   // cuerpo arbitral con su rostro (/matches/live/plantillas): {rol: {nombre, url}}
     let canchaDT = {};   // DT de cada lado (/matches/live/plantillas): {local|visita: {id, nombre, estilo, arquetipo, avatar_url, record}}
 
     // Fila del DT al tope de "Jugadores en Cancha": lo que hizo desde el banco sale SOLO de los eventos ya revelados
@@ -503,6 +505,7 @@ document.addEventListener('DOMContentLoaded', function () {
             canchaIds = data.ids || {};
             canchaLeyendas = new Set(data.leyendas || []);
             canchaDT = data.dt || {};
+            canchaArbitros = data.arbitros || {};
             mascota = data.mascota_url ? { anfitrion: data.anfitrion, url: data.mascota_url, nombre: data.mascota_nombre } : null;
             canchaLineasLocal = data.lineas_local || [];
             canchaLineasVisitante = data.lineas_visitante || [];
@@ -1128,7 +1131,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // Sustituciones y decisiones del árbitro / VAR: en vez de tratarlas como jugada (mover el balón
     // y la etiqueta), se muestra una ventana sobre la cancha con la info del evento. Si se revelan
     // varias juntas (un mismo poll), se muestran en cola, una detrás de otra.
-    const CANCHA_AVISO_DURACION_MS = 3500;
+    const CANCHA_AVISO_DURACION_MS = 3600;
+    const CANCHA_AVISO_CAMBIO_MS = 4200;   // el cambio tiene su animación de entrada y salida
+    const CANCHA_AVISO_GOL_MS = 4800;
     // Al entrar a un partido ya empezado (o recargar), solo se muestran los avisos de los últimos
     // eventos -- "lo que acaba de pasar", ej. el silbato inicial -- y no todo lo anterior.
     const CANCHA_AVISO_EVENTOS_RECIENTES = 3;
@@ -1139,6 +1144,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function claveAviso(ev) {
         return `${ev.segundos_acumulados ?? ev.minuto}|${ev.tipo}|${ev.equipo}|${(ev.jugadores || []).join('|')}`;
+    }
+
+    // Goles: también tienen su ventana (rostro del goleador, minuto y marcador) además de la jugada en la cancha
+    const esGolAviso = ev => (ev.tipo || '').startsWith('⚽') && !esDeTanda(ev);
+
+    function marcadorHasta(eventos, i, local, visitante) {
+        let l = 0, v = 0;
+        for (let k = 0; k <= i; k++) {
+            const e = eventos[k];
+            if (!esGolAviso(e)) continue;
+            if (e.equipo === local) l++; else if (e.equipo === visitante) v++;
+        }
+        return { l, v };
     }
 
     function mostrarAvisosNuevos(data) {
@@ -1152,69 +1170,179 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         const desdeIndice = esPrimerRender ? eventos.length - CANCHA_AVISO_EVENTOS_RECIENTES : 0;
         eventos.forEach((ev, i) => {
-            if (!esEventoAviso(ev)) return;
+            const gol = esGolAviso(ev);
+            if (!esEventoAviso(ev) && !gol) return;
             if (ev.tipo === CANCHA_TIPO_SUSTITUCION && (ev.jugadores || []).length < 2) return;
             const clave = claveAviso(ev);
             if (canchaAvisosVistos.has(clave)) return;
             canchaAvisosVistos.add(clave);
-            if (i >= desdeIndice) canchaAvisosCola.push({ ev, local: data.local, visitante: data.visitante });
+            if (i < desdeIndice) return;
+            const extra = gol ? {
+                marcador: marcadorHasta(eventos, i, data.local, data.visitante),
+                golesJugador: eventos.slice(0, i + 1).filter(e => esGolAviso(e) && (e.jugadores || [])[0] === (ev.jugadores || [])[0]).length,
+            } : {};
+            canchaAvisosCola.push({ ev, local: data.local, visitante: data.visitante, idLocal: data.id_local, idVisita: data.id_visita, ...extra });
         });
         if (!canchaAvisoMostrando) mostrarSiguienteAviso();
     }
 
+    // --- piezas de la ventana -----------------------------------------------------------------------
+    const ROL_ARBITRO = { central: 'Árbitro central', linea1: 'Juez de línea', linea2: 'Juez de línea', cuarto: '4to árbitro', var: 'VAR' };
+
+    function urlArbitro(nombre, rol) {
+        if (nombre) {
+            const a = Object.values(canchaArbitros).find(x => x.nombre === nombre);
+            if (a && a.url) return a.url;
+        }
+        return (canchaArbitros[rol || 'central'] || {}).url || null;
+    }
+
+    function rostro(url, clase = '', alt = '') {
+        return `<span class="cancha-aviso__rostro ${clase}">${url ? `<img src="${escaparHtml(url)}" alt="${escaparHtml(alt)}" onerror="this.remove()">` : ''}<i class="bi bi-person-fill"></i></span>`;
+    }
+    function rostroJugador(nombre, paisId, clase = '') {
+        const id = canchaIds[nombre];
+        const bandera = paisId != null && window.UI ? UI.urlImagenPais(paisId, 'plana') : null;
+        const url = id != null && window.UI ? UI.urlAvatar(id) : null;
+        return `<span class="cancha-aviso__rostro cancha-aviso__rostro--jugador ${clase}"${bandera ? ` style="--bandera-url: url('${escaparHtml(bandera)}')"` : ''}>`
+            + `${url ? `<img src="${escaparHtml(url)}" alt="${escaparHtml(nombre)}" onerror="this.remove()">` : ''}<i class="bi bi-person-fill"></i></span>`;
+    }
+
+    // Texto corto con lo importante en negritas: nombres (jugadores, árbitro, DT, equipos), minutos y marcadores
+    function resaltarAviso(texto, nombres) {
+        let html = escaparHtml(texto);
+        const lista = [...new Set(nombres.filter(n => n && n.length > 2))].sort((a, b) => b.length - a.length).map(escaparHtml);
+        const patrones = lista.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        patrones.push("\\d+(?:\\+\\d+)?(?:'|&#39;|&#039;)", '\\d+\\s*-\\s*\\d+', '\\+\\d+ minutos?', '\\+\\d+', '\\d+ minutos?');
+        return html.replace(new RegExp(`(${patrones.join('|')})`, 'g'), '<strong>$1</strong>');
+    }
+    function primeraFrase(texto, tope = 96) {
+        const t = (texto || '').replace(/\s+/g, ' ').trim();
+        const m = t.match(/^.+?[.!?](?=\s|$)/);
+        let f = m ? m[0] : t;
+        if (f.length > tope) f = f.slice(0, tope).replace(/\s+\S*$/, '') + '…';
+        return f;
+    }
+    function textoCortoAviso(ev, local, visitante) {
+        const eq = ev.equipo || '';
+        switch (ev.tipo) {
+            case '⏱️ TIEMPO AÑADIDO': {
+                const n = ev.minutos_anadidos || 0;
+                return `Levanta el cartel: se jugará${n === 1 ? '' : 'n'} +${n} minuto${n === 1 ? '' : 's'} más.`;
+            }
+            case '🚩 SAQUE DE ESQUINA': return `Tiro de esquina para ${eq}.`;
+            case '🎯 PENAL': return `¡Penal para ${eq}!`;
+            case '👉 SILBATO INICIAL': return `¡Rueda el balón! ${local} vs ${visitante}.`;
+            case '🚑 LESIÓN': {
+                const j = (ev.jugadores || [])[0] || '';
+                const sigue = ev.sale_lesionado ? (ev.sin_cambio ? 'sale y su equipo queda con uno menos' : 'tiene que salir') : 'sigue en la cancha';
+                return `${j}: ${ev.lesion || 'lesión'}${ev.gravedad ? ` (${ev.gravedad})` : ''}, ${sigue}.`;
+            }
+            default: return primeraFrase(ev.descripcion);
+        }
+    }
+
     // Arma el contenido de la ventana según el tipo de aviso; devuelve la clase de color.
-    function armarContenidoAviso(ev, local, visitante) {
+    function armarContenidoAviso(item) {
+        const { ev, local, visitante, idLocal, idVisita } = item;
         const encabezado = document.getElementById('canchaAvisoEncabezado');
         const titulo = document.getElementById('canchaAvisoTitulo');
         const cuerpo = document.getElementById('canchaAvisoCuerpo');
         const minuto = `${minutoTexto(ev)}'`;
+        const lado = ev.equipo === local ? 'local' : (ev.equipo === visitante ? 'visitante' : null);
+        const paisId = lado === 'local' ? idLocal : (lado === 'visitante' ? idVisita : null);
         cuerpo.innerHTML = '';
 
-        if (ev.tipo === CANCHA_TIPO_SUSTITUCION) {
-            const [entra, sale] = ev.jugadores;
-            const conPosicion = nombre => canchaPlantillas[nombre] ? `${nombre} · ${canchaPlantillas[nombre]}` : nombre;
+        // --- Gol: rostro del goleador, minuto, marcador y cómo fue ---
+        if (esGolAviso(ev)) {
+            const goleador = (ev.jugadores || [])[0] || '';
+            const m = item.marcador || { l: 0, v: 0 };
+            const como = ev.de_penal || ev.tipo.includes('PENAL') ? 'de penal' : (ev.tipo.includes('TIRO LIBRE') ? 'de tiro libre' : (ev.tipo.includes('CÓRNER') ? 'tras un córner' : ''));
+            const cuenta = item.golesJugador >= 3 ? '¡Hat-trick!' : (item.golesJugador === 2 ? '¡Doblete!' : '');
             encabezado.textContent = ev.equipo || '';
-            titulo.textContent = `🔄 Sustitución · ${minuto}`;
-            [['entra', 'bi-arrow-up-circle-fill', entra], ['sale', 'bi-arrow-down-circle-fill', sale]].forEach(([clase, icono, nombre]) => {
-                const fila = document.createElement('div');
-                fila.className = `cancha-aviso__fila cancha-aviso__fila--${clase}`;
-                fila.innerHTML = `<i class="bi ${icono}"></i><span class="cancha-aviso__dorsal"></span><span class="cancha-aviso__nombre"></span>`;
-                fila.querySelector('.cancha-aviso__dorsal').textContent = canchaDorsales[nombre] ?? '';
-                fila.querySelector('.cancha-aviso__nombre').textContent = conPosicion(nombre);
-                cuerpo.appendChild(fila);
-            });
-            return ev.equipo === local ? 'local' : 'visitante';
+            titulo.innerHTML = `<span class="cancha-aviso__gol-grito">¡GOOOL!</span>`;
+            cuerpo.innerHTML = `
+                <div class="cancha-aviso__gol">
+                  ${rostroJugador(goleador, paisId, 'cancha-aviso__rostro--gol')}
+                  <div class="cancha-aviso__gol-datos">
+                    <div class="cancha-aviso__gol-nombre">${canchaDorsales[goleador] != null ? `<span class="cancha-aviso__dorsal">${escaparHtml(String(canchaDorsales[goleador]))}</span>` : ''}<strong>${escaparHtml(goleador)}</strong></div>
+                    <div class="cancha-aviso__gol-meta"><strong>${escaparHtml(minuto)}</strong>${como ? ` · ${escaparHtml(como)}` : ''}${cuenta ? ` · <span class="cancha-aviso__gol-cuenta">${cuenta}</span>` : ''}</div>
+                    <div class="cancha-aviso__gol-marcador"><span class="${lado === 'local' ? 'is-anota' : ''}">${escaparHtml(local)} <strong>${m.l}</strong></span><span>-</span><span class="${lado === 'visitante' ? 'is-anota' : ''}"><strong>${m.v}</strong> ${escaparHtml(visitante)}</span></div>
+                  </div>
+                </div>`;
+            return `gol cancha-aviso--${lado || 'local'}`;
         }
 
-        // Árbitro / VAR: el tipo de evento como título y la descripción del motor como cuerpo (ya
-        // trae el nombre del árbitro, el jugador y el marcador cuando corresponde)
+        // --- Sustitución: el que sale se va y el que entra aparece, con su rostro ---
+        if (ev.tipo === CANCHA_TIPO_SUSTITUCION) {
+            const [entra, sale] = ev.jugadores;
+            const pos = nombre => canchaPlantillas[nombre] ? ` · ${escaparHtml(canchaPlantillas[nombre])}` : '';
+            encabezado.textContent = ev.equipo || '';
+            titulo.innerHTML = `🔄 Sustitución · <strong>${escaparHtml(minuto)}</strong>`;
+            const ficha = (nombre, clase, icono, rotulo) => `
+                <div class="cancha-aviso__cambio-lado cancha-aviso__cambio-lado--${clase}">
+                  ${rostroJugador(nombre, paisId)}
+                  <div class="cancha-aviso__cambio-nombre"><i class="bi ${icono}"></i><strong>${escaparHtml(nombre)}</strong></div>
+                  <small>${rotulo}${canchaDorsales[nombre] != null ? ` · #${escaparHtml(String(canchaDorsales[nombre]))}` : ''}${pos(nombre)}</small>
+                </div>`;
+            cuerpo.innerHTML = `<div class="cancha-aviso__cambio">${ficha(sale, 'sale', 'bi-arrow-down-circle-fill', 'Sale')}`
+                + `<span class="cancha-aviso__cambio-flechas" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>`
+                + `${ficha(entra, 'entra', 'bi-arrow-up-circle-fill', 'Entra')}</div>`;
+            return lado || 'local';
+        }
+
+        // --- Árbitro / VAR / DT / lesión: rostro de quien marca y un texto corto con lo importante en negritas ---
         const esVar = esEventoVar(ev);
-        const esEquipo = ev.equipo === local || ev.equipo === visitante;
-        encabezado.textContent = esVar ? (esEquipo ? `VAR · ${ev.equipo}` : 'VAR') : 'Árbitro';
-        titulo.textContent = `${ev.tipo} · ${minuto}`;
-        const descripcion = document.createElement('div');
-        descripcion.className = 'cancha-aviso__descripcion';
-        descripcion.textContent = ev.descripcion || '';
-        cuerpo.appendChild(descripcion);
-        return esVar ? 'var' : 'arbitro';
+        const esDT = TIPOS_DT.includes(ev.tipo);
+        const esLesion = ev.tipo === EVENTO_LESION;
+        const dt = esDT ? (canchaDT[lado === 'local' ? 'local' : 'visita'] || {}) : null;
+        const nombreArbitro = ev.arbitro || (canchaArbitros[ev.arbitro_rol || (esVar ? 'var' : 'central')] || {}).nombre || '';
+        let cara, quien;
+        if (esDT) {
+            cara = rostro(dt.avatar_url, 'cancha-aviso__rostro--dt', dt.nombre || '');
+            quien = `<strong>${escaparHtml(dt.nombre || 'DT')}</strong><small>DT · ${escaparHtml(ev.equipo || '')}</small>`;
+        } else if (esLesion) {
+            const j = (ev.jugadores || [])[0] || '';
+            cara = rostroJugador(j, paisId);
+            quien = `<strong>${escaparHtml(j)}</strong><small>Atención médica</small>`;
+        } else {
+            cara = rostro(urlArbitro(nombreArbitro, ev.arbitro_rol || (esVar ? 'var' : 'central')), esVar ? 'cancha-aviso__rostro--var' : 'cancha-aviso__rostro--arbitro', nombreArbitro);
+            quien = `<strong>${escaparHtml(nombreArbitro || (esVar ? 'VAR' : 'Árbitro'))}</strong><small>${ROL_ARBITRO[ev.arbitro_rol] || (esVar ? 'VAR' : 'Árbitro central')}</small>`;
+        }
+        encabezado.textContent = esVar ? (lado ? `VAR · ${ev.equipo}` : 'VAR') : (esDT || esLesion ? (ev.equipo || '') : 'Árbitro');
+        titulo.innerHTML = `${escaparHtml(ev.tipo)} · <strong>${escaparHtml(minuto)}</strong>`;
+        const nombres = [...(ev.jugadores || []), nombreArbitro, ev.dt, dt && dt.nombre, local, visitante];
+        cuerpo.innerHTML = `
+            <div class="cancha-aviso__marca">
+              ${cara}
+              <div class="cancha-aviso__marca-texto">
+                <div class="cancha-aviso__quien">${quien}</div>
+                <div class="cancha-aviso__descripcion">${resaltarAviso(textoCortoAviso(ev, local, visitante), nombres)}</div>
+              </div>
+            </div>`;
+        return esVar ? 'var' : (esDT || esLesion ? (lado || 'arbitro') : 'arbitro');
     }
 
     function mostrarSiguienteAviso() {
         const siguiente = canchaAvisosCola.shift();
         if (!siguiente) { canchaAvisoMostrando = false; return; }
         canchaAvisoMostrando = true;
-        const { ev, local, visitante } = siguiente;
-        const clase = armarContenidoAviso(ev, local, visitante);
-
-        canchaAviso.classList.remove('cancha-aviso--local', 'cancha-aviso--visitante', 'cancha-aviso--arbitro', 'cancha-aviso--var', 'cancha-aviso--visible');
-        canchaAviso.classList.add(`cancha-aviso--${clase}`);
-        void canchaAviso.offsetWidth; // reinicia la animación de entrada
-        canchaAviso.classList.add('cancha-aviso--visible');
-
+        const gol = esGolAviso(siguiente.ev);
+        // el gol espera a que la pelota llegue a la red en la cancha
         setTimeout(() => {
-            canchaAviso.classList.remove('cancha-aviso--visible');
-            setTimeout(mostrarSiguienteAviso, 400); // deja terminar la salida antes de la próxima
-        }, CANCHA_AVISO_DURACION_MS);
+            const clase = armarContenidoAviso(siguiente);
+            canchaAviso.classList.remove('cancha-aviso--local', 'cancha-aviso--visitante', 'cancha-aviso--arbitro', 'cancha-aviso--var',
+                'cancha-aviso--gol', 'cancha-aviso--cambio', 'cancha-aviso--visible');
+            clase.split(' ').forEach(c => canchaAviso.classList.add(c.startsWith('cancha-aviso--') ? c : `cancha-aviso--${c}`));
+            if (siguiente.ev.tipo === CANCHA_TIPO_SUSTITUCION) canchaAviso.classList.add('cancha-aviso--cambio');
+            void canchaAviso.offsetWidth; // reinicia la animación de entrada
+            canchaAviso.classList.add('cancha-aviso--visible');
+            const dura = gol ? CANCHA_AVISO_GOL_MS : (siguiente.ev.tipo === CANCHA_TIPO_SUSTITUCION ? CANCHA_AVISO_CAMBIO_MS : CANCHA_AVISO_DURACION_MS);
+            setTimeout(() => {
+                canchaAviso.classList.remove('cancha-aviso--visible');
+                setTimeout(mostrarSiguienteAviso, 400); // deja terminar la salida antes de la próxima
+            }, dura);
+        }, gol && !canchaMovimientoReducido ? 900 : 0);
     }
 
     const bloqueCanchaVivo = document.getElementById('bloqueCanchaVivo');
@@ -1821,8 +1949,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function calcularEstadoJugadoresEnCancha(data) {
-        const onceLocal = new Set(canchaTitularesLocal);
-        const onceVisitante = new Set(canchaTitularesVisitante);
+        // Listas en el ORDEN del once inicial: el que entra de cambio ocupa el lugar del que sale, así nadie se mueve
+        const onceLocal = [...canchaTitularesLocal];
+        const onceVisitante = [...canchaTitularesVisitante];
+        const quitar = (lista, nombre) => { const i = lista.indexOf(nombre); if (i >= 0) lista.splice(i, 1); };
         const ratings = new Map();
         const acciones = new Map(); // nombre -> [{ tipo, minuto, peso }], en orden cronológico
         const expulsados = new Set();
@@ -1849,8 +1979,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (ev.tipo === '🔄 SUSTITUCIÓN' && jugadores.length >= 2) {
                 const once = onceDe(ev.equipo);
                 if (once) {
-                    once.delete(jugadores[1]);
-                    once.add(jugadores[0]);
+                    const lugar = once.indexOf(jugadores[1]);
+                    if (lugar >= 0) once[lugar] = jugadores[0];   // entra en el mismo lugar del que sale
+                    else if (!once.includes(jugadores[0])) once.push(jugadores[0]);
                     const fuera = fueraDe(ev.equipo);
                     if (fuera && !fuera.includes(jugadores[1])) fuera.push(jugadores[1]);
                 }
@@ -1859,7 +1990,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (porteros[ev.equipo] === jugadores[1]) porteros[ev.equipo] = jugadores[0];
             } else if ((ev.tipo === '🟥 TARJETA ROJA' || ev.tipo === '🟨🟥 DOBLE AMARILLA') && jugadores.length >= 1) {
                 const once = onceDe(ev.equipo);
-                if (once) once.delete(jugadores[0]);
+                if (once) quitar(once, jugadores[0]);
                 const fuera = fueraDe(ev.equipo);
                 if (fuera && !fuera.includes(jugadores[0])) fuera.push(jugadores[0]);
                 expulsados.add(jugadores[0]);
@@ -1869,7 +2000,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 infoDe(jugadores[0]).lesion = { minuto: minutoTexto(ev), nombre: ev.lesion || 'lesión', gravedad: ev.gravedad || 'leve', sale: !!ev.sale_lesionado };
                 if (ev.sin_cambio) {
                     const once = onceDe(ev.equipo);
-                    if (once) once.delete(jugadores[0]);
+                    if (once) quitar(once, jugadores[0]);
                     const fuera = fueraDe(ev.equipo);
                     if (fuera && !fuera.includes(jugadores[0])) fuera.push(jugadores[0]);
                     infoDe(jugadores[0]).salio = minutoTexto(ev);
@@ -1915,8 +2046,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // En cancha primero; al final, los que salieron (cambio o expulsión) en el orden en que salieron
         return {
-            local: Array.from(onceLocal).map(filaDe).concat(fueraLocal.filter(n => !onceLocal.has(n)).map(fueraDeCancha)),
-            visitante: Array.from(onceVisitante).map(filaDe).concat(fueraVisitante.filter(n => !onceVisitante.has(n)).map(fueraDeCancha))
+            local: onceLocal.map(filaDe).concat(fueraLocal.filter(n => !onceLocal.includes(n)).map(fueraDeCancha)),
+            visitante: onceVisitante.map(filaDe).concat(fueraVisitante.filter(n => !onceVisitante.includes(n)).map(fueraDeCancha))
         };
     }
 

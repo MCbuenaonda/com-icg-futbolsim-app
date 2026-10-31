@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Ranking de la prensa - FutbolSim{% endblock %}
+{% block content %}
+{#
+  Ranking de acierto de los pronósticos de los medios (services/prensa_service.ranking). Los medios pronostican los próximos partidos y se
+  califican al terminar; su credibilidad (lo que pesa lo que dicen en la reputación de los demás) sube o baja con lo que aciertan.
+#}
+<div class="container-fluid py-3 px-md-4">
+  <div class="card fixture-hero mb-4"><div class="card-body p-3 p-md-4">
+    <span class="album-tapa__edicion">Prensa · pronósticos</span>
+    <h1 class="h2 fw-bold text-white mb-1">Ranking de la prensa</h1>
+    <p class="text-muted mb-0 small">Los medios pronostican los próximos partidos y se califican al terminar. Acertar sube su credibilidad (hasta ±30 puntos); acertar la mitad la deja igual.
+      {{ datos.resueltos }} pronóstico{{ 's' if datos.resueltos != 1 }} calificado{{ 's' if datos.resueltos != 1 }}. <a href="/red-social/?filtro=prensa">Ver la prensa</a> · <a href="/red-social/medios">Directorio de medios</a></p>
+  </div></div>
+  {% if datos.resueltos == 0 %}
+  <div class="alert alert-info small"><i class="bi bi-hourglass-split me-1"></i>Todavía no se ha calificado ningún pronóstico: los medios ya pronosticaron los próximos partidos y el ranking se llena cuando se jueguen.</div>
+  {% endif %}
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card card-seccion"><div class="card-body p-3"><h2 class="vivo-titulo"><i class="bi bi-newspaper" style="color:#fb923c;"></i>Medios</h2>
+        {% for m in datos.medios %}
+        <div class="prensa-nota mb-2" style="--medio: {{ m.color }};"><span class="medio-avatar medio-avatar--sm" style="--medio: {{ m.color }};">{{ m.nombre[:1] }}</span>
+          <div class="flex-grow-1"><div class="small"><strong class="text-white">{{ loop.index }}. {{ m.nombre }}</strong> <span class="text-muted">· {{ m.pais or 'Internacional' }}</span></div>
+            <div class="fs-8 text-muted">{{ m.aciertos }} de {{ m.total }} ({{ m.pct }}%){% if m.exactos %} · {{ m.exactos }} marcador{{ 'es' if m.exactos != 1 }} exacto{{ 's' if m.exactos != 1 }}{% endif %}{% if m.credibilidad %} · credibilidad {{ m.credibilidad }}{% endif %}</div></div></div>
+        {% else %}<p class="text-muted small mb-0">Sin datos todavía.</p>{% endfor %}
+      </div></div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card card-seccion mb-4"><div class="card-body p-3"><h2 class="vivo-titulo"><i class="bi bi-person-lines-fill" style="color:#fb923c;"></i>Periodistas <small class="text-muted fw-normal">(con 2 o más calificados)</small></h2>
+        {% for p in datos.periodistas %}
+        <div class="small mb-1"><strong class="text-white">{{ loop.index }}. {{ p.nombre }}</strong> <span class="text-muted">· {{ p.medio }} · {{ p.aciertos }}/{{ p.total }} ({{ p.pct }}%)</span></div>
+        {% else %}<p class="text-muted small mb-0">Sin datos todavía.</p>{% endfor %}
+      </div></div>
+      <div class="card card-seccion"><div class="card-body p-3"><h2 class="vivo-titulo"><i class="bi bi-bullseye" style="color:#fb923c;"></i>Últimos pronósticos</h2>
+        {% for d in datos.recientes[:12] %}
+        <div class="small mb-1"><strong class="text-white">{{ d.medio.nombre }}</strong> <span class="text-muted">· {{ d.texto }}</span>
+          {% if d.estado == 'acertado' %}<span class="medio-tono medio-tono--elogio"><i class="bi bi-check-circle-fill"></i></span>{% elif d.estado == 'fallado' %}<span class="medio-tono medio-tono--critica"><i class="bi bi-x-circle-fill"></i></span>{% endif %}
+          <a href="/juegos/{{ d.juego_id }}" class="text-decoration-none fs-8">ver</a></div>
+        {% else %}<p class="text-muted small mb-0">Sin datos todavía.</p>{% endfor %}
+      </div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

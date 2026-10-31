@@ -276,3 +276,11 @@ GENERICAS = {"canal", "canale", "kanal", "kanaal", "channel", "tele", "televisio
              "signal", "onda", "onde", "arena", "sistema", "shabakat", "shabake", "qanat", "sawt", "riyadiya", "malaab",
              "futbol", "futebol", "calcio", "goal", "pitch", "gol", "pasion", "doel", "eins", "funk", "saluran", "olahraga",
              "sukan", "varzesh", "idman", "kanalen", "noticias", "radio", "radiotele", "arene", "but", "tor"}
+
+
+# Rasgo del dueño -> (ajuste de fidelidad, ajuste de exigencia) de su cadena (suma a los valores base del catálogo).
+# Con el reparto real de rasgos el promedio de las 633 cadenas casi no cambia (fidelidad +0,003, exigencia +0,005).
+AJUSTE_DUENO = {
+    "mecenas": (0.08, -0.05), "visionario": (0.03, -0.02), "estrella": (0.0, -0.03), "tiburon": (-0.05, 0.05),
+    "impaciente": (-0.08, 0.05), "ahorrador": (-0.03, 0.03), "tradicional": (0.08, 0.0),
+}

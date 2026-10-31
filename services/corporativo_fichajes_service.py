@@ -36,7 +36,7 @@ def nuevo_contrato(uid, sigla: str, tipo: str, ref_id: int, prima: int, duracion
         f = db["internacional"].find_one({"id": ref_id}, {"fase_eliminatoria": 1, "estado": 1})
         fase = [f.get("fase_eliminatoria"), f.get("estado")] if f else None
     return {"universo_id": uid, "sigla": sigla, "tipo": tipo, "ref_id": ref_id, "activo": True,
-            "valor_firma": _valor(tipo, ref_id), "prima": int(prima), "desde_ciclo": ciclo, "hasta_ciclo": ciclo + duracion,
+            "valor_firma": _valor(tipo, ref_id), "prima": int(prima), "desde_ciclo": ciclo, "desde_seq": U.seq_actual(), "hasta_ciclo": ciclo + duracion,
             "satisfaccion": C.SATISFACCION_INICIAL, "ciclos_sin_jugar": 0, "renta_total": 0, "honorarios_total": 0,
             "origen": origen, "creado_en": datetime.utcnow(), "foto_fase": fase}
 

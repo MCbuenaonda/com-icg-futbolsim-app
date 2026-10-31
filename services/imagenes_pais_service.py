@@ -34,7 +34,7 @@ db = client.get_database('mundial')
 
 TIPOS_IMAGEN = ("bandera", "plana", "jersey", "icono", "escudo")
 CARPETA_TIPO = {"plana": "bandera_plana"}               # el resto: carpeta = tipo
-VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 3, "tecnico": 1, "corporativo": 2, "marca": 1, "estadio": 2, "televisora": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
+VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 3, "foto_equipo": 3, "tecnico": 1, "corporativo": 2, "marca": 1, "estadio": 2, "televisora": 1, "tv_equipo": 1, "medio_logo": 1, "medio_equipo": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
 
 # {id: nombre} y {emoji: id} de 'paises' (se cargan una vez: nombres y banderas no cambian en runtime)
 _nombre_por_id: Optional[dict] = None
@@ -113,6 +113,19 @@ def url_logo_corporativo(sigla: Optional[str]) -> Optional[str]:
 def url_logo_televisora(slug: Optional[str]) -> Optional[str]:
     """Logo SVG de una televisora (bucket televisoras/, generar_televisoras.py)."""
     return f"{IMAGENES_PAISES_URL}/televisoras/{quote(slug)}.svg?v={VERSION_IMAGENES['televisora']}" if slug else None
+
+
+def url_avatar_tv(ruta: Optional[str]) -> Optional[str]:
+    """Avatar del dueño o de un comentarista de televisora (bucket tv_equipo/, generar_avatares_tv.py)."""
+    return f"{IMAGENES_PAISES_URL}/{quote(ruta)}?v={VERSION_IMAGENES['tv_equipo']}" if ruta else None
+
+
+def url_imagen_medios(ruta: Optional[str]) -> Optional[str]:
+    """Imagen de una estampa de televisión o marcas (album_medios.imagen): logo de cadena, logo de marca o avatar de persona."""
+    if not ruta:
+        return None
+    version = VERSION_IMAGENES.get({"televisoras": "televisora", "marcas": "marca", "tv_equipo": "tv_equipo", "medios": "medio_logo", "medios_equipo": "medio_equipo"}.get(ruta.split("/")[0], ""), 1)
+    return f"{IMAGENES_PAISES_URL}/{quote(ruta)}?v={version}"
 
 
 def url_logo_marca(slug: Optional[str]) -> Optional[str]:
@@ -321,7 +334,28 @@ def _formacion(esquema):
     return {**d, "cuenta": cuenta, "texto_lineas": "-".join(str(x) for x in cuenta)}
 
 
+def _prensa_de_partido(juego_id):
+    from services.prensa_service import de_partido
+    return de_partido(juego_id)
+
+
+def _pronosticos_partido(juego_id):
+    from services.prensa_service import pronosticos_de_partido
+    return pronosticos_de_partido(juego_id)
+
+
+def _prensa_reputacion(tipo, ref):
+    from services.prensa_service import reputacion_de
+    return reputacion_de(tipo, ref)
+
+
+def _prensa_sobre(tipo, ref):
+    from services.prensa_service import sobre
+    return sobre(tipo, ref)
+
+
 GLOBALES_JINJA = {
+    "prensa_de_partido": _prensa_de_partido, "pronosticos_partido": _pronosticos_partido, "prensa_sobre": _prensa_sobre, "prensa_reputacion": _prensa_reputacion,
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,
     "imagen_inicio": imagen_inicio, "img_estadio": url_estadio, "img_avatar": url_avatar,

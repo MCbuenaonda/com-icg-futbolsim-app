@@ -151,7 +151,7 @@
       {% for t in stats.top_jugadores %}
       <ol class="est-ranking {{ 'd-none' if not loop.first }}" data-pane="{{ t.codigo }}" role="tabpanel">
         {% for f in t.filas %}
-        <li class="est-fila est-fila--{{ f.posicion }}" role="button" tabindex="0" data-detalle-tipo="jugador" data-detalle-id="{{ f.id }}" data-detalle-metrica="{{ 'partidos' if t.codigo == 'valoracion' else t.codigo }}">
+        <li class="est-fila est-fila--{{ f.posicion }}{{ ' est-fila--bandera' if f.pais_id }}"{% if f.pais_id %} style="--escudo-url: url('{{ img_pais(f.pais_id, 'escudo') }}');"{% endif %} role="button" tabindex="0" data-detalle-tipo="jugador" data-detalle-id="{{ f.id }}" data-detalle-metrica="{{ 'partidos' if t.codigo == 'valoracion' else t.codigo }}">
           <span class="est-fila__pos">{{ {1: '🥇', 2: '🥈', 3: '🥉'}.get(f.posicion, f.posicion) }}</span>
           {{ m.avatar(f.id, f.pais_id, 'sm', f.nombre) }}
           <span class="est-fila__nombre min-w-0"><a href="/jugadores/{{ f.id }}" class="text-truncate d-block">{{ f.nombre }}</a><small>{{ m.bandera(f.bandera, pais_id=f.pais_id) }} {{ f.pais }} · {{ f.partidos }} PJ</small></span>
@@ -225,13 +225,16 @@
     {% set rm = pt.pais_mas_remontador %}
     {% if rm and rm.remontadas > 0 %}
     <div class="col">
-      <div class="card card-logo-fondo est-premio h-100" style="--logo-color: #a855f7;" role="button" tabindex="0" data-partidos='{{ rm.partidos | tojson }}' data-titulo-modal="Remontadas de {{ rm.pais }}">
+      <div class="card card-logo-fondo est-premio est-premio--pais h-100" style="--logo-color: #a855f7;" role="button" tabindex="0" data-partidos='{{ rm.partidos | tojson }}' data-titulo-modal="Remontadas de {{ rm.pais }}">
+        {% set rm_pid = pais_id_por_bandera(rm.bandera) if rm.bandera else None %}
+        {% set escudo = img_pais(rm_pid, 'escudo') if rm_pid else None %}
+        {% if escudo %}<img src="{{ escudo }}" alt="" aria-hidden="true" loading="lazy" class="card-logo-fondo__logo" onerror="this.remove()">{% endif %}
         <div class="card-body p-3 d-flex align-items-center gap-3">
-          <span class="est-icono" style="--est-color: #a855f7;"><i class="bi bi-arrow-repeat"></i></span>
+          <span class="est-escudo">{{ m.bandera(rm.bandera, tipo='escudo', pais_id=rm_pid) }}</span>
           <div class="min-w-0 flex-grow-1">
             <span class="est-premio__titulo" style="color: #a855f7;"><i class="bi bi-graph-up-arrow"></i>Más remontadora</span>
             <strong class="d-block text-white text-truncate">{{ rm.pais }}</strong>
-            <small class="text-muted">{{ pt.total_remontadas }} remontadas en todo el torneo</small>
+            <small class="text-muted d-block text-truncate">{{ pt.total_remontadas }} remontadas en todo el torneo</small>
           </div>
           <span class="est-premio__valor"><strong>{{ rm.remontadas }}</strong><small>remont.</small></span>
         </div>

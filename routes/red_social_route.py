@@ -36,3 +36,28 @@ def red_social_mas(request: Request, antes: str, q: str = "", filtro: str = "tod
     datos = RS.publicaciones(obtener_usuario_actual(request), q, filtro, antes)
     return templates.TemplateResponse(request=request, name="partials/red_social_lista.html", context={**datos, "q": q, "filtro": filtro},
                                       headers={"X-Siguiente": datos["siguiente"] or ""})
+
+
+@route.get("/ranking", response_class=HTMLResponse, name="prensa_ranking")
+def prensa_ranking(request: Request):
+    from services import prensa_service as PS
+    return templates.TemplateResponse(request=request, name="prensa_ranking.html", context={"datos": PS.ranking()})
+
+
+@route.get("/medios", response_class=HTMLResponse, name="prensa_medios")
+def prensa_medios(request: Request):
+    from services import prensa_service as PS
+    medios = PS.directorio()
+    return templates.TemplateResponse(request=request, name="prensa_medios.html", context={
+        "medios": medios, "confederaciones": PS.CONFEDERACIONES, "niveles": PS.NIVEL_NOMBRE,
+        "lineas": {k: v[0] for k, v in __import__("config.medios", fromlist=["LINEAS"]).LINEAS.items()}})
+
+
+@route.get("/medios/{medio_id}", name="prensa_medio_ficha")
+def prensa_medio_ficha(medio_id: int):
+    from fastapi import HTTPException
+    from services import prensa_service as PS
+    datos = PS.ficha_medio(medio_id)
+    if not datos:
+        raise HTTPException(status_code=404, detail="Ese medio no existe")
+    return datos

@@ -348,6 +348,8 @@ def _get_stats_partidos(juegos: Optional[list] = None):
         "total_remontadas": len(partidos_remontada),
         "pais_mas_remontador": {
             "pais": nombre_top_remontador,
+            "bandera": next((e.get("bandera") for pt_ in partidos_top_remontador for e in (pt_.get("equipo_local") or {}, pt_.get("equipo_visitante") or {})
+                             if e.get("nombre") == nombre_top_remontador), None),
             "remontadas": len(partidos_top_remontador),
             "partidos": partidos_top_remontador
         }

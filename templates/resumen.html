@@ -108,6 +108,8 @@
     {% endif %}
 
     {% set tx_juego_id, tx_jugado = partido._id | string, True %}{% include "partials/transmision.html" %}
+    {% set tx_juego_id, tx_jugado = partido._id | string, True %}{% include "partials/pronosticos.html" %}
+    {% set prensa_items = prensa_de_partido(partido._id | string) %}{% set prensa_titulo = "Lo que dice la prensa" %}{% include "partials/prensa_lista.html" %}
 
     <!-- PARTE MÉDICO: lesiones del partido (services/lesiones.py) y bajas con que llegó cada selección -->
     {% set pmed = parte_medico %}

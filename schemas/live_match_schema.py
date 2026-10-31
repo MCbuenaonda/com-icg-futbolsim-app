@@ -151,3 +151,5 @@ class PlantillasLiveOut(BaseModel):
     planteamiento: Dict[str, Any] = {}
     # Qué extremo jugó de segundo delantero en cada lado ({local|visita: bool}, services/formaciones.lineas)
     espejo_extremos: Dict[str, bool] = {}
+    # Cuerpo arbitral del partido con su rostro ({rol: {nombre, url}}): la ventana de avisos de la cancha muestra quién marcó
+    arbitros: Dict[str, Any] = {}

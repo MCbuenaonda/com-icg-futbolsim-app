@@ -583,3 +583,24 @@
 .estampa--leyenda .estampa__frente::after, .estampa--equipo-leyendas .estampa__frente::after { mix-blend-mode: overlay; }
 .estampa--platino .estampa__frente::after { opacity: 0.6; }
 .estampa--leyenda .estampa__frente::after, .estampa--equipo-leyendas .estampa__frente::after { opacity: 0.5; }
+
+
+/* Estampas de televisión y marcas (album_medios): el logo sobre un panel claro, el personaje con su avatar */
+.estampa__logo { position: absolute; left: 12px; right: 12px; top: 12px; bottom: 36%; display: grid; place-items: center; overflow: hidden; border-radius: 10px;
+    background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.82), rgba(203, 213, 225, 0.6) 80%); border: 1px solid rgba(255, 255, 255, 0.5); }
+.estampa__logo img { width: 88%; max-height: 90%; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45)); }
+.estampa__logo .bi { font-size: 2.6rem; color: rgba(255, 255, 255, 0.75); }
+.estampa--persona .estampa__foto img { width: 104%; height: 104%; object-fit: cover; object-position: 50% 10%; }
+.estampa--persona .estampa__reverso-titulo { flex-shrink: 0; }
+.estampa--persona .estampa__datos { gap: 0.1rem 0.35rem; }
+
+/* Sobre de 25 estampas: cuadrícula compacta en lugar de abanico */
+.sobre-cartas--muchas { gap: 0.7rem; max-width: 980px; margin-inline: auto; }
+.sobre-cartas--muchas .carta-sobre { width: 118px; transform: none; }
+.sobre-cartas--muchas .carta-sobre--horizontal { width: 190px; }
+.sobre-cartas--muchas .carta-sobre__cinta { font-size: 0.56rem; padding: 0.05rem 0.4rem; }
+@media (max-width: 575.98px) {
+    .sobre-cartas--muchas { gap: 0.4rem; }
+    .sobre-cartas--muchas .carta-sobre { width: 23%; }
+    .sobre-cartas--muchas .carta-sobre--horizontal { width: 48%; }
+}

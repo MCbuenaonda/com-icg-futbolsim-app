@@ -34,10 +34,12 @@
       </form>
       <nav class="rs-pestanas mb-3" aria-label="Filtrar publicaciones">
         {% for clave, nombre in filtros.items() %}
-        {% if clave in ('todo', 'partidos') or lateral.con_universo %}
+        {% if clave in ('todo', 'partidos', 'prensa') or lateral.con_universo %}
         <a href="/red-social/?filtro={{ clave }}{% if q %}&q={{ q | urlencode }}{% endif %}" class="rs-pestana {{ 'activa' if filtro == clave }}">{{ nombre }}</a>
         {% endif %}
         {% endfor %}
+        <a href="/red-social/medios" class="rs-pestana" title="Directorio de los medios de comunicación"><i class="bi bi-journal-text me-1"></i>Medios</a>
+        <a href="/red-social/ranking" class="rs-pestana" title="Qué medios aciertan más sus pronósticos"><i class="bi bi-bullseye me-1"></i>Ranking de la prensa</a>
       </nav>
       {% if q %}<p class="small text-muted mb-2"><i class="bi bi-funnel me-1"></i>Resultados para «{{ q }}»</p>{% endif %}
 

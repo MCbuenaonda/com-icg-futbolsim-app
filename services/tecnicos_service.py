@@ -64,7 +64,7 @@ def puntos_esperados(aficionados_propios: float, aficionados_rival: float) -> fl
     return 3 * gana + PROB_EMPATE
 
 
-def sumar_partido(cargo: dict, gf: int, gc: int, esperados: float, dt_expulsado: bool, juego_id: str) -> dict:
+def sumar_partido(cargo: dict, gf: int, gc: int, esperados: float, dt_expulsado: bool, juego_id: str, prensa: float = 0.0) -> dict:
     """Actualiza el cargo en memoria con el resultado (no decide nada)."""
     puntos = 3 if gf > gc else (1 if gf == gc else 0)
     cargo["partidos"] = cargo.get("partidos", 0) + 1
@@ -75,7 +75,8 @@ def sumar_partido(cargo: dict, gf: int, gc: int, esperados: float, dt_expulsado:
     cargo["gc"] = cargo.get("gc", 0) + gc
     cargo["puntos"] = cargo.get("puntos", 0) + puntos
     cargo["esperados"] = round(cargo.get("esperados", 0) + esperados, 3)
-    golpe = (GOLPE_GOLEADA if gc - gf >= 3 else 0) + (GOLPE_EXPULSION if dt_expulsado else 0)
+    from services.prensa import EFECTO_PRESION_DT
+    golpe = (GOLPE_GOLEADA if gc - gf >= 3 else 0) + (GOLPE_EXPULSION if dt_expulsado else 0) - EFECTO_PRESION_DT * prensa / 100   # la prensa suma o resta presión
     cargo["presion"] = round(MEMORIA_PRESION * cargo.get("presion", 0.0) + (1 - MEMORIA_PRESION) * (esperados - puntos) + golpe, 3)
     cargo.setdefault("juegos", []).append(juego_id)
     return cargo
@@ -215,7 +216,12 @@ def registrar_partido(juego: Optional[dict]) -> None:
             if not cargo or jid in (cargo.get("juegos") or []):
                 continue
             dt_partido = (res.get("dt") or {}).get(lado) or {}
-            sumar_partido(cargo, gf, gc, puntos_esperados(afic.get(pais_id), afic.get(rival_id)), bool(dt_partido.get("expulsado")), jid)
+            try:
+                from services.prensa_service import reputacion_centrada
+                prensa = reputacion_centrada("dt", cargo.get("dt_id"))
+            except Exception:
+                prensa = 0.0
+            sumar_partido(cargo, gf, gc, puntos_esperados(afic.get(pais_id), afic.get(rival_id)), bool(dt_partido.get("expulsado")), jid, prensa)
             campos = {k: cargo[k] for k in ("partidos", "ganados", "empatados", "perdidos", "gf", "gc", "puntos", "esperados", "presion")}
             ok = db["dt_cargos"].update_one({"_id": cargo["_id"], "juegos": {"$ne": jid}}, {"$set": campos, "$push": {"juegos": jid}})
             if not ok.modified_count:

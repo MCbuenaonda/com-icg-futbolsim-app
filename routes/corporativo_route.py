@@ -233,6 +233,21 @@ def televisora_ficha(tele_id: int, request: Request):
     return datos
 
 
+@route.get("/tv-contrato/{tv_id}", name="corporativos_contrato_tv")
+def contrato_tv(tv_id: str, request: Request):
+    from services import corporativo_tv_service as tv
+    datos = _accion(tv.detalle_contrato, _usuario_api(request)["_id"], tv_id)
+    if not datos:
+        raise HTTPException(status_code=404, detail="Ese contrato ya no está disponible")
+    return datos
+
+
+@route.post("/entrevistas/{entrevista_id}/{postura}", name="corporativos_entrevista")
+def responder_entrevista(entrevista_id: str, postura: str, request: Request):
+    from services import corporativo_prensa_service as prensa_corp
+    return _accion(prensa_corp.responder, _usuario_api(request)["_id"], entrevista_id, postura)
+
+
 @route.post("/tv/{tv_id}/{respuesta}", name="corporativos_responder_tv")
 def responder_tv(tv_id: str, respuesta: str, request: Request):
     from services import corporativo_tv_service as tv

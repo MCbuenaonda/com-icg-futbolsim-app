@@ -885,6 +885,16 @@ def aplicar_efectos_secundarios(
     except Exception as e:
         print(f"No se pudo escribir la crónica: {e}")
 
+    # Prensa (services/prensa_service.py): los medios opinan del partido ya jugado (contenido global). Nunca lanza.
+    try:
+        from services.prensa_service import asegurar_prensa, generar_pronosticos, resolver_pronosticos
+        _j = db["juegos"].find_one({"_id": ObjectId(juego_id)})
+        resolver_pronosticos(_j)      # los pronósticos que hicieron los medios de este partido se califican
+        asegurar_prensa(_j)
+        generar_pronosticos()         # y se pronostican los próximos partidos
+    except Exception as e:
+        print(f"No se pudo generar la prensa: {e}")
+
     # Probabilidades de clasificar / avanzar (services/probabilidades_service.py): se recalculan en un proceso
     # aparte con el partido ya contado. Nunca lanza.
     try:

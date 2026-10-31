@@ -17,6 +17,13 @@
         <div class="min-w-0">
           <div class="fw-semibold text-white text-truncate">{{ t.tele.nombre }}</div>
           <div class="small text-muted">Derechos de {{ t.pais }} · {{ t.tele.nivel_nombre | lower }}</div>
+          {% if t.tele.equipo %}
+          <div class="tv-equipo tv-equipo--mini" title="Dueño de la cadena: {{ t.tele.equipo.dueno.nombre }} ({{ t.tele.equipo.dueno.rasgo_nombre }})">
+            <span class="small text-muted me-1"><i class="bi bi-mic-fill text-info"></i> {{ 'Narraron' if tx_jugado else 'Narran' }}:</span>
+            {% for c in t.tele.equipo.comentaristas %}<span class="tv-persona tv-persona--mini">{% if c.avatar_url %}<img class="tv-cara" src="{{ c.avatar_url }}" alt="" loading="lazy" onerror="this.remove()">{% endif %}<span class="text-white small">{{ c.nombre }}</span></span>{% endfor %}
+            <span class="small text-muted">· dueño: {{ t.tele.equipo.dueno.nombre }}</span>
+          </div>
+          {% endif %}
           {% if t.invitado %}
           <a class="tx-invitado text-decoration-none" href="/jugadores/{{ t.invitado.jugador_id }}">
             {{ m.avatar(t.invitado.jugador_id, t.invitado.pais_id, '', t.invitado.nombre) }}
@@ -34,6 +41,6 @@
     </div>
   </div>
 </div>
-<script src="/static/js/televisoras.js?v=1" defer></script>
+<script src="/static/js/televisoras.js?v=5" defer></script>
 {% endif %}
 {% endif %}

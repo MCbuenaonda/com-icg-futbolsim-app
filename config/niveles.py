@@ -54,6 +54,7 @@ REGLAS_XP = {
     "CORP_ACUERDO":        {"xp": 8,    "tope_diario": 2,    "titulo": "Firmar un acuerdo publicitario para un representado", "icono": "bi-badge-ad-fill", "modulo": "corporativos"},
     "CORP_PATROCINIO":     {"xp": 8,    "tope_diario": 3,    "titulo": "Conseguir un patrocinio de marca para un representado", "icono": "bi-badge-ad-fill", "modulo": "corporativos"},
     "CORP_TV":             {"xp": 8,    "tope_diario": 3,    "titulo": "Firmar un contrato de transmisión para una selección", "icono": "bi-broadcast", "modulo": "corporativos"},
+    "CORP_ENTREVISTA":     {"xp": 4,    "tope_diario": 4,    "titulo": "Atender una entrevista de la prensa", "icono": "bi-mic-fill", "modulo": "corporativos"},
     "CORP_GIRA":           {"xp": 8,    "tope_diario": 2,    "titulo": "Organizar una gira de exhibición", "icono": "bi-airplane-fill", "modulo": "corporativos"},
 }
 XP_TRIVIA_BASE = 5

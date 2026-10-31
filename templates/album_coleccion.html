@@ -4,7 +4,7 @@
 {% block title %}Mi Álbum - FutbolSim{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="/static/css/album.css?v=20261025b">
+<link rel="stylesheet" href="/static/css/album.css?v=20261031c">
 {% endblock %}
 
 {% block content %}
@@ -47,12 +47,15 @@
                              'ARBITRO': ('bi-star-fill', t.arbitros, t.arbitros_total, album.pagina_arbitros),
                              'MUNDIAL': ('bi-palette-fill', t.mundial, t.mundial_total, album.pagina_mundiales),
                              'TECNICO': ('bi-clipboard-check', t.tecnicos, t.tecnicos_total, None),
+                             'LOGO': ('bi-tv', t.logos, t.logos_total, album.pagina_television),
+                             'PERSONAJE': ('bi-mic-fill', t.personajes, t.personajes_total, album.pagina_television),
+                             'DUENO': ('bi-briefcase-fill', t.duenos, t.duenos_total, album.pagina_television),
                              'PAIS': ('bi-gem', t.paises, t.paises_total, None)} %}
         <div class="row g-2 mt-2">
             {% for cat in album.categorias %}
             {% set icono, valor, total, pagina_ir = datos_tipo[cat.tipo] %}
             <div class="col-6 col-md-3">
-                <div class="album-contador album-contador--{{ cat.codigo | lower }}" style="--cat-color: {{ cat.color }};" {% if pagina_ir %}role="button" tabindex="0" data-ir-pagina="{{ pagina_ir }}" title="Ir a la página de árbitros"{% endif %}>
+                <div class="album-contador album-contador--{{ cat.codigo | lower }}" style="--cat-color: {{ cat.color }};" {% if pagina_ir %}role="button" tabindex="0" data-ir-pagina="{{ pagina_ir }}" title="Ir a su página"{% endif %}>
                     <span class="album-contador__rareza">{{ cat.nombre }} · {{ (cat.probabilidad * 100) | round | int }}%</span>
                     <i class="bi {{ icono }}"></i>
                     <strong>{{ valor }}</strong>
@@ -119,7 +122,7 @@
             <h3 class="album-indice__conf">{% if lc %}<img src="{{ lc.url }}" alt="" class="{{ 'estampa__conf--claro' if lc.claro }}">{% endif %}{{ conf }} <span>{{ 'pág. ' ~ hojas[0].numero if hojas | length == 1 else 'págs. ' ~ hojas[0].numero ~ '–' ~ hojas[-1].numero }}</span></h3>
             {%- for x in hojas %}
             {%- set estado = 'completa' if x.obtenidas == x.total else ('empezada' if x.obtenidas else 'vacia') %}
-            <a href="?pagina={{ x.numero }}" class="album-indice__item album-indice__item--{{ estado }}{{ ' activo' if x.numero == h.numero }}" data-ir-pagina="{{ x.numero }}" data-estado="{{ estado }}" data-nombre="{{ x.nombre | lower }}"><span class="album-indice__num">{{ x.numero }}</span>{% if x.tipo == 'arbitros' %}<i class="bi bi-star-fill album-indice__dorado"></i>{% elif x.tipo == 'mundiales' %}<i class="bi bi-palette-fill album-indice__dorado" style="color:#f472b6"></i>{% else %}{{ m.bandera(x.bandera, pais_id=x.pais_id) }}{% endif %}<span class="album-indice__nombre">{{ x.nombre }}</span>{% if x.escudo %}<i class="bi bi-shield-fill-check text-warning" title="Tienes el escudo"></i>{% endif %}<span class="album-indice__avance" title="{{ x.obtenidas }}/{{ x.total }} estampas"><span style="width: {{ x.porcentaje }}%;"></span></span><small>{{ x.obtenidas }}/{{ x.total }}</small></a>
+            <a href="?pagina={{ x.numero }}" class="album-indice__item album-indice__item--{{ estado }}{{ ' activo' if x.numero == h.numero }}" data-ir-pagina="{{ x.numero }}" data-estado="{{ estado }}" data-nombre="{{ x.nombre | lower }}"><span class="album-indice__num">{{ x.numero }}</span>{% if x.tipo == 'arbitros' %}<i class="bi bi-star-fill album-indice__dorado"></i>{% elif x.tipo == 'mundiales' %}<i class="bi bi-palette-fill album-indice__dorado" style="color:#f472b6"></i>{% elif x.tipo.startswith('prensa-') %}<i class="bi bi-newspaper album-indice__dorado" style="color:#fb923c"></i>{% elif x.tipo.startswith('tv-') %}<i class="bi bi-tv album-indice__dorado" style="color:#38bdf8"></i>{% elif x.tipo == 'marcas' %}<i class="bi bi-megaphone-fill album-indice__dorado" style="color:#f59e0b"></i>{% else %}{{ m.bandera(x.bandera, pais_id=x.pais_id) }}{% endif %}<span class="album-indice__nombre">{{ x.nombre }}</span>{% if x.escudo %}<i class="bi bi-shield-fill-check text-warning" title="Tienes el escudo"></i>{% endif %}<span class="album-indice__avance" title="{{ x.obtenidas }}/{{ x.total }} estampas"><span style="width: {{ x.porcentaje }}%;"></span></span><small>{{ x.obtenidas }}/{{ x.total }}</small></a>
             {%- endfor %}
         </div>
         {% endfor %}

@@ -36,7 +36,7 @@ from config.settings import MONGODB_URI
 from services.juegos_service import obtener_juego_activo, simular_y_registrar_resultado, aplicar_efectos_secundarios
 from services.clasificacion_service import obtener_tabla_grupo_de_equipo
 from services.fecha_service import formatear_fecha_es
-from services.imagenes_pais_service import url_estadio
+from services.imagenes_pais_service import url_estadio, datos_arbitro
 from services.simular_service import FORMACIONES
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
@@ -535,6 +535,9 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
         # DT de cada lado: solo quién es (sus reclamos, amonestación, expulsión y ajustes salen de los eventos ya
         # revelados, en el navegador, para no adelantar nada de la transmisión)
         "dt": _dts_en_vivo(resultado.get("dt") or {}, id_local, id_visita),
+        # cuerpo arbitral con su rostro (los nombres ya son públicos en el partido: no adelanta nada)
+        "arbitros": {rol: {"nombre": nombre, "url": datos_arbitro(nombre).get("url")}
+                     for rol, nombre in (resultado.get("arbitros") or {}).items() if isinstance(nombre, str) and nombre},
         "formaciones": dict(FORMACIONES),
         "planteamiento": {lado: {k: v for k, v in (plan or {}).items() if k in ("esquema", "etiqueta", "postura", "motivo")}
                           for lado, plan in (resultado.get("planteamiento") or {}).items()},

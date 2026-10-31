@@ -218,6 +218,7 @@
 </div>
 </div>
 {% endif %}
+  {% if t %}{% set prensa_items = prensa_sobre("dt", t.id) %}{% set prensa_rep = prensa_reputacion("dt", t.id) %}{% set prensa_titulo = "Lo que dice la prensa de " ~ t.nombre %}{% include "partials/prensa_lista.html" %}{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}

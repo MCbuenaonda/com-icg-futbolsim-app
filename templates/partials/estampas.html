@@ -299,3 +299,64 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
   </div>
 </div>
 {%- endmacro %}
+
+
+{# --- Estampas de TELEVISIÓN Y MARCAS (album_medios): x = {id, nombre, detalle, imagen_url, pais_id, origen, edad, rasgo} --- #}
+{% macro logo(x) -%}
+{%- set bandera_url = img_pais(x.pais_id, 'plana') if x.pais_id else None -%}
+<div class="estampa estampa--logo estampa--especial" tabindex="0" role="button" aria-label="Estampa especial de {{ x.nombre }}: toca para ver el reverso">
+  <div class="estampa__giro">
+    <div class="estampa__cara estampa__frente" {% if bandera_url %}style="--bandera-url: url('{{ bandera_url }}')"{% endif %}>
+      <span class="estampa__sello"><i class="bi {{ 'bi-newspaper' if x.origen == 'medio' else ('bi-tv' if x.origen == 'televisora' else 'bi-megaphone-fill') }}"></i> Especial</span>
+      <div class="estampa__logo">{% if x.imagen_url %}<img src="{{ x.imagen_url }}" alt="" loading="lazy" decoding="async">{% else %}<i class="bi bi-tv"></i>{% endif %}</div>
+      <div class="estampa__banda"><strong>{{ x.nombre }}</strong><small>{{ x.detalle }}</small></div>
+    </div>
+    <div class="estampa__cara estampa__reverso" {{ marca_escudo(x.pais_id) }}>
+      <div class="estampa__reverso-titulo">{{ x.nombre }}</div>
+      <div class="estampa__ovr"><small>{{ 'Medio' if x.origen == 'medio' else ('Cadena' if x.origen == 'televisora' else 'Marca') }}</small><i class="bi {{ 'bi-newspaper' if x.origen == 'medio' else ('bi-tv' if x.origen == 'televisora' else 'bi-megaphone-fill') }}"></i></div>
+      <dl class="estampa__datos estampa__datos--1col">
+        <div><dt>Tipo</dt><dd>{{ x.detalle }}</dd></div>
+        {% if x.pais_nombre %}<div><dt>País</dt><dd>{{ x.pais_nombre }}</dd></div>{% endif %}
+      </dl>
+      <a href="{{ '/red-social/?filtro=prensa' if x.origen == 'medio' else ('/corporativo/televisoras' if x.origen == 'televisora' else '/corporativo/marcas') }}" class="estampa__link" tabindex="-1">Ver {{ 'la prensa' if x.origen == 'medio' else ('televisoras' if x.origen == 'televisora' else 'marcas') }} <i class="bi bi-arrow-right"></i></a>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{# Comentarista (Normal) o dueño (Dorada): su avatar sobre la bandera del país de la cadena o marca #}
+{% macro persona(x, dorada=False) -%}
+{%- set bandera_url = img_pais(x.pais_id, 'plana') if x.pais_id else None -%}
+{%- set rol = ('Director' if x.origen == 'medio' else 'Dueño') if dorada else ('Periodista' if x.origen == 'medio' else 'Comentarista') -%}
+<div class="estampa estampa--persona {{ 'estampa--dorada' if dorada else 'estampa--normal' }}" tabindex="0" role="button" aria-label="Estampa de {{ rol | lower }}: {{ x.nombre }}. Toca para ver el reverso">
+  <div class="estampa__giro">
+    <div class="estampa__cara estampa__frente" {% if bandera_url %}style="--bandera-url: url('{{ bandera_url }}')"{% endif %}>
+      {% if dorada %}<span class="estampa__sello"><i class="bi bi-star-fill"></i> Dorada</span>{% endif %}
+      <span class="estampa__posicion"><i class="bi {{ 'bi-briefcase-fill' if dorada else 'bi-mic-fill' }}"></i></span>
+      <div class="estampa__foto">{% if x.imagen_url %}<img src="{{ x.imagen_url }}" alt="" loading="lazy" decoding="async">{% else %}<i class="bi bi-person-fill"></i>{% endif %}</div>
+      <div class="estampa__banda"><strong>{{ x.nombre }}</strong><small>{{ x.detalle }}</small></div>
+    </div>
+    <div class="estampa__cara estampa__reverso" {{ marca_escudo(x.pais_id) }}>
+      <div class="estampa__reverso-titulo"><span>{{ rol | upper }}</span>{{ x.nombre }}</div>
+      <div class="estampa__ovr"><small>Edad</small>{{ x.edad or '—' }}</div>
+      <dl class="estampa__datos">
+        <div class="estampa__dato-ancho"><dt>{{ ('Dirige' if x.origen == 'medio' else 'Es dueño de') if dorada else ('Escribe en' if x.origen == 'medio' else 'Comenta en') }}</dt><dd>{{ (x.detalle or '').split(' · ', 1)[-1] }}</dd></div>
+        {% if dorada and x.rasgo %}<div class="estampa__dato-ancho"><dt>Rasgo</dt><dd>{{ x.rasgo }}</dd></div>{% endif %}
+        {% if x.pais_nombre %}<div class="estampa__dato-ancho"><dt>País</dt><dd>{{ x.pais_nombre }}</dd></div>{% endif %}
+      </dl>
+      <a href="{{ '/red-social/?filtro=prensa' if x.origen == 'medio' else ('/corporativo/televisoras' if x.origen == 'televisora' else '/corporativo/marcas') }}" class="estampa__link" tabindex="-1">Ver {{ 'la prensa' if x.origen == 'medio' else ('televisoras' if x.origen == 'televisora' else 'marcas') }} <i class="bi bi-arrow-right"></i></a>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro vacia_medios(tipo, x) -%}
+<div class="estampa estampa--vacia" title="Te falta la estampa de {{ x.nombre }} · toca para canjearla" {{ canje(tipo, x) }}>
+  <div class="estampa__hueco">
+    <span class="estampa__hueco-numero"><i class="bi {{ 'bi-tv' if tipo == 'LOGO' else ('bi-briefcase-fill' if tipo == 'DUENO' else 'bi-mic-fill') }}"></i></span>
+    <i class="bi bi-question-lg"></i>
+    <span class="estampa__hueco-nombre">{{ x.nombre }}</span>
+    <span class="estampa__hueco-posicion">{{ x.detalle }}</span>
+  </div>
+</div>
+{%- endmacro %}

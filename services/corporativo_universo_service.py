@@ -306,6 +306,8 @@ def poner_al_dia(user_id) -> dict:
         if not resumen["atraso"]:   # al día: las cadenas eligen a los invitados de los próximos partidos
             marcas.iniciar_lote()
             tv.programar_invitados(estado, universo["ultimo_ciclo"] + 1, universo["cursor_seq"])
+            from services import corporativo_prensa_service as prensa_corp   # entrevistas que piden los medios por tu cartera
+            prensa_corp.solicitar(estado, universo["cursor_seq"], universo["ultimo_ciclo"] + 1)
         estado.guardar()
         _guardar_avance(universo)
     finally:

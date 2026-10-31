@@ -3,6 +3,8 @@
 {% if item.clase == 'partido' %}
 {% set partido = item %}{% set pid = 'rs' ~ item.match_id %}{% set abierto = true %}
 {% include "partials/post_partido.html" %}
+{% elif item.clase == 'prensa' %}
+{% set post = item %}{% include "partials/post_prensa.html" %}
 {% else %}
 {% set post = item %}{% include "partials/post_marca.html" %}
 {% endif %}

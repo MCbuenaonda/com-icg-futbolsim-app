@@ -1,0 +1,22 @@
+{# Lo que dice la prensa de algo (partido, jugador, selección o técnico). Variables: prensa_items (lista de prensa_service.vista) y prensa_titulo. #}
+{% if prensa_items %}
+<div class="card card-seccion mb-4">
+  <div class="card-body p-3">
+    <h2 class="vivo-titulo"><i class="bi bi-newspaper" style="color:#fb923c;"></i>{{ prensa_titulo }}
+      {% if prensa_rep %}<small class="ms-2 fw-normal" style="color: {{ prensa_rep.color }};" title="Reputación mediática: lo que dicen los medios, con lo reciente pesando más. Afecta a los patrocinios (riesgo y encaje) y a la presión sobre los técnicos."><i class="bi bi-activity"></i> Imagen en prensa: {{ prensa_rep.etiqueta }} ({{ '%+d' | format(prensa_rep.centrada) }})</small>{% endif %}</h2>
+    <div class="prensa-lista">
+      {% for post in prensa_items %}
+      <div class="prensa-nota" style="--medio: {{ post.medio.color }};">
+        <span class="medio-avatar medio-avatar--sm" title="{{ post.medio.nombre }}">{{ post.medio.nombre[:1] }}</span>
+        <div class="min-w-0">
+          <div class="small">{% if post.medio.logo %}<img class="medio-logo medio-logo--sm" src="{{ post.medio.logo }}" alt="{{ post.medio.nombre }}" loading="lazy" onerror="this.replaceWith(document.createTextNode(this.alt))">{% else %}<strong class="text-white">{{ post.medio.nombre }}</strong>{% endif %} <span class="text-muted">· {{ post.periodista.nombre }} · {{ post.etiqueta }} · {{ post.fecha }}</span>
+            <span class="medio-tono medio-tono--{{ post.categoria_tono }} ms-1"><i class="bi {{ post.tono_icono }}"></i>{{ post.tono_nombre }}</span></div>
+          <div class="text-body-secondary fs-8">{{ post.texto }}</div>
+          <a class="fs-8 text-decoration-none" href="/juegos/{{ post.juego_id }}">Ver el partido</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}

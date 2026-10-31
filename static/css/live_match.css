@@ -249,8 +249,9 @@
     padding: 8px 14px 10px;
     border-radius: 10px;
     border-top: 4px solid #b9c2cc;
-    background: rgba(12, 16, 22, 0.92);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    background: rgba(12, 16, 22, 0.97);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(3px);
     color: #fff;
     pointer-events: none;
     opacity: 0;
@@ -329,7 +330,83 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* --- Ventana de avisos v2: rostro de quien marca, texto corto con negritas, cambio animado y gol --- */
+.cancha-aviso strong { color: #fff; font-weight: 800; }
+.cancha-aviso__titulo strong { color: #fff; }
+.cancha-aviso__rostro {
+    position: relative; flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%; overflow: hidden; isolation: isolate;
+    display: inline-grid; place-items: center; background: radial-gradient(circle at 50% 35%, #8fa3c4 0%, #5d7096 55%, #3c4c6d 100%);
+    border: 2px solid rgba(255, 255, 255, 0.35); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+.cancha-aviso__rostro img { position: relative; z-index: 1; width: 120%; height: 120%; object-fit: cover; margin-top: 8%; }
+.cancha-aviso__rostro i { position: absolute; color: rgba(255, 255, 255, 0.5); font-size: 1.4rem; }
+.cancha-aviso__rostro--arbitro { border-color: #f2c94c; }
+.cancha-aviso__rostro--var { border-color: #a78bfa; }
+.cancha-aviso__rostro--dt { border-color: #38bdf8; background: radial-gradient(circle at 50% 35%, #475569, #1e293b); }
+.cancha-aviso__rostro--jugador { background: radial-gradient(circle at 50% 40%, #22304d, #121a2c); }
+.cancha-aviso__rostro--jugador::before {
+    content: ""; position: absolute; inset: 0; z-index: 0; background-image: var(--bandera-url); background-size: cover; background-position: center;
+    opacity: .45; -webkit-mask-image: radial-gradient(circle, #000 35%, transparent 75%); mask-image: radial-gradient(circle, #000 35%, transparent 75%);
+}
+.cancha-aviso--local .cancha-aviso__rostro--jugador { border-color: #3987e5; }
+.cancha-aviso--visitante .cancha-aviso__rostro--jugador { border-color: #e66767; }
+.cancha-aviso__marca { display: flex; align-items: center; gap: 10px; text-align: left; }
+.cancha-aviso__marca .cancha-aviso__descripcion { text-align: left; max-width: 260px; font-size: 0.78rem; color: #d7dde5; }
+.cancha-aviso__marca .cancha-aviso__rostro { transform: scale(.6); opacity: 0; transition: transform .4s cubic-bezier(.3, 1.6, .5, 1) .1s, opacity .3s ease .1s; }
+.cancha-aviso--visible .cancha-aviso__marca .cancha-aviso__rostro { transform: none; opacity: 1; }
+.cancha-aviso__quien { display: flex; align-items: baseline; gap: 6px; line-height: 1.2; margin-bottom: 2px; }
+.cancha-aviso__quien strong { font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+.cancha-aviso__quien small { font-size: .62rem; color: #9aa6b2; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+
+/* Sustitución: el que sale se apaga y baja; el que entra sube con brillo verde; las flechas giran */
+.cancha-aviso__cambio { display: flex; align-items: flex-start; gap: 12px; justify-content: center; }
+.cancha-aviso__cambio-lado { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 96px; max-width: 120px; text-align: center; }
+.cancha-aviso__cambio-lado .cancha-aviso__rostro { width: 52px; height: 52px; }
+.cancha-aviso__cambio-nombre { display: flex; align-items: center; gap: 4px; font-size: .74rem; max-width: 100%; }
+.cancha-aviso__cambio-nombre strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cancha-aviso__cambio-lado small { font-size: .6rem; color: #9aa6b2; }
+.cancha-aviso__cambio-lado--entra i { color: #3ecf74; }
+.cancha-aviso__cambio-lado--sale i { color: #e66767; }
+.cancha-aviso__cambio-flechas { align-self: center; margin-top: -18px; color: #f2c94c; font-size: 1.1rem; }
+.cancha-aviso--visible .cancha-aviso__cambio-lado--sale { animation: aviso-sale 1.6s ease .3s both; }
+.cancha-aviso--visible .cancha-aviso__cambio-lado--entra { animation: aviso-entra .9s cubic-bezier(.3, 1.5, .5, 1) .9s both; }
+.cancha-aviso--visible .cancha-aviso__cambio-lado--entra .cancha-aviso__rostro { animation: aviso-brillo-verde 1.4s ease 1.5s 2; }
+.cancha-aviso--visible .cancha-aviso__cambio-flechas { animation: aviso-flechas 1s ease .5s both; }
+@keyframes aviso-sale { 0% { opacity: 1; transform: none; filter: none; } 60% { opacity: 1; } 100% { opacity: .45; transform: translateY(6px) scale(.92); filter: grayscale(.8); } }
+@keyframes aviso-entra { from { opacity: 0; transform: translateY(18px) scale(.8); } to { opacity: 1; transform: none; } }
+@keyframes aviso-brillo-verde { 0%, 100% { box-shadow: 0 3px 10px rgba(0, 0, 0, .5); } 50% { box-shadow: 0 0 0 4px rgba(62, 207, 116, .55), 0 0 18px rgba(62, 207, 116, .6); } }
+@keyframes aviso-flechas { from { opacity: 0; transform: rotate(-180deg) scale(.5); } to { opacity: 1; transform: none; } }
+
+/* Gol: tarjeta más grande, rostro del goleador con destello, grito y marcador del momento */
+.cancha-aviso--gol { border-top-width: 5px; padding: 10px 16px 12px; background: linear-gradient(180deg, rgba(16, 60, 36, .95), rgba(10, 18, 14, .95)); }
+.cancha-aviso--gol.cancha-aviso--local { border-top-color: #3987e5; }
+.cancha-aviso--gol.cancha-aviso--visitante { border-top-color: #e66767; }
+.cancha-aviso__gol-grito { display: inline-block; font-size: 1.05rem; font-weight: 900; letter-spacing: .08em; color: #4ade80; text-shadow: 0 0 12px rgba(74, 222, 128, .6); }
+.cancha-aviso--visible .cancha-aviso__gol-grito { animation: aviso-grito .7s cubic-bezier(.3, 1.6, .5, 1) both, aviso-latido 1s ease .8s 3; }
+.cancha-aviso__gol { display: flex; align-items: center; gap: 12px; text-align: left; }
+.cancha-aviso__rostro--gol { width: 64px; height: 64px; border-width: 3px; }
+.cancha-aviso--visible .cancha-aviso__rostro--gol { animation: aviso-entra .6s cubic-bezier(.3, 1.6, .5, 1) .15s both, aviso-brillo-oro 1.2s ease .8s 3; }
+.cancha-aviso__gol-nombre { display: flex; align-items: center; gap: 6px; font-size: .95rem; }
+.cancha-aviso__gol-meta { font-size: .72rem; color: #c8d2dc; margin: 2px 0 4px; }
+.cancha-aviso__gol-cuenta { color: #fde68a; font-weight: 800; }
+.cancha-aviso__gol-marcador { display: flex; gap: 6px; align-items: baseline; font-size: .74rem; color: #9aa6b2; white-space: nowrap; }
+.cancha-aviso__gol-marcador strong { font-size: .95rem; color: #fff; }
+.cancha-aviso__gol-marcador .is-anota { color: #fff; font-weight: 700; }
+.cancha-aviso__gol-marcador .is-anota strong { color: #4ade80; }
+@keyframes aviso-grito { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes aviso-latido { 50% { transform: scale(1.12); } }
+@keyframes aviso-brillo-oro { 50% { box-shadow: 0 0 0 4px rgba(250, 204, 21, .55), 0 0 22px rgba(250, 204, 21, .55); } }
+@media (prefers-reduced-motion: reduce) {
+    .cancha-aviso--visible .cancha-aviso__cambio-lado--sale, .cancha-aviso--visible .cancha-aviso__cambio-lado--entra,
+    .cancha-aviso--visible .cancha-aviso__cambio-flechas, .cancha-aviso--visible .cancha-aviso__rostro--gol,
+    .cancha-aviso--visible .cancha-aviso__gol-grito, .cancha-aviso--visible .cancha-aviso__cambio-lado--entra .cancha-aviso__rostro { animation: none; }
+}
+
 @media (max-width: 576px) {
+    .cancha-aviso__rostro { width: 34px; height: 34px; }
+    .cancha-aviso__cambio-lado .cancha-aviso__rostro { width: 38px; height: 38px; }
+    .cancha-aviso__rostro--gol { width: 44px; height: 44px; }
+    .cancha-aviso__cambio-lado { min-width: 72px; }
     .cancha-aviso { top: 4%; min-width: 0; padding: 4px 8px 5px; border-top-width: 3px; border-radius: 8px; }
     .cancha-aviso__equipo { font-size: 0.56rem; }
     .cancha-aviso__titulo { font-size: 0.58rem; margin-bottom: 2px; }

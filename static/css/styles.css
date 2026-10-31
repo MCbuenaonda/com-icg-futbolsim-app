@@ -845,16 +845,16 @@ body {
     content: "";
     position: absolute;
     inset: 0 auto 0 0;
-    width: 150px;
+    width: 230px;
     z-index: -1;
     background-image: var(--bandera-url);
     background-repeat: no-repeat;
     /* La versión plana a sangre (bandera_plana/) cubre la capa; el desvanecido de la máscara cae sobre la propia bandera */
     background-size: cover;
     background-position: center;
-    opacity: 0.85;
-    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 25%, rgba(0, 0, 0, 0.5) 60%, transparent 100%);
-    mask-image: linear-gradient(to right, #000 0%, #000 25%, rgba(0, 0, 0, 0.5) 60%, transparent 100%);
+    opacity: 0.95;
+    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 30%, rgba(0, 0, 0, 0.55) 62%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 0%, #000 30%, rgba(0, 0, 0, 0.55) 62%, transparent 100%);
 }
 .goleador-fila::after {
     content: "";
@@ -2437,6 +2437,9 @@ a.conf-tabla__fila:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
 .est-fila--1 { background: linear-gradient(90deg, rgba(250, 204, 21, 0.16), rgba(0, 0, 0, 0.25)); border-color: rgba(250, 204, 21, 0.35); }
 .est-fila--2 { background: linear-gradient(90deg, rgba(203, 213, 225, 0.12), rgba(0, 0, 0, 0.25)); }
 .est-fila--3 { background: linear-gradient(90deg, rgba(217, 119, 6, 0.14), rgba(0, 0, 0, 0.25)); }
+/* Top 10 de jugadores: el escudo de su país como marca de agua, a la medida del renglón */
+.est-fila--bandera { position: relative; overflow: hidden; isolation: isolate; }
+.est-fila--bandera::before { content: ""; position: absolute; top: 4px; bottom: 4px; right: 0.5rem; width: 3.6rem; z-index: -1; background: var(--escudo-url) center / contain no-repeat; opacity: .22; }
 .est-fila__pos { font-size: 1rem; font-weight: 900; text-align: center; color: var(--bs-secondary-color); }
 .est-fila--1 .est-fila__pos, .est-fila--2 .est-fila__pos, .est-fila--3 .est-fila__pos { font-size: 1.3rem; }
 .est-fila .avatar-jugador--sm { width: 2.3rem; height: 2.3rem; }
@@ -5021,6 +5024,8 @@ button.tv-logo:hover { transform: scale(1.04); }
     border: 1px solid color-mix(in srgb, var(--tv) 45%, transparent); }
 .tv-contrato { display: flex; align-items: flex-start; gap: 0.9rem; padding: 0.8rem 1rem; border-radius: 14px; background: #111a2e;
     border: 1px solid rgba(255, 255, 255, 0.07); border-left: 3px solid var(--tv); }
+.tv-contrato--clic { cursor: pointer; transition: transform .15s ease, border-color .15s ease; }
+.tv-contrato--clic:hover, .tv-contrato--clic:focus-visible { transform: translateY(-2px); border-color: var(--tv); outline: none; }
 .tv-contrato--firmado { border-style: dashed; border-left-style: solid; }
 .tv-contrato .img-pais, .tv-oferta .img-pais { height: 0.9rem; }
 .tv-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.05rem 0.5rem; margin-left: 0.25rem; border-radius: 999px;
@@ -5086,3 +5091,64 @@ button.tv-logo:hover { transform: scale(1.04); }
 .tx-invitado .avatar-jugador { width: 1.6rem; height: 1.6rem; }
 .tv-aparicion { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0; border-top: 1px solid rgba(255, 255, 255, 0.06); }
 .tv-aparicion:first-child { border-top: 0; }
+
+
+/* --- Corporativos: «Hoy en tu corporativo» (lo que pide tu atención, arriba de las pestañas) --- */
+.corp-hoy { padding: 0.8rem 1rem; border-radius: 14px; background: linear-gradient(135deg, #14213a, #0f1a2e); border: 1px solid rgba(255, 255, 255, 0.08); }
+.corp-hoy__titulo { display: flex; align-items: center; gap: 0.45rem; margin: 0 0 0.6rem; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #fbbf24; }
+.corp-hoy__lista { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.corp-hoy__item { --hoy: #94a3b8; display: flex; align-items: center; gap: 0.65rem; padding: 0.55rem 0.7rem; border-radius: 12px; text-decoration: none; color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.07); border-left: 4px solid var(--hoy); transition: transform .15s ease, background .15s ease; }
+.corp-hoy__item:hover, .corp-hoy__item:focus-visible { transform: translateY(-2px); background: rgba(255, 255, 255, 0.08); color: #fff; outline: none; }
+.corp-hoy__item > .bi:first-child { font-size: 1.25rem; color: var(--hoy); flex: 0 0 auto; }
+.corp-hoy__item strong { display: block; font-size: 0.86rem; color: #fff; }
+.corp-hoy__item small { display: block; font-size: 0.74rem; color: var(--bs-secondary-color); line-height: 1.25; }
+.corp-hoy__ir { margin-left: auto; opacity: .5; font-size: 0.8rem; }
+.corp-hoy__item--danger { --hoy: #ef4444; } .corp-hoy__item--warning { --hoy: #f59e0b; } .corp-hoy__item--info { --hoy: #38bdf8; } .corp-hoy__item--success { --hoy: #22c55e; }
+.corp-hoy__vacio { font-size: 0.88rem; color: #cbd5e1; }
+
+/* --- Corporativos: objetivos de la temporada con avance, arriba de las pestañas --- */
+.corp-meta { padding: 0.8rem 1rem; border-radius: 14px; background: #101a2d; border: 1px solid rgba(255, 255, 255, 0.08); }
+.corp-meta__cab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.4rem 1rem; margin-bottom: 0.6rem; }
+.corp-meta__premio { font-size: 0.78rem; color: #cbd5e1; }
+.corp-meta__premio .bi { color: #f59e0b; margin-right: 0.3rem; }
+.corp-meta__premio--ok { color: #86efac; }
+.corp-meta__lista { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.corp-meta__obj { display: grid; gap: 0.3rem; padding: 0.55rem 0.7rem; border-radius: 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.07); }
+.corp-meta__obj--ok { border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.07); }
+.corp-meta__texto { display: flex; gap: 0.45rem; font-size: 0.82rem; color: #fff; line-height: 1.25; }
+.corp-meta__barra { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.corp-meta__barra i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #d97706, #fbbf24); transition: width .6s ease; }
+.corp-meta__obj--ok .corp-meta__barra i { background: linear-gradient(90deg, #16a34a, #4ade80); }
+
+/* --- Televisoras: dueño y comentaristas con su avatar --- */
+.tv-equipo { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.tv-persona { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.6rem 0.3rem 0.3rem; border-radius: 999px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); }
+.tv-persona strong { display: block; color: #fff; font-size: 0.8rem; line-height: 1.1; }
+.tv-persona small { display: block; color: var(--bs-secondary-color); font-size: 0.68rem; }
+.tv-persona--dueno { border-color: rgba(251, 191, 36, 0.45); }
+.tv-cara { width: 2.6rem; height: 2.6rem; border-radius: 50%; object-fit: cover; object-position: 50% 12%; background: radial-gradient(circle at 50% 35%, #2b3d62, #14203a); border: 2px solid rgba(255, 255, 255, 0.2); flex: 0 0 auto; }
+.tv-equipo--mini { align-items: center; gap: 0.35rem; margin-top: 0.15rem; }
+.tv-persona--mini { padding: 0.1rem 0.5rem 0.1rem 0.1rem; }
+.tv-persona--mini .tv-cara { width: 1.7rem; height: 1.7rem; border-width: 1px; }
+
+/* --- Red social: el dueño de la marca firma algunos anuncios --- */
+.x-firma-dueno { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+.x-firma-dueno .tv-cara { width: 1.9rem; height: 1.9rem; border-width: 1px; }
+
+/* --- Prensa: medios de comunicación en la red social, el partido y las fichas --- */
+.medio-avatar { --medio: #94a3b8; flex: 0 0 auto; display: inline-grid; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 12px; font-weight: 900; font-size: 1.2rem; color: #fff;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--medio) 70%, #000), color-mix(in srgb, var(--medio) 35%, #0b1220)); border: 2px solid var(--medio); }
+.medio-avatar--sm { width: 1.9rem; height: 1.9rem; font-size: 0.9rem; border-radius: 9px; }
+.medio-verificado { color: #fb923c; }
+.x-post--prensa { border-left: 3px solid var(--medio, #fb923c); }
+.medio-tono { display: inline-flex; align-items: center; gap: 0.25rem; }
+.medio-tono--elogio { color: #4ade80; } .medio-tono--critica { color: #f87171; } .medio-tono--neutral { color: #94a3b8; }
+.prensa-lista { display: grid; gap: 0.7rem; }
+.prensa-nota { display: flex; gap: 0.6rem; align-items: flex-start; padding-left: 0.6rem; border-left: 3px solid var(--medio); }
+
+/* Prensa: logo (cabecera) del medio y cara del periodista */
+.medio-logo { height: 1.7rem; width: auto; max-width: 11rem; object-fit: contain; vertical-align: middle; }
+.medio-logo--sm { height: 1.15rem; max-width: 8rem; }
+.medio-cara { width: 2.6rem; height: 2.6rem; flex: 0 0 auto; }
+.medio-linea { font-weight: 700; font-size: 0.72rem; }

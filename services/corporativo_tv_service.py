@@ -47,6 +47,12 @@ def catalogo() -> Dict[int, dict]:
     """{televisora_id: doc} (no cambia en runtime: caché de 10 minutos)."""
     if _cache["hasta"] < time.time():
         docs = list(db["televisoras"].find({}, {"_id": 0}))
+        for t in docs:   # el rasgo del dueño mueve la fidelidad y la exigencia de la cadena
+            fid, exi = T.AJUSTE_DUENO.get(((t.get("equipo") or {}).get("dueno") or {}).get("rasgo"), (0.0, 0.0))
+            t["fidelidad_base"], t["exigencia_base"] = t.get("fidelidad", 0.5), t.get("exigencia", 0.55)
+            t["fidelidad"] = round(min(0.95, max(0.05, t["fidelidad_base"] + fid)), 3)
+            t["exigencia"] = round(min(0.80, max(0.30, t["exigencia_base"] + exi)), 3)
+            t["ajuste_dueno"] = {"fidelidad": int(round(fid * 100)), "exigencia": int(round(exi * 100))}
         _cache["por_id"] = {t["id"]: t for t in docs}
         por_pais: Dict[int, list] = {}
         for t in docs:
@@ -61,6 +67,15 @@ def del_pais(pais_id: int) -> List[dict]:
     return _cache["por_pais"].get(pais_id, [])
 
 
+def _equipo_vista(eq: Optional[dict]) -> Optional[dict]:
+    """El equipo de la cadena con la URL de cada avatar (dueño y comentaristas)."""
+    from services.imagenes_pais_service import url_avatar_tv
+    if not eq or not eq.get("dueno"):
+        return None
+    return {"dueno": {**eq["dueno"], "avatar_url": url_avatar_tv(eq["dueno"].get("avatar"))},
+            "comentaristas": [{**c, "avatar_url": url_avatar_tv(c.get("avatar"))} for c in eq.get("comentaristas") or []]}
+
+
 def tele_vista(t: dict) -> dict:
     from services.imagenes_pais_service import url_logo_televisora
     pais = valores()["info_paises"].get(t["pais_id"], {})
@@ -71,7 +86,7 @@ def tele_vista(t: dict) -> dict:
             "nivel": t.get("nivel", 2), "nivel_nombre": T.NIVELES.get(t.get("nivel", 2), ""), "perfil": t.get("perfil"),
             "perfil_nombre": perfil.get("nombre", ""), "perfil_descripcion": perfil.get("descripcion", ""),
             "perfil_icono": perfil.get("icono", "bi-tv"), "lema": t.get("lema"), "color": t["colores"][0], "color2": t["colores"][1],
-            "exigencia": int(round(t.get("exigencia", 0.55) * 100)), "fidelidad": t.get("fidelidad", 0.5)}
+            "exigencia": int(round(t.get("exigencia", 0.55) * 100)), "fidelidad": t.get("fidelidad", 0.5), "equipo": _equipo_vista(t.get("equipo")), "ajuste_dueno": t.get("ajuste_dueno")}
 
 
 def _tarifa_de(t: dict, pais_id: int, forma: float = 1.0) -> Dict[str, int]:
@@ -177,6 +192,35 @@ def procesar_partido(estado, aporte: dict, ciclo: int, juego_id: str, seq: int) 
                 _siguiente(estado, doc, c, ciclo, seq)
     except Exception as e:
         print(f"[corporativos] televisoras, partido {juego_id}: {e}")
+    ofertas_iniciales_tras_compra(estado, ciclo, seq)
+
+
+def ofertas_iniciales_tras_compra(estado, ciclo: int, seq: int) -> None:
+    """Una selección que el usuario acaba de adquirir recibe su oferta inicial de TV un partido después de la compra
+    (sin esperar al cierre del ciclo ni al sorteo). Solo la primera vez: si la rechaza o vence, vale el sorteo del cierre."""
+    try:
+        corps = {s for s, k in estado.corps.items() if k.get("es_del_usuario")}
+        candidatos = [(p, c) for p, c in estado.por_seleccion.items()
+                      if c["sigla"] in corps and c.get("activo", True) and c.get("desde_seq") is not None
+                      and 0 < seq - c["desde_seq"] <= C.PARTIDOS_POR_CICLO and not _de_pais(estado, p)]
+        if not candidatos:
+            return
+        from services.fantasy_service import paises_eliminados
+        from services.corporativo_ciclo_service import popularidad
+        eliminados = paises_eliminados()
+        for pais_id, c in candidatos:
+            if pais_id in eliminados or not del_pais(pais_id):
+                continue
+            if db[COL].count_documents({"universo_id": estado.uid, "contrato_id": str(c["_id"])}, limit=1):
+                continue   # ya tuvo una oferta o un contrato de TV con esta representación
+            rng = R.semilla(estado.uid, "tv-inicial-compra", pais_id, str(c["_id"]))
+            valor = valores()["selecciones"].get(pais_id, 0)
+            pop = popularidad("seleccion", pais_id, valor)
+            cadenas = del_pais(pais_id)
+            t = rng.choices(cadenas, weights=[R.tv_peso_inicial(x.get("nivel", 2), pop) for x in cadenas])[0]
+            _oferta(estado, c, t, "INICIAL", ciclo, seq, 1.0)
+    except Exception as e:
+        print(f"[corporativos] televisoras, oferta tras la compra: {e}")
 
 
 def _ofertas_renovacion(estado, actual: dict, c: dict, ciclo: int, seq: int) -> None:
@@ -401,6 +445,58 @@ def ficha(user_id, tele_id: int) -> Optional[dict]:
     return {**v, "tarifa_hoy": tarifa, "esperado_hoy": R.tv_esperado(tarifa), "bono_hoy": tarifa["bono"],
             "historia": [h for h in historia if h], "transmite": transmite, "hermanas": hermanas,
             "partidos_rango": list(C.TV_PARTIDOS)}
+
+
+def detalle_contrato(user_id, tv_id: str) -> Optional[dict]:
+    """Modal de «Tus contratos»: el contrato (avance, cobros, bono, qué falta para ganarlo), la cadena, sus invitados y sus
+    ofertas relacionadas, más lo que lleva esa cadena contigo en el universo."""
+    d = db[COL].find_one({"_id": tv_id, "universo_id": user_id})
+    fila = _fila(d) if d else None
+    if not fila:
+        return None
+    t = catalogo()[d["televisora_id"]]
+    v = valores()
+    res = d.get("resultados") or []
+    cuenta = {k: res.count(k) for k in ("victoria", "empate", "derrota")}
+    tarifa = d["tarifa"]
+    puntos = cuenta["victoria"] * 3 + cuenta["empate"]
+    necesarios = int(-(-d.get("exigencia", 0.55) * 3 * d["partidos"] // 1))
+    faltan = max(0, d["partidos"] - d.get("jugados", 0))
+    from services.corporativo_mercado_service import calendario_paises
+    prox = calendario_paises().get(d["pais_id"]) if d["estado"] in ("ACTIVO", "FIRMADA") else None
+    proximo = None
+    if prox:
+        rival = v["info_paises"].get(prox["rival_id"], {})
+        proximo = {"faltan": prox["faltan"], "rival": rival.get("nombre"), "rival_bandera": rival.get("bandera"), "local": prox["local"],
+                   "juego_id": prox.get("juego_id")}
+    relacionadas = [_fila(x) for x in db[COL].find({"universo_id": user_id, "sigue_a": d["_id"]}).sort("seq", 1)]
+    invitados = []
+    docs = list(db[COL_INV].find({"universo_id": user_id, "televisora_id": d["televisora_id"], "estado": {"$in": ["PROGRAMADA", "REALIZADA"]}})
+                .sort("decidido_seq", -1).limit(8))
+    juegos = {}
+    if docs:
+        from bson import ObjectId
+        ids = [ObjectId(x["juego_id"]) for x in docs if ObjectId.is_valid(x.get("juego_id", ""))]
+        juegos = {str(j["_id"]): j for j in db["juegos"].find({"_id": {"$in": ids}}, {"equipo_local.nombre": 1, "equipo_visitante.nombre": 1, "fecha": 1})}
+    for x in docs:
+        j = juegos.get(x["juego_id"], {})
+        info = v["info_jugadores"].get(x.get("jugador_id"), {})
+        invitados.append({"jugador": info.get("nombre", "?"), "jugador_id": x.get("jugador_id"), "pais_id": info.get("pais_id"), "estado": x["estado"],
+                          "pago": x.get("pago"), "aficionados": x.get("aficionados"), "fecha": x.get("fecha") or j.get("fecha"),
+                          "partido": f"{(j.get('equipo_local') or {}).get('nombre', '?')} vs {(j.get('equipo_visitante') or {}).get('nombre', '?')}" if j else None})
+    previos = list(db[COL].find({"universo_id": user_id, "televisora_id": d["televisora_id"], "estado": "TERMINADO"}, {"cobrado": 1, "bono_cobrado": 1, "pais_id": 1, "sigla": 1}))
+    con_cadena = list(db[COL].aggregate([{"$match": {"universo_id": user_id, "televisora_id": d["televisora_id"], "estado": {"$in": ["ACTIVO", "TERMINADO"]}}},
+                                          {"$group": {"_id": None, "contratos": {"$sum": 1}, "cobrado": {"$sum": "$cobrado"}, "bonos": {"$sum": "$bono_cobrado"}}}]))
+    return {**fila, "cadena": tele_vista(t), "cuenta": cuenta, "puntos": puntos, "puntos_necesarios": necesarios,
+            "puntos_faltan": max(0, necesarios - puntos), "puntos_posibles": faltan * 3, "alcanzable": necesarios - puntos <= faltan * 3,
+            "proximo": proximo, "firmado_ciclo": d.get("firmado_ciclo"), "desde_seq": d.get("desde_seq"), "pago_victoria": tarifa["victoria"],
+            "pago_empate": tarifa["empate"], "pago_derrota": tarifa["derrota"], "bono_partido": tarifa["bono"],
+            "ganado": d.get("cobrado", 0) + d.get("bono_cobrado", 0), "relacionadas": [r for r in relacionadas if r],
+            "invitados": invitados, "hermanas": [tele_vista(x) for x in del_pais(d["pais_id"]) if x["id"] != t["id"]],
+            "previos": len([p for p in previos if p.get("pais_id") == d["pais_id"]]),
+            "cadena_contratos": (con_cadena[0]["contratos"] if con_cadena else 0), "cadena_cobrado": (con_cadena[0]["cobrado"] if con_cadena else 0),
+            "cadena_bonos": (con_cadena[0]["bonos"] if con_cadena else 0), "lema": t.get("lema"),
+            "perfil_texto": tele_vista(t)["perfil_descripcion"]}
 
 
 def vista_televisoras(user_id) -> Optional[dict]:

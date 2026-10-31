@@ -132,8 +132,41 @@
     <div class="fixture-kpi" role="listitem" title="Ciclo en curso: marcas, acuerdos y giras"><span>Marcas y giras</span><strong class="text-warning">{{ '{:,}'.format((ca.extra or 0) - (ca.tv or 0) - (ca.tv_invitados or 0)) }}</strong></div>
   </div>
   {% set mkr = mc.marcas %}{% set tvr = mc.tv %}
+  <section class="corp-hoy mb-3" aria-label="Hoy en tu corporativo">
+    <h2 class="corp-hoy__titulo"><i class="bi bi-sun-fill"></i>Hoy en tu corporativo</h2>
+    {% if mc.hoy %}
+    <div class="corp-hoy__lista">
+      {% for h in mc.hoy %}
+      <a class="corp-hoy__item corp-hoy__item--{{ h.color }}" href="{{ h.url }}"{% if h.url.startswith('#') %} data-corp-ir="{{ h.url }}"{% endif %}>
+        <i class="bi {{ h.icono }}"></i>
+        <span class="min-w-0"><strong>{{ h.titulo }}</strong><small>{{ h.texto }}</small></span>
+        <i class="bi bi-chevron-right corp-hoy__ir"></i>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="corp-hoy__vacio"><i class="bi bi-check-circle-fill text-success"></i> Todo al día: no hay nada urgente en tu corporativo.</div>
+    {% endif %}
+  </section>
+  {% set n_ok = mc.objetivos | selectattr('ok') | list | length %}
+  <section class="corp-meta mb-3" aria-label="Objetivos de la temporada">
+    <div class="corp-meta__cab">
+      <h2 class="corp-hoy__titulo mb-0"><i class="bi bi-bullseye"></i>Objetivos de la temporada</h2>
+      <span class="corp-meta__premio {{ 'corp-meta__premio--ok' if n_ok >= mc.objetivos_renovar }}"><i class="bi bi-award-fill"></i>{{ n_ok }} de {{ mc.objetivos | length }} cumplidos
+        · con {{ mc.objetivos_renovar }} te renuevan con aumento{% if n_ok >= mc.objetivos_renovar %} ✔{% endif %}</span>
+    </div>
+    <div class="corp-meta__lista">
+      {% for o in mc.objetivos %}
+      <div class="corp-meta__obj {{ 'corp-meta__obj--ok' if o.ok }}">
+        <div class="corp-meta__texto"><i class="bi {{ 'bi-check-circle-fill text-success' if o.ok else 'bi-circle' }}"></i><span>{{ o.texto }}</span></div>
+        <div class="corp-meta__barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ o.pct or 0 }}"><i style="width: {{ o.pct or 0 }}%"></i></div>
+        <small class="text-muted">{{ o.detalle }}{% if o.pct is not none and not o.ok %} · {{ o.pct }}%{% endif %}</small>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
   {% endif %}
-  {% set n_dec = ((ofertas | length) if mi_corporativo else 0) + ((tvr.ofertas | length) if mi_corporativo and tvr else 0) + ((mkr.ofertas | length) if mi_corporativo and mkr else 0) + ((mc.propuestas | length) if mi_corporativo else 0) %}
+  {% set n_dec = ((ofertas | length) if mi_corporativo else 0) + ((tvr.ofertas | length) if mi_corporativo and tvr else 0) + ((mkr.ofertas | length) if mi_corporativo and mkr else 0) + ((mc.propuestas | length) if mi_corporativo else 0) + ((mc.entrevistas | length) if mi_corporativo else 0) %}
   <ul class="nav nav-pills corp-pestanas mb-3" role="tablist" id="corpPestanas">
     {% if mi_corporativo %}<li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#cpResumen" type="button" role="tab" aria-controls="cpResumen"><i class="bi bi-speedometer2 me-1"></i>Resumen</button></li>{% endif %}
     <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#cpDecisiones" type="button" role="tab" aria-controls="cpDecisiones"><i class="bi bi-inbox-fill me-1"></i>{{ 'Decisiones' if mi_corporativo else ('Carrera' if u.estado == 'PAUSA' else 'Ofertas') }}{% if n_dec %} <span class="badge rounded-pill text-bg-warning">{{ n_dec }}</span>{% endif %}</button></li>
@@ -461,6 +494,28 @@
       {% endif %}
           <div class="corp-panel mb-3">
             <div class="corp-panel__titulo"><i class="bi bi-inbox me-1"></i>Para responder</div>
+            {% if mc.entrevistas %}
+            <div class="corp-panel__titulo mt-3"><i class="bi bi-mic-fill text-warning me-1"></i>Entrevistas que piden los medios</div>
+            {% for e in mc.entrevistas %}
+            <div class="corp-propuesta ent-card" style="--marca: {{ e.medio.color }};">
+              <div class="d-flex gap-2 align-items-start flex-wrap">
+                <span class="medio-avatar" style="--medio: {{ e.medio.color }};">{{ e.medio.nombre[:1] }}</span>
+                <div class="min-w-0 flex-grow-1">
+                  <div class="fw-semibold text-white">{{ e.medio.nombre }} <small class="text-muted fw-normal">· {{ e.medio.linea }} · {{ e.medio.alcance }}</small></div>
+                  <div class="small text-muted">{{ e.periodista.nombre }} ({{ e.periodista.estilo }}) quiere hablar con <strong class="text-white">{{ e.nombre }}</strong>{% if e.tipo == 'seleccion' %} (selección){% endif %}.</div>
+                  <div class="small">{{ e.tema }} <span class="text-muted">· vence en {{ e.restan }} partido{{ 's' if e.restan != 1 }}</span></div>
+                  <div class="d-flex flex-wrap gap-2 mt-2">
+                    {% for p in e.posturas %}
+                    <button type="button" class="btn btn-sm btn-outline-info" data-entrevista="{{ e.id }}" data-postura="{{ p.codigo }}" title="{{ p.texto }}">{{ p.nombre }} · {{ p.prob }}%</button>
+                    {% endfor %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-entrevista="{{ e.id }}" data-postura="declinar" title="Declinar: la prensa lo nota (−2 de imagen)">Declinar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+            <div id="alertaEntrevistas"></div>
+            {% endif %}
             {% if tvr and tvr.ofertas %}
             <div class="corp-panel__titulo mt-3"><i class="bi bi-broadcast text-info me-1"></i>Televisoras que quieren transmitir</div>
             {% for o in tvr.ofertas %}
@@ -675,7 +730,8 @@
     });
 </script>
 <script src="/static/js/marcas.js?v=3"></script>
-<script src="/static/js/televisoras.js?v=1"></script>
+<script src="/static/js/televisoras.js?v=5"></script>
+<script src="/static/js/entrevistas.js?v=1"></script>
 <script>
     // Pestañas de la carrera: se abre la del #hash, si no la última que elegiste (localStorage) y si no Resumen
     // (o, sin cargo, Ofertas). Espera a DOMContentLoaded: Bootstrap se carga al final de base.html.
@@ -689,6 +745,13 @@
         if (!elegido) { try { elegido = porId(localStorage.getItem(CLAVE) || ''); } catch (e) { /* sin almacenamiento */ } }
         elegido = elegido || botones[0];
         if (elegido) bootstrap.Tab.getOrCreateInstance(elegido).show();
+        document.querySelectorAll('[data-corp-ir]').forEach(a => a.addEventListener('click', ev => {   // «Hoy en tu corporativo»
+            const b = porId(a.dataset.corpIr.slice(1));
+            if (!b) return;
+            ev.preventDefault();
+            bootstrap.Tab.getOrCreateInstance(b).show();
+            nav.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }));
         botones.forEach(b => b.addEventListener('shown.bs.tab', () => {
             const id = b.dataset.bsTarget.slice(1);
             try { localStorage.setItem(CLAVE, id); } catch (e) { /* sin almacenamiento */ }

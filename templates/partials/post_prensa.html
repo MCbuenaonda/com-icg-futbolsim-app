@@ -1,0 +1,27 @@
+{# Publicación de PRENSA (services/prensa_service.vista): un medio opina de un partido, un jugador o un técnico. Variable: post. #}
+<article class="x-post x-post--prensa" style="--medio: {{ post.medio.color }};">
+    <div class="d-flex gap-2">
+        {% if post.periodista.avatar_url %}<img class="tv-cara medio-cara" src="{{ post.periodista.avatar_url }}" alt="" loading="lazy" onerror="this.remove()" title="{{ post.periodista.nombre }}">{% else %}<span class="medio-avatar" title="{{ post.medio.nombre }}">{{ post.medio.nombre[:1] }}</span>{% endif %}
+        <div class="flex-grow-1 min-w-0">
+            <div class="d-flex align-items-center gap-1 flex-wrap">
+                {% if post.medio.logo %}<a href="/red-social/medios#medio-{{ post.medio_id }}" class="text-decoration-none"><img class="medio-logo" src="{{ post.medio.logo }}" alt="{{ post.medio.nombre }}" loading="lazy" onerror="this.replaceWith(document.createTextNode(this.alt))"></a>{% else %}<a href="/red-social/medios#medio-{{ post.medio_id }}" class="fw-bold text-body-emphasis text-decoration-none">{{ post.medio.nombre }}</a>{% endif %}
+                <i class="bi bi-patch-check-fill medio-verificado fs-8" title="Medio de comunicación"></i>
+                <span class="text-muted fs-8">· {{ post.periodista.nombre }}</span>
+                <span class="text-muted fs-8">· {{ post.fecha }}</span>
+                <span class="x-post-tipo ms-auto"><i class="bi {{ post.icono }}"></i>{{ post.etiqueta }}</span>
+            </div>
+            <div class="fs-7 text-body-emphasis mt-1 x-post-texto">{{ post.texto }}</div>
+            <div class="x-post-pie">
+                <span class="x-post-rubro medio-tono medio-tono--{{ post.categoria_tono }}" title="Tono de la nota hacia lo que comenta"><i class="bi {{ post.tono_icono }}"></i>{{ post.tono_nombre }}</span>
+                {% for v in post.valoraciones %}<span class="x-post-rubro"><i class="bi {{ 'bi-person-fill' if v.tipo == 'jugador' else ('bi-clipboard2-data' if v.tipo == 'dt' else 'bi-flag-fill') }}"></i>{{ v.nombre }}</span>{% endfor %}
+                <a class="x-post-rubro text-decoration-none" href="/juegos/{{ post.juego_id }}"><i class="bi bi-box-arrow-up-right"></i>Ver el partido</a>
+            </div>
+            <div class="x-acciones mt-2">
+                <span class="x-accion x-accion--comentar"><i class="bi bi-chat"></i>{{ post.comentarios | numero_compacto }}</span>
+                <span class="x-accion x-accion--repost"><i class="bi bi-arrow-repeat"></i>{{ post.reposts | numero_compacto }}</span>
+                <span class="x-accion x-accion--like"><i class="bi bi-heart-fill"></i>{{ post.likes | numero_compacto }}</span>
+                <span class="x-accion"><i class="bi bi-bar-chart-line"></i>{{ post.visualizaciones | numero_compacto }}</span>
+            </div>
+        </div>
+    </div>
+</article>

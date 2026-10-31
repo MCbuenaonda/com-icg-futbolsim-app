@@ -334,6 +334,7 @@ def restart_mundial():
     # arte de los Mundiales (arte_mundial_service): se va con ellos; el nuevo Mundial estrena póster y mascota
     db["arte_mundial"].delete_many({})
     db["arte_mundial_usado"].delete_many({})
+    db["prensa"].delete_many({})   # publicaciones de los medios (prensa_service): cuelgan de los partidos del Mundial
     db["probabilidades_mundial"].delete_many({})   # probabilidades de clasificar (probabilidades_service)
     db["probabilidades_candado"].delete_many({})
     inter_coll.delete_many({})

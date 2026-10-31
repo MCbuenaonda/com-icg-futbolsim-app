@@ -75,8 +75,22 @@
 
         <!-- Comentarios de jugadores y, en ocasiones, de la cuenta oficial de
              alguna selección, como hilo de respuestas del post -->
-        {% if partido.comentarios_jugadores or partido.reacciones %}
+        {% if partido.comentarios_jugadores or partido.reacciones or partido.tv or partido.prensa %}
         <div class="x-post-replies mt-3">
+            {% for pr in partido.prensa or [] %}
+            <div class="x-respuesta d-flex align-items-start gap-2" style="--medio: {{ pr.medio.color }};">
+                <span class="medio-avatar medio-avatar--sm" title="{{ pr.medio.nombre }}">{{ pr.medio.nombre[:1] }}</span>
+                <div class="flex-grow-1 min-w-0 text-secondary fs-8"><span class="fw-semibold text-body-emphasis">{{ pr.medio.nombre }}</span>
+                    <i class="bi bi-patch-check-fill medio-verificado"></i> <span class="medio-tono medio-tono--{{ pr.categoria_tono }}"><i class="bi {{ pr.tono_icono }}"></i></span> {{ pr.titular }}</div>
+            </div>
+            {% endfor %}
+            {% for tv in partido.tv or [] %}
+            <div class="x-respuesta d-flex align-items-start gap-2">
+                <span class="marca-avatar marca-avatar--sm" style="--marca: {{ tv.color }};" title="{{ tv.nombre }}"><img src="{{ tv.logo }}" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>
+                <div class="flex-grow-1 min-w-0 text-secondary fs-8"><span class="fw-semibold text-body-emphasis">{{ tv.nombre }}</span>
+                    <i class="bi bi-broadcast text-info"></i> transmitió el partido{% if tv.comentaristas %} con {{ tv.comentaristas | join(' y ') }}{% endif %}{% if tv.invitado %} y de invitado especial a {{ tv.invitado }}{% endif %}.</div>
+            </div>
+            {% endfor %}
             {% for r in partido.reacciones or [] %}{% include "partials/respuesta_marca.html" %}{% endfor %}
             {% for comentario in partido.comentarios_jugadores %}
             <div class="x-respuesta d-flex align-items-start gap-2">

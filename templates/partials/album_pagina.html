@@ -26,13 +26,64 @@
             {% if h.obtenidas == h.total %}<span class="album-hoja__completa"><i class="bi bi-patch-check-fill"></i> Completa</span>{% endif %}
         </div>
     </header>
-    <p class="text-muted small mb-3">El póster oficial y la mascota de cada Mundial. Salen en los sobres con un 2% de probabilidad; una repetida se vende sola por 40 pts.</p>
+    <p class="text-muted small mb-3">El póster oficial y la mascota de cada Mundial. Salen en los sobres con un 2% de probabilidad; una repetida se vende por 32 pts.</p>
     {% for ed in h.ediciones %}
     <h3 class="album-hoja__seccion"><i class="bi bi-trophy"></i>{{ m.bandera(None, pais_id=ed.pais_id) if ed.pais_id }} {{ ed.pais }} {{ ed.anio }}</h3>
     <div class="album-grilla mb-3">
         {% for x in [ed.poster, ed.mascota] if x %}{% if x.obtenida %}{{ e.mundial(x, ed) }}{% else %}{{ e.vacia_mundial(x, ed) }}{% endif %}{% endfor %}
     </div>
     {% endfor %}
+</section>
+{% elif h.tipo == 'marcas' or h.tipo.startswith(('tv-', 'prensa-')) %}
+{# Páginas especiales de TELEVISIÓN (por confederación de la cadena) y MARCAS (por rubro): logos, dueños y comentaristas #}
+{% set es_tv = h.tipo.startswith(('tv-', 'prensa-')) %}
+{% set es_prensa = h.tipo.startswith('prensa-') %}
+{% set color = '#fb923c' if es_prensa else ('#38bdf8' if es_tv else '#f59e0b') %}
+<section class="album-pagina album-hoja" style="--logo-color: {{ color }};"
+         data-pagina="{{ h.numero }}" data-nombre="{{ h.nombre }}" data-total="{{ album.total_paginas }}"
+         data-anterior="{{ h.anterior or '' }}" data-siguiente="{{ h.siguiente or '' }}">
+    <i class="bi {{ 'bi-newspaper' if es_prensa else ('bi-tv' if es_tv else 'bi-megaphone') }} album-pagina__escudo album-hoja__marca" aria-hidden="true"></i>
+    <span class="album-hoja__folio">{{ h.numero }}</span>
+    <header class="album-pagina__cabecera">
+        <div class="min-w-0">
+            <span class="album-hoja__edicion">{{ 'Los medios y sus plumas' if es_prensa else ('Las cadenas y sus voces' if es_tv else 'Las marcas y sus dueños') }} · estampas especiales</span>
+            <h2 class="h4 fw-bold text-white mb-0">{{ h.nombre if es_tv else 'Marcas patrocinadoras' }}</h2>
+        </div>
+        <div class="album-pagina__progreso">
+            <span><strong>{{ h.obtenidas }}</strong>/{{ h.total }}</span>
+            <div class="album-pagina__barra"><span style="width: {{ h.porcentaje }}%;"></span></div>
+            {% if h.obtenidas == h.total %}<span class="album-hoja__completa"><i class="bi bi-patch-check-fill"></i> Completa</span>{% endif %}
+        </div>
+    </header>
+    <p class="text-muted small mb-3">{{ 'Los medios de la confederación: el logo (Especial), el director (Dorada) y los periodistas (Normal) de cada uno, por país.' if es_prensa else 'Las cadenas de la confederación: el logo (Especial), el dueño (Dorada) y los dos comentaristas (Normal) de cada una, por país.' if es_tv else 'El logo de cada marca (Especial) y su dueño (Dorada), por rubro.' }}
+        Todas salen en los sobres; las repetidas se canjean o se venden como las demás.</p>
+    {% if es_tv %}
+    {% for g in h.subgrupos %}
+    <h3 class="album-hoja__seccion">{{ m.bandera(None, pais_id=g.estampas[0].pais_id) if g.estampas[0].pais_id }} {{ g.nombre }} <small class="text-muted">{{ g.obtenidas }}/{{ g.total }}</small></h3>
+    <div class="album-grilla mb-3">
+        {% for x in g.estampas %}
+        {% if x.obtenida %}{% if x.categoria == 'LOGO' %}{{ e.logo(x) }}{% else %}{{ e.persona(x, x.categoria == 'DUENO') }}{% endif %}
+        {% else %}{{ e.vacia_medios(x.categoria, x) }}{% endif %}
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="d-flex gap-2 flex-wrap mb-3 album-puestos" role="tablist">
+        {% for g in h.subgrupos %}
+        <button type="button" class="filtro-conf {{ 'activo' if loop.first }}" data-puesto="{{ g.codigo }}" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" style="--conf-color: {{ color }};">
+            <strong>{{ g.nombre }}</strong> <span>{{ g.obtenidas }}/{{ g.total }}</span>
+        </button>
+        {% endfor %}
+    </div>
+    {% for g in h.subgrupos %}
+    <div class="album-grilla {{ 'd-none' if not loop.first }}" data-grilla-puesto="{{ g.codigo }}" role="tabpanel">
+        {% for x in g.estampas %}
+        {% if x.obtenida %}{% if x.categoria == 'LOGO' %}{{ e.logo(x) }}{% else %}{{ e.persona(x, x.categoria == 'DUENO') }}{% endif %}
+        {% else %}{{ e.vacia_medios(x.categoria, x) }}{% endif %}
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
 </section>
 {% elif h.tipo == 'arbitros' %}
 {# Página especial: los árbitros del torneo como estampas Doradas, una pestaña por puesto #}
@@ -56,7 +107,7 @@
             {% if h.obtenidas == h.total %}<span class="album-hoja__completa"><i class="bi bi-patch-check-fill"></i> Completa</span>{% endif %}
         </div>
     </header>
-    <p class="text-muted small mb-3">Las estampas Doradas salen en los sobres con un 7% de probabilidad por estampa. Una dorada repetida se vende sola por 30 pts.</p>
+    <p class="text-muted small mb-3">Las estampas Doradas salen en los sobres con un 6% de probabilidad por estampa (y los dueños de cadenas y marcas, un 2%). Una dorada repetida se vende por 24 pts.</p>
 
     <div class="d-flex gap-2 flex-wrap mb-3 album-puestos" role="tablist">
         {% for g in h.puestos %}

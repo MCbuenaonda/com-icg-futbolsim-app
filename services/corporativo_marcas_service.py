@@ -117,9 +117,21 @@ def vaciar_lote() -> None:
 def catalogo() -> Dict[int, dict]:
     """{marca_id: doc} de la colección `marcas` (no cambia en runtime: caché de 10 minutos)."""
     if _cache_catalogo.get("hasta", 0) < time.time():
-        _cache_catalogo["datos"] = {m["id"]: m for m in db["marcas"].find({}, {"_id": 0})}
+        from config.marcas import AJUSTE_DUENO
+        datos = {m["id"]: m for m in db["marcas"].find({}, {"_id": 0})}
+        for m in datos.values():   # el rasgo del dueño mueve la fidelidad y la disposición a renovar de la marca
+            fid, ren = AJUSTE_DUENO.get((m.get("dueno") or {}).get("rasgo"), (0.0, 0.0))
+            m["fidelidad_base"] = m.get("fidelidad", 0.5)
+            m["fidelidad"] = round(min(0.95, max(0.05, m["fidelidad_base"] + fid)), 3)
+            m["ajuste_dueno"] = {"fidelidad": int(round(fid * 100)), "renueva": int(round(ren * 100)), "renueva_delta": ren}
+        _cache_catalogo["datos"] = datos
         _cache_catalogo["hasta"] = time.time() + 600
     return _cache_catalogo["datos"]
+
+
+def _dueno_vista(d: Optional[dict]) -> Optional[dict]:
+    from services.imagenes_pais_service import url_avatar_tv
+    return {**d, "avatar_url": url_avatar_tv(d.get("avatar"))} if d else None
 
 
 def marca_vista(m: dict) -> dict:
@@ -132,7 +144,7 @@ def marca_vista(m: dict) -> dict:
             "lema": m.get("lema"), "perfil": PERFILES_MARCA.get(m.get("perfil"), ""), "fidelidad": m.get("fidelidad", 0.5),
             "region": (CONFEDERACIONES.get(m.get("confederacion_id")) if m["alcance"] == "continental" else None),
             "pais_id": m.get("pais_id") if m["alcance"] == "local" else None, "handle": T.handle_marca(m["nombre"]),
-            "nivel": m.get("nivel", 2)}
+            "nivel": m.get("nivel", 2), "dueno": _dueno_vista(m.get("dueno")), "ajuste_dueno": m.get("ajuste_dueno")}
 
 
 def _ctx_encaje() -> dict:
@@ -143,6 +155,21 @@ def _ctx_encaje() -> dict:
     orden = sorted(v["selecciones"], key=lambda pid: v["selecciones"][pid])
     ctx["pct_sel"] = {pid: (i + 1) / len(orden) for i, pid in enumerate(orden)}
     return ctx
+
+
+def _prensa(tipo: str, ref_id: int, uid=None, ciclo: Optional[int] = None) -> float:
+    """Reputación mediática centrada (−100..100) de un representado, más lo que movieron TUS entrevistas si se pasa el universo; 0 si
+    no hay prensa o falla (nunca frena el cierre)."""
+    try:
+        from services.prensa_service import reputacion_centrada
+        clave = "pais" if tipo == "seleccion" else "jugador"
+        base = reputacion_centrada(clave, ref_id)
+        if uid is not None and ciclo is not None:
+            from services.corporativo_prensa_service import ajuste
+            base += ajuste(uid, clave, ref_id, ciclo)
+        return max(-100.0, min(100.0, base))
+    except Exception:
+        return 0.0
 
 
 def representado(tipo: str, ref_id: int, ctx: dict) -> dict:
@@ -163,7 +190,7 @@ def representado(tipo: str, ref_id: int, ctx: dict) -> dict:
     juego = juego_de(tipo, ref_id, ctx)
     rep.update(tipo=tipo, pais_id=pais, valor=valor, confederacion_id=v["info_paises"].get(pais, {}).get("confederacion_id"),
                popularidad=popularidad(tipo, ref_id, valor), forma=ctx["forma"].get(pais), partidos_2=juego.get("partidos_2", 0),
-               eliminada=juego["estado"] == "eliminada")
+               eliminada=juego["estado"] == "eliminada", prensa=_prensa(tipo, ref_id))
     return rep
 
 
@@ -382,7 +409,7 @@ def _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre) -> 
             _liberar(ocup, p["marca_id"], p["tipo"], p["ref_id"])
             continue
         ev = _eventos(c, ctx, cierre)
-        riesgo = R.riesgo_marca(ev, marca.get("fidelidad", 0.5))
+        riesgo = R.riesgo_marca(ev, marca.get("fidelidad", 0.5), _prensa(p["tipo"], p["ref_id"], uid, ciclo))
         es_usuario = corp.get("es_del_usuario")
         en_aviso = p.get("aviso_seq") or p.get("aviso_ciclo")
         if riesgo >= C.MARCA_RIESGO_CORTE or (en_aviso and riesgo >= C.MARCA_RIESGO_AVISO):
@@ -412,7 +439,7 @@ def _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre) -> 
                          "una campaña de marketing ayudan.", "bi-exclamation-triangle-fill", clave=f"marca-aviso:{p['_id']}:{seq}")
         if cierre and ciclo >= p["hasta_ciclo"]:
             rng = R.semilla(uid, "marca-renueva", p["_id"], ciclo)
-            if riesgo < C.MARCA_RIESGO_AVISO and rng.random() < C.MARCA_PROB_RENUEVA:
+            if riesgo < C.MARCA_RIESGO_AVISO and rng.random() < min(0.95, max(0.05, C.MARCA_PROB_RENUEVA + (marca.get("ajuste_dueno") or {}).get("renueva_delta", 0.0))):
                 extra = rng.randint(*C.MARCA_CICLOS)
                 cambios["$set"].update(hasta_ciclo=p["hasta_ciclo"] + extra, renovaciones=p.get("renovaciones", 0) + 1)
                 _publicar(uid, "RENOVACION", marca, ciclo, T.texto_renovacion(marca, nombre, _pais_nombre(p["tipo"], p["ref_id"]), extra,

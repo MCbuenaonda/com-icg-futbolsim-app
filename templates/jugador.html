@@ -193,6 +193,8 @@
     </div>
     {% endif %}
 
+    {% set prensa_items = prensa_sobre("jugador", jugador.id) %}{% set prensa_rep = prensa_reputacion("jugador", jugador.id) %}{% set prensa_titulo = "Lo que dice la prensa de " ~ jugador.nombre %}{% include "partials/prensa_lista.html" %}
+
     <!-- En televisión (corporativo_tv_service.invitaciones_de): sus apariciones como invitado especial en las transmisiones
          de tu universo (la cadena, el partido, lo que cobró su corporativo y los aficionados que sumó) -->
     {% if puede('corporativos') %}
@@ -216,7 +218,7 @@
             {% endfor %}
         </div>
     </div>
-    <script src="/static/js/televisoras.js?v=1" defer></script>
+    <script src="/static/js/televisoras.js?v=5" defer></script>
     {% endif %}
     {% endif %}
 

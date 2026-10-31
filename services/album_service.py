@@ -15,15 +15,24 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from pymongo.mongo_client import MongoClient
 from config.settings import IMAGENES_PAISES_URL, MONGODB_URI
-from services.imagenes_pais_service import url_avatar_tecnico, url_estadio, url_foto_equipo
+from services.imagenes_pais_service import url_avatar_tecnico, url_estadio, url_foto_equipo, url_imagen_medios
 
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
 
-COSTO_SOBRE = 100
-CANTIDAD_ESTAMPAS_POR_SOBRE = 10   # calibrado con Monte Carlo junto con el canje de repetidas (ver COSTO_CANJE)
+# 25 estampas por 200 pts (antes 10 por 100): cada estampa sale ~20% más barata (8 pts contra 10) y 'bonus_repetida' se
+# escaló ×0,8 para que vender repetidas siga rindiendo la misma proporción del precio. Calibrado con calibrar_album.py
+# (Monte Carlo, solo lectura) junto con el canje de repetidas (ver COSTO_CANJE).
+COSTO_SOBRE = 200
+CANTIDAD_ESTAMPAS_POR_SOBRE = 25
 
-TIPOS_ESTAMPA = ["JUGADOR", "LEYENDA", "EQUIPO", "CIUDAD", "PAIS", "ARBITRO", "MUNDIAL", "TECNICO"]
+TIPOS_ESTAMPA = ["JUGADOR", "LEYENDA", "EQUIPO", "CIUDAD", "PAIS", "ARBITRO", "MUNDIAL", "TECNICO", "LOGO", "PERSONAJE", "DUENO"]
+
+# ESTAMPAS DE TELEVISIÓN Y MARCAS (colección 'album_medios', agregar_estampas_medios.py): logos de las 633 cadenas y las 121
+# marcas (rareza Especial), sus comentaristas (Normal) y sus dueños (Dorada). Los datos y las reglas ya están, pero NO salen en los
+# sobres hasta que el álbum sepa dibujarlas y tenga sus páginas: se enciende con este interruptor (al hacerlo, las probabilidades
+# pasan a PESOS_CON_MEDIOS, calibrados con calibrar_album.py --nuevas).
+ESTAMPAS_MEDIOS_ACTIVAS = True
 
 # Categorías de rareza (de la más común a la más rara): cada estampa del sobre sale de una categoría con
 # esta probabilidad, y la repetida se "vende" sola por 'bonus_repetida'. Es la ÚNICA fuente de verdad: los
@@ -33,15 +42,26 @@ TIPOS_ESTAMPA = ["JUGADOR", "LEYENDA", "EQUIPO", "CIUDAD", "PAIS", "ARBITRO", "M
 # el mismo owned_jugadores (así la sinergia de fantasy/regalías las cubre sola), pero tienen su propia
 # categoría y su propia sección en la página del país, que NO cuenta para completar la página.
 CATEGORIAS_ESTAMPA = [
-    {"codigo": "NORMAL",   "nombre": "Normal",   "tipo": "JUGADOR", "estampa": "Jugadores", "probabilidad": 0.52, "bonus_repetida": 10, "color": "#e2e8f0"},
-    {"codigo": "ESPECIAL", "nombre": "Especial", "tipo": "CIUDAD",  "estampa": "Estadios",  "probabilidad": 0.20, "bonus_repetida": 15, "color": "#2dd4bf"},
-    {"codigo": "EQUIPO",   "nombre": "Foto de equipo", "tipo": "EQUIPO", "estampa": "Fotos de equipo", "probabilidad": 0.06, "bonus_repetida": 20, "color": "#60a5fa"},
-    {"codigo": "LEYENDA",  "nombre": "Leyenda",  "tipo": "LEYENDA", "estampa": "Leyendas",  "probabilidad": 0.05, "bonus_repetida": 25, "color": "#d9a066"},
-    {"codigo": "TECNICO",  "nombre": "Técnico",  "tipo": "TECNICO", "estampa": "Directores técnicos", "probabilidad": 0.05, "bonus_repetida": 20, "color": "#a78bfa"},
-    {"codigo": "DORADA",   "nombre": "Dorada",   "tipo": "ARBITRO", "estampa": "Árbitros",  "probabilidad": 0.07, "bonus_repetida": 30, "color": "#facc15"},
-    {"codigo": "MUNDIAL",  "nombre": "Edición Mundial", "tipo": "MUNDIAL", "estampa": "Pósters y mascotas", "probabilidad": 0.02, "bonus_repetida": 40, "color": "#f472b6"},
-    {"codigo": "PLATINO",  "nombre": "Platino",  "tipo": "PAIS",    "estampa": "Escudos",   "probabilidad": 0.03, "bonus_repetida": 50, "color": "#cbd5e1"},
+    {"codigo": "NORMAL",   "nombre": "Normal",   "tipo": "JUGADOR", "estampa": "Jugadores", "probabilidad": 0.52, "bonus_repetida": 8, "color": "#e2e8f0"},
+    {"codigo": "ESPECIAL", "nombre": "Especial", "tipo": "CIUDAD",  "estampa": "Estadios",  "probabilidad": 0.20, "bonus_repetida": 12, "color": "#2dd4bf"},
+    {"codigo": "EQUIPO",   "nombre": "Foto de equipo", "tipo": "EQUIPO", "estampa": "Fotos de equipo", "probabilidad": 0.06, "bonus_repetida": 16, "color": "#60a5fa"},
+    {"codigo": "LEYENDA",  "nombre": "Leyenda",  "tipo": "LEYENDA", "estampa": "Leyendas",  "probabilidad": 0.05, "bonus_repetida": 20, "color": "#d9a066"},
+    {"codigo": "TECNICO",  "nombre": "Técnico",  "tipo": "TECNICO", "estampa": "Directores técnicos", "probabilidad": 0.05, "bonus_repetida": 16, "color": "#a78bfa"},
+    {"codigo": "DORADA",   "nombre": "Dorada",   "tipo": "ARBITRO", "estampa": "Árbitros",  "probabilidad": 0.07, "bonus_repetida": 24, "color": "#facc15"},
+    {"codigo": "MUNDIAL",  "nombre": "Edición Mundial", "tipo": "MUNDIAL", "estampa": "Pósters y mascotas", "probabilidad": 0.02, "bonus_repetida": 32, "color": "#f472b6"},
+    {"codigo": "PLATINO",  "nombre": "Platino",  "tipo": "PAIS",    "estampa": "Escudos",   "probabilidad": 0.03, "bonus_repetida": 40, "color": "#cbd5e1"},
 ]
+CATEGORIAS_MEDIOS = [
+    {"codigo": "ESPECIAL", "nombre": "Especial", "tipo": "LOGO",      "estampa": "Logos de TV, marcas y prensa", "probabilidad": 0.07, "bonus_repetida": 12, "color": "#2dd4bf"},
+    {"codigo": "NORMAL",   "nombre": "Normal",   "tipo": "PERSONAJE", "estampa": "Comentaristas y periodistas", "probabilidad": 0.11, "bonus_repetida": 8,  "color": "#e2e8f0"},
+    {"codigo": "DORADA",   "nombre": "Dorada",   "tipo": "DUENO",     "estampa": "Dueños y directores",   "probabilidad": 0.025, "bonus_repetida": 24, "color": "#facc15"},
+]
+PESOS_CON_MEDIOS = {"JUGADOR": 0.375, "CIUDAD": 0.16, "EQUIPO": 0.06, "LEYENDA": 0.05, "TECNICO": 0.04, "ARBITRO": 0.06, "MUNDIAL": 0.02,
+                    "PAIS": 0.03, "LOGO": 0.07, "PERSONAJE": 0.11, "DUENO": 0.025}
+if ESTAMPAS_MEDIOS_ACTIVAS:
+    for _c in CATEGORIAS_ESTAMPA:
+        _c["probabilidad"] = PESOS_CON_MEDIOS[_c["tipo"]]
+    CATEGORIAS_ESTAMPA.extend(CATEGORIAS_MEDIOS)
 CATEGORIA_POR_TIPO = {c["tipo"]: c for c in CATEGORIAS_ESTAMPA}
 PESOS_TIPO_ESTAMPA = {c["tipo"]: c["probabilidad"] for c in CATEGORIAS_ESTAMPA}
 BONUS_DUPLICADA_POR_TIPO = {c["tipo"]: c["bonus_repetida"] for c in CATEGORIAS_ESTAMPA}
@@ -52,20 +72,25 @@ BONUS_ESTAMPA_DUPLICADA = BONUS_DUPLICADA_POR_TIPO["JUGADOR"]
 #   - venderlas por los puntos de siempre (BONUS_DUPLICADA_POR_TIPO).
 # Calibrado con Monte Carlo sobre el catálogo real (14.160 estampas) con 10 por sobre: primera página completa ~190
 # sobres, ~30 páginas a los 1.000 y ~84% del álbum a los 2.000 (sin canje, una página llevaba ~6.000 sobres).
-COSTO_CANJE = {"JUGADOR": 2, "CIUDAD": 3, "EQUIPO": 4, "TECNICO": 4, "LEYENDA": 5, "ARBITRO": 5, "MUNDIAL": 6, "PAIS": 8}
+COSTO_CANJE = {"JUGADOR": 2, "CIUDAD": 3, "EQUIPO": 4, "TECNICO": 4, "LEYENDA": 5, "ARBITRO": 5, "MUNDIAL": 6, "PAIS": 8,
+               "PERSONAJE": 2, "LOGO": 3, "DUENO": 5}
 for _c in CATEGORIAS_ESTAMPA:
     _c["costo_canje"] = COSTO_CANJE[_c["tipo"]]
 # XP de niveles por estampa NUEVA según su categoría (reglas en config/niveles.py)
-ACCION_XP_POR_TIPO = {"JUGADOR": "ESTAMPA_NUEVA", "MUNDIAL": "ESTAMPA_MUNDIAL", "EQUIPO": "ESTAMPA_EQUIPO", "LEYENDA": "ESTAMPA_LEYENDA", "CIUDAD": "ESTAMPA_ESPECIAL", "ARBITRO": "ESTAMPA_DORADA", "PAIS": "ESTAMPA_PLATINO", "TECNICO": "ESTAMPA_TECNICO"}
+ACCION_XP_POR_TIPO = {"JUGADOR": "ESTAMPA_NUEVA", "MUNDIAL": "ESTAMPA_MUNDIAL", "EQUIPO": "ESTAMPA_EQUIPO", "LEYENDA": "ESTAMPA_LEYENDA", "CIUDAD": "ESTAMPA_ESPECIAL", "ARBITRO": "ESTAMPA_DORADA", "PAIS": "ESTAMPA_PLATINO", "TECNICO": "ESTAMPA_TECNICO",
+                      "LOGO": "ESTAMPA_ESPECIAL", "PERSONAJE": "ESTAMPA_NUEVA", "DUENO": "ESTAMPA_DORADA"}
 LOGRO_POR_TIPO = {"MUNDIAL": "PRIMERA_EDICION_MUNDIAL", "EQUIPO": "PRIMERA_FOTO_EQUIPO", "LEYENDA": "PRIMERA_LEYENDA", "ARBITRO": "PRIMERA_DORADA", "PAIS": "PRIMERA_PLATINO", "TECNICO": "PRIMER_TECNICO"}
 
 # Filtro extra del sorteo dentro de cada tipo (jugadores normales vs leyendas comparten colección)
-FILTRO_SORTEO_POR_TIPO = {"JUGADOR": {"leyenda": {"$ne": True}}, "LEYENDA": {"leyenda": True}}
+FILTRO_SORTEO_POR_TIPO = {"JUGADOR": {"leyenda": {"$ne": True}}, "LEYENDA": {"leyenda": True},
+                          "LOGO": {"categoria": "LOGO"}, "PERSONAJE": {"categoria": "PERSONAJE"}, "DUENO": {"categoria": "DUENO"}}
 
 SIGLA_CONFEDERACION = {1: "UEFA", 2: "CONMEBOL", 3: "CONCACAF", 4: "CAF", 5: "OFC", 6: "AFC", 7: "REPECHAJE", 8: "MUNDIAL"}
 
-COLECCION_POR_TIPO = {"JUGADOR": "jugadores", "MUNDIAL": "arte_mundial", "LEYENDA": "jugadores", "EQUIPO": "fotos_equipo", "CIUDAD": "ciudades", "PAIS": "paises", "ARBITRO": "arbitros", "TECNICO": "directores_tecnicos"}
-CAMPO_ALBUM_POR_TIPO = {"JUGADOR": "owned_jugadores", "MUNDIAL": "owned_mundial", "LEYENDA": "owned_jugadores", "EQUIPO": "owned_equipos", "CIUDAD": "owned_ciudades", "PAIS": "owned_paises", "ARBITRO": "owned_arbitros", "TECNICO": "owned_tecnicos"}
+COLECCION_POR_TIPO = {"JUGADOR": "jugadores", "MUNDIAL": "arte_mundial", "LEYENDA": "jugadores", "EQUIPO": "fotos_equipo", "CIUDAD": "ciudades", "PAIS": "paises", "ARBITRO": "arbitros", "TECNICO": "directores_tecnicos",
+                       "LOGO": "album_medios", "PERSONAJE": "album_medios", "DUENO": "album_medios"}
+CAMPO_ALBUM_POR_TIPO = {"JUGADOR": "owned_jugadores", "MUNDIAL": "owned_mundial", "LEYENDA": "owned_jugadores", "EQUIPO": "owned_equipos", "CIUDAD": "owned_ciudades", "PAIS": "owned_paises", "ARBITRO": "owned_arbitros", "TECNICO": "owned_tecnicos",
+                         "LOGO": "owned_logos", "PERSONAJE": "owned_personajes", "DUENO": "owned_duenos"}
 
 # Puestos de 'arbitros.puesto', en el orden de la página de árbitros, con su sigla para la estampa
 PUESTOS_ARBITRO = [
@@ -274,8 +299,13 @@ def _paginas_completas(album: dict, estampas_nuevas: List[dict]) -> List[str]:
     paises_leyenda: set = set()
     paises_tecnicos: set = set()
     revisar_arbitros = revisar_mundiales = False
+    revisar_medios = set()
     for e in estampas_nuevas:
-        if e["tipo"] == "ARBITRO":
+        if e["tipo"] in ("LOGO", "PERSONAJE", "DUENO"):
+            doc = db["album_medios"].find_one({"id": e["id"]}, {"pagina": 1})
+            if doc and doc.get("pagina"):
+                revisar_medios.add(doc["pagina"])
+        elif e["tipo"] == "ARBITRO":
             revisar_arbitros = True
         elif e["tipo"] == "MUNDIAL":
             revisar_mundiales = True
@@ -307,6 +337,10 @@ def _paginas_completas(album: dict, estampas_nuevas: List[dict]) -> List[str]:
         completas.append("arbitros")
     if revisar_mundiales and all(x["id"] in owned["MUNDIAL"] for x in _catalogo_mundiales()):
         completas.append("mundiales")
+    owned_medios = owned["LOGO"] | owned["PERSONAJE"] | owned["DUENO"]
+    for pagina in revisar_medios:
+        if _catalogo_medios()[pagina]["ids"] <= owned_medios:
+            completas.append(pagina)
     return completas
 
 
@@ -343,7 +377,8 @@ def _detallar_estampas(estampas: List[dict]) -> List[dict]:
     fotos = {f["id"]: f for f in db['fotos_equipo'].find({"id": {"$in": ids["EQUIPO"]}}, {"_id": 0, "id": 1, "pais_id": 1, "grupo": 1})}
     arbitros = {a["id"]: a for a in db['arbitros'].find({"id": {"$in": ids["ARBITRO"]}}, {"id": 1, "pais_id": 1, "puesto": 1, "genero": 1, "avatar_imagen": 1})}
     tecnicos = {t["id"]: t for t in db['directores_tecnicos'].find({"id": {"$in": ids["TECNICO"]}}, {"_id": 0, "id": 1, "pais_id": 1, "edad": 1, "estilo": 1})}
-    ids_paises = (set(ids["PAIS"]) | {j.get("pais_id") for j in jugadores.values()} | {c.get("pais_id") for c in ciudades.values()}
+    medios = {x["id"]: x for x in db['album_medios'].find({"id": {"$in": ids["LOGO"] + ids["PERSONAJE"] + ids["DUENO"]}}, {"_id": 0})} if (ids["LOGO"] or ids["PERSONAJE"] or ids["DUENO"]) else {}
+    ids_paises = (set(ids["PAIS"]) | {x.get("pais_id") for x in medios.values()} | {j.get("pais_id") for j in jugadores.values()} | {c.get("pais_id") for c in ciudades.values()}
                   | {f.get("pais_id") for f in fotos.values()} | {x.get("pais_id") for x in artes.values()}
                   | {a.get("pais_id") for a in arbitros.values()} | {t.get("pais_id") for t in tecnicos.values()})
     paises = {p["id"]: p for p in db['paises'].find({"id": {"$in": list(ids_paises)}}, {"id": 1, "nombre": 1, "confederacion_id": 1})}
@@ -373,6 +408,10 @@ def _detallar_estampas(estampas: List[dict]) -> List[dict]:
         elif e["tipo"] == "TECNICO":
             t = tecnicos.get(e["id"], {})
             extra = {"pais_id": t.get("pais_id"), "edad": t.get("edad"), "estilo": t.get("estilo"), "avatar_url": url_avatar_tecnico(e["id"])}
+        elif e["tipo"] in ("LOGO", "PERSONAJE", "DUENO"):
+            x = medios.get(e["id"], {})
+            extra = {"pais_id": x.get("pais_id"), "detalle": x.get("detalle"), "origen": x.get("origen"), "edad": x.get("edad"), "rasgo": x.get("rasgo"),
+                     "imagen_url": url_imagen_medios(x.get("imagen"))}
         pais = paises.get(extra.get("pais_id"), {})
         extra["pais_nombre"] = pais.get("nombre")
         extra["confederacion"] = SIGLA_CONFEDERACION.get(pais.get("confederacion_id"), "")
@@ -638,8 +677,39 @@ def _catalogo_album() -> dict:
     return _catalogo
 
 
+_catalogo_de_medios: Optional[dict] = None
+PAGINAS_MEDIOS = {"tv-uefa": ("Televisión · UEFA", "bi-tv", "#38bdf8"), "tv-conmebol": ("Televisión · CONMEBOL", "bi-tv", "#38bdf8"),
+                  "tv-concacaf": ("Televisión · CONCACAF", "bi-tv", "#38bdf8"), "tv-caf": ("Televisión · CAF", "bi-tv", "#38bdf8"),
+                  "tv-ofc": ("Televisión · OFC", "bi-tv", "#38bdf8"), "tv-afc": ("Televisión · AFC", "bi-tv", "#38bdf8"),
+                  "marcas": ("Marcas", "bi-megaphone-fill", "#f59e0b"),
+                  "prensa-uefa": ("Prensa · UEFA", "bi-newspaper", "#fb923c"), "prensa-conmebol": ("Prensa · CONMEBOL", "bi-newspaper", "#fb923c"),
+                  "prensa-concacaf": ("Prensa · CONCACAF", "bi-newspaper", "#fb923c"), "prensa-caf": ("Prensa · CAF", "bi-newspaper", "#fb923c"),
+                  "prensa-ofc": ("Prensa · OFC", "bi-newspaper", "#fb923c"), "prensa-afc": ("Prensa · AFC", "bi-newspaper", "#fb923c"),
+                  "prensa-int": ("Prensa · Internacional", "bi-newspaper", "#fb923c")}
+
+
+def _catalogo_medios() -> dict:
+    """{pagina: {"subgrupos": [{codigo, nombre, estampas[ordenadas]}], "ids": set}} de las páginas de Televisión y Marcas
+    (colección album_medios; las pestañas son las confederaciones de las cadenas y los rubros de las marcas)."""
+    global _catalogo_de_medios
+    if _catalogo_de_medios is None:
+        docs = list(db["album_medios"].find({"pagina": {"$exists": True}}, {"_id": 0}))
+        salida = {}
+        for pagina in PAGINAS_MEDIOS:
+            por_sub: Dict[str, dict] = {}
+            for d in (x for x in docs if x["pagina"] == pagina):
+                sub = por_sub.setdefault(d["subgrupo"], {"codigo": d["subgrupo"], "nombre": d["subgrupo"], "orden": d["orden"], "estampas": []})
+                sub["estampas"].append(d)
+            for sub in por_sub.values():
+                sub["estampas"].sort(key=lambda x: (x.get("pais_nombre", ""), x.get("cadena", ""), x["rol_orden"], x["id"]))
+            subgrupos = sorted(por_sub.values(), key=(lambda x: x["nombre"]) if pagina.startswith(("tv-", "prensa-")) else (lambda x: x["orden"]))
+            salida[pagina] = {"subgrupos": subgrupos, "ids": {x["id"] for sub in subgrupos for x in sub["estampas"]}}
+        _catalogo_de_medios = salida
+    return _catalogo_de_medios
+
+
 def _indice_album(owned_jugadores: set, owned_ciudades: set, owned_paises: set, owned_arbitros: set, owned_equipos: set = frozenset(),
-                  owned_mundial: set = frozenset(), owned_tecnicos: set = frozenset()) -> List[dict]:
+                  owned_mundial: set = frozenset(), owned_tecnicos: set = frozenset(), owned_medios: set = frozenset()) -> List[dict]:
     """Las 212 páginas (211 países + árbitros) con el avance del usuario en cada una (índice y navegación)."""
     catalogo = _catalogo_album()
     jugadores_por_pais: Dict[int, int] = {}
@@ -695,6 +765,15 @@ def _indice_album(owned_jugadores: set, owned_ciudades: set, owned_paises: set, 
         indice.append({"tipo": "mundiales", "pais_id": None, "nombre": "Mundiales", "bandera": None, "siglas": None,
                        "confederacion": "ESPECIALES", "numero": len(indice) + 1, "escudo": False, "obtenidas": obtenidas,
                        "total": len(ids_mundial), "porcentaje": round(obtenidas / len(ids_mundial) * 100, 1)})
+    # Páginas especiales: Televisión (cadenas, sus dueños y comentaristas) y Marcas (logos y dueños)
+    if ESTAMPAS_MEDIOS_ACTIVAS:
+        for pagina, (nombre, _icono, _color) in PAGINAS_MEDIOS.items():
+            ids = _catalogo_medios()[pagina]["ids"]
+            if ids:
+                obtenidas = len(owned_medios & ids)
+                indice.append({"tipo": pagina, "pais_id": None, "nombre": nombre, "bandera": None, "siglas": None, "confederacion": "ESPECIALES",
+                               "numero": len(indice) + 1, "escudo": False, "obtenidas": obtenidas, "total": len(ids),
+                               "porcentaje": round(obtenidas / len(ids) * 100, 1)})
     return indice
 
 
@@ -735,6 +814,17 @@ def _pagina_arbitros(owned_arbitros: set) -> List[dict]:
     return resultado
 
 
+def _pagina_medios(pagina: str, owned_medios: set) -> List[dict]:
+    """Las pestañas de una página de Televisión o Marcas, con cada estampa (obtenida o no) lista para dibujar."""
+    from services.imagenes_pais_service import url_imagen_medios
+    salida = []
+    for sub in _catalogo_medios()[pagina]["subgrupos"]:
+        estampas = [{**x, "imagen_url": url_imagen_medios(x.get("imagen")), "obtenida": x["id"] in owned_medios} for x in sub["estampas"]]
+        salida.append({"codigo": sub["codigo"], "nombre": sub["nombre"], "estampas": estampas, "total": len(estampas),
+                       "obtenidas": sum(1 for x in estampas if x["obtenida"])})
+    return salida
+
+
 def numero_pagina_de_pais(pais_id: int) -> Optional[int]:
     """Número de página (1-211) de un país, para entrar al álbum directo en su página (?pais=)."""
     for numero, p in enumerate(_catalogo_album()["paises"], start=1):
@@ -762,14 +852,18 @@ def obtener_album_pagina(usuario_id: str, numero: int) -> dict:
     owned_equipos = set(album.get("owned_equipos", []))
     owned_mundial = set(album.get("owned_mundial", []))
     owned_tecnicos = set(album.get("owned_tecnicos", []))
+    owned_medios = set(album.get("owned_logos", [])) | set(album.get("owned_personajes", [])) | set(album.get("owned_duenos", []))
 
-    indice = _indice_album(owned_jugadores, owned_ciudades, owned_paises, owned_arbitros, owned_equipos, owned_mundial, owned_tecnicos)
+    indice = _indice_album(owned_jugadores, owned_ciudades, owned_paises, owned_arbitros, owned_equipos, owned_mundial, owned_tecnicos, owned_medios)
     numero = min(max(int(numero), 1), len(indice))
     hoja = indice[numero - 1]
     navegacion = {"anterior": numero - 1 if numero > 1 else None, "siguiente": numero + 1 if numero < len(indice) else None}
     resultado = {"indice": indice, "total_paginas": len(indice), "categorias": CATEGORIAS_ESTAMPA,
                  "repetidas": resumen_repetidas(usuario_id), "costo_canje": COSTO_CANJE,
-                 "totales": _totales_album(indice, owned_jugadores, owned_ciudades, owned_paises, owned_arbitros, owned_equipos, owned_mundial, owned_tecnicos),
+                 "totales": _totales_album(indice, owned_jugadores, owned_ciudades, owned_paises, owned_arbitros, owned_equipos, owned_mundial, owned_tecnicos,
+                                           owned_medios),
+                 "pagina_television": next((h["numero"] for h in indice if h["tipo"].startswith("tv-")), None),
+                 "pagina_marcas": next((h["numero"] for h in indice if h["tipo"] == "marcas"), None),
                  "pagina_arbitros": next((h["numero"] for h in indice if h["tipo"] == "arbitros"), None),
                  "pagina_mundiales": next((h["numero"] for h in indice if h["tipo"] == "mundiales"), None)}
 
@@ -782,6 +876,9 @@ def obtener_album_pagina(usuario_id: str, numero: int) -> dict:
 
     if hoja["tipo"] == "arbitros":
         return {**resultado, "pagina": {**hoja, **navegacion, "puestos": _pagina_arbitros(owned_arbitros)}}
+
+    if hoja["tipo"] in PAGINAS_MEDIOS:
+        return {**resultado, "pagina": {**hoja, **navegacion, "subgrupos": _pagina_medios(hoja["tipo"], owned_medios)}}
 
     pais_id = hoja["pais_id"]
 
@@ -851,8 +948,16 @@ def obtener_album_pagina(usuario_id: str, numero: int) -> dict:
 
 
 def _totales_album(indice: List[dict], owned_jugadores: set, owned_ciudades: set, owned_paises: set, owned_arbitros: set, owned_equipos: set = frozenset(),
-                   owned_mundial: set = frozenset(), owned_tecnicos: set = frozenset()) -> dict:
+                   owned_mundial: set = frozenset(), owned_tecnicos: set = frozenset(), owned_medios: set = frozenset()) -> dict:
     catalogo = _catalogo_album()
+    medios = {"logos": 0, "personajes": 0, "duenos": 0, "logos_total": 0, "personajes_total": 0, "duenos_total": 0}
+    if ESTAMPAS_MEDIOS_ACTIVAS:
+        for pagina in PAGINAS_MEDIOS:
+            for sub in _catalogo_medios()[pagina]["subgrupos"]:
+                for x in sub["estampas"]:
+                    k = {"LOGO": "logos", "PERSONAJE": "personajes", "DUENO": "duenos"}[x["categoria"]]
+                    medios[k + "_total"] += 1
+                    medios[k] += int(x["id"] in owned_medios)
     total_casilleros = sum(h["total"] for h in indice)
     total_obtenidas = sum(h["obtenidas"] for h in indice)
     return {
@@ -864,6 +969,7 @@ def _totales_album(indice: List[dict], owned_jugadores: set, owned_ciudades: set
         "equipos": len(owned_equipos & catalogo["foto_equipo"].keys()), "equipos_total": len(catalogo["foto_equipo"]),
         "mundial": len(owned_mundial), "mundial_total": len(_catalogo_mundiales()),
         "tecnicos": len(owned_tecnicos & catalogo["pais_de_tecnico"].keys()), "tecnicos_total": len(catalogo["pais_de_tecnico"]),
+        **medios,
         "paginas_completas": sum(1 for h in indice if h["obtenidas"] == h["total"]),
         "paginas_empezadas": sum(1 for h in indice if h["obtenidas"]),
         "porcentaje": round(total_obtenidas / total_casilleros * 100, 1) if total_casilleros else 0.0,

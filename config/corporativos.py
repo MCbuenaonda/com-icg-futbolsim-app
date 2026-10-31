@@ -391,7 +391,7 @@ TV_PROB_COMPETENCIA = (0.10, 0.85)    # que otra cadena del país oferte en la r
 # otra invitación reciente. Dos cadenas en el mismo partido nunca llevan al mismo. Paga al corporativo según el nivel
 # del jugador, suma aficionados a su selección (tope GLOBAL por selección y ciclo) y por unas rondas sus marcas pagan
 # más y las nuevas se le acercan con más facilidad. El del usuario se acepta solo (aviso en la bandeja).
-TV_INVITADO_PROB = 0.6                 # que una cadena con contrato lleve invitado a un partido
+TV_INVITADO_PROB = 1.0                 # toda cadena con contrato activo lleva invitado (si hay un representado que cumpla las condiciones)
 TV_INVITADO_HORIZONTE = 3              # se elige cuando faltan 3 partidos o menos para ese partido
 TV_INVITADO_PAGO = 0.05                # x valor del jugador x popularidad x nivel de la cadena (~1,15 veces su renta de un partido)
 TV_INVITADO_ENFRIAMIENTO_PARTIDOS = 40 # el mismo jugador no vuelve a ser invitado hasta 40 partidos después

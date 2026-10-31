@@ -75,8 +75,9 @@
       {% if contratos %}
       <div class="tv-contratos">
         {% for c in contratos %}
-        <div class="tv-contrato {{ 'tv-contrato--firmado' if c.estado == 'FIRMADA' }}" style="--tv: {{ c.tele.color }};">
-          <button type="button" class="tv-logo" data-tv-ficha="{{ c.tele.id }}" title="Ver la ficha de {{ c.tele.nombre }}"><img src="{{ c.tele.logo }}" alt="{{ c.tele.nombre }}"></button>
+        <div class="tv-contrato tv-contrato--clic {{ 'tv-contrato--firmado' if c.estado == 'FIRMADA' }}" style="--tv: {{ c.tele.color }};" role="button" tabindex="0"
+             data-tv-contrato="{{ c.id }}" title="Ver el detalle del contrato con {{ c.tele.nombre }}">
+          <span class="tv-logo"><img src="{{ c.tele.logo }}" alt="{{ c.tele.nombre }}"></span>
           <div class="min-w-0 flex-grow-1">
             <div class="d-flex justify-content-between gap-2 flex-wrap">
               <div class="fw-semibold text-white">{{ m.bandera(c.bandera) }} {{ c.pais }} <span class="text-muted fw-normal">· {{ c.tele.nombre }}</span></div>
@@ -161,5 +162,5 @@
     </div>
   </div>
 </div>
-<script src="/static/js/televisoras.js?v=1"></script>
+<script src="/static/js/televisoras.js?v=5"></script>
 {% endblock %}

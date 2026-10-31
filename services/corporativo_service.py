@@ -1,3 +1,4 @@
+import re
 """
 Corporativos Deportivos — datos para las vistas (/corporativo y /corporativo/{sigla}). Cada vista primero pone
 al día el universo del usuario (corporativo_universo_service.poner_al_dia).
@@ -259,6 +260,66 @@ def _resumen_corporativos(universo_id) -> list:
     return salida
 
 
+_NUM = re.compile(r"([+-]?\d[\d,]*\.?\d*)\s*%?\s+de\s+([+-]?\d[\d,]*\.?\d*)")
+
+
+def avance_objetivo(o: dict) -> Optional[int]:
+    """% de avance (0-100) de un objetivo a partir de su detalle («2 de 3», «+1.5% de 10%», «lo representas»); None si aún no se evalúa."""
+    if o.get("ok") is True:
+        return 100
+    m = _NUM.search(str(o.get("detalle") or ""))
+    if not m:
+        return None if o.get("ok") is None else 0
+    try:
+        actual, meta = float(m.group(1).replace(",", "")), float(m.group(2).replace(",", ""))
+    except ValueError:
+        return None
+    return max(0, min(99, int(actual * 100 / meta))) if meta > 0 else 0
+
+
+def panel_hoy(mc: dict, ofertas_empleo: list, ciclo: int) -> list:
+    """«Hoy en tu corporativo»: lo que pide tu atención, más urgente primero, con a qué pestaña ir (solo lee lo ya calculado).
+    -> [{"icono", "color", "titulo", "texto", "url", "prioridad"}] (máx. 6)."""
+    marcas, tv = mc.get("marcas") or {}, mc.get("tv") or {}
+    sane, items = mc.get("saneamiento") or {}, []
+
+    def agregar(prioridad, icono, color, titulo, texto, url):
+        items.append({"prioridad": prioridad, "icono": icono, "color": color, "titulo": titulo, "texto": texto, "url": url})
+
+    def plural(n, uno, varios):
+        return f"{n} {uno if n == 1 else varios}"
+
+    if mc.get("preaviso"):
+        agregar(0, "bi-box-arrow-right", "warning", "Estás en preaviso", f"Pasas a {mc['preaviso']['sigla']} al cierre del ciclo {mc['preaviso']['hasta_ciclo']}; no puedes operar el mercado.", "#cpResumen")
+    if mc.get("confianza") is not None and mc["confianza"] < 35:
+        agregar(1, "bi-exclamation-triangle-fill", "danger", "Confianza del directorio baja", f"Está en {mc['confianza']}: cuida el ROI y los objetivos para evitar un ultimátum.", "#cpResumen")
+    if sane.get("estado") == "ACTIVO":
+        agregar(2, "bi-life-preserver", "danger", "Plan de saneamiento en marcha", f"Cumple {sane.get('cumplidos', 0)} de {sane.get('total', 3)} objetivos antes del ciclo {sane.get('hasta_ciclo')}.", "#cpResumen")
+    if ofertas_empleo:
+        agregar(3, "bi-briefcase-fill", "warning", "Ofertas de trabajo", f"Tienes {plural(len(ofertas_empleo), 'oferta pendiente', 'ofertas pendientes')}.", "#cpDecisiones")
+    if tv.get("ofertas"):
+        agregar(4, "bi-tv-fill", "info", "Ofertas de televisoras", f"{plural(len(tv['ofertas']), 'oferta espera', 'ofertas esperan')} tu respuesta; si no respondes, se firma sola.", "#cpDecisiones")
+    if marcas.get("ofertas"):
+        agregar(5, "bi-megaphone-fill", "warning", "Ofertas de marcas", f"{plural(len(marcas['ofertas']), 'marca quiere', 'marcas quieren')} patrocinar a tus representados.", "#cpDecisiones")
+    if marcas.get("en_riesgo"):
+        agregar(6, "bi-shield-exclamation", "danger", "Patrocinios en riesgo", f"{plural(marcas['en_riesgo'], 'patrocinio podría cortarse', 'patrocinios podrían cortarse')}.", "/corporativo/marcas")
+    if mc.get("entrevistas"):
+        agregar(5, "bi-mic-fill", "warning", "Entrevistas pendientes", f"{plural(len(mc['entrevistas']), 'medio pide', 'medios piden')} hablar con tus representados: tu postura decide si les sube o les baja la imagen.", "#cpDecisiones")
+    if mc.get("propuestas"):
+        agregar(7, "bi-person-plus-fill", "info", "Talentos que se ofrecen", f"{plural(len(mc['propuestas']), 'propuesta', 'propuestas')} para sumar a tu cartera.", "#cpDecisiones")
+    if mc.get("por_vencer"):
+        agregar(8, "bi-hourglass-split", "warning", "Contratos por vencer", f"{plural(mc['por_vencer'], 'representado entra', 'representados entran')} a la ventana de renovación.", "#cpCartera")
+    huecos = (mc.get("calendario") or {}).get("huecos") or []
+    if huecos:
+        agregar(9, "bi-calendar-x", "info", "Huecos en el calendario", f"Hay ciclos con poca actividad en tu cartera; mira las sugerencias para cubrirlos.", "#cpCartera")
+    if mc.get("marketing_disponible"):
+        agregar(11, "bi-stars", "success", "Campaña de marketing disponible", f"Sube la reputación y el patrocinio este ciclo por {mc.get('costo_marketing', 0):,}.", "#cpDecisiones")
+    if mc.get("scouting_disponible"):
+        agregar(12, "bi-binoculars-fill", "success", "Scouting disponible", f"Busca talentos este ciclo por {mc.get('costo_scouting', 0):,}.", "#cpDecisiones")
+    items.sort(key=lambda x: x["prioridad"])
+    return items[:6]
+
+
 def obtener_vista_inicio(user_id) -> dict:
     universo = U.obtener_universo(user_id)
     if not universo:
@@ -288,6 +349,7 @@ def obtener_vista_inicio(user_id) -> dict:
         mi_corp = {**mi_corp, "cargo": cargo, "objetivos_texto": [C.OBJETIVOS[x] for x in cargo["objetivos"]],
                    "objetivos": [{"texto": C.OBJETIVOS[x], **(estado_obj.get(x) or {"ok": None, "detalle": "se evalúa al cierre del ciclo"})}
                                  for x in cargo["objetivos"]],
+                   "objetivos_renovar": C.OBJETIVOS_PARA_RENOVAR,
                    "ultimo_pago": ultimo_pago, "acciones_bloqueadas": bloqueadas,
                    "acciones_bloqueadas_valor": sum(a["valor_al_otorgar"] for a in bloqueadas),
                    "preaviso": universo.get("preaviso") if universo["estado"] == "PREAVISO" else None,
@@ -317,6 +379,19 @@ def obtener_vista_inicio(user_id) -> dict:
                        marketing_hasta=doc.get("marketing_hasta_ciclo"))
     if mi_corp:
         mi_corp.update(_bandeja_mercado(user_id, universo, mi_corp))
+        try:
+            from services import corporativo_prensa_service as _pcorp
+            mi_corp["entrevistas"] = _pcorp.listar(user_id)
+        except Exception as e:
+            print(f"[corporativos] entrevistas: {e}")
+            mi_corp["entrevistas"] = []
+        try:
+            for o in mi_corp["objetivos"]:
+                o["pct"] = avance_objetivo(o)
+            mi_corp["hoy"] = panel_hoy(mi_corp, ofertas, U.ciclo_en_curso(universo))
+        except Exception as e:
+            print(f"[corporativos] panel «Hoy»: {e}")
+            mi_corp["hoy"] = []
     reloj = U.estado_reloj(universo)
     if not universo.get("primeras_ofertas"):
         reloj["partidos_para_ofertas"] = max(0, universo["primeras_ofertas_seq"] - reloj["seq"])

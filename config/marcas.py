@@ -228,3 +228,11 @@ rolex omega tagheuer hublot cartier patek audemars breitling tissot longines sei
 louisvuitton gucci prada chanel hermes dior versace armani burberry tiffany bulgari
 emiratesairline mastercardcard heinekenbeer hyundaimotor kiamotors visa fifa uefa conmebol concacaf
 """.split()
+
+
+# Rasgo del dueño -> (ajuste de fidelidad, ajuste de la probabilidad de renovar al vencer el patrocinio).
+# Con el reparto real de rasgos el promedio de las 121 marcas casi no cambia (fidelidad +0,002, renovación +0,008).
+AJUSTE_DUENO = {
+    "heredero": (0.04, 0.06), "futbolero": (0.06, 0.03), "filantropo": (0.03, 0.03), "tiburon": (-0.08, -0.08),
+    "austero": (-0.10, -0.08), "fundador": (-0.03, -0.04), "imagen": (-0.12, 0.0),
+}

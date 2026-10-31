@@ -22,7 +22,7 @@ from services.juegos_service import formatear_posts_partidos
 
 db = U.db
 TIPOS_MARCA = ["FIRMA", "RUMOR", "RENOVACION", "DESPEDIDA"]
-FILTROS = {"todo": "Todo", "partidos": "Partidos", "marcas": "Marcas", "rumores": "Rumores", "firmas": "Firmas"}
+FILTROS = {"todo": "Todo", "partidos": "Partidos", "prensa": "Prensa", "marcas": "Marcas", "rumores": "Rumores", "firmas": "Firmas"}
 ETIQUETA_TIPO = {"FIRMA": ("Nuevo patrocinio", "bi-pen-fill"), "RUMOR": ("Rumor", "bi-ear-fill"),
                  "RENOVACION": ("Renovación", "bi-arrow-repeat"), "DESPEDIDA": ("Despedida", "bi-door-open-fill"),
                  "REACCION": ("Respuesta", "bi-chat-quote-fill")}
@@ -90,7 +90,9 @@ def _marca_post(doc: dict, cat: dict) -> Optional[dict]:
                    "visualizaciones": likes * (14 + h % 11)}
     return {"clase": "marca", "id": doc["_id"], "tipo": doc["tipo"], "etiqueta": etiqueta, "icono": icono, "marca": marca_vista(m),
             "texto": doc["texto"], "refs": refs, "fecha": doc.get("fecha") or "", "hora": doc.get("hora") or "",
-            "orden": doc.get("orden", 0), "sigla": doc.get("sigla"), "juego_id": doc.get("juego_id"), **interaccion}
+            "orden": doc.get("orden", 0), "sigla": doc.get("sigla"), "juego_id": doc.get("juego_id"),
+            # a veces el propio dueño firma el anuncio (fijo por publicación)
+            "firma_dueno": doc["tipo"] in ("FIRMA", "RENOVACION", "DESPEDIDA") and (h // 7) % 100 < 40, **interaccion}
 
 
 def _regex(q: str):
@@ -119,6 +121,11 @@ def publicaciones(usuario: Optional[dict], q: str = "", filtro: str = "todo", an
             items.append({**p, "clase": "partido", "hora": p.get("hora") or "", "fecha": p.get("fecha") or "", "orden": -1,
                           "reacciones": []})
 
+    # Prensa (global): las publicaciones de los medios, sueltas solo en su filtro; en los demás van dentro del hilo de cada partido
+    if filtro == "prensa":
+        from services.prensa_service import buscar
+        items.extend(buscar(q, cur, limite))
+
     # Marcas del universo
     if uid and filtro in ("todo", "marcas", "rumores", "firmas"):
         tipos = {"rumores": ["RUMOR"], "firmas": ["FIRMA", "RENOVACION"]}.get(filtro, TIPOS_MARCA)
@@ -139,6 +146,20 @@ def publicaciones(usuario: Optional[dict], q: str = "", filtro: str = "todo", an
         pagina += [x for x in items[limite:] if (x["fecha"], x["hora"]) == ultimo]
     siguiente = f"{pagina[-1]['fecha']}|{pagina[-1]['hora']}" if len(items) > len(pagina) or len(pagina) >= limite else None
 
+    # Lo que dice la prensa, en el hilo de cada partido (hasta 3: las de tono más fuerte)
+    try:
+        from services.prensa_service import db as db_prensa, vista as vista_prensa
+        ids_partidos = [p["match_id"] for p in pagina if p["clase"] == "partido"]
+        if ids_partidos:
+            por = {}
+            for d in db_prensa["prensa"].find({"juego_id": {"$in": ids_partidos}}):
+                por.setdefault(d["juego_id"], []).append(d)
+            for p in pagina:
+                if p["clase"] == "partido" and por.get(p["match_id"]):
+                    p["prensa"] = [vista_prensa(d) for d in sorted(por[p["match_id"]], key=lambda d: -abs(d["tono"]))[:3]]
+    except Exception as e:
+        print(f"[red social] prensa de los partidos: {e}")
+
     # Respuestas de las marcas en el hilo de cada partido
     if uid:
         por_juego = {p["match_id"]: p for p in pagina if p["clase"] == "partido"}
@@ -147,6 +168,17 @@ def publicaciones(usuario: Optional[dict], q: str = "", filtro: str = "todo", an
                 post = _marca_post(d, cat)
                 if post:
                     por_juego[d["juego_id"]]["reacciones"].append(post)
+            try:   # qué cadenas de TU universo transmitieron cada partido, con sus comentaristas
+                from bson import ObjectId
+                from services.corporativo_tv_service import transmisiones
+                docs = list(db["juegos"].find({"_id": {"$in": [ObjectId(i) for i in por_juego if ObjectId.is_valid(i)]}},
+                                              {"estado": 1, "equipo_local.id": 1, "equipo_visitante.id": 1}))
+                for jid, filas in transmisiones(usuario, docs).items():
+                    por_juego[jid]["tv"] = [{"nombre": f["tele"]["nombre"], "logo": f["tele"]["logo"], "color": f["tele"]["color"],
+                                             "comentaristas": [c["nombre"] for c in ((f["tele"].get("equipo") or {}).get("comentaristas") or [])],
+                                             "invitado": (f["invitado"] or {}).get("nombre")} for f in filas]
+            except Exception as e:
+                print(f"[red social] transmisión de los partidos: {e}")
     return {"items": pagina, "siguiente": siguiente}
 
 

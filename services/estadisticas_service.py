@@ -3,6 +3,8 @@ from collections import defaultdict
 from pymongo.database import Database
 from typing import Dict, Optional
 import certifi
+import sys
+import threading
 import time
 from pymongo.mongo_client import MongoClient
 from config.settings import MONGODB_URI
@@ -789,7 +791,7 @@ PROYECCION_JUEGOS_MUNDIAL = {
     **{f"resultado.{k}": 1 for k in ("goles_local", "goles_visitante", "penaltis_local", "penaltis_visitante", "ganador_id",
                                      "empate", "arbitros", "goleadores", "atajadores", "participantes")},
     "resultado.eventos.tipo": 1, "resultado.eventos.minuto": 1, "resultado.eventos.segundos_acumulados": 1,
-    "resultado.eventos.equipo": 1, "resultado.eventos.jugadores": 1,
+    "resultado.eventos.equipo": 1, "resultado.eventos.jugadores": 1, "resultado.calificaciones": 1,
 }
 
 METRICAS_JUGADOR = ("partidos", "goles", "goles_penal", "goles_tiro_libre", "goles_corner", "goles_suplente", "asistencias",
@@ -827,12 +829,42 @@ MINIMO_PJ_RANKING_SELECCION = 3
 _cache_vista = {"clave": None, "stats": None, "juegos": None, "agregado": None, "paises": None}
 
 
+# Partidos ya cargados del Mundial activo, por _id. Un partido terminado no cambia, así que cada vez solo se bajan los
+# NUEVOS: antes se bajaban los ~900 partidos (~40 MB) después de cada partido, en cada reinicio de la instancia y en cada
+# vista que los pedía a la vez, y eso agotaba la memoria de Cloud Run y la cuota de transferencia de Atlas.
+# (Si se reescribe un partido ya jugado —p. ej. al renombrar jugadores— hay que reiniciar la app para que lo vuelva a leer.)
+_juegos_cargados = {"mundial": None, "por_id": {}}
+_lock_juegos = threading.Lock()
+_lock_stats = threading.Lock()
+
+
+def _compactar(juego: dict) -> dict:
+    """Los textos de los eventos se repiten cientos de miles de veces: compartirlos (intern) baja mucho la memoria."""
+    for e in (juego.get("resultado") or {}).get("eventos") or []:
+        for k in ("tipo", "equipo"):
+            if isinstance(e.get(k), str):
+                e[k] = sys.intern(e[k])
+        if e.get("jugadores"):
+            e["jugadores"] = [sys.intern(x) if isinstance(x, str) else x for x in e["jugadores"]]
+    return juego
+
+
 def _juegos_del_mundial() -> list:
-    """Partidos jugados del Mundial activo, con la proyección que usan todas las secciones (una sola carga)."""
-    juegos = list(db["juegos"].find({**_filtro_finalizados()}, PROYECCION_JUEGOS_MUNDIAL))
-    # Se ordena aquí: el sort del servidor ordena los documentos completos (con sus eventos) y excede la memoria.
-    juegos.sort(key=lambda j: (j.get("fecha") or "", j.get("hora") or ""))
-    return juegos
+    """Los partidos terminados del Mundial activo (proyección de estadísticas), en orden de fecha y hora."""
+    with _lock_juegos:
+        filtro = _filtro_finalizados()
+        if _juegos_cargados["mundial"] != filtro.get("mundial_id"):
+            _juegos_cargados.update(mundial=filtro.get("mundial_id"), por_id={})
+        por_id = _juegos_cargados["por_id"]
+        vigentes = {d["_id"] for d in db["juegos"].find(filtro, {"_id": 1})}
+        for k in [k for k in por_id if k not in vigentes]:
+            del por_id[k]
+        faltan = [i for i in vigentes if i not in por_id]
+        for i in range(0, len(faltan), 200):
+            for j in db["juegos"].find({"_id": {"$in": faltan[i:i + 200]}}, PROYECCION_JUEGOS_MUNDIAL):
+                por_id[j["_id"]] = _compactar(j)
+        # se ordena aquí: el sort del servidor ordena los documentos completos (con sus eventos) y excede la memoria
+        return sorted(por_id.values(), key=lambda j: (j.get("fecha") or "", j.get("hora") or ""))
 
 
 def _agregar_jugadores_mundial(juegos: list) -> dict:
@@ -1083,7 +1115,14 @@ def obtener_estadisticas_generales():
     clave = (_mundial_activo_id(), db["juegos"].count_documents({**_filtro_finalizados()}))
     if _cache_vista["clave"] == clave and _cache_vista["stats"] is not None:
         return _cache_vista["stats"]
+    # una sola construcción a la vez: varias vistas la pedían juntas tras cada partido y cada una armaba la suya
+    with _lock_stats:
+        if _cache_vista["clave"] == clave and _cache_vista["stats"] is not None:
+            return _cache_vista["stats"]
+        return _construir_estadisticas(clave)
 
+
+def _construir_estadisticas(clave):
     juegos = _juegos_del_mundial()
     agregado = _agregar_jugadores_mundial(juegos)
     paises_agregado = _agregar_paises_mundial(juegos, agregado)

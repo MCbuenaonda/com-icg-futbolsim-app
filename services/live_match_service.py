@@ -51,9 +51,25 @@ TRANSMISION_EN_CURSO = "in_progress"
 TRANSMISION_FINALIZADA = "finished"
 
 
+_cache_vivo = {"id": None, "doc": None}
+
+
 def _match_en_progreso() -> Optional[Dict[str, Any]]:
-    """El juego con 'transmision.estado' == 'in_progress', si hay alguno (debería haber a lo sumo uno)."""
-    return db["juegos"].find_one({"transmision.estado": TRANSMISION_EN_CURSO})
+    """
+    El juego con 'transmision.estado' == 'in_progress', si hay alguno (debería haber a lo sumo uno).
+    El partido ya está simulado y guardado: mientras se transmite solo cambia 'transmision'. Por eso el documento completo
+    (~200 KB con eventos y recorrido) se baja UNA vez por partido y en cada sondeo solo se relee 'transmision': antes cada
+    sondeo de cada navegador bajaba el documento entero y eso agotaba la cuota de transferencia de Atlas.
+    """
+    ligero = db["juegos"].find_one({"transmision.estado": TRANSMISION_EN_CURSO}, {"transmision": 1})
+    if not ligero:
+        return None
+    if _cache_vivo["id"] != ligero["_id"]:
+        doc = db["juegos"].find_one({"_id": ligero["_id"]})
+        if not doc:
+            return None
+        _cache_vivo.update(id=ligero["_id"], doc=doc)
+    return {**_cache_vivo["doc"], "transmision": ligero["transmision"]}
 
 
 def iniciar_simulacion_automatica() -> Dict[str, Any]:

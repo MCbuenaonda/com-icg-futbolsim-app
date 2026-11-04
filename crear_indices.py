@@ -233,6 +233,13 @@ def crear_indices():
     # orden del feed (inicio, /red-social), de obtener_juego_activo y del calendario: sin él Mongo lee los partidos COMPLETOS
     # (~100-200 KB cada uno) para ordenarlos por fecha y hora
     juegos.create_index([("estado", 1), ("fecha", -1), ("hora", -1)], name="estado_fecha_hora")
+    # colecciones que crecen con cada ciclo o partido y hoy se recorrían completas (revisión con explain)
+    db['corp_feed'].create_index([("universo_id", 1), ("fecha", -1), ("hora", -1), ("orden", -1)], name="universo_fecha_hora_orden")
+    db['corp_feed'].create_index([("universo_id", 1), ("creado_en", -1)], name="universo_creado")
+    db['corp_feed'].create_index("juego_id", name="juego_id")
+    db['corp_movimientos'].create_index([("universo_id", 1), ("tipo", 1), ("ciclo", -1)], name="universo_tipo_ciclo")
+    jugadores.create_index("nombre", name="nombre")
+    jugadores.create_index([("goles", -1)], name="goles")
     # Juego en Vivo: los únicos garantizan que un evento no se pague dos veces y una sesión por usuario y partido
     # (también los crea configurar_juego_en_vivo.py)
     db["match_live_sessions"].create_index([("usuario_id", 1), ("juego_id", 1)], unique=True, name="usuario_juego_unico")

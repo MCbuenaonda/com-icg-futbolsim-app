@@ -45,14 +45,10 @@ def _construir(clave: tuple) -> dict:
     if E._cache_vista.get("clave") == clave and E._cache_vista.get("agregado") is not None:
         juegos = sorted(E._cache_vista["juegos"].values(), key=lambda j: (j.get("fecha") or "", j.get("hora") or ""))
         agregado = E._cache_vista["agregado"]
-        cals = {str(j["_id"]): (j.get("resultado") or {}).get("calificaciones") for j in db["juegos"].find(
-            {**E._filtro_finalizados(), "resultado.calificaciones": {"$exists": True}}, {"resultado.calificaciones": 1})}
     else:
-        proyeccion = dict(E.PROYECCION_JUEGOS_MUNDIAL)
-        proyeccion["resultado.calificaciones"] = 1
-        juegos = list(db["juegos"].find(E._filtro_finalizados(), proyeccion).sort([("fecha", 1), ("hora", 1)]))
+        juegos = E._juegos_del_mundial()   # los mismos partidos ya cargados (solo baja los nuevos)
         agregado = E._agregar_jugadores_mundial(juegos) if juegos else {}
-        cals = {str(j["_id"]): (j.get("resultado") or {}).get("calificaciones") for j in juegos}
+    cals = {str(j["_id"]): (j.get("resultado") or {}).get("calificaciones") for j in juegos}
     por_id = {str(j["_id"]): (orden, j) for orden, j in enumerate(juegos)}
     historial: Dict[int, List[dict]] = {}
     for jid, a in agregado.items():

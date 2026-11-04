@@ -411,7 +411,7 @@ def _detallar_estampas(estampas: List[dict]) -> List[dict]:
         elif e["tipo"] in ("LOGO", "PERSONAJE", "DUENO"):
             x = medios.get(e["id"], {})
             extra = {"pais_id": x.get("pais_id"), "detalle": x.get("detalle"), "origen": x.get("origen"), "edad": x.get("edad"), "rasgo": x.get("rasgo"),
-                     "imagen_url": url_imagen_medios(x.get("imagen"))}
+                     "imagen_url": url_imagen_medios(x.get("imagen")), "imagen": x.get("imagen")}
         pais = paises.get(extra.get("pais_id"), {})
         extra["pais_nombre"] = pais.get("nombre")
         extra["confederacion"] = SIGLA_CONFEDERACION.get(pais.get("confederacion_id"), "")

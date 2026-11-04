@@ -9,7 +9,7 @@
       <div class="prensa-nota" style="--medio: {{ post.medio.color }};">
         <span class="medio-avatar medio-avatar--sm" title="{{ post.medio.nombre }}">{{ post.medio.nombre[:1] }}</span>
         <div class="min-w-0">
-          <div class="small">{% if post.medio.logo %}<img class="medio-logo medio-logo--sm" src="{{ post.medio.logo }}" alt="{{ post.medio.nombre }}" loading="lazy" onerror="this.replaceWith(document.createTextNode(this.alt))">{% else %}<strong class="text-white">{{ post.medio.nombre }}</strong>{% endif %} <span class="text-muted">· {{ post.periodista.nombre }} · {{ post.etiqueta }} · {{ post.fecha }}</span>
+          <div class="small">{% if post.medio.logo %}<img class="medio-logo medio-logo--sm" src="{{ post.medio.logo }}" alt="{{ post.medio.nombre }}" loading="lazy" onerror="this.replaceWith(document.createTextNode(this.alt))">{% else %}<strong class="text-white">{{ post.medio.nombre }}</strong>{% endif %} <span class="text-muted">· <strong class="prensa-periodista">{{ post.periodista.nombre }}</strong> · {{ post.etiqueta }} · {{ post.fecha_corta }}</span>
             <span class="medio-tono medio-tono--{{ post.categoria_tono }} ms-1"><i class="bi {{ post.tono_icono }}"></i>{{ post.tono_nombre }}</span></div>
           <div class="text-body-secondary fs-8">{{ post.texto }}</div>
           <a class="fs-8 text-decoration-none" href="/juegos/{{ post.juego_id }}">Ver el partido</a>

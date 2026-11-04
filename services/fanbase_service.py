@@ -67,9 +67,51 @@ UMBRAL_RATING_SOBRESALIENTE = 8.0
 DIFERENCIA_RANKING_SORPRESA = 15
 MULTIPLICADOR_SORPRESA = 1.5
 
+# d) IMPORTANCIA del partido: escala el delta ya calculado (suma y resta por igual) según lo que se jugaba, SIN importar en qué fase
+# del torneo esté (un partido decisivo de una eliminatoria vale lo mismo que uno decisivo del Mundial). Se evalúa ANTES de que el
+# partido actualice las tablas (services/juegos_service.aplicar_efectos_secundarios) con la misma matemática del Scouter.
+IMPORTANCIA_DECISIVO = 1.5           # según el resultado el equipo queda clasificado o eliminado (o define la serie de ida y vuelta)
+IMPORTANCIA_ELIMINACION = 1.5        # eliminación directa: el que pierde se va
+IMPORTANCIA_SIN_CONSECUENCIAS = 0.7  # el equipo ya está clasificado o ya eliminado matemáticamente
+IMPORTANCIA_TOPE = (0.5, 2.0)        # el multiplicador nunca sale de este rango
+
 # Piso de aficionados: nunca puede caer por debajo de este valor (antes era 0 -- con la base de
 # 100,000 se sube a 1,000 para que un equipo nunca quede en absolutamente cero aficionados).
 AFICIONADOS_MINIMO = 1_000
+
+
+def importancia_partido(juego: Dict[str, Any], juego_id: str) -> Dict[int, Dict[str, Any]]:
+    """
+    {pais_id: {"factor": float, "motivo": str|None}} de los dos equipos de un partido, según lo que se jugaba. Debe llamarse ANTES
+    de actualizar las tablas con el resultado: el partido ya está guardado como finalizado, así que se cuenta como pendiente
+    (incluir_id) igual que hace «Por qué mirar este partido» en vivo. Nunca lanza: ante cualquier duda, factor 1.0.
+    """
+    ids = [(juego.get("equipo_local") or {}).get("id"), (juego.get("equipo_visitante") or {}).get("id")]
+    neutro = {pid: {"factor": 1.0, "motivo": None} for pid in ids if pid is not None}
+    try:
+        if juego.get("fase_id") in FASES_ELIMINACION_DIRECTA:
+            return {pid: {"factor": IMPORTANCIA_ELIMINACION, "motivo": "eliminación directa"} for pid in neutro}
+        from services.partidos_interes_service import escenarios_decisivos
+        oid = ObjectId(juego_id)
+        esc = escenarios_decisivos({**juego, "_id": oid}, {}, oid)
+        if not esc:
+            return neutro
+        es_vuelta = juego.get("tipo") == "vuelta" and esc.get("equipos_grupo") == 2
+        salida = {}
+        for pid in neutro:
+            e = esc["equipos"].get(pid)
+            if not e:
+                continue
+            if es_vuelta or e["define"]:
+                salida[pid] = {"factor": IMPORTANCIA_DECISIVO, "motivo": "partido decisivo"}
+            elif e["hoy"]["codigo"] in ("clasificado", "eliminado"):
+                salida[pid] = {"factor": IMPORTANCIA_SIN_CONSECUENCIAS, "motivo": "sin consecuencias en la clasificación"}
+            else:
+                salida[pid] = {"factor": 1.0, "motivo": None}
+        return {**neutro, **salida}
+    except Exception as e:
+        print(f"[fanbase] no se pudo calcular la importancia del partido {juego_id}: {e}")
+        return neutro
 
 
 def _calcular_delta_detallado(match_data: Dict[str, Any], player_events: Dict[int, dict], team_id: int, aficionados_actual: int) -> Dict[str, Any]:
@@ -134,7 +176,14 @@ def _calcular_delta_detallado(match_data: Dict[str, Any], player_events: Dict[in
             hubo_sorpresa = True
             delta = round(delta * MULTIPLICADOR_SORPRESA)
 
+    # d) Importancia del partido (viene calculada en match_data['importancia'][pais_id]): escala suma y resta por igual
+    imp = ((match_data.get("importancia") or {}).get(team_id)) or {}
+    factor = min(IMPORTANCIA_TOPE[1], max(IMPORTANCIA_TOPE[0], imp.get("factor", 1.0)))
+    if factor != 1.0:
+        delta = round(delta * factor)
+
     return {
+        "importancia": factor, "importancia_motivo": imp.get("motivo") if factor != 1.0 else None,
         "delta": delta, "resultado": resultado, "es_goleada": es_goleada,
         "hubo_efecto_estrella": hubo_efecto_estrella, "hubo_sorpresa": hubo_sorpresa,
         "goles_propios": goles_propios, "goles_rival": goles_rival, "fase_id": fase_id
@@ -172,7 +221,7 @@ def calculate_match_fanbase_delta(match_data: Dict[str, Any], player_events: Dic
     return _calcular_delta_detallado(match_data, player_events, team_id, aficionados_actual)["delta"]
 
 
-def _generar_motivo(detalle: Dict[str, Any]) -> str:
+def _motivo_base(detalle: Dict[str, Any]) -> str:
     """Descripción breve y legible del cambio de aficionados, para el historial -- refleja tanto
     el resultado como la MAGNITUD del cambio (goleada vs. resultado ajustado)."""
     resultado = detalle["resultado"]
@@ -195,6 +244,13 @@ def _generar_motivo(detalle: Dict[str, Any]) -> str:
     if es_goleada:
         return "Pérdida severa de afición tras derrota dolorosa"
     return "Derrota ajustada con actuación destacada (efecto estrella)" if detalle["hubo_efecto_estrella"] else "Derrota ajustada"
+
+
+def _generar_motivo(detalle: Dict[str, Any]) -> str:
+    motivo = _motivo_base(detalle)
+    if detalle.get("importancia_motivo"):
+        motivo += f" (×{str(round(detalle['importancia'], 2)).replace('.', ',')}: {detalle['importancia_motivo']})"
+    return motivo
 
 
 def _aplicar_delta_aficionados(coleccion: Collection, pais_id: int, delta: int) -> int:

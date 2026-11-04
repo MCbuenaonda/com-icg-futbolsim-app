@@ -41,7 +41,7 @@ process_uuid = uuid.uuid4()
 
 
 @route.get("/pais/{id}", response_class=HTMLResponse)
-async def jugadores(request: Request, id: str):
+def jugadores(request: Request, id: str):
     try:
         jugadores = get_jugadores(id, logger)
         pais = get_pais(id, logger)  # encabezado: nombre, escudo, confederación
@@ -65,13 +65,13 @@ def comparar(request: Request, a: Optional[int] = None, b: Optional[int] = None)
 
 
 @route.get("/api/buscar", name="buscar_jugadores_api")
-async def buscar(q: str = ""):
+def buscar(q: str = ""):
     """Buscador del comparador (JSON): por nombre, mínimo 2 letras."""
     return buscar_jugadores(q)
 
 
 @route.get("/{id}", response_class=HTMLResponse)
-async def jugador(request: Request, id: str):
+def jugador(request: Request, id: str):
     try:
         jugador = get_jugador(id, logger)
         bitacora = obtener_bitacora_jugador(jugador) if jugador else None

@@ -195,7 +195,7 @@ GIRA_COSTO_MINIMO = 60            # organizar una gira nunca es gratis (un jugad
 GIRA_JUGADOR_INGRESO = (0.006, 0.014)
 GIRA_JUGADOR_ENFRIAMIENTO = 3
 GIRA_JUGADOR_AFICIONADOS_MIN = 1
-GIRA_JUGADOR_AFICIONADOS_MAX = 100
+GIRA_JUGADOR_AFICIONADOS_MAX = 250
 TOPE_AFICIONADOS_GIRAS_JUGADOR = 500  # por selección y ciclo, entre todas las giras de todos los universos
 GIRAS_POR_CICLO = 1               # (modelo viejo: una gira por ciclo)
 CAL_ACTIVIDAD_FLOJA = 2            # calendario de la cartera: un ciclo con ≤ 2 partidos de tus representados es «flojo»
@@ -211,7 +211,7 @@ GIRA_COSTO_MINIMO_JUGADOR = 25
 GIRA_JUGADOR_COSTO_V2 = 0.003      # x valor del jugador
 GIRA_JUGADOR_RETORNO = (1.60, 2.70)   # ingreso = costo x retorno (según popularidad, forma de su selección y si juega)
 IA_PROB_ACUERDO = 0.25            # (acuerdos viejos: la IA ya no firma; las marcas los reemplazaron)
-IA_PROB_GIRA = 0.20               # por ciclo, que organice una gira
+IA_PROB_GIRA = 0.50               # por ciclo, que organice una gira (×2 en saneamiento)
 
 # --- Plan de saneamiento -------------------------------------------------------------------------
 # Corporativo en rojo (capital < 70% del inicial, o 3 de los últimos 4 ciclos con pérdida): el directorio abre un
@@ -253,6 +253,14 @@ PESO_LEYENDA_IA = 0.25            # peso de una leyenda en el sorteo de fichajes
 IA_MULTIPLO_VENTA = {"default": 1.2, "chequera": 1.5}
 IA_CICLOS_SIN_JUGAR_RESCINDE = 3
 IA_ROI_DIVIDENDO = 0.05
+# La IA también promueve a sus representados con las marcas, hace campañas de marketing y busca talento (antes solo aceptaba ofertas)
+IA_PROB_PROMOCION = 0.50          # por ronda de marcas y corporativo (×2 si está rezagado)
+IA_PROMOCIONES_POR_RONDA = 2      # a cuántos representados promueve (los que menos marcas tienen y más valen)
+IA_PROB_MARKETING = 0.35          # por ciclo, si tiene capital de sobra (IA_CAPITAL_MARKETING × el costo) y no hay campaña vigente
+IA_CAPITAL_MARKETING = 4
+IA_PROB_SCOUTING = 0.30           # por ciclo: paga el informe y ficha a un libre joven de más
+IA_CAPITAL_SCOUTING = 8
+IA_PERCENTIL_REZAGADO = 0.55      # el corporativo rezagado (saneamiento o capital bajo el 90% del inicial) solo ficha jugadores desde este percentil
 
 # --- Carrera del CEO -----------------------------------------------------------------------------
 FAMA_INICIAL = 10
@@ -336,15 +344,15 @@ SENTIMIENTO_DIVIDENDO = 0.03      # repartir dividendo mejora el sentimiento del
 # de cualquier corporativo del universo, el CEO puede PROMOVER a los suyos y las marcas cortan si les va mal.
 # Pago por ciclo = valor x MARCA_PAGO_CICLO x factor del alcance x (0,7 + 0,6 x encaje/100) x (0,85 + 0,3 x reputación/100);
 # firma = MARCA_FIRMA x pago. Del corporativo del usuario, MARCA_COMISION_CEO va a su nómina (con el sueldo).
-MARCA_PAGO_CICLO = 0.0040
-MARCA_FIRMA = 1.5
+MARCA_PAGO_CICLO = 0.0020
+MARCA_FIRMA = 0.75
 MARCA_FACTOR_NIVEL = {3: 1.3, 2: 1.0, 1: 0.75}        # global, continental, local
-MARCA_CUPOS_NIVEL = {3: 2, 2: 1, 1: 1}                # patrocinios simultáneos por marca y universo
+MARCA_CUPOS_NIVEL = {3: 12, 2: 6, 1: 4}               # patrocinios simultáneos por marca y universo (~750 en total: caben los ~250 representados × 3 marcas)
 MARCA_CICLOS = (4, 8)
 MARCAS_MAX_POR_REPRESENTADO = 3                       # y nunca dos del mismo rubro
 MARCA_COMISION_CEO = 0.05
 MARCA_ENCAJE_MINIMO = 45                              # debajo de esto la marca no se interesa
-MARCA_PROB_ACERCARSE = 0.20                           # por ciclo (se reparte entre las rondas: / RONDAS_POR_CICLO)
+MARCA_PROB_ACERCARSE = 0.60                           # por ciclo (se reparte entre las rondas: / RONDAS_POR_CICLO)
 MARCA_PROB_RUMOR = 0.30                               # antes de ofertar deja correr el rumor un ciclo (entre 3-4 candidatos)
 MARCA_IA_ACEPTA = 0.85
 MARCA_OFERTA_CICLOS = 1                               # (ofertas viejas: vencían al cierre del ciclo siguiente)
@@ -395,8 +403,8 @@ TV_INVITADO_PROB = 1.0                 # toda cadena con contrato activo lleva i
 TV_INVITADO_HORIZONTE = 3              # se elige cuando faltan 3 partidos o menos para ese partido
 TV_INVITADO_PAGO = 0.05                # x valor del jugador x popularidad x nivel de la cadena (~1,15 veces su renta de un partido)
 TV_INVITADO_ENFRIAMIENTO_PARTIDOS = 40 # el mismo jugador no vuelve a ser invitado hasta 40 partidos después
-TV_INVITADO_AFICIONADOS = (10, 60)
-TV_INVITADO_TOPE_AFICIONADOS = 200     # por selección y ciclo, entre todos los universos
+TV_INVITADO_AFICIONADOS = (10, 250)
+TV_INVITADO_TOPE_AFICIONADOS = 500     # por selección y ciclo, entre todos los universos (≥ el máximo de una invitación)
 TV_INVITADO_BONO_MARCAS = 1.15         # sus patrocinios vigentes pagan +15%...
 TV_INVITADO_RONDAS_MARCAS = 2          # ...durante 2 rondas de marcas (8 partidos)
 TV_INVITADO_ENCAJE = 10                # y las marcas nuevas lo ven 10 puntos más interesante

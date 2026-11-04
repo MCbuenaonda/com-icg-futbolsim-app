@@ -40,12 +40,14 @@ def _contexto_partidos() -> dict:
         agregado, paises_ag = E._cache_vista.get("agregado") or {}, E._cache_vista.get("paises") or {}
     except Exception:
         agregado, paises_ag = {}, {}
+    from services.fantasy_service import paises_calificados
     return {"cal": calendario_paises(), "forma": forma_selecciones(), "eliminadas": eliminadas, "vivas": vivas,
+            "calificadas": paises_calificados(),
             "ciclo": U.estado_reloj()["ciclo"], "seq": U.seq_actual(), "agregado": agregado, "paises_ag": paises_ag}
 
 
 def juego_de(tipo: str, ref_id: int, ctx: dict) -> dict:
-    """{"estado": programado|eliminada|sin_partido, "faltan", "ciclo", "en_ciclos", "rival", "rival_bandera", "pais_id"}."""
+    """{"estado": programado|calificada|eliminada|sin_partido, "faltan", "ciclo", "en_ciclos", "rival", "rival_bandera", "pais_id"}."""
     v = valores()
     pais = ref_id if tipo == "seleccion" else v["info_jugadores"].get(ref_id, {}).get("pais_id")
     d = ctx["cal"].get(pais)
@@ -54,6 +56,8 @@ def juego_de(tipo: str, ref_id: int, ctx: dict) -> dict:
         return {"estado": "programado", "pais_id": pais, "faltan": d["faltan"], "ciclo": d["ciclo"], "juego_id": d.get("juego_id"),
                 "en_ciclos": max(0, d["ciclo"] - ctx["ciclo"]), "rival": rival.get("nombre"), "rival_bandera": rival.get("bandera"),
                 "rival_id": d["rival_id"], "local": d["local"], "partidos_2": len([i for i in d["posiciones"] if i < 2 * C.PARTIDOS_POR_CICLO])}
+    if pais in ctx.get("calificadas", ()) and pais not in ctx["eliminadas"]:
+        return {"estado": "calificada", "pais_id": pais, "partidos_2": 0}
     if pais in ctx["eliminadas"] or pais not in ctx["vivas"]:
         return {"estado": "eliminada", "pais_id": pais, "partidos_2": 0}
     return {"estado": "sin_partido", "pais_id": pais, "partidos_2": 0}
@@ -72,7 +76,7 @@ def senal_de(tipo: str, ref_id: int, valor: int, juego: dict, ctx: dict, contrat
     """Señal de comprar (mercado) o vender (cartera) con su '¿por qué?' (corporativo_reglas.senales)."""
     from services.corporativo_ciclo_service import popularidad
     datos = {"tipo": tipo, "valor": valor, "popularidad": popularidad(tipo, ref_id, valor), "partidos_2_ciclos": juego.get("partidos_2", 0),
-             "sin_partido": juego["estado"] == "sin_partido", "eliminada": juego["estado"] == "eliminada",
+             "sin_partido": juego["estado"] in ("sin_partido", "calificada"), "eliminada": juego["estado"] == "eliminada",
              "forma": ctx["forma"].get(juego.get("pais_id")),
              "titular": _titular(ref_id, juego.get("pais_id"), ctx) if tipo == "jugador" else None}
     if contrato:

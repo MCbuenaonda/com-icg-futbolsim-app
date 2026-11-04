@@ -1,16 +1,18 @@
 """
-Ilustraciones de estadios v2: 50 conceptos de clase mundial (estadios/catalogo.py) dibujados en línea técnica 3/4 con la
+Ilustraciones de estadios v2: ~146 conceptos (los 50 de estadios/catalogo.py + las recetas de estadios/catalogo_v3.py) dibujados en línea técnica 3/4 con la
 paleta REAL de la bandera de cada país (paises.colores → estadios/color.py). Ver CLAUDE.md («Ilustraciones de estadios»).
 
-Reglas de asignación (determinísticas, semilla = pais_id):
-  - dentro de un país no se repite ningún diseño (con más de 50 ciudades —Yibuti— se usa una VARIANTE: vista espejada y
-    paleta invertida, así tampoco se repite ninguna imagen);
+Reglas de asignación (determinísticas):
+  - dentro de un país no se repite ningún diseño (si hubiera más ciudades que conceptos se usa una VARIANTE: vista espejada
+    y paleta invertida);
+  - dentro de un país se evita repetir FAMILIA (diseños parecidos: cada concepto trae la suya, ×0,3 por cada uno ya elegido);
+  - el uso se reparte parejo entre países (el peso de un concepto baja cuanto más se haya usado en total);
   - los conceptos culturales tienen más probabilidad donde encajan (regiones de generar_avatares.REGION_POR_PAIS y países
     costeros/insulares); los demás, al azar.
 Un SVG por ciudad: estadios_v2/p<pais_id>-<codigo>[-b].svg en el bucket.
 
 Uso (en este orden):
-    python generar_estadios.py --muestra [carpeta]   # los 50 con 5 paletas de ejemplo + muestra.html (solo lee Mongo)
+    python generar_estadios.py --muestra [carpeta]   # todos los conceptos con 5 paletas de ejemplo + muestra.html (solo lee Mongo)
     python generar_estadios.py --generar [carpeta]   # un SVG por ciudad en <carpeta>/estadios_v2/
     python generar_estadios.py --subir [carpeta]     # sube a gs://com-icg-mundial/estadios_v2/ (NO borra estadios/)
     python generar_estadios.py --asignar             # respalda y escribe ciudades.estadio_imagen
@@ -27,7 +29,7 @@ import sys
 from collections import Counter, defaultdict
 from datetime import datetime
 
-from estadios import catalogo as C
+from estadios import catalogo_v3 as C
 from estadios import color as COL
 
 CARPETA_BUCKET = "gs://com-icg-mundial/estadios_v2"
@@ -62,20 +64,16 @@ def _costero(nombre: str, region) -> bool:
     return nombre in COSTEROS_EXTRA or region in ("caribe", "caribe_hispano", "pacifico", "asia_sudeste")
 
 
-def orden_conceptos(pais_id: int, nombre: str) -> list:
-    """Los 50 códigos en el orden del país: sorteo ponderado sin reposición (Efraimidis-Spirakis), semilla = pais_id."""
-    rng = random.Random(f"estadios:{pais_id}")
-    region = _region(nombre)
-    costero = _costero(nombre, region)
-    claves = []
-    for c in C.CONCEPTOS:
-        w = 1.0
-        if c["regiones"]:
-            w = PESO_REGION if region in c["regiones"] else PESO_FUERA_REGION
-        if c["costero"]:
-            w = max(w, PESO_COSTERO if costero else 0.7)
-        claves.append((rng.random() ** (1.0 / w), c["codigo"]))
-    return [cod for _, cod in sorted(claves, reverse=True)]
+PESO_FAMILIA = 0.3         # por cada concepto de la misma familia ya elegido en el país
+
+
+def _peso_base(c: dict, region, costero: bool) -> float:
+    w = 1.0
+    if c["regiones"]:
+        w = PESO_REGION if region in c["regiones"] else PESO_FUERA_REGION
+    if c["costero"]:
+        w = max(w, PESO_COSTERO if costero else 0.7)
+    return w
 
 
 def nombre_archivo(pais_id: int, codigo: str, variante: int) -> str:
@@ -83,19 +81,39 @@ def nombre_archivo(pais_id: int, codigo: str, variante: int) -> str:
 
 
 def asignacion() -> dict:
-    """{ciudad_id: {pais_id, codigo, variante, imagen}} para todas las ciudades (determinístico)."""
+    """
+    {ciudad_id: {pais_id, codigo, variante, imagen}} para todas las ciudades (determinístico). Los países se recorren en un
+    orden mezclado (hash del id) y cada uno sortea sus conceptos sin reposición con tres factores: preferencia regional,
+    familia ya usada en el país y uso global (reparto parejo).
+    """
     db = _db()
     paises = {p["id"]: p for p in db["paises"].find({}, {"id": 1, "nombre": 1, "colores": 1})}
     por_pais = defaultdict(list)
     for c in db["ciudades"].find({}, {"id": 1, "pais_id": 1}).sort("id", 1):
         por_pais[c["pais_id"]].append(c["id"])
+    conceptos = C.CONCEPTOS
+    media = sum(len(v) for v in por_pais.values()) / len(conceptos)
+    tope = 1.25 * media
+    uso = Counter()
     salida = {}
-    for pais_id, ids in por_pais.items():
-        orden = orden_conceptos(pais_id, (paises.get(pais_id) or {}).get("nombre", ""))
-        for k, ciudad_id in enumerate(ids):
-            codigo, variante = orden[k % len(orden)], k // len(orden)
-            salida[ciudad_id] = {"pais_id": pais_id, "codigo": codigo, "variante": variante,
-                                 "imagen": nombre_archivo(pais_id, codigo, variante)}
+    for pais_id in sorted(por_pais, key=lambda i: hashlib.md5(f"orden:{i}".encode()).hexdigest()):
+        ids = por_pais[pais_id]
+        rng = random.Random(f"estadios:{pais_id}")
+        region = _region((paises.get(pais_id) or {}).get("nombre", ""))
+        costero = _costero((paises.get(pais_id) or {}).get("nombre", ""), region)
+        base = {c["codigo"]: _peso_base(c, region, costero) for c in conceptos}
+        disponibles, familias, variante = list(conceptos), Counter(), 0
+        for ciudad_id in ids:
+            if not disponibles:
+                disponibles, familias, variante = list(conceptos), Counter(), variante + 1
+            pesos = [base[c["codigo"]] * max(0.05, (tope - uso[c["codigo"]]) / tope) * (PESO_FAMILIA ** familias[c["familia"]])
+                     for c in disponibles]
+            c = rng.choices(disponibles, weights=pesos, k=1)[0]
+            disponibles.remove(c)
+            familias[c["familia"]] += 1
+            uso[c["codigo"]] += 1
+            salida[ciudad_id] = {"pais_id": pais_id, "codigo": c["codigo"], "variante": variante,
+                                 "imagen": nombre_archivo(pais_id, c["codigo"], variante)}
     return salida
 
 
@@ -122,16 +140,16 @@ def muestra(carpeta: str):
             with open(os.path.join(sub, f"{i + 1:02d}.svg"), "w") as f:
                 f.write(dibujar(p, c["codigo"]))
     botones = "".join(f'<button data-p="{p["id"]}">{p["nombre"]}</button>' for p in paises)
-    figuras = "".join(f'<figure><img data-n="{i + 1:02d}" alt=""><figcaption><b>{i + 1}.</b> {c["nombre"]}<small>{C.GRUPOS[c["grupo"]]}</small></figcaption></figure>'
+    figuras = "".join(f'<figure><img data-n="{i + 1:02d}" alt=""><figcaption><b>{i + 1}.</b> {c["nombre"]}<small>{C.GRUPOS[c["grupo"]]} · {c["familia"]}</small></figcaption></figure>'
                       for i, c in enumerate(C.CONCEPTOS))
-    html = f"""<!doctype html><html lang="es"><meta charset="utf-8"><title>Estadios: 50 conceptos</title>
+    html = f"""<!doctype html><html lang="es"><meta charset="utf-8"><title>Estadios: {len(C.CONCEPTOS)} conceptos</title>
 <style>body{{background:#0b1220;color:#cbd5e1;font-family:system-ui,sans-serif;margin:0;padding:16px}}
 h1{{font-size:20px;margin:0 0 8px}} .barra{{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}}
 button{{background:#111c2e;color:#e2e8f0;border:1px solid #334155;border-radius:999px;padding:6px 14px;cursor:pointer}}
 button.on{{border-color:#22c55e;background:#14532d}} .grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}}
 figure{{margin:0;background:#111c2e;border-radius:10px;padding:6px}} img{{width:100%;display:block}}
 figcaption{{font-size:13px;padding:4px}} small{{display:block;color:#64748b}}</style>
-<h1>Estadios: 50 conceptos con la paleta de cada país</h1><div class="barra">{botones}</div><div class="grid">{figuras}</div>
+<h1>Estadios: {len(C.CONCEPTOS)} conceptos con la paleta de cada país</h1><div class="barra">{botones}</div><div class="grid">{figuras}</div>
 <script>const bs=[...document.querySelectorAll('button')];function ver(p){{bs.forEach(b=>b.classList.toggle('on',b.dataset.p==p));
 document.querySelectorAll('img').forEach(i=>i.src=p+'/'+i.dataset.n+'.svg')}}bs.forEach(b=>b.onclick=()=>ver(b.dataset.p));ver(bs[0].dataset.p);</script></html>"""
     with open(os.path.join(carpeta, "muestra.html"), "w") as f:
@@ -196,7 +214,14 @@ def verificar():
     sin_imagen = _db()["ciudades"].count_documents({"estadio_imagen": {"$exists": False}})
     uso = Counter(a["codigo"] for a in asig.values())
     print(f"ciudades {len(asig)} · países {len(por_pais)} · países con imagen repetida: {len(repetidos)} · ciudades sin imagen en Mongo: {sin_imagen}")
-    print(f"variantes (más de 50 ciudades): {sum(1 for a in asig.values() if a['variante'])}")
+    fam = {c["codigo"]: c["familia"] for c in C.CONCEPTOS}
+    rep_fam = Counter()
+    for v in por_pais.values():
+        for f, n in Counter(fam[cod] for cod, _ in v).items():
+            if n > 1:
+                rep_fam[n] += 1
+    print(f"conceptos {len(C.CONCEPTOS)} · países con una familia repetida N veces (N: países): {dict(sorted(rep_fam.items()))}")
+    print(f"variantes (si hay más ciudades que conceptos): {sum(1 for a in asig.values() if a['variante'])}")
     print(f"uso por concepto: mín {min(uso.values())} · máx {max(uso.values())}")
     db = _db()
     nombres = {p["id"]: p["nombre"] for p in db["paises"].find({}, {"id": 1, "nombre": 1})}

@@ -37,13 +37,13 @@ logger = logging.getLogger(__name__)
 
 
 @route.get("/configs", response_model=List[QuinielaConfigOut], name="quinielas_configs")
-async def listar_configs():
+def listar_configs():
     """Lista los formatos de quiniela activos (3, 5, 10 partidos, etc.)."""
     return obtener_configs_activas()
 
 
 @route.post("/tickets", response_model=BoletoOut, status_code=201, name="quinielas_crear_boleto")
-async def crear_boleto(payload: CrearBoletoIn, request: Request):
+def crear_boleto(payload: CrearBoletoIn, request: Request):
     """Compra/registra un boleto de quiniela: valida saldo, partidos y descuenta los puntos.
     El boleto es SIEMPRE del usuario de la sesión: el 'usuario_id' del body se ignora (antes se
     usaba tal cual y permitía gastar el saldo de otra cuenta)."""
@@ -64,7 +64,7 @@ async def crear_boleto(payload: CrearBoletoIn, request: Request):
 
 
 @route.get("/tickets/user/{user_id}", response_model=List[BoletoOut], name="quinielas_boletos_usuario")
-async def boletos_usuario(user_id: str, request: Request):
+def boletos_usuario(user_id: str, request: Request):
     """Lista las quinielas de un usuario y su estado (PENDIENTE / GANADA / PERDIDA)."""
     exigir_mismo_usuario_o_admin(request, user_id)
     try:
@@ -77,7 +77,7 @@ async def boletos_usuario(user_id: str, request: Request):
 # Vistas HTML (requieren sesión iniciada — ver services/auth_service.py)
 # ==========================================================================
 @route_vistas.get("/", response_class=HTMLResponse, name="quinielas_home")
-async def quinielas_home(request: Request):
+def quinielas_home(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -100,7 +100,7 @@ async def quinielas_home(request: Request):
 
 
 @route_vistas.get("/mis-quinielas", response_class=HTMLResponse, name="quinielas_mias")
-async def quinielas_mias(request: Request):
+def quinielas_mias(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -148,7 +148,7 @@ async def quinielas_mias(request: Request):
 
 
 @route_vistas.get("/rendimiento", response_class=HTMLResponse, name="quinielas_rendimiento")
-async def quinielas_rendimiento(request: Request):
+def quinielas_rendimiento(request: Request):
     """Rendimiento del usuario como pronosticador (services/quinielas_service.obtener_rendimiento_quinielas)."""
     usuario = obtener_usuario_actual(request)
     if not usuario:

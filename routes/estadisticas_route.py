@@ -21,7 +21,7 @@ process_uuid = uuid.uuid4()
 
 
 @route.get("/", response_class=HTMLResponse, name="estadisticas")
-async def inicio(request: Request):
+def inicio(request: Request):
     estadisticas = obtener_estadisticas_generales()
     return templates.TemplateResponse(
         request=request,
@@ -44,7 +44,7 @@ def graficos(request: Request):
 
 
 @route.get("/api/detalle", name="estadisticas_detalle")
-async def detalle(tipo: str, id: int, metrica: str):
+def detalle(tipo: str, id: int, metrica: str):
     """
     Detalle de una tarjeta o de una fila de los top 10 (lo abre el modal de estadisticas.html):
     quién es, cuánto suma en la métrica y en qué partidos del Mundial en curso sumó.

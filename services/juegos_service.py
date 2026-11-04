@@ -10,7 +10,7 @@ from config.settings import MONGODB_URI
 from pymongo import ASCENDING, DESCENDING
 from services.simular_service import simular_partido_realista
 from services.paises_service import actualizar_estadisticas_pais, actualizar_poder_y_rankin, recalcular_rankin
-from services.fanbase_service import AFICIONADOS_INICIAL, actualizar_aficionados_post_partido
+from services.fanbase_service import AFICIONADOS_INICIAL, actualizar_aficionados_post_partido, importancia_partido
 from services.jugadores_service import calcular_estado_animo_jugador, ESTADO_ANIMO_DEFAULT, actualizar_jugadores_post_partido
 from services.fecha_service import formatear_fecha_es
 from services.quinielas_service import procesar_resultado_partido
@@ -765,6 +765,15 @@ def aplicar_efectos_secundarios(
     if resp["exito"]:
         actualizar_jugadores_post_partido(stats_jugadores, goles_local, goles_visitante)
 
+    # Importancia del partido para los aficionados (qué se jugaba cada equipo): se evalúa ANTES de que el resultado actualice las
+    # tablas de los países. Nunca lanza (ante un error, factor 1,0).
+    importancia_aficionados = {}
+    if juego_doc:
+        try:
+            importancia_aficionados = importancia_partido(juego_doc, juego_id)
+        except Exception as e:
+            logger.error(f"Error al calcular la importancia del partido {juego_id}: {e}")
+
     actualizar_estadisticas_pais(id_local, id_visita, goles_local, goles_visitante, estadisticas)
 
     # Popularidad y Base de Aficionados: victoria/empate/derrota + "Efecto Estrella" + bono de
@@ -778,6 +787,7 @@ def aplicar_efectos_secundarios(
             "goles_local": goles_local, "goles_visitante": goles_visitante,
             "rankin_local": (juego_doc.get("equipo_local") or {}).get("rankin", 0) if juego_doc else 0,
             "rankin_visitante": (juego_doc.get("equipo_visitante") or {}).get("rankin", 0) if juego_doc else 0,
+            "importancia": importancia_aficionados,
         }
         delta_aficionados = actualizar_aficionados_post_partido(match_data_aficionados, stats_jugadores, match_id=juego_id)
     except Exception as e:
@@ -1599,6 +1609,15 @@ def generar_comentarios_partido(
 # Funcion para obtener los ultimos 5 juegos finalizados, en formato de feed estilo X/Twitter
 # (ver templates/home.html) -- cada partido se muestra como si lo hubiera "posteado" la cuenta
 # oficial de la FIFAV (el organismo del torneo), no la del equipo local.
+# Lo único que lee formatear_posts_partidos de cada partido. Sin esto el feed trae los partidos COMPLETOS (cada uno con todos
+# sus eventos, el recorrido del balón y la curva de energía: 100-200 KB) y el inicio y /red-social tardaban decenas de segundos.
+PROYECCION_FEED = {
+    "equipo_local": 1, "equipo_visitante": 1, "tag": 1, "fecha": 1, "hora": 1, "confederacion_id": 1, "aforo.asistencia": 1,
+    "resultado.goles_local": 1, "resultado.goles_visitante": 1, "resultado.eventos.tipo": 1, "resultado.eventos.minuto": 1,
+    "resultado.eventos.equipo": 1, "resultado.cronica.post": 1, "resultado.texto_narrativo": 1, "resultado.comentarios_jugadores": 1,
+}
+
+
 def get_data_dashboard_last_games():
     juegos_coll = db["juegos"]
     # OJO: encadenar dos .sort() en pymongo NO los combina -- el segundo pisa al primero. Con
@@ -1609,7 +1628,7 @@ def get_data_dashboard_last_games():
     # 'finalizado'), la transmisión todavía lo está "revelando" en /en-vivo -- no debe aparecer
     # en el feed como si la FIFAV ya lo hubiera publicado.
     juegos = list(
-        juegos_coll.find({"estado": "finalizado", "transmision.estado": {"$ne": "in_progress"}})
+        juegos_coll.find({"estado": "finalizado", "transmision.estado": {"$ne": "in_progress"}}, PROYECCION_FEED)
         .sort([("fecha", -1), ("hora", -1)]).limit(5)
     )
     return formatear_posts_partidos(juegos)

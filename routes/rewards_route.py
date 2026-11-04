@@ -54,7 +54,7 @@ def _requerir_sesion_propia(request: Request, user_id: str):
 # API JSON — Rewards
 # ==========================================================================
 @route_rewards.post("/check-in", response_model=CheckInOut, name="rewards_check_in")
-async def check_in_endpoint(request: Request):
+def check_in_endpoint(request: Request):
     usuario = _requerir_sesion(request)
     try:
         return check_in(usuario["_id"])
@@ -66,7 +66,7 @@ async def check_in_endpoint(request: Request):
 
 
 @route_rewards.post("/claim-bankruptcy-rescue", response_model=BancarrotaRescueOut, name="rewards_claim_bankruptcy_rescue")
-async def claim_bankruptcy_rescue_endpoint(request: Request):
+def claim_bankruptcy_rescue_endpoint(request: Request):
     usuario = _requerir_sesion(request)
     try:
         return claim_bankruptcy_rescue(usuario["_id"])
@@ -78,7 +78,7 @@ async def claim_bankruptcy_rescue_endpoint(request: Request):
 
 
 @route_rewards.get("/daily-status/{user_id}", response_model=DailyStatusOut, name="rewards_daily_status")
-async def daily_status_endpoint(request: Request, user_id: str):
+def daily_status_endpoint(request: Request, user_id: str):
     _requerir_sesion_propia(request, user_id)
     try:
         return obtener_daily_status(user_id)
@@ -92,7 +92,7 @@ async def daily_status_endpoint(request: Request, user_id: str):
 # API JSON — Trivia
 # ==========================================================================
 @route_trivia.get("/daily-quiz/{user_id}", response_model=TriviaQuizOut, name="trivia_daily_quiz")
-async def daily_quiz_endpoint(request: Request, user_id: str):
+def daily_quiz_endpoint(request: Request, user_id: str):
     _requerir_sesion_propia(request, user_id)
     try:
         return generate_dynamic_trivia(user_id)
@@ -106,7 +106,7 @@ async def daily_quiz_endpoint(request: Request, user_id: str):
 
 
 @route_trivia.post("/submit", response_model=TriviaResultadoOut, name="trivia_submit")
-async def submit_endpoint(request: Request, body: TriviaSubmitIn):
+def submit_endpoint(request: Request, body: TriviaSubmitIn):
     usuario = _requerir_sesion(request)
     try:
         return validate_trivia_answers(usuario["_id"], body.session_id, body.respuestas)

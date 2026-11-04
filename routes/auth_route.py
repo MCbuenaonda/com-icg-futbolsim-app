@@ -51,7 +51,7 @@ def _destino_post_login(usuario: dict) -> str:
 
 
 @route.get("/login", response_class=HTMLResponse, name="login")
-async def login_form(request: Request):
+def login_form(request: Request):
     usuario = obtener_usuario_actual(request)
     if usuario:
         return RedirectResponse(url=_destino_post_login(usuario), status_code=303)
@@ -64,7 +64,7 @@ async def login_form(request: Request):
 
 
 @route.post("/login", name="login_submit")
-async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
+def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
     usuario = autenticar_usuario(username.strip(), password)
     # La vista de login envía con fetch (cabecera X-Login-Ajax) para animar el resultado (gol / atajada) antes de
     # navegar; sin JavaScript el formulario sigue funcionando con el redirect de siempre.
@@ -91,14 +91,14 @@ async def login_submit(request: Request, username: str = Form(...), password: st
 
 
 @route.post("/logout", name="logout")
-async def logout(request: Request):
+def logout(request: Request):
     respuesta = RedirectResponse(url=request.url_for("login"), status_code=303)
     respuesta.delete_cookie(SESION_COOKIE)
     return respuesta
 
 
 @route.get("/cuenta", response_class=HTMLResponse, name="cuenta")
-async def cuenta(request: Request):
+def cuenta(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -120,7 +120,7 @@ async def cuenta(request: Request):
 
 
 @route.get(RUTA_CAMBIAR_PASSWORD, response_class=HTMLResponse, name="cambiar_password")
-async def cambiar_password_form(request: Request):
+def cambiar_password_form(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -131,7 +131,7 @@ async def cambiar_password_form(request: Request):
 
 
 @route.post(RUTA_CAMBIAR_PASSWORD, name="cambiar_password_submit")
-async def cambiar_password_submit(
+def cambiar_password_submit(
     request: Request,
     password_actual: str = Form(...),
     password_nueva: str = Form(...),
@@ -157,7 +157,7 @@ async def cambiar_password_submit(
 
 
 @route.get("/cuenta/saldo", name="cuenta_saldo")
-async def cuenta_saldo(request: Request):
+def cuenta_saldo(request: Request):
     """Saldo actual del usuario (lo usa static/js/ui.js para refrescar la pill del navbar
     después de comprar/vender/cobrar sin recargar la página)."""
     usuario = obtener_usuario_actual(request)

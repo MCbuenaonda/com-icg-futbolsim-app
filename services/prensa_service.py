@@ -185,7 +185,9 @@ def vista(d: dict) -> dict:
     from services.imagenes_pais_service import url_imagen_medios
     m = next((x for x in medios() if x["id"] == d["medio_id"]), {})
     per = next((p for p in (m.get("equipo") or {}).get("periodistas", []) if p["nombre"] == d["periodista"]["nombre"]), {})
+    from services.tecnicos_service import fecha_corta
     return {**{k: d[k] for k in ("tipo", "tono", "titular", "texto", "categoria_tono", "valoraciones", "fecha", "hora")},
+            "fecha_corta": fecha_corta(d.get("fecha")) or d.get("fecha"),
             "periodista": {**d["periodista"], "avatar_url": url_imagen_medios(per.get("avatar"))},
             "clase": "prensa", "id": d["_id"], "juego_id": d["juego_id"], "medio_id": d["medio_id"],
             "medio": {**d["medio"], "color": LINEA_COLOR.get(d["medio"].get("linea"), "#94a3b8"), "logo": url_imagen_medios(m.get("logo"))},

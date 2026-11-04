@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 @route.get("/", response_class=HTMLResponse, name="niveles_vista")
-async def niveles_vista(request: Request):
+def niveles_vista(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -28,7 +28,7 @@ async def niveles_vista(request: Request):
 
 
 @route.post("/reclamar/{nivel}", name="niveles_reclamar")
-async def reclamar(nivel: int, request: Request):
+def reclamar(nivel: int, request: Request):
     """Reclama la recompensa PENDIENTE de un nivel (siempre el usuario de la sesión)."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
@@ -44,7 +44,7 @@ async def reclamar(nivel: int, request: Request):
 
 
 @route.post("/visto", name="niveles_visto")
-async def visto(request: Request):
+def visto(request: Request):
     """Cierra el aviso de "¡Subiste de nivel!" de base.html."""
     usuario = obtener_usuario_actual(request)
     if not usuario:

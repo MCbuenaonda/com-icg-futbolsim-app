@@ -18,7 +18,7 @@ import time
 from typing import Optional
 
 from services import corporativo_universo_service as U
-from services.juegos_service import formatear_posts_partidos
+from services.juegos_service import PROYECCION_FEED, formatear_posts_partidos
 
 db = U.db
 TIPOS_MARCA = ["FIRMA", "RUMOR", "RENOVACION", "DESPEDIDA"]
@@ -116,7 +116,7 @@ def publicaciones(usuario: Optional[dict], q: str = "", filtro: str = "todo", an
             rx = _regex(q)
             consulta = {"$and": [consulta, {"$or": [{"equipo_local.nombre": rx}, {"equipo_visitante.nombre": rx}, {"tag": rx},
                                                      {"resultado.cronica.post": rx}, {"resultado.goleadores.jugador_nombre": rx}]}]}
-        juegos = list(db["juegos"].find(consulta).sort([("fecha", -1), ("hora", -1)]).limit(limite + 4))
+        juegos = list(db["juegos"].find(consulta, PROYECCION_FEED).sort([("fecha", -1), ("hora", -1)]).limit(limite + 4))
         for p in formatear_posts_partidos(juegos):
             items.append({**p, "clase": "partido", "hora": p.get("hora") or "", "fecha": p.get("fecha") or "", "orden": -1,
                           "reacciones": []})

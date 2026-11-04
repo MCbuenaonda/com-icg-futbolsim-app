@@ -22,7 +22,7 @@ from services.corporativo_universo_service import db
 
 # Campos que escribe el procesamiento (no se pisan los que cambian las acciones del usuario, como es_del_usuario)
 CAMPOS_CORP = ("capital", "sentimiento", "precio", "variacion_ciclo", "patrimonio", "historial", "ciclo_actual", "confianza",
-               "saneamiento")
+               "saneamiento", "reputacion", "marketing_ciclo", "marketing_hasta_ciclo")
 CAMPOS_CONTRATO = ("renta_total", "renta_ciclo", "honorarios_total", "satisfaccion", "jugo_en_ciclo", "ciclos_sin_jugar",
                    "partidos", "foto_fase", "valor_actual", "activo", "fin_ciclo", "motivo_fin", "desde_ciclo", "hasta_ciclo",
                    "prima", "origen", "pidio_salida_ciclo", "eventos_ciclo", "eventos_marcas", "tv_bono_hasta_seq")
@@ -202,6 +202,11 @@ def cerrar_ciclo_economia(estado: Estado, ciclo: int) -> None:
     v = valores()
     fases = {d["id"]: d for d in db["internacional"].find({}, {"_id": 0, "id": 1, "fase_eliminatoria": 1, "estado": 1})}
     jugaron = paises_que_jugaron(ciclo)
+    # Las que ya clasificaron salen de 'internacional' hasta el sorteo del Mundial: se les da la foto de "clasificada"
+    # (fase 7) para que cuenten como avance (una sola vez) y no como eliminadas.
+    from services.fantasy_service import paises_calificados
+    for pid in paises_calificados():
+        fases.setdefault(pid, {"id": pid, "fase_eliminatoria": 7, "estado": "CALIFICADO_MUNDIAL"})
 
     for c in estado.contratos:
         if not c["activo"]:
@@ -251,7 +256,7 @@ def cerrar_ciclo_economia(estado: Estado, ciclo: int) -> None:
         banco = c["tipo"] == "jugador" and pais in jugaron and not c.get("jugo_en_ciclo")
         if c.get("jugo_en_ciclo"):
             c["ciclos_sin_jugar"] = 0
-        elif eliminado or banco:
+        elif eliminado or banco:   # (una selección ya clasificada, sin partido a la vista, no cuenta como eliminada)
             c["ciclos_sin_jugar"] = c.get("ciclos_sin_jugar", 0) + 1
             c["satisfaccion"] = max(0, c["satisfaccion"] + C.SATISFACCION["ciclo_sin_jugar"])
         if C.CORPORATIVO_POR_SIGLA[c["sigla"]]["tier"] == "A":

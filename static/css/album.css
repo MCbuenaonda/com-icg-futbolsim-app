@@ -586,21 +586,36 @@
 
 
 /* Estampas de televisión y marcas (album_medios): el logo sobre un panel claro, el personaje con su avatar */
-.estampa__logo { position: absolute; left: 12px; right: 12px; top: 12px; bottom: 36%; display: grid; place-items: center; overflow: hidden; border-radius: 10px;
-    background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.82), rgba(203, 213, 225, 0.6) 80%); border: 1px solid rgba(255, 255, 255, 0.5); }
-.estampa__logo img { width: 88%; max-height: 90%; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45)); }
+.estampa__logo { position: absolute; left: 10px; right: 10px; top: 10px; bottom: 36%; display: grid; place-items: center; overflow: hidden; border-radius: 10px;
+    background: radial-gradient(circle at 50% 35%, #1b2a47 0%, #0f1a30 70%, #0a1222 100%); border: 1px solid rgba(255, 255, 255, 0.14); box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.55); }
+.estampa__logo img { width: 94%; max-height: 92%; object-fit: contain; }
 .estampa__logo .bi { font-size: 2.6rem; color: rgba(255, 255, 255, 0.75); }
 .estampa--persona .estampa__foto img { width: 104%; height: 104%; object-fit: cover; object-position: 50% 10%; }
 .estampa--persona .estampa__reverso-titulo { flex-shrink: 0; }
 .estampa--persona .estampa__datos { gap: 0.1rem 0.35rem; }
 
-/* Sobre de 25 estampas: cuadrícula compacta en lugar de abanico */
-.sobre-cartas--muchas { gap: 0.7rem; max-width: 980px; margin-inline: auto; }
-.sobre-cartas--muchas .carta-sobre { width: 118px; transform: none; }
-.sobre-cartas--muchas .carta-sobre--horizontal { width: 190px; }
-.sobre-cartas--muchas .carta-sobre__cinta { font-size: 0.56rem; padding: 0.05rem 0.4rem; }
+/* Sobre de 25 estampas: fila horizontal tipo carrusel (se desliza; cada carta se centra al revelarse) */
+.sobre-carrusel { position: relative; width: 100%; min-width: 0; max-width: 100%; }   /* min-width: 0: el escenario es un grid y sin esto el carrusel crece hasta el ancho de todas las cartas en vez de deslizarse */
+.sobre-cartas--muchas { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scroll-snap-type: x proximity; scroll-behavior: smooth; gap: 0.8rem;
+    padding: 1rem 40vw 1.4rem; scrollbar-width: thin; scrollbar-color: rgba(250, 204, 21, 0.5) transparent; }
+.sobre-cartas--muchas .carta-sobre { flex: 0 0 auto; width: 150px; transform: none; scroll-snap-align: center; }
+.sobre-flecha { position: absolute; top: 42%; z-index: 5; width: 2.6rem; height: 2.6rem; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(11, 18, 32, 0.82); color: #fff; display: none; place-items: center; cursor: pointer; backdrop-filter: blur(4px); }
+.sobre-flecha:hover { background: rgba(250, 204, 21, 0.25); border-color: #facc15; }
+.sobre-flecha--ant { left: 0.3rem; } .sobre-flecha--sig { right: 0.3rem; }
+.sobre-carrusel--activo .sobre-flecha { display: grid; }
+.sobre-contador { text-align: center; color: #94a3b8; font-size: 0.8rem; min-height: 1.2rem; }
 @media (max-width: 575.98px) {
-    .sobre-cartas--muchas { gap: 0.4rem; }
-    .sobre-cartas--muchas .carta-sobre { width: 23%; }
-    .sobre-cartas--muchas .carta-sobre--horizontal { width: 48%; }
+    .sobre-cartas--muchas { padding-inline: 30vw; gap: 0.5rem; }
+    .sobre-cartas--muchas .carta-sobre { width: 120px; }
+    .sobre-flecha { width: 2.2rem; height: 2.2rem; }
 }
+@media (prefers-reduced-motion: reduce) { .sobre-cartas--muchas { scroll-behavior: auto; } }
+
+/* Arrastrar el carrusel con el mouse */
+.sobre-cartas--muchas { cursor: grab; }
+.sobre-cartas--arrastrando { cursor: grabbing; scroll-snap-type: none !important; scroll-behavior: auto !important; user-select: none; }
+.sobre-cartas--muchas img { -webkit-user-drag: none; user-select: none; }
+/* La foto de equipo (horizontal) en una carta vertical del sobre: centrada y entera, del mismo tamaño que las demás */
+.carta-sobre--equipo .estampa__equipo-foto { top: 14%; bottom: 34%; }
+.carta-sobre--equipo .estampa__equipo-foto img { object-position: center center; }

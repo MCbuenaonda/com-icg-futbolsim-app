@@ -5145,6 +5145,7 @@ button.tv-logo:hover { transform: scale(1.04); }
 .medio-tono { display: inline-flex; align-items: center; gap: 0.25rem; }
 .medio-tono--elogio { color: #4ade80; } .medio-tono--critica { color: #f87171; } .medio-tono--neutral { color: #94a3b8; }
 .prensa-lista { display: grid; gap: 0.7rem; }
+.prensa-periodista { color: var(--medio, #fb923c); font-weight: 700; }
 .prensa-nota { display: flex; gap: 0.6rem; align-items: flex-start; padding-left: 0.6rem; border-left: 3px solid var(--medio); }
 
 /* Prensa: logo (cabecera) del medio y cara del periodista */

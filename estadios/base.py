@@ -63,14 +63,15 @@ def casco(puntos):
 
 
 def contorno(forma: str, a: float, b: float, t: float):
-    """Punto del borde de la planta en el parámetro t. Formas: oval, circulo, rect, caja, octogono, poligono:<k>."""
+    """Punto del borde de la planta en el parámetro t. Formas: oval, circulo, rect, caja, octogono, ovalo_largo, lenteja, rect_suave, rect_largo, cuadrado, cuadrado_caja, poligono:<k>."""
     c, s = math.cos(t), math.sin(t)
     if forma.startswith("poligono"):
         k = int(forma.split(":")[1])
         seg = 2 * math.pi / k
         r = math.cos(math.pi / k) / math.cos((t % seg) - math.pi / k)
         return a * c * r, b * s * r
-    n = {"oval": 2.0, "circulo": 2.0, "rect": 4.5, "caja": 9.0, "octogono": 3.0}.get(forma, 2.0)
+    n = {"oval": 2.0, "circulo": 2.0, "rect": 4.5, "caja": 9.0, "octogono": 3.0, "ovalo_largo": 2.0, "lenteja": 2.0,
+         "rect_suave": 3.2, "rect_largo": 5.0, "cuadrado": 4.0, "cuadrado_caja": 8.0}.get(forma, 2.0)
     return a * math.copysign(abs(c) ** (2 / n), c), b * math.copysign(abs(s) ** (2 / n), s)
 
 
@@ -103,7 +104,9 @@ class EstadioBase:
     Un estadio: planta + gradas + cancha + lo que agregue cada concepto (fachada, cubierta, extras).
     paleta = {principal, secundario, detalle}; espejo = vista desde el otro lado (variante).
     """
-    MEDIDAS = {"oval": (74, 50), "circulo": (66, 66), "rect": (61, 43), "caja": (61, 43), "octogono": (66, 47)}
+    MEDIDAS = {"oval": (74, 50), "circulo": (66, 66), "rect": (61, 43), "caja": (61, 43), "octogono": (66, 47),
+               "ovalo_largo": (82, 44), "lenteja": (84, 38), "rect_suave": (63, 44), "rect_largo": (72, 40),
+               "cuadrado": (52, 52), "cuadrado_caja": (52, 52)}
 
     def __init__(self, paleta: dict, forma: str = "oval", anillos: int = 2, semilla: int = 0, espejo: bool = False,
                  hueco=None, cy_extra: float = 0.0):

@@ -40,13 +40,13 @@ CONFEDERACIONES = [
 # API JSON
 # ==========================================================================
 @route.get("/market", response_model=List[SeleccionMercadoOut], name="ownership_market")
-async def market(confederacion_id: Optional[int] = Query(None, description="Filtrar por confederación")):
+def market(confederacion_id: Optional[int] = Query(None, description="Filtrar por confederación")):
     """Lista las selecciones sin dueño disponibles para comprar, ordenadas por confederación y valor."""
     return obtener_mercado(confederacion_id)
 
 
 @route.post("/buy/{pais_id}", response_model=InversionOut, status_code=201, name="ownership_buy")
-async def buy(request: Request, pais_id: int):
+def buy(request: Request, pais_id: int):
     """Compra la selección `pais_id` para el usuario logueado (vía cookie de sesión)."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
@@ -64,7 +64,7 @@ async def buy(request: Request, pais_id: int):
 
 
 @route.post("/sell/{pais_id}", response_model=InversionOut, name="ownership_sell")
-async def sell(request: Request, pais_id: int):
+def sell(request: Request, pais_id: int):
     """Vende la selección `pais_id` del usuario logueado al valor de mercado actual."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
@@ -82,7 +82,7 @@ async def sell(request: Request, pais_id: int):
 
 
 @route.get("/my-portfolio/{user_id}", response_model=List[InversionOut], name="ownership_portfolio")
-async def my_portfolio(user_id: str, request: Request):
+def my_portfolio(user_id: str, request: Request):
     """Selecciones activas del usuario, con valor de compra, valor actual y plusvalía."""
     exigir_mismo_usuario_o_admin(request, user_id)
     try:

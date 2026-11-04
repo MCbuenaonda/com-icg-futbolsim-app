@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # API JSON
 # ==========================================================================
 @route.get("/fanbase-ranking", response_model=List[PaisFanbaseOut], name="fanbase_ranking")
-async def fanbase_ranking():
+def fanbase_ranking():
     """Selecciones ordenadas de mayor a menor por cantidad de aficionados, independiente del ranking FIFA."""
     return obtener_ranking_aficionados()
 
@@ -38,7 +38,7 @@ async def fanbase_ranking():
 # Vista HTML
 # ==========================================================================
 @route_vistas.get("/", response_class=HTMLResponse, name="fanbase_ranking_view")
-async def fanbase_ranking_view(request: Request):
+def fanbase_ranking_view(request: Request):
     ranking = obtener_ranking_aficionados()
     return templates.TemplateResponse(
         request=request,

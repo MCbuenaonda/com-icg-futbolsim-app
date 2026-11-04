@@ -39,7 +39,7 @@ def _resolver_analisis(match_id: str) -> PreMatchAnalysisResponse:
 # API JSON
 # ==========================================================================
 @route.get("/pre-match-analysis/{match_id}", response_model=PreMatchAnalysisResponse, name="prematch_analysis")
-async def pre_match_analysis(match_id: str):
+def pre_match_analysis(match_id: str):
     """
     Análisis matemático de clasificación (fases 1-7, según reglas de cada tamaño de grupo) o
     de probabilidad de avance de ronda (fases 8-13, knockout a partido único), más comparativa
@@ -52,7 +52,7 @@ async def pre_match_analysis(match_id: str):
 # Vista HTML (Tarjeta Pre-Partido)
 # ==========================================================================
 @route_vistas.get("/{match_id}", response_class=HTMLResponse, name="prematch_scouter_view")
-async def scouter_view(request: Request, match_id: str):
+def scouter_view(request: Request, match_id: str):
     analisis = _resolver_analisis(match_id)
     # Bloque "Historial entre ambos" (mismo resumen que /cara-a-cara)
     try:

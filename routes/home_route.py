@@ -28,7 +28,7 @@ process_uuid = uuid.uuid4()
 
 
 @route.get("/", response_class=HTMLResponse, name="home")
-async def inicio(request: Request):
+def inicio(request: Request):
     resp_mundial = crear_nuevo_mundial()
     mundial = resp_mundial.get('data')
     ordinal_mundial = obtener_ordinal_mundial_actual()
@@ -80,7 +80,7 @@ async def inicio(request: Request):
 # POST (antes GET: cualquier link o prefetch podía borrar el torneo) y solo con permiso
 # 'reiniciar_torneo' -- borra torneo, partidos y saldos (ver mundial_service.restart_mundial).
 @route.post("/restart", name="home_restart", dependencies=[Depends(requiere_permiso("reiniciar_torneo"))])
-async def reinicio(request: Request):
+def reinicio(request: Request):
     # limpieza de tablas
     restart_mundial()
     return RedirectResponse(url=request.url_for("home"), status_code=303)

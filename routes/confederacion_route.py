@@ -21,7 +21,7 @@ process_uuid = uuid.uuid4()
 
 
 @route.get("/{id}", response_class=HTMLResponse)
-async def pais(request: Request, id: str):
+def pais(request: Request, id: str):
     try:
         confederacion = get_confederacion(id, logger)
         

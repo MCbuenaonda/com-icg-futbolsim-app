@@ -166,7 +166,9 @@ def evaluar_objetivos(estado, universo: dict) -> dict:
             meta = int(cod.split("_")[-1])
             fases = {d["id"]: d for d in _db()["internacional"].find({"id": {"$in": [c["ref_id"] for c in activos if c["tipo"] == "seleccion"]}},
                                                                      {"id": 1, "fase_eliminatoria": 1, "estado": 1})}
+            from services.fantasy_service import paises_calificados
             n = sum(1 for d in fases.values() if (d.get("fase_eliminatoria") or 0) >= 7 or "CALIFICADO_MUNDIAL" in str(d.get("estado") or ""))
+            n += sum(1 for c in activos if c["tipo"] == "seleccion" and c["ref_id"] in paises_calificados() and c["ref_id"] not in fases)
             salida[cod] = {"ok": n >= meta, "detalle": f"{n} de {meta}"}
         elif cod in ("cotizacion_inicial", "cotizacion_mas_10"):
             meta = cargo.get("precio_inicio", corp["precio"]) * (1.1 if cod == "cotizacion_mas_10" else 1.0)

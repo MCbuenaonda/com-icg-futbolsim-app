@@ -31,13 +31,13 @@ logger = logging.getLogger(__name__)
 # API JSON
 # ==========================================================================
 @route.get("/available/{pais_id}", response_model=List[CiudadDisponibleOut], name="venues_available")
-async def available(pais_id: int):
+def available(pais_id: int):
     """Ciudades de un país que todavía no tienen dueño, listas para patrocinar."""
     return obtener_ciudades_disponibles(pais_id)
 
 
 @route.post("/buy/{ciudad_id}", response_model=SedeOut, status_code=201, name="venues_buy")
-async def buy(request: Request, ciudad_id: int):
+def buy(request: Request, ciudad_id: int):
     """Compra/patrocina la ciudad `ciudad_id` para el usuario logueado (vía cookie de sesión)."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
@@ -55,7 +55,7 @@ async def buy(request: Request, ciudad_id: int):
 
 
 @route.post("/sell/{ciudad_id}", response_model=SedeOut, name="venues_sell")
-async def sell(request: Request, ciudad_id: int):
+def sell(request: Request, ciudad_id: int):
     """Vende la sede `ciudad_id` del usuario logueado, reembolsando el 80% de su costo de compra."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
@@ -73,7 +73,7 @@ async def sell(request: Request, ciudad_id: int):
 
 
 @route.get("/my-portfolio/{user_id}", response_model=List[SedeOut], name="venues_portfolio")
-async def my_portfolio(user_id: str, request: Request):
+def my_portfolio(user_id: str, request: Request):
     """Sedes activas del usuario, con partidos alojados y ganancias totales."""
     exigir_mismo_usuario_o_admin(request, user_id)
     try:
@@ -83,7 +83,7 @@ async def my_portfolio(user_id: str, request: Request):
 
 
 @route.get("/buscar", response_model=List[CiudadDisponibleOut], name="venues_buscar")
-async def buscar(request: Request, response: Response, q: str = Query("", description="Texto a buscar por ciudad o país"),
+def buscar(request: Request, response: Response, q: str = Query("", description="Texto a buscar por ciudad o país"),
                  limite: int = Query(50, le=200), estado: str = Query("", description="'', disponible, mias u ocupada"),
                  saltar: int = Query(0, ge=0, description="Cuántos resultados saltear (paginación)")):
     """
@@ -103,7 +103,7 @@ async def buscar(request: Request, response: Response, q: str = Query("", descri
 # Vistas HTML (requieren sesión iniciada — ver services/auth_service.py)
 # ==========================================================================
 @route_vistas.get("/directorio", response_class=HTMLResponse, name="venues_directorio_vista")
-async def directorio_vista(request: Request):
+def directorio_vista(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -120,7 +120,7 @@ async def directorio_vista(request: Request):
 
 
 @route_vistas.get("/portafolio", response_class=HTMLResponse, name="venues_portafolio_vista")
-async def portafolio_vista(request: Request):
+def portafolio_vista(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)

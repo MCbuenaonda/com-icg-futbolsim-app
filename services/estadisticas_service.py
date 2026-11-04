@@ -829,7 +829,10 @@ _cache_vista = {"clave": None, "stats": None, "juegos": None, "agregado": None, 
 
 def _juegos_del_mundial() -> list:
     """Partidos jugados del Mundial activo, con la proyección que usan todas las secciones (una sola carga)."""
-    return list(db["juegos"].find({**_filtro_finalizados()}, PROYECCION_JUEGOS_MUNDIAL).sort([("fecha", 1), ("hora", 1)]))
+    juegos = list(db["juegos"].find({**_filtro_finalizados()}, PROYECCION_JUEGOS_MUNDIAL))
+    # Se ordena aquí: el sort del servidor ordena los documentos completos (con sus eventos) y excede la memoria.
+    juegos.sort(key=lambda j: (j.get("fecha") or "", j.get("hora") or ""))
+    return juegos
 
 
 def _agregar_jugadores_mundial(juegos: list) -> dict:

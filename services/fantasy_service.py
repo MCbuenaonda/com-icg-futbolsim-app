@@ -164,6 +164,27 @@ def jornada_actual() -> dict:
     return datos
 
 
+_cache_calificados = {"hasta": 0.0, "datos": None}
+
+
+def paises_calificados() -> set:
+    """
+    Ids de las selecciones que YA clasificaron al Mundial activo. Al terminar su fase salen de 'internacional'
+    (quedan en 'historial' con estado CALIFICADO_MUNDIAL) hasta que se arma la fase de grupos del Mundial, así que
+    "no figura en internacional" no significa eliminada ni fuera. Caché 30 s.
+    """
+    ahora = time.monotonic()
+    if _cache_calificados["datos"] is not None and ahora < _cache_calificados["hasta"]:
+        return _cache_calificados["datos"]
+    mundial = db['mundiales'].find_one({"activo": True}, {"_id": 1})
+    datos = set()
+    if mundial:
+        datos = {d["id"] for d in db['historial'].find(
+            {"mundial_id": str(mundial["_id"]), "estado": {"$regex": "^CALIFICADO_MUNDIAL"}}, {"id": 1})}
+    _cache_calificados.update(hasta=ahora + 30, datos=datos)
+    return datos
+
+
 def paises_eliminados() -> Dict[int, str]:
     """
     {pais_id: motivo} de las selecciones cuyos jugadores ya no pueden sumar puntos en este Mundial:
@@ -175,7 +196,10 @@ def paises_eliminados() -> Dict[int, str]:
     en_mundial = {d["id"]: str(d.get("estado") or "") for d in db['internacional'].find({}, {"id": 1, "estado": 1})}
     datos = {}
     if en_mundial:   # sin Mundial armado no se marca a nadie
+        calificados = paises_calificados()
         for p in db['paises'].find({}, {"id": 1}):
+            if p["id"] in calificados:
+                continue
             if p["id"] not in en_mundial:
                 datos[p["id"]] = "No participa"
             elif en_mundial[p["id"]].startswith("ELIMINADO"):

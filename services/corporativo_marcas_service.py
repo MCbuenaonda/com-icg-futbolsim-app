@@ -362,6 +362,7 @@ def ronda_marcas(estado, ciclo: int, seq: int, cierre: bool = False) -> None:
         _vencer_ofertas(estado, ciclo, seq, ocup, cierre)
         _resolver_rumores(estado, ciclo, seq, cat, ctx, ocup, contratos)
         _acercamientos(estado, ciclo, ronda, cat, ctx, ocup, contratos)
+        _ia_promociones(estado, ciclo, ronda, seq, cat, ctx, ocup, contratos)
         for c in contratos.values():   # los hechos de la ronda ya se usaron: no cuentan dos veces
             if c.get("eventos_marcas"):
                 c["eventos_marcas"] = {}
@@ -635,6 +636,44 @@ def _acercamientos(estado, ciclo, ronda, cat, ctx, ocup, contratos) -> None:
         else:
             e, c = rng.choices(cands, weights=[max(1, x[0] - 30) for x in cands])[0]
             _decidir(estado, ciclo, marca, c, e, ocup, rng, seq)
+
+
+def _rezagado(corp: dict) -> bool:
+    """Corporativo de la IA que va atrás: en saneamiento (activo o fallido) o con el capital por debajo del 90% del inicial."""
+    return (corp.get("saneamiento") or {}).get("estado") in ("ACTIVO", "FALLIDO") or corp.get("capital", 0) < 0.9 * corp.get("capital_inicial", 0)
+
+
+def _ia_promociones(estado, ciclo, ronda, seq, cat, ctx, ocup, contratos) -> None:
+    """Los corporativos de la IA promueven a sus representados con las marcas, como el CEO con «Promover» (antes solo aceptaban
+    lo que las marcas les ofrecían, y los que tenían representados menos vistosos se quedaban sin patrocinios): por ronda, con
+    IA_PROB_PROMOCION (el doble si van rezagados), toman a los IA_PROMOCIONES_POR_RONDA con menos marcas y más valor, buscan la
+    marca con mejor encaje y cupo y esta decide con la misma probabilidad que una promoción del usuario."""
+    uid = estado.uid
+    reps: dict = {}
+    for sigla, corp in estado.corps.items():
+        if corp.get("es_del_usuario"):
+            continue
+        rng = R.semilla(uid, "ia-promo", sigla, ronda)
+        if rng.random() >= min(1.0, C.IA_PROB_PROMOCION * (2.0 if _rezagado(corp) else 1.0)):
+            continue
+        propios = [c for c in contratos.values() if c["sigla"] == sigla and len(ocup["por_rep"].get((c["tipo"], c["ref_id"]), [])) < C.MARCAS_MAX_POR_REPRESENTADO]
+        propios.sort(key=lambda c: (len(ocup["por_rep"].get((c["tipo"], c["ref_id"]), [])), -(c.get("valor_actual") or _valor(c["tipo"], c["ref_id"]))))
+        for c in propios[:C.IA_PROMOCIONES_POR_RONDA]:
+            k = (c["tipo"], c["ref_id"])
+            rep = reps.get(k) or reps.setdefault(k, representado(c["tipo"], c["ref_id"], ctx))
+            mejores = []
+            for marca in cat.values():
+                if puede_patrocinar(marca, c["tipo"], c["ref_id"], ocup):
+                    continue
+                e = R.encaje_marca(marca, rep)
+                if e >= C.MARCA_ENCAJE_MINIMO:
+                    mejores.append((e, marca))
+            if not mejores:
+                continue
+            mejores.sort(key=lambda x: -x[0])
+            e, marca = rng.choice(mejores[:3])
+            if rng.random() < R.prob_promocion(e, corp.get("reputacion", 50), 50):
+                _activar(estado, ciclo, marca, c, corp, e, "PROMOCION", ocup, seq=seq)
 
 
 # --- Partido: las marcas responden en el hilo del partido de sus patrocinados -------------------------

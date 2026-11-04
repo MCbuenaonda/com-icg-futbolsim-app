@@ -14,7 +14,7 @@ Colecciones (todas con universo_id, PERMANENTES como el resto de corp_*):
                   de jugadores (todos los universos) con tope por selección y ciclo.
 
 Aficionados reales (paises.aficionados, globales): solo las giras de SELECCIÓN del usuario (+1% a +3%, una cada
-GIRA_ENFRIAMIENTO ciclos por selección entre todos los usuarios) y un aporte de las giras de jugadores (1 a 100,
+GIRA_ENFRIAMIENTO ciclos por selección entre todos los usuarios) y un aporte de las giras de jugadores (1 a 250,
 tope TOPE_AFICIONADOS_GIRAS_JUGADOR por selección y ciclo). Las giras de selección de la IA no los tocan.
 Las acciones del usuario corren con el candado del universo; el cierre de ciclo, dentro de poner_al_dia.
 """
@@ -57,7 +57,10 @@ def _popularidad(tipo: str, ref_id: int, valor: int) -> float:
 
 def _eliminada(pais_id) -> bool:
     d = db["internacional"].find_one({"id": pais_id}, {"estado": 1})
-    return not d or str(d.get("estado") or "").startswith("ELIMINADO")
+    if not d:
+        from services.fantasy_service import paises_calificados
+        return pais_id not in paises_calificados()
+    return str(d.get("estado") or "").startswith("ELIMINADO")
 
 
 def forma_selecciones() -> dict:
@@ -608,6 +611,21 @@ def _ia_acciones(estado, ciclo: int) -> None:
         # (los acuerdos publicitarios los reemplazaron las marcas: corporativo_marcas_service)
         if rng.random() < C.IA_PROB_GIRA * factor:
             _ia_gira(estado, sigla, corp, propios, ciclo, rng)
+        _ia_marketing(estado, corp, ciclo, rng)
+
+
+def _ia_marketing(estado, corp: dict, ciclo: int, rng) -> None:
+    """Campaña de marketing de la IA (la misma del CEO: +reputación y los patrocinios pagan ×MARKETING_BONO_PATROCINIO unos ciclos)
+    cuando le sobra capital y no hay una vigente."""
+    if (corp.get("marketing_hasta_ciclo") or 0) >= ciclo or corp.get("reputacion", 50) >= 100:
+        return
+    if corp["capital"] < C.COSTO_MARKETING * C.IA_CAPITAL_MARKETING or rng.random() >= C.IA_PROB_MARKETING:
+        return
+    corp["capital"] -= C.COSTO_MARKETING
+    corp["ciclo_actual"]["gastos_extra"] += C.COSTO_MARKETING
+    corp["marketing_ciclo"] = ciclo
+    corp["marketing_hasta_ciclo"] = ciclo + C.MARKETING_CICLOS - 1
+    corp["reputacion"] = min(100, corp.get("reputacion", 50) + C.MARKETING_REPUTACION)
 
 
 def _giras_recientes(estado, ciclo: int) -> list:

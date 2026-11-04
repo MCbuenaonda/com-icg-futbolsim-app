@@ -54,7 +54,7 @@ def _filtrar_juegos(juegos: list, q: str, confederacion: str, grupo: str, fecha:
 
 
 @route.get("/", response_class=HTMLResponse)
-async def juegos(request: Request, q: str = "", confederacion: str = "", grupo: str = "", fecha: str = "",
+def juegos(request: Request, q: str = "", confederacion: str = "", grupo: str = "", fecha: str = "",
                  jornada: str = "", pagina: int = 1):
     try:
         # 1. Obtener el mundial activo (opcional)
@@ -122,7 +122,7 @@ async def juegos(request: Request, q: str = "", confederacion: str = "", grupo: 
 
 
 @route.get("/calendario", response_class=HTMLResponse)
-async def calendario(request: Request):
+def calendario(request: Request):
     try:
         # 1. Obtener el mundial activo (opcional)
         mundial_activo = db["mundiales"].find_one({"activo": True})
@@ -164,7 +164,7 @@ async def calendario(request: Request):
 
 
 @route.get("/{id}", response_class=HTMLResponse)
-async def juego(request: Request, id: str):
+def juego(request: Request, id: str):
     try:
         juego, _ = obtener_juego_activo(id)
 

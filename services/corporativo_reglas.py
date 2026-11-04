@@ -350,7 +350,7 @@ def gira_jugador_ingreso_v2(costo: int, popularidad: float, forma_seleccion: flo
 
 def aporte_aficionados_jugador(forma_seleccion: float, forma_jugador: float, rng: random.Random) -> int:
     """
-    GIRA_JUGADOR_AFICIONADOS_MIN a _MAX (1 a 100) aficionados para su selección por una gira de un jugador.
+    GIRA_JUGADOR_AFICIONADOS_MIN a _MAX (1 a 250) aficionados para su selección por una gira de un jugador.
     forma_seleccion: puntos de sus últimos 5 partidos / 15. forma_jugador: 0..1 (juega y aporta goles/asistencias).
     Con malos resultados (selección que no suma y jugador que no juega) aporta el mínimo.
     """

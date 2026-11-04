@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% import "partials/macros.html" as m %}
+
+{% block title %}Ciudades y estadios - Administración{% endblock %}
+
+{% macro enlace_pagina(n) -%}
+?{{ {'q': filtros.q, 'pais': filtros.pais or '', 'confederacion': filtros.confederacion or '', 'tipo': filtros.tipo, 'dueno': filtros.dueno, 'pagina': n} | urlencode }}
+{%- endmacro %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-building text-accent me-2"></i>Ciudades y estadios</h1>
+        <p class="text-muted mb-0">{{ '{:,}'.format(total) }} ciudad{{ 'es' if total != 1 else '' }} sede. Edita el nombre del estadio con el lápiz.</p>
+    </div>
+    <a href="{{ url_for('admin_usuarios') }}" class="btn btn-outline-light btn-sm"><i class="bi bi-people me-1"></i>Usuarios</a>
+</div>
+
+<form method="get" class="card bg-dark border-secondary mb-3">
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+            <label class="form-label small text-muted mb-1" for="fq">Buscar</label>
+            <input type="search" id="fq" name="q" value="{{ filtros.q }}" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Ciudad, estadio o país">
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small text-muted mb-1" for="fc">Confederación</label>
+            <select id="fc" name="confederacion" class="form-select form-select-sm bg-dark text-white border-secondary">
+                <option value="">Todas</option>
+                {% for c in confederaciones %}<option value="{{ c.id }}" {{ 'selected' if filtros.confederacion == c.id }}>{{ c.nombre }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small text-muted mb-1" for="fp">País</label>
+            <select id="fp" name="pais" class="form-select form-select-sm bg-dark text-white border-secondary">
+                <option value="">Todos</option>
+                {% for p in paises %}<option value="{{ p.id }}" {{ 'selected' if filtros.pais == p.id }}>{{ p.nombre }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-1">
+            <label class="form-label small text-muted mb-1" for="ft">Tipo</label>
+            <select id="ft" name="tipo" class="form-select form-select-sm bg-dark text-white border-secondary">
+                <option value="">Todos</option>
+                <option value="Capital" {{ 'selected' if filtros.tipo == 'Capital' }}>Capital</option>
+                <option value="Ciudad" {{ 'selected' if filtros.tipo == 'Ciudad' }}>Ciudad</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-1">
+            <label class="form-label small text-muted mb-1" for="fd">Dueño</label>
+            <select id="fd" name="dueno" class="form-select form-select-sm bg-dark text-white border-secondary">
+                <option value="">Todos</option>
+                <option value="con" {{ 'selected' if filtros.dueno == 'con' }}>Con dueño</option>
+                <option value="libre" {{ 'selected' if filtros.dueno == 'libre' }}>Libre</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-2 d-flex gap-2">
+            <button class="btn btn-success btn-sm fw-bold flex-grow-1" type="submit"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+            <a href="{{ url_for('admin_estadios') }}" class="btn btn-outline-light btn-sm" title="Limpiar filtros" aria-label="Limpiar filtros"><i class="bi bi-x-lg"></i></a>
+        </div>
+    </div>
+</form>
+
+<div class="card bg-dark border-secondary">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>#</th><th>Ciudad</th><th class="d-none d-md-table-cell">Tipo</th><th>País</th>
+                    <th class="d-none d-lg-table-cell">Confederación</th><th>Estadio</th>
+                    <th class="text-center d-none d-md-table-cell">Partidos</th><th class="d-none d-lg-table-cell">Dueño</th><th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in ciudades %}
+                <tr id="fila-{{ c.id }}">
+                    <td class="text-muted small">{{ c.id }}</td>
+                    <td class="fw-semibold text-white">{{ c.nombre }}</td>
+                    <td class="d-none d-md-table-cell"><span class="badge {{ 'bg-warning text-dark' if c.tipo == 'Capital' else 'bg-secondary' }}">{{ c.tipo }}</span></td>
+                    <td>{{ m.bandera(c.bandera, pais_id=c.pais_id) }} {{ c.pais }}</td>
+                    <td class="d-none d-lg-table-cell small text-muted">{{ c.confederacion }}</td>
+                    <td class="estadio-nombre">{{ c.estadio or '—' }}</td>
+                    <td class="text-center small d-none d-md-table-cell" title="Jugados / programados">{{ c.partidos.jugados }} / {{ c.partidos.programados }}</td>
+                    <td class="d-none d-lg-table-cell">{% if c.con_dueno %}<span class="badge bg-success">Con dueño</span>{% else %}<span class="text-muted small">Libre</span>{% endif %}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-light btn-editar" data-id="{{ c.id }}" data-ciudad="{{ c.nombre }}" data-pais="{{ c.pais }}"
+                                data-estadio="{{ c.estadio or '' }}" aria-label="Editar estadio de {{ c.nombre }}"><i class="bi bi-pencil"></i></button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" class="text-center text-muted py-4">Ninguna ciudad coincide con los filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if paginas > 1 %}
+    <div class="card-footer bg-transparent border-secondary d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <small class="text-muted">Página {{ pagina }} de {{ paginas }}</small>
+        <div class="btn-group btn-group-sm">
+            <a class="btn btn-outline-light {{ 'disabled' if pagina <= 1 }}" href="{{ enlace_pagina(1) }}" aria-label="Primera"><i class="bi bi-chevron-bar-left"></i></a>
+            <a class="btn btn-outline-light {{ 'disabled' if pagina <= 1 }}" href="{{ enlace_pagina(pagina - 1) }}"><i class="bi bi-chevron-left"></i> Anterior</a>
+            <a class="btn btn-outline-light {{ 'disabled' if pagina >= paginas }}" href="{{ enlace_pagina(pagina + 1) }}">Siguiente <i class="bi bi-chevron-right"></i></a>
+            <a class="btn btn-outline-light {{ 'disabled' if pagina >= paginas }}" href="{{ enlace_pagina(paginas) }}" aria-label="Última"><i class="bi bi-chevron-bar-right"></i></a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="modalEstadio" tabindex="-1" aria-labelledby="modalEstadioTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content bg-dark border-secondary" id="formEstadio">
+            <div class="modal-header border-secondary">
+                <h2 class="modal-title h5 text-white" id="modalEstadioTitulo">Editar estadio</h2>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3" id="estadioContexto"></p>
+                <label class="form-label small text-muted" for="estadioNombre">Nombre del estadio</label>
+                <input type="text" id="estadioNombre" class="form-control bg-dark text-white border-secondary" minlength="3" maxlength="80" required autocomplete="off">
+                <div class="form-text">Se actualiza también en los partidos de esta sede; la crónica de los ya jugados se reescribe sola con el nombre nuevo.</div>
+                <div class="text-danger small mt-2 d-none" id="estadioError" role="alert"></div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success fw-bold" id="estadioGuardar"><i class="bi bi-check-lg me-1"></i>Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+    const modalEl = document.getElementById('modalEstadio');
+    const modal = new bootstrap.Modal(modalEl);
+    const form = document.getElementById('formEstadio');
+    const campo = document.getElementById('estadioNombre');
+    const error = document.getElementById('estadioError');
+    const guardar = document.getElementById('estadioGuardar');
+    let actual = null;
+
+    document.querySelectorAll('.btn-editar').forEach(btn => btn.addEventListener('click', () => {
+        actual = btn;
+        document.getElementById('estadioContexto').textContent = `${btn.dataset.ciudad} · ${btn.dataset.pais}`;
+        campo.value = btn.dataset.estadio;
+        error.classList.add('d-none');
+        modal.show();
+    }));
+    modalEl.addEventListener('shown.bs.modal', () => { campo.focus(); campo.select(); });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!actual) return;
+        guardar.disabled = true;
+        try {
+            const r = await fetch(`/admin/estadios/${actual.dataset.id}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ nombre: campo.value }),
+            });
+            const d = await r.json();
+            if (!r.ok || !d.ok) {
+                error.textContent = d.error || 'No se pudo guardar.';
+                error.classList.remove('d-none');
+                return;
+            }
+            actual.dataset.estadio = d.estadio;
+            document.querySelector(`#fila-${actual.dataset.id} .estadio-nombre`).textContent = d.estadio;
+            modal.hide();
+            if (window.UI && UI.toast) UI.toast(d.cambio ? `Estadio actualizado (${d.partidos} partido${d.partidos === 1 ? '' : 's'} de la sede)` : 'Sin cambios', { icono: 'bi-check-circle', tipo: 'ok' });
+        } catch (err) {
+            error.textContent = 'Error de conexión.';
+            error.classList.remove('d-none');
+        } finally {
+            guardar.disabled = false;
+        }
+    });
+})();
+</script>
+{% endblock %}

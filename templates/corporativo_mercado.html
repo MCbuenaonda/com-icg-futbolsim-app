@@ -106,6 +106,7 @@
           {% set j = x.juego %}{% set sn = x.senal %}
           <div class="d-flex flex-wrap gap-1 mt-1">
             {% if j.estado == 'programado' %}<span class="corp-juego {{ 'corp-juego--ya' if j.en_ciclos == 0 else ('corp-juego--pronto' if j.en_ciclos <= 2 else '') }}" title="vs {{ j.rival }} · en ~{{ j.faltan }} partidos del torneo"><i class="bi bi-calendar-event"></i>{% if j.en_ciclos == 0 %}Juega este ciclo{% else %}Juega en {{ j.en_ciclos }} ciclo{{ 's' if j.en_ciclos > 1 }}{% endif %}</span>
+            {% elif j.estado == 'calificada' %}<span class="corp-juego corp-juego--ya"><i class="bi bi-patch-check-fill"></i>Clasificada al Mundial</span>
             {% elif j.estado == 'eliminada' %}<span class="corp-juego corp-juego--fuera"><i class="bi bi-x-octagon"></i>Eliminada</span>
             {% else %}<span class="corp-juego corp-juego--nada"><i class="bi bi-hourglass"></i>Sin partido programado</span>{% endif %}
             {% if sn.senal == 'comprar' %}<span class="corp-senal-chip" title="{{ sn.motivos | selectattr('tono', 'equalto', 'pos') | map(attribute='texto') | join(' · ') }}"><i class="bi bi-arrow-up-circle-fill"></i>Señal de compra</span>{% endif %}
@@ -124,7 +125,7 @@
                   data-satisfaccion="{{ x.satisfaccion if x.sigla_actual else '' }}" data-rival="{{ x.sigla_actual or '' }}"
                   data-clausula="{{ x.clausula or '' }}" data-pide="{{ x.pide or '' }}"
                   data-renta="{{ x.senal.renta_ciclo }}" data-mezcla="{{ ((x.prima_ref / x.senal.recupera_ciclos) | round | int) if x.senal.recupera_ciclos else 0 }}"
-                  data-juego="{{ ('vs ' ~ x.juego.rival ~ ' en ' ~ x.juego.en_ciclos ~ ' ciclo(s)') if x.juego.estado == 'programado' else ('selección eliminada' if x.juego.estado == 'eliminada' else 'sin partido programado') }}">Ofertar</button>
+                  data-juego="{{ ('vs ' ~ x.juego.rival ~ ' en ' ~ x.juego.en_ciclos ~ ' ciclo(s)') if x.juego.estado == 'programado' else ('selección eliminada' if x.juego.estado == 'eliminada' else ('selección clasificada al Mundial' if x.juego.estado == 'calificada' else 'sin partido programado')) }}">Ofertar</button>
           {% endif %}
         {% endif %}
       </div>

@@ -49,18 +49,18 @@ def cuadro(request: Request):
 
 
 @route_palmares.get("/", response_class=HTMLResponse, name="palmares")
-async def palmares(request: Request):
+def palmares(request: Request):
     return templates.TemplateResponse(request=request, name="palmares.html", context={"palmares": obtener_palmares()})
 
 
 @route_arbitros.get("/", response_class=HTMLResponse, name="arbitros")
-async def arbitros(request: Request, puesto: str = "central"):
+def arbitros(request: Request, puesto: str = "central"):
     activa = puesto if puesto in dict(ROLES_ARBITRO) else "central"
     return templates.TemplateResponse(request=request, name="arbitros.html", context={"pestanas": listar_por_puesto(), "activa": activa})
 
 
 @route_arbitros.get("/perfil", response_class=HTMLResponse, name="arbitro_perfil")
-async def arbitro(request: Request, nombre: str):
+def arbitro(request: Request, nombre: str):
     # Por query string: los nombres de árbitro tienen espacios y caracteres especiales
     perfil = perfil_arbitro(nombre)
     return templates.TemplateResponse(request=request, name="arbitro.html", context={"arbitro": perfil, "nombre": nombre,
@@ -68,7 +68,7 @@ async def arbitro(request: Request, nombre: str):
 
 
 @route_ranking.get("/", response_class=HTMLResponse, name="ranking_usuarios")
-async def ranking(request: Request):
+def ranking(request: Request):
     return templates.TemplateResponse(request=request, name="ranking_usuarios.html", context={"filas": obtener_ranking_usuarios()})
 
 

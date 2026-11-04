@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # API JSON
 # ==========================================================================
 @route.post("/open-pack", response_model=PackPurchaseOut, status_code=201, name="album_open_pack")
-async def open_pack(request: Request, origen: str = "COMPRA"):
+def open_pack(request: Request, origen: str = "COMPRA"):
     """
     Compra y abre un sobre (100 pts) para el usuario logueado (vía cookie de sesión). Con
     ?origen=GRATIS|PLATINO abre uno de los sobres de regalo de las recompensas de nivel.
@@ -76,7 +76,7 @@ def vender(request: Request):
 
 
 @route.get("/collection/{user_id}", response_model=ColeccionOut, name="album_collection")
-async def collection(user_id: str, request: Request):
+def collection(user_id: str, request: Request):
     """Estampas poseídas por el usuario y % de llenado de jugadores por país."""
     exigir_mismo_usuario_o_admin(request, user_id)
     try:
@@ -89,7 +89,7 @@ async def collection(user_id: str, request: Request):
 # Vistas HTML (requieren sesión iniciada — ver services/auth_service.py)
 # ==========================================================================
 @route_vistas.get("/sobres", response_class=HTMLResponse, name="album_sobres_vista")
-async def sobres_vista(request: Request):
+def sobres_vista(request: Request):
     usuario = obtener_usuario_actual(request)
     if not usuario:
         return RedirectResponse(url=request.url_for("login"), status_code=303)
@@ -103,7 +103,7 @@ async def sobres_vista(request: Request):
 
 
 @route_vistas.get("/coleccion", response_class=HTMLResponse, name="album_coleccion_vista")
-async def coleccion_vista(request: Request, pagina: int = 1, pais: Optional[int] = None):
+def coleccion_vista(request: Request, pagina: int = 1, pais: Optional[int] = None):
     """Álbum de 211 páginas (una por país). ?pagina=N o ?pais=<id> abre directo en esa página."""
     usuario = obtener_usuario_actual(request)
     if not usuario:
@@ -121,7 +121,7 @@ async def coleccion_vista(request: Request, pagina: int = 1, pais: Optional[int]
 
 
 @route_vistas.get("/coleccion/pagina/{numero}", response_class=HTMLResponse, name="album_pagina_vista")
-async def pagina_vista(numero: int, request: Request):
+def pagina_vista(numero: int, request: Request):
     """Solo la hoja del álbum (HTML suelto): la usa el hojeo de album_coleccion.html sin recargar la página."""
     usuario = obtener_usuario_actual(request)
     if not usuario:

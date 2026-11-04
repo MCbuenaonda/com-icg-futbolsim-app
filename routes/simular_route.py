@@ -41,7 +41,7 @@ def _enfrentamientos(id_local: int, id_visita: int, juego_id: str):
 
 
 @route.get("/", response_class=HTMLResponse)
-async def inicio(request: Request, id: str, id_local: int, id_visita: int):
+def inicio(request: Request, id: str, id_local: int, id_visita: int):
     pais_local = get_pais_internacional(db, id_local, logger)
     pais_visitante = get_pais_internacional(db, id_visita, logger)
     
@@ -165,7 +165,7 @@ async def inicio(request: Request, id: str, id_local: int, id_visita: int):
 # endpoint para simular un partido de fútbol
 # Simula y PERSISTE el partido (avanza el torneo): solo con permiso 'simular_partidos'.
 @route.get("/simular", response_class=HTMLResponse, dependencies=[Depends(requiere_permiso("simular_partidos"))])
-async def simular(request: Request, id: str, id_local: int, id_visita: int, tiempo_extra: bool = False):
+def simular(request: Request, id: str, id_local: int, id_visita: int, tiempo_extra: bool = False):
     # Todo el motor + los efectos secundarios (jugadores, país, aficionados, quinielas,
     # selecciones/ownership, fantasy, sedes, ranking, avance de fase) vive en
     # services.juegos_service.ejecutar_simulacion_completa -- la comparte con

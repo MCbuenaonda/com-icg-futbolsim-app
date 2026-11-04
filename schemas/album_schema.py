@@ -36,6 +36,12 @@ class StickerOut(BaseModel):
     tipo_arte: Optional[str] = None
     edad: Optional[int] = None
     estilo: Optional[str] = None
+    # logos, dueños, comentaristas, directores y periodistas (televisoras, marcas y prensa; colección album_medios)
+    detalle: Optional[str] = None
+    origen: Optional[str] = None            # televisora | marca | medio
+    rasgo: Optional[str] = None
+    imagen_url: Optional[str] = None
+    imagen: Optional[str] = None
 
 
 class PackPurchaseOut(BaseModel):

@@ -28,7 +28,7 @@ process_uuid = uuid.uuid4()
 
 
 @route.get("/", response_class=HTMLResponse)
-async def paises(request: Request):
+def paises(request: Request):
     try:
         paises = get_paises(logger)
             
@@ -44,7 +44,7 @@ async def paises(request: Request):
 
 
 @route.get("/{id}", response_class=HTMLResponse)
-async def pais(request: Request, id: str):
+def pais(request: Request, id: str):
     try:
         pais = get_pais(id, logger)
         historial_aficionados = obtener_historial_aficionados_pais(int(id)) if pais else []

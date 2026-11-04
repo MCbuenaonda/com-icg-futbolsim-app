@@ -39,7 +39,7 @@ def _serializar_started_match(juego: dict) -> StartedMatchOut:
 
 @route.post("/simulate-next-auto", response_model=StartAutoSimulationResponse, name="matches_simulate_next_auto",
             dependencies=[Depends(requiere_permiso("simular_partidos"))])
-async def simulate_next_auto(request: Request):
+def simulate_next_auto(request: Request):
     """
     Busca el próximo partido pendiente ('creado'), lo simula y persiste el resultado (motor +
     services.juegos_service.simular_y_registrar_resultado), y arranca la ventana de "transmisión
@@ -91,7 +91,7 @@ async def simulate_next_auto(request: Request):
 
 
 @route.get("/live", response_model=LiveMatchOut, name="matches_live")
-async def get_live_match():
+def get_live_match():
     """
     Estado actual de la transmisión en vivo: partido en curso, marcador parcial y solo el
     subconjunto de eventos ya "sucedidos" en la ventana de 25 minutos, más los segundos
@@ -105,7 +105,7 @@ async def get_live_match():
 
 
 @route.get("/live/tabla-grupo", response_model=TablaGrupoOut, name="matches_live_tabla_grupo")
-async def get_live_tabla_grupo():
+def get_live_tabla_grupo():
     """
     Tabla de posiciones del grupo del partido en transmisión (para el panel lateral de
     /en-vivo/, junto a la cronología). Solo lectura, sin autenticación -- no expone nada que no
@@ -120,7 +120,7 @@ async def get_live_tabla_grupo():
 
 
 @route.get("/live/plantillas", response_model=PlantillasLiveOut, name="matches_live_plantillas")
-async def get_live_plantillas():
+def get_live_plantillas():
     """
     Mapa nombre de jugador -> sigla de posición granular (POR/LD/LI/MC/ED/etc.) y el 11 titular
     de ambos equipos del partido en transmisión, para enriquecer la etiqueta de "Cancha en Vivo"
@@ -194,7 +194,7 @@ def post_pulso_tick():
 # Vista HTML (Panel de Transmisión en Vivo)
 # ==========================================================================
 @route_vistas.get("/", response_class=HTMLResponse, name="live_match_view")
-async def live_match_view(request: Request):
+def live_match_view(request: Request):
     """
     Panel client-side puro: no recibe datos del server, todo el estado (si hay un partido en
     curso, marcador parcial, eventos revelados) se consulta vía JS contra GET /matches/live

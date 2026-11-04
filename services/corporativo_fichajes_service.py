@@ -218,9 +218,17 @@ def _ia_fichajes(estado, universo: dict, ciclo: int, rng) -> None:
     for sigla, corp in estado.corps.items():
         if corp.get("es_del_usuario"):
             continue
-        perfil = C.PERFILES_IA[C.CORPORATIVO_POR_SIGLA[sigla]["perfil"]]
+        perfil = dict(C.PERFILES_IA[C.CORPORATIVO_POR_SIGLA[sigla]["perfil"]])
         region = afines(sigla)
-        for _ in range(perfil["fichajes"]):
+        rezagado = (corp.get("saneamiento") or {}).get("estado") in ("ACTIVO", "FALLIDO") or corp["capital"] < 0.9 * corp.get("capital_inicial", 0)
+        if rezagado:   # el que va atrás ficha a los que las marcas sí quieren (percentil alto)
+            perfil["percentil"] = (max(perfil["percentil"][0], C.IA_PERCENTIL_REZAGADO), max(perfil["percentil"][1], 1.0))
+        scouting = corp["capital"] >= C.COSTO_SCOUTING * C.IA_CAPITAL_SCOUTING and rng.random() < C.IA_PROB_SCOUTING
+        if scouting:   # informe de scouting: paga y ficha a un libre joven de más
+            corp["capital"] -= C.COSTO_SCOUTING
+            corp["ciclo_actual"]["gastos_extra"] += C.COSTO_SCOUTING
+            perfil["edad"] = min(perfil["edad"], C.EDAD_MAXIMA_SCOUTING)
+        for _ in range(perfil["fichajes"] + (1 if scouting else 0)):
             if rng.random() < perfil["prob_seleccion"]:
                 tipo = "seleccion"
                 pool = _candidatos_libres(estado, tipo)

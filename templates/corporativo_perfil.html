@@ -13,6 +13,7 @@
 <span class="corp-juego {{ 'corp-juego--ya' if j.en_ciclos == 0 else ('corp-juego--pronto' if j.en_ciclos <= 2 else '') }}" title="Próximo partido: vs {{ j.rival }} (en ~{{ j.faltan }} partidos del torneo)">
   <i class="bi {{ 'bi-broadcast' if j.faltan == 0 else 'bi-calendar-event' }}"></i>{% if j.faltan == 0 %}Juega el próximo{% elif j.en_ciclos == 0 %}Juega este ciclo{% else %}Juega en {{ j.en_ciclos }} ciclo{{ 's' if j.en_ciclos > 1 }}{% endif %}
   <small>vs {{ j.rival }}</small></span>
+{% elif j.estado == 'calificada' %}<span class="corp-juego corp-juego--ya" title="Ya está en el Mundial: juega cuando empiece la fase de grupos"><i class="bi bi-patch-check-fill"></i>Clasificada al Mundial</span>
 {% elif j.estado == 'eliminada' %}<span class="corp-juego corp-juego--fuera"><i class="bi bi-x-octagon"></i>Selección eliminada</span>
 {% else %}<span class="corp-juego corp-juego--nada"><i class="bi bi-hourglass"></i>Sin partido programado</span>{% endif %}
 {%- endmacro %}
@@ -320,7 +321,7 @@ data-faltan="{{ jg.faltan if jg.estado == 'programado' and jg.faltan is not none
 </script>
 {% if satisfaccion_reglas %}<script>window.CORP_SATISFACCION = {{ satisfaccion_reglas | tojson }};</script>{% endif %}
 <script src="/static/js/marcas.js?v=3"></script>
-<script src="/static/js/corp_detalle.js?v=2"></script>
+<script src="/static/js/corp_detalle.js?v=3"></script>
 <script src="/static/js/televisoras.js?v=5"></script>
 <script src="/static/js/giras.js?v=3"></script>
 <script src="/static/js/cartera.js?v=1"></script>

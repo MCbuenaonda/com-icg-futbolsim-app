@@ -65,6 +65,7 @@
                 return { ok: true, texto: `Próximo partido ${cuando}${jg.rival ? ` contra ${jg.rival}` : ''}` };
             }
             if (jg.estado === 'eliminada') return { ok: false, texto: 'Su selección está eliminada: ya no suma por aquí' };
+            if (jg.estado === 'calificada') return { ok: false, texto: 'Su selección ya clasificó al Mundial: juega cuando empiece la fase de grupos' };
             return { ok: false, texto: 'Su selección no tiene partido programado todavía' };
         }
         if (r.clave === 'gira') {

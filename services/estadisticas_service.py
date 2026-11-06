@@ -792,6 +792,12 @@ PROYECCION_JUEGOS_MUNDIAL = {
                                      "empate", "arbitros", "goleadores", "atajadores", "participantes")},
     "resultado.eventos.tipo": 1, "resultado.eventos.minuto": 1, "resultado.eventos.segundos_acumulados": 1,
     "resultado.eventos.equipo": 1, "resultado.eventos.jugadores": 1, "resultado.calificaciones": 1,
+    # lo que además necesitan el calendario y los gráficos: así comparten estos mismos partidos en memoria en vez de bajar
+    # cada uno su copia (el calendario solo bajaba 40 MB cada vez que terminaba un partido)
+    "confederacion_id": 1, "clima.condicion": 1, "clima.temperatura_c": 1,
+    "resultado.cronica.historia": 1, "resultado.cronica.titular": 1, "resultado.planteamiento": 1, "resultado.dt": 1,
+    "resultado.local": 1, "resultado.visitante": 1, "resultado.eventos.dt_id": 1, "resultado.eventos.dt": 1,
+    "resultado.eventos.adicional": 1, "resultado.eventos.ajuste": 1,
 }
 
 METRICAS_JUGADOR = ("partidos", "goles", "goles_penal", "goles_tiro_libre", "goles_corner", "goles_suplente", "asistencias",

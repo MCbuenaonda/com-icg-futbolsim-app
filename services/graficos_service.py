@@ -245,9 +245,13 @@ def _jugadores(juegos: list, agregado: dict, nombres_paises: dict) -> dict:
 # ==========================================
 # Estadios y clima
 # ==========================================
+def _compartidos() -> list:
+    """Los partidos del Mundial ya cargados por /estadisticas (no se modifican)."""
+    return list(ES._cache_vista["juegos"].values()) if ES._cache_vista.get("juegos") else ES._juegos_del_mundial()
+
+
 def _estadios() -> dict:
-    juegos = list(db["juegos"].find(ES._filtro_finalizados(), {"clima.condicion": 1, "clima.temperatura_c": 1, "aforo.porcentaje_ocupacion": 1,
-                                                                "resultado.goles_local": 1, "resultado.goles_visitante": 1}))
+    juegos = _compartidos()
     por_clima: Dict[str, List[int]] = defaultdict(list)
     ocupacion = Counter()
     temperatura = []
@@ -284,9 +288,10 @@ def _esquemas() -> dict:
     filas = {e: {"esquema": e, "etiqueta": CF.FORMACIONES[e]["etiqueta"], "partidos": 0, "puntos": 0, "gf": 0, "gc": 0} for e in CF.ESQUEMAS}
     cambios = {"ataque": {"n": 0, "gol": 0}, "cerrar": {"n": 0, "gano": 0}}
     n = 0
-    for j in db["juegos"].find({**ES._filtro_finalizados(), "resultado.planteamiento": {"$exists": True}},
-                               {"resultado.planteamiento": 1, "resultado.goles_local": 1, "resultado.goles_visitante": 1}):
-        r = j["resultado"]
+    for j in _compartidos():
+        r = j.get("resultado") or {}
+        if "planteamiento" not in r:
+            continue
         n += 1
         for lado, gf, gc in (("local", r["goles_local"], r["goles_visitante"]), ("visita", r["goles_visitante"], r["goles_local"])):
             plan = (r.get("planteamiento") or {}).get(lado) or {}
@@ -325,10 +330,7 @@ def _tecnicos() -> dict:
         n += 1
         tiempo.append({"fecha": fecha_corta(c.get("hasta_fecha_juego")) or c.get("hasta_fecha_juego"), "n": n})
     # partidos jugados con el DT en el motor: traen 'reclamos' en resultado.dt.*
-    juegos = list(db["juegos"].find({**ES._filtro_finalizados(), "resultado.dt.local.reclamos": {"$exists": True}},
-                                    {"resultado.dt": 1, "resultado.goles_local": 1, "resultado.goles_visitante": 1, "resultado.local": 1,
-                                     "resultado.visitante": 1, "resultado.eventos.tipo": 1, "resultado.eventos.dt_id": 1,
-                                     "resultado.eventos.equipo": 1, "resultado.eventos.ajuste": 1}))
+    juegos = [j for j in _compartidos() if "reclamos" in (((j.get("resultado") or {}).get("dt") or {}).get("local") or {})]
     salida = {"ceses_conf": list(por_conf.values()), "ceses_tiempo": tiempo, "total_ceses": len(ceses),
               "regresos": db["dt_cargos"].count_documents({"regreso": True}), "motor": len(juegos), "minimo": MINIMO_MOTOR_DT}
     salida.update(_esquemas())

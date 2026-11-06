@@ -63,14 +63,8 @@ def _fecha(iso: str) -> Optional[date]:
 
 
 def _juegos() -> List[dict]:
-    proy = {"fecha": 1, "hora": 1, "fase_id": 1, "confederacion_id": 1, "jornada": 1, "grupo": 1,
-            "equipo_local.id": 1, "equipo_local.nombre": 1, "equipo_local.bandera": 1,
-            "equipo_visitante.id": 1, "equipo_visitante.nombre": 1, "equipo_visitante.bandera": 1,
-            "resultado.goles_local": 1, "resultado.goles_visitante": 1, "resultado.cronica.historia": 1, "resultado.cronica.titular": 1,
-            "resultado.eventos.tipo": 1, "resultado.eventos.jugadores": 1, "resultado.eventos.equipo": 1,
-            "resultado.eventos.segundos_acumulados": 1, "resultado.eventos.dt_id": 1, "resultado.eventos.dt": 1, "resultado.eventos.minuto": 1,
-            "resultado.eventos.adicional": 1}
-    juegos = [j for j in db["juegos"].find(ES._filtro_finalizados(), proy) if _fecha(j.get("fecha"))]
+    # los partidos compartidos con /estadisticas (solo se bajan los nuevos); aquí no se modifica ninguno
+    juegos = [j for j in ES._juegos_del_mundial() if _fecha(j.get("fecha"))]
     juegos.sort(key=lambda j: (j["fecha"], j.get("hora") or "", str(j["_id"])))
     return juegos
 

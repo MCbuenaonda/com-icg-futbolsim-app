@@ -28,7 +28,7 @@ _cache_medios = {"hasta": 0.0, "lista": []}
 def medios() -> List[dict]:
     if _cache_medios["hasta"] < time.time():
         _cache_medios["lista"] = list(db["medios"].find({}, {"_id": 0}))
-        _cache_medios["hasta"] = time.time() + 600
+        _cache_medios["hasta"] = time.time() + 21600   # no cambia en runtime (solo los scripts de generación)
     return _cache_medios["lista"]
 
 

@@ -72,6 +72,24 @@ def _match_en_progreso() -> Optional[Dict[str, Any]]:
     return {**_cache_vivo["doc"], "transmision": ligero["transmision"]}
 
 
+def obtener_juego_por_id(juego_oid) -> Optional[Dict[str, Any]]:
+    """
+    El partido completo por _id. Si se está transmitiendo, sale del mismo caché que `_match_en_progreso` (solo se relee
+    `transmision`): lo sondea cada jugador de Juego en Vivo y bajar ~200 KB en cada sondeo costaba ~2 s con Atlas frenado.
+    """
+    ligero = db["juegos"].find_one({"_id": juego_oid}, {"transmision": 1})
+    if not ligero:
+        return None
+    if (ligero.get("transmision") or {}).get("estado") != TRANSMISION_EN_CURSO:
+        return db["juegos"].find_one({"_id": juego_oid})
+    if _cache_vivo["id"] != juego_oid:
+        doc = db["juegos"].find_one({"_id": juego_oid})
+        if not doc:
+            return None
+        _cache_vivo.update(id=juego_oid, doc=doc)
+    return {**_cache_vivo["doc"], "transmision": ligero["transmision"]}
+
+
 def iniciar_simulacion_automatica() -> Dict[str, Any]:
     """
     Orquesta POST /matches/simulate-next-auto:

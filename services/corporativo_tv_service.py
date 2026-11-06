@@ -58,7 +58,7 @@ def catalogo() -> Dict[int, dict]:
         for t in docs:
             por_pais.setdefault(t["pais_id"], []).append(t)
         _cache["por_pais"] = {k: sorted(v, key=lambda x: x["id"]) for k, v in por_pais.items()}
-        _cache["hasta"] = time.time() + 600
+        _cache["hasta"] = time.time() + 21600   # no cambia en runtime
     return _cache["por_id"]
 
 

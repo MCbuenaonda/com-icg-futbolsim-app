@@ -18,6 +18,7 @@ from services.ownership_service import procesar_valor_y_dividendos_partido
 from services.fantasy_service import procesar_eventos_jugadores_partido
 from services.venue_service import process_match_city_revenue
 import random
+import time
 import re
 import logging
 
@@ -1627,11 +1628,27 @@ def get_data_dashboard_last_games():
     # services/live_match_service.py): aunque ya está 100% simulado y persistido (estado =
     # 'finalizado'), la transmisión todavía lo está "revelando" en /en-vivo -- no debe aparecer
     # en el feed como si la FIFAV ya lo hubiera publicado.
-    juegos = list(
-        juegos_coll.find({"estado": "finalizado", "transmision.estado": {"$ne": "in_progress"}}, PROYECCION_FEED)
-        .sort([("fecha", -1), ("hora", -1)]).limit(5)
-    )
-    return formatear_posts_partidos(juegos)
+    return posts_recientes({"estado": "finalizado", "transmision.estado": {"$ne": "in_progress"}}, 5)
+
+
+# Post ya armado de cada partido terminado, por _id: un partido terminado no cambia, así que se arma una vez (una hora de
+# margen por si se reescribe su crónica) y el inicio y /red-social solo bajan los partidos NUEVOS en vez de los últimos N
+# completos cada vez (~20 KB cada uno, ~2 s con Atlas frenado).
+_cache_posts = {}
+
+
+def posts_recientes(filtro: dict, limite: int) -> list:
+    """Los posts de los últimos `limite` partidos que cumplen `filtro` (más recientes primero), con caché por partido."""
+    ids = [d["_id"] for d in db["juegos"].find(filtro, {"_id": 1}).sort([("fecha", -1), ("hora", -1)]).limit(limite)]
+    ahora = time.time()
+    faltan = [i for i in ids if str(i) not in _cache_posts or _cache_posts[str(i)][0] < ahora]
+    if faltan:
+        for post in formatear_posts_partidos(list(db["juegos"].find({"_id": {"$in": faltan}}, PROYECCION_FEED))):
+            _cache_posts[post["match_id"]] = (ahora + 3600, post)
+        if len(_cache_posts) > 300:   # no crece sin límite
+            for k in sorted(_cache_posts, key=lambda k: _cache_posts[k][0])[:100]:
+                del _cache_posts[k]
+    return [dict(_cache_posts[str(i)][1]) for i in ids if str(i) in _cache_posts]
 
 
 def formatear_posts_partidos(juegos: list) -> list:
@@ -1764,7 +1781,7 @@ def get_data_fase_actual_dashboard():
     
     # El partido de referencia del encabezado: el que se está TRANSMITIENDO (ya simulado, pero todavía en la
     # ventana de revelación de /en-vivo) y, si no hay, el próximo por jugarse (el primero 'creado' por fecha y hora)
-    en_vivo = partidos_coll.find_one({"transmision.estado": "in_progress"})
+    en_vivo = partidos_coll.find_one({"transmision.estado": "in_progress"}, {"confederacion_id": 1, "fase_id": 1, "jornada": 1})
     proximo = obtener_juego_activo()[0]
     primer_partido = en_vivo or proximo
 

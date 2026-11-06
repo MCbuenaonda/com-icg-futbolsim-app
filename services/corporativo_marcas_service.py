@@ -125,7 +125,7 @@ def catalogo() -> Dict[int, dict]:
             m["fidelidad"] = round(min(0.95, max(0.05, m["fidelidad_base"] + fid)), 3)
             m["ajuste_dueno"] = {"fidelidad": int(round(fid * 100)), "renueva": int(round(ren * 100)), "renueva_delta": ren}
         _cache_catalogo["datos"] = datos
-        _cache_catalogo["hasta"] = time.time() + 600
+        _cache_catalogo["hasta"] = time.time() + 21600   # no cambia en runtime
     return _cache_catalogo["datos"]
 
 

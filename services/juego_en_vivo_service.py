@@ -39,7 +39,7 @@ from services import juego_en_vivo_puntos as puntos
 from services import niveles_service
 from services.juegos_service import obtener_juego_activo
 from services.live_match_service import (
-    DURACION_TRANSMISION_SEGUNDOS, TRANSMISION_EN_CURSO, _match_en_progreso,
+    DURACION_TRANSMISION_SEGUNDOS, TRANSMISION_EN_CURSO, _match_en_progreso, obtener_juego_por_id,
     calcular_estado_transmision, instante_revelacion_evento,
 )
 
@@ -536,7 +536,7 @@ def obtener_estado_juego(usuario: dict, juego_id: Optional[str] = None) -> Dict[
     # sesiones de partidos anteriores que quedaron abiertas (el usuario se fue de /en-vivo)
     liquidar_sesiones_abiertas(usuario_id=usuario["_id"])
     if juego_id:
-        juego = db["juegos"].find_one({"_id": _oid(juego_id, "Partido")})
+        juego = obtener_juego_por_id(_oid(juego_id, "Partido"))
     else:
         juego = _match_en_progreso()
     if not juego:

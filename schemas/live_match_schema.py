@@ -85,6 +85,7 @@ class LiveMatchOut(BaseModel):
     siglas_visitante: str = ""
     grupo: Optional[str] = None
     estadio: Optional[str] = None
+    estadio_img: Optional[str] = None  # ilustración del estadio (bucket estadios_v2/): marcador de TV y comercial de la transmisión
     fecha: Optional[str] = None
     hora: Optional[str] = None
     aforo: Optional[AforoOut] = None

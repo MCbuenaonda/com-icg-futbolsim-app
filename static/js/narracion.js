@@ -85,7 +85,7 @@
         anadido:    { p: 1.0,  prio: 2, cadena: ['N', 'A:0.6'] },
         extra:      { p: 1.0,  prio: 3, cadena: ['N', 'A'] },
         tanda:      { p: 1.0,  prio: 3, cadena: ['N', 'A', 'I:0.7'] },
-        final:      { p: 1.0,  prio: 3, cadena: ['N', 'A', 'I'] },
+        final:      { p: 0,    prio: 3, cadena: ['N', 'A', 'I'] },   // el pitido final lo cubre la despedida (crear().despedida)
         saque:      { p: 0.2,  prio: 0, cadena: ['N'] },
         jugada:     { p: 0.2,  prio: 0, cadena: ['N', 'A:0.4'] },
     };
@@ -251,6 +251,57 @@
         return vacio ? null : texto.replace(/\s+/g, ' ').trim();
     }
 
+    // ---------------------------------------------------------------- despedida al terminar el partido
+    // Se usa solo con lo ya revelado (el partido terminó): marcador, quién anotó y cuántos expulsados hubo.
+    // {gan} ganador, {per} perdedor, {gg} goles del ganador, {gp} goles del perdedor, {figura} el goleador del partido, {n} sus goles.
+    const DESPEDIDA = {
+        resultado: {
+            victoria: ['¡Y se acabó! {gan} se lleva el partido {gg}-{gp} ante {per}.', 'Final del partido: {gan} gana {gg} a {gp} y se queda con los tres puntos.',
+                       'Termina el partido en {estadio}: {gan} {gg}, {per} {gp}.'],
+            goleada: ['¡Paliza en {estadio}! {gan} golea {gg}-{gp} a {per}.', 'Se acabó, y fue una goleada: {gan} {gg}, {per} {gp}.', '¡Qué manera de ganar! {gan} arrasa a {per} por {gg}-{gp}.'],
+            empate: ['Se acabó: {local} y {visita} empatan {gg}-{gp} y se reparten los puntos.', 'Final del partido en {estadio}: {local} {gg}, {visita} {gp}. Todo igual.',
+                     'Termina igualado el partido: {local} {gg} - {gp} {visita}.'],
+            vacio: ['Se acabó el partido: {local} y {visita} empatan sin goles.', 'Cero a cero en {estadio}: un partido de mucho cuidado en las áreas.'],
+        },
+        analisis: {
+            figura: ['Para mí la figura fue {figura}, que {golesTxt}.', 'Hay que destacar a {figura}: {golesTxt} y marcó la diferencia.'],
+            victoria: ['{gan} lo ganó con orden y paciencia: se llevó los puntos por detalles.', 'Un resultado que premia a {gan}, que supo aprovechar mejor sus momentos.',
+                       '{per} tuvo sus opciones, pero le faltó contundencia.'],
+            goleada: ['El marcador habla solo: {gan} fue muy superior en todas las líneas.', '{per} nunca encontró cómo frenar a {gan}; una tarde para olvidar.'],
+            empate: ['Un empate justo: ninguno quiso arriesgar de más y los dos se llevan algo.', 'Se repartieron los puntos y ninguno puede quejarse demasiado.',
+                     'Un partido parejo que se pudo haber inclinado para cualquiera.'],
+            vacio: ['Dos defensas sólidas y poca claridad arriba: así se explica el cero a cero.'],
+            roja: ['Y no podemos olvidar que hubo {rojas} expulsado{s}: eso condicionó el partido.'],
+        },
+        invitado: ['Quiero darles las gracias por invitarme; ha sido un placer comentar este partido con ustedes.', 'Muchas gracias por la invitación, fue una experiencia increíble verlo desde aquí.',
+                   'Gracias a todos los que nos vieron; para mí es un honor estar en esta mesa.'],
+        gracias: ['Gracias a todos por acompañarnos durante este partido.', 'Muchas gracias a quienes nos siguieron hasta el último minuto.', 'Un agradecimiento enorme a quienes estuvieron con nosotros en esta transmisión.'],
+        adios: ['Con esto nos despedimos desde {cadena}. ¡Hasta la próxima transmisión!', 'Esto fue todo desde {cadena}. ¡Nos vemos en el próximo partido, hasta pronto!',
+                'Nos despedimos de ustedes desde {cadena}: ¡cuídense mucho y hasta la próxima!'],
+        adiosAnalista: ['¡Hasta la próxima, amigos!', 'Nos vemos en el próximo partido, ¡un abrazo!', 'Gracias, y que sigan disfrutando del fútbol. ¡Adiós!'],
+        radio: ['Y con esto termina nuestra transmisión. Gracias por sintonizarnos, ¡hasta la próxima!', 'Se acaba la emisión: gracias por su compañía, ¡nos escuchamos en el próximo partido!',
+                'Hasta aquí llegamos desde la cabina. Gracias por acompañarnos y hasta pronto.'],
+    };
+    /** Resumen del partido terminado a partir de los eventos revelados: marcador, ganador, goleadores y expulsados. */
+    function resumen(data) {
+        const eventos = (data && data.eventos) || [];
+        const gl = data.goles_local || 0, gv = data.goles_visitante || 0;
+        const goleadores = {};
+        let rojas = 0;
+        eventos.forEach(ev => {
+            const c = clasificar(ev);
+            if (c === 'gol' && (ev.tipo || '').indexOf('TANDA') < 0 && (ev.tipo || '').indexOf('GOL DE PENAL') < 0 && (ev.jugadores || [])[0]) {
+                const nombre = ev.jugadores[0]; goleadores[nombre] = (goleadores[nombre] || { nombre, equipo: ev.equipo, n: 0 }); goleadores[nombre].n++;
+            }
+            if (c === 'roja') rojas++;
+        });
+        const lista = Object.values(goleadores).sort((a, b) => b.n - a.n);
+        const gana = gl > gv ? 'local' : (gv > gl ? 'visitante' : null);
+        return { local: data.local, visitante: data.visitante, gl, gv, ganador: gana ? (gana === 'local' ? data.local : data.visitante) : null,
+                 perdedor: gana ? (gana === 'local' ? data.visitante : data.local) : null, gg: Math.max(gl, gv), gp: Math.min(gl, gv),
+                 diferencia: Math.abs(gl - gv), figura: lista[0] && lista[0].n >= 1 ? lista[0] : null, rojas, estadio: data.estadio };
+    }
+
     // ---------------------------------------------------------------- el narrador de un partido
     /**
      * opciones: { matchId, local, visitante, idLocal, idVisita, estadio, modo: 'tv'|'radio', mesas: [{tele:{pais_id}, comentaristas, invitado}] }
@@ -376,10 +427,80 @@
             return { mesa: mesaIdx, rol, texto, retraso: 0, duracion: duracion(texto), prio: 0, paso: 0, efecto: null, equipoEfecto: null, evento: -1 };
         }
 
-        return { proponer, charla, modo: o.modo, mesas: mesas.length };
+        /**
+         * La despedida de una mesa (o de la radio): el narrador cierra el marcador, el analista comenta cómo fue el partido, el invitado
+         * agradece y el narrador se despide. Devuelve intervenciones con `cierre: true` en la última. resumen = Narracion.resumen(data).
+         */
+        function despedida(res, mesaIdx) {
+            mesaIdx = mesaIdx || 0;
+            const rng = azar(`${o.matchId}:fin:${mesaIdx}`);
+            const mesa = mesas[mesaIdx] || {};
+            const cadena = (mesa.tele && mesa.tele.nombre) || '';
+            const tipo = res.ganador ? (res.diferencia >= 3 ? 'goleada' : 'victoria') : (res.gg === 0 ? 'vacio' : 'empate');
+            const datos = { gan: res.ganador, per: res.perdedor, gg: res.gg, gp: res.gp, local: res.local, visita: res.visitante, estadio: res.estadio, cadena,
+                            figura: res.figura && apellido(res.figura.nombre), n: res.figura && res.figura.n, rojas: res.rojas, s: res.rojas > 1 ? 's' : '',
+                            golesTxt: res.figura && (res.figura.n > 1 ? `anotó ${res.figura.n} goles` : 'anotó el gol') };
+            const lineas = [];
+            const pon = (rol, pool, clave) => {
+                const texto = elegirPlantilla(pool, 'fin:' + clave, rng, datos);
+                if (texto) lineas.push({ mesa: mesaIdx, rol, texto, retraso: lineas.length ? 350 : 700, duracion: duracion(texto) + 600, prio: 3, paso: lineas.length ? 1 : 0, efecto: null, equipoEfecto: null, evento: -1 });
+            };
+            if (o.modo !== 'tv') {
+                pon('radio', DESPEDIDA.resultado[tipo], 'r');
+                pon('radio', res.figura && rng() < 0.7 ? DESPEDIDA.analisis.figura : DESPEDIDA.analisis[tipo], 'a');
+                pon('radio', DESPEDIDA.radio, 'x');
+            } else {
+                const tieneInvitado = !!mesa.invitado;
+                pon('narrador', DESPEDIDA.resultado[tipo], 'r');
+                pon('analista', res.figura && rng() < 0.7 ? DESPEDIDA.analisis.figura : DESPEDIDA.analisis[tipo], 'a');
+                if (res.rojas && rng() < 0.6) pon('analista', DESPEDIDA.analisis.roja, 'ro');
+                if (tieneInvitado) pon('invitado', DESPEDIDA.invitado, 'i');
+                pon('analista', DESPEDIDA.gracias, 'g');
+                pon('narrador', DESPEDIDA.adios, 'x');
+                if (!tieneInvitado || rng() < 0.6) pon('analista', DESPEDIDA.adiosAnalista, 'y');
+            }
+            if (lineas.length) lineas[lineas.length - 1].cierre = true;
+            return lineas;
+        }
+
+        return { proponer, charla, despedida, modo: o.modo, mesas: mesas.length };
     }
 
-    const api = { crear, clasificar, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };
+    // ---------------------------------------------------------------- gráficos de transmisión (tarjetas de jugador)
+    // Solo las jugadas verdaderamente importantes llevan tarjeta, como en una transmisión de TV: gol, amonestado, expulsado y el
+    // portero que ataja un penal. Orden de los nombres en `evento.jugadores` (lo deja el motor): gol [goleador, portero, asistente];
+    // amarilla [amonestado, rival]; roja y doble amarilla [expulsado]; penal fallado [portero, tirador].
+    const GOLES_TIPO = { 'GOL DE TIRO LIBRE': 'de tiro libre', 'GOL DE CÓRNER': 'de córner' };
+    function grafico(evento, indice, eventos) {
+        const tipo = (evento && evento.tipo) || '';
+        const j = (evento && evento.jugadores) || [];
+        if (!j.length) return null;
+        const clase = clasificar(evento);
+        const base = { evento: indice, jugador: j[0], equipo: evento.equipo || null, minuto: evento.minuto };
+        if (clase === 'gol' && !tipo.includes('TANDA') && tipo.indexOf('GOL DE PENAL') < 0) {
+            const previos = (eventos || []).slice(0, indice + 1).filter(e => clasificar(e) === 'gol' && ((e.jugadores || [])[0] === j[0])).length;
+            let tipoGol = evento.de_penal ? 'de penal' : null;
+            for (const [frag, texto] of Object.entries(GOLES_TIPO)) if (tipo.includes(frag)) tipoGol = texto;
+            return Object.assign(base, { accion: 'gol', titulo: tipoGol ? `GOL ${tipoGol.toUpperCase()}` : 'GOL', portero: j[1] || null, asistente: j[2] || null, nGol: previos, prio: 3 });
+        }
+        if (tipo.includes('DOBLE AMARILLA')) return Object.assign(base, { accion: 'roja', titulo: 'EXPULSADO', motivo: 'Segunda amarilla', prio: 3 });
+        if (tipo.includes('TARJETA ROJA')) return Object.assign(base, { accion: 'roja', titulo: 'EXPULSADO', motivo: 'Roja directa', prio: 3 });
+        if (tipo.includes('TARJETA AMARILLA')) return Object.assign(base, { accion: 'amarilla', titulo: 'AMONESTADO', rival: j[1] || null, prio: 2 });
+        if (tipo.includes('PENAL FALLADO') && j.length >= 2) return Object.assign(base, { accion: 'atajo', titulo: '¡ATAJÓ EL PENAL!', tirador: j[1], prio: 3 });
+        return null;
+    }
+    const POSICIONES = { POR: 'Portero', DFI: 'Defensa', DFD: 'Defensa', LI: 'Lateral', LD: 'Lateral', MI: 'Mediocampista', MC: 'Mediocampista', MD: 'Mediocampista',
+                         EI: 'Extremo', DC: 'Delantero', ED: 'Extremo' };
+    // la línea de tiempo de una jugada para el gráfico del marcador (estadio + marcador + logo de la cadena): ¿toca uno?
+    // `clase` de la jugada actual y `desde` = ms desde el último; en los hitos siempre (arranque, descanso, final).
+    function tocaMarcador(clase, desde, azarFn) {
+        if (clase === 'inicio' || clase === 'descanso' || clase === 'final') return true;
+        if (desde < 150000) return false;                       // nunca dos seguidos: al menos 2,5 minutos entre uno y otro
+        const p = Math.min(0.5, (desde - 150000) / 600000 + 0.05);   // de 5 % a 50 % según lleve sin salir
+        return (azarFn || Math.random)() < p;
+    }
+
+    const api = { crear, clasificar, grafico, resumen, POSICIONES, tocaMarcador, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.Narracion = api;
 })(typeof window !== 'undefined' ? window : globalThis);

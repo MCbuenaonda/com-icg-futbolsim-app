@@ -514,6 +514,7 @@ document.addEventListener('DOMContentLoaded', function () {
             canchaPlanteamiento = data.planteamiento || {};
             canchaEspejo = data.espejo_extremos || {};
             canchaPlantillasMatchId = matchId;
+            if (window.TransmisionVivo) TransmisionVivo.plantillas({ ids: canchaIds, dorsales: canchaDorsales, posiciones: canchaPlantillas });
         } catch (e) {
             // Sin conexión momentánea o partido recién terminado -- la etiqueta simplemente
             // sigue mostrando solo el nombre hasta el próximo poll, sin romper nada.

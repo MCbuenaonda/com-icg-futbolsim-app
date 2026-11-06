@@ -1158,6 +1158,14 @@ body {
 .feed-fifav__vivo { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); animation: feed-vivo 2s infinite; }
 @keyframes feed-vivo { 70% { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
 .feed-fifav__lista { max-height: 760px; overflow-y: auto; scrollbar-width: thin; }
+/* En escritorio la columna del feed NO manda en la altura de la fila: toma la de la tarjeta de confederaciones (la más alta)
+   y su lista de partidos se desplaza dentro. En pantallas chicas queda como siempre (una debajo de la otra). */
+@media (min-width: 992px) {
+    .home-col-feed { position: relative; }
+    .home-col-feed__interior { position: absolute; top: 0; bottom: 0; left: calc(var(--bs-gutter-x, 1.5rem) * 0.5); right: calc(var(--bs-gutter-x, 1.5rem) * 0.5); }
+    .home-col-feed__interior > .feed-fifav { flex: 1 1 0; min-height: 0; }
+    .home-col-feed__interior .feed-fifav__lista { flex: 1 1 auto; min-height: 0; max-height: none; }
+}
 
 /* cada post: burbuja con el color de su confederación en el borde izquierdo */
 .feed-fifav .x-post {
@@ -2380,6 +2388,8 @@ a.conf-tabla__fila:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
 .conf-tabla__fila--cabecera span:nth-child(2) { text-align: left; }
 .conf-tabla__fila--avanzo { border-left-color: #22c55e; background: rgba(34, 197, 94, 0.08); }
 .conf-tabla__fila--eliminado { border-left-color: #ef4444; opacity: 0.72; }
+.conf-tabla__fila--calificado { border-left-color: #eab308; background: rgba(234, 179, 8, 0.10); }
+.conf-tabla__fila--repechaje { border-left-color: #38bdf8; background: rgba(56, 189, 248, 0.08); }
 .conf-tabla__fila strong { font-size: 1rem; color: #facc15; }
 .conf-tabla .scouter-tabla__pos { width: 1.7rem; height: 1.7rem; font-size: 0.82rem; }
 .conf-tabla__forma { display: flex; justify-content: flex-end; gap: 2px; }
@@ -2389,6 +2399,8 @@ a.conf-tabla__fila:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
 .conf-forma--P { background: #ef4444; }
 .conf-zona--en_juego { border-color: #3b82f6; }
 .conf-zona--eliminado { border-color: #ef4444; }
+.conf-zona--calificado { border-color: #eab308; }
+.conf-zona--repechaje { border-color: #38bdf8; }
 @media (max-width: 991.98px) {
     .conf-tabla__fila { grid-template-columns: 1.8rem minmax(0, 1fr) 2rem 2.4rem 2.4rem 5.8rem; }
     .conf-tabla__opc { display: none; }

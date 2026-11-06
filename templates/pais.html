@@ -122,7 +122,8 @@
                     {% set p_m = pr.etapas[0].p %}{% set campeon_txt = ('en el ' ~ ('%.1f' | format(pr.etapas[-1].pct)).replace('.', ',') ~ '%') if pr.etapas[-1].pct >= 0.1 else 'en menos del 0,1%' %}
                     <p class="prob-lectura">
                         {% if pr.eliminado %}{{ pais.nombre }} quedó eliminado: no juega este Mundial.
-                        {% elif pr.asegurado_mundial %}{{ pais.nombre }} ya tiene su lugar en el Mundial asegurado, y sale campeón {{ campeon_txt }} de las simulaciones.
+                        {% elif pr.asegurado_mundial %}{{ pais.nombre }} ya tiene su lugar en el Mundial asegurado: espera a que terminen las demás eliminatorias y al sorteo de grupos. Sale campeón {{ campeon_txt }} de las simulaciones.
+                        {% elif pr.en_repechaje %}{{ pais.nombre }} está en el repechaje: ahí se juega su lugar en el Mundial, y sale campeón {{ campeon_txt }}.
                         {% else %}En {{ (p_m * 100) | round | int if p_m < 0.995 else 'casi 100' }} de cada 100 simulaciones {{ pais.nombre }} llega al Mundial, y sale campeón {{ campeon_txt }}.{% endif %}
                     </p>
                 </div>
@@ -644,8 +645,9 @@
         const prob = {{ {'historia': (probabilidades or {}).get('historia') or []} | tojson }};
         const lienzoProb = document.getElementById('graficoProbabilidades');
         if (lienzoProb && prob.historia && prob.historia.length >= 2) {
-            // etapas que se muestran: el Mundial, octavos y campeón (las acumuladas se leen de arriba hacia abajo)
-            const SERIES = [[0, 'Clasificar al Mundial', '#22c55e'], [2, 'Octavos', '#38bdf8'], [4, 'Semifinales', '#a78bfa'], [6, 'Campeón', '#fbbf24']];
+            // todas las etapas (las acumuladas se leen de arriba hacia abajo)
+            const SERIES = [[0, 'Clasificar al Mundial', '#22c55e'], [1, 'Dieciseisavos', '#2dd4bf'], [2, 'Octavos', '#38bdf8'], [3, 'Cuartos', '#818cf8'],
+                            [4, 'Semifinales', '#a78bfa'], [5, 'Final', '#f472b6'], [6, 'Campeón', '#fbbf24']];
             const x = prob.historia.map(h => h.clave);
             document.getElementById('leyendaProbabilidades').innerHTML = SERIES.map(([, n, c]) => `<span><b style="background:${c}"></b>${n}</span>`).join('');
             GF.crearAlVer(lienzoProb, {

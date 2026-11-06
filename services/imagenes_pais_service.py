@@ -93,6 +93,9 @@ LOGOS_CONFEDERACION = {
     "CAF": {"color": "#2e9d4a", "claro": False},
     "AFC": {"color": "#c0392b", "claro": True},
     "OFC": {"color": "#7cb342", "claro": False},
+    # no son confederaciones de verdad: usan las ilustraciones del inicio (copa del Mundial y balón) como marca de agua
+    "MUNDIAL": {"color": "#eab308", "claro": False, "imagen": "inicio/copa.png"},
+    "REPECHAJE": {"color": "#3b82f6", "claro": False, "imagen": "inicio/partidos.png"},
 }
 
 
@@ -101,7 +104,8 @@ def logo_confederacion(sigla: Optional[str]) -> Optional[dict]:
     datos = LOGOS_CONFEDERACION.get((sigla or "").upper())
     if not datos:
         return None
-    return {**datos, "url": f"{IMAGENES_PAISES_URL}/confederaciones/{quote((sigla or '').lower())}.png"}
+    ruta = datos.get("imagen") or f"confederaciones/{quote((sigla or '').lower())}.png"
+    return {"color": datos["color"], "claro": datos["claro"], "url": f"{IMAGENES_PAISES_URL}/{ruta}"}
 
 
 def url_logo_corporativo(sigla: Optional[str]) -> Optional[str]:

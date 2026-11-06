@@ -699,9 +699,11 @@ def _invitado_vista(d: dict) -> Optional[dict]:
             "estado": d["estado"], "pago": d.get("pago"), "aficionados": d.get("aficionados")}
 
 
-def transmisiones(usuario: Optional[dict], juegos: List[dict]) -> Dict[str, list]:
+def transmisiones(usuario: Optional[dict], juegos: List[dict], en_vivo: bool = False) -> Dict[str, list]:
     """{juego_id: [{tele, pais_id, pais, invitado|None}]}: qué cadenas de TU universo transmiten cada partido y su invitado.
-    Pendientes: por los contratos ACTIVO de las dos selecciones; jugados: por las invitaciones registradas."""
+    Pendientes: por los contratos ACTIVO de las dos selecciones; jugados: por las invitaciones registradas.
+    `en_vivo`: el partido que se está transmitiendo ya está `finalizado` en la base pero todavía no terminó de revelarse, así
+    que se trata como pendiente (salen también las cadenas con contrato ACTIVO que no tengan invitado)."""
     if not usuario or not juegos:
         return {}
     try:
@@ -718,7 +720,7 @@ def transmisiones(usuario: Optional[dict], juegos: List[dict]) -> Dict[str, list
         for j in juegos:
             jid = str(j["_id"])
             filas, vistos = [], set()
-            jugado = j.get("estado") == "finalizado"
+            jugado = j.get("estado") == "finalizado" and not en_vivo
             for d in invs.get(jid, []):
                 t = catalogo().get(d["televisora_id"])
                 if t and d["estado"] != "CANCELADA":

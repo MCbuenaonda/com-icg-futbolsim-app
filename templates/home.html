@@ -290,7 +290,7 @@
                     {% if puede('paises') %}<a href="/paises/" class="btn btn-xs btn-outline-light rounded-pill px-3">Ver Países</a>{% endif %}
                 </div>
                 
-                <div class="card-body p-3" style="max-height: 600px; overflow-y: auto;">
+                <div class="card-body p-3">
                     <div class="row row-cols-1 row-cols-md-2 g-3">
                         {% for conf in confederaciones %}
                         {% set logo = logo_confederacion(conf.sigla) %}
@@ -374,7 +374,8 @@
         </div>
 
         <!-- Últimos Partidos Simulados: feed estilo X/Twitter -->
-        <div class="col-lg-5 d-flex flex-column gap-3">
+        <div class="col-lg-5 home-col-feed">
+          <div class="home-col-feed__interior d-flex flex-column gap-3">
             {# «Un día como hoy» (services/calendario_service.un_dia_como_hoy_inicio): efemérides de la fecha del torneo #}
             {% if efemerides_hoy and efemerides_hoy['items'] %}
             {% set u = efemerides_hoy %}
@@ -428,6 +429,7 @@
                     {% endif %}
                 </div>
             </div>
+          </div>
         </div>
 
     </div>

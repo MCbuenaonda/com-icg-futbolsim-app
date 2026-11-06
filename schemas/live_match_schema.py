@@ -127,6 +127,42 @@ class TablaGrupoOut(BaseModel):
     equipos: List[EquipoTablaGrupoOut]
 
 
+class MesaTeleOut(BaseModel):
+    id: int
+    nombre: str
+    logo: Optional[str] = None
+    color: str
+    color2: str
+    lema: Optional[str] = None
+    pais_id: Optional[int] = None  # selección cuyos derechos tiene la cadena en este partido
+    pais: Optional[str] = None
+
+
+class MesaComentaristaOut(BaseModel):
+    nombre: Optional[str] = None
+    avatar_url: Optional[str] = None
+    rol: str  # narrador | analista
+
+
+class MesaInvitadoOut(BaseModel):
+    jugador_id: int
+    nombre: str
+    pais_id: Optional[int] = None
+
+
+class MesaOut(BaseModel):
+    tele: MesaTeleOut
+    comentaristas: List[MesaComentaristaOut] = []
+    invitado: Optional[MesaInvitadoOut] = None
+
+
+class TransmisionLiveOut(BaseModel):
+    """Quién narra el partido en transmisión PARA EL USUARIO de la sesión (lista cerrada: nada de pagos ni aficionados)."""
+    match_id: str
+    modo: str  # tv | radio
+    mesas: List[MesaOut] = []
+
+
 class PlantillasLiveOut(BaseModel):
     jugadores: Dict[str, str]  # nombre del jugador -> sigla de posición granular
     titulares_local: List[str] = []

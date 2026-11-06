@@ -72,6 +72,38 @@ def _match_en_progreso() -> Optional[Dict[str, Any]]:
     return {**_cache_vivo["doc"], "transmision": ligero["transmision"]}
 
 
+def obtener_mesa_transmision(usuario: Optional[dict]) -> Optional[Dict[str, Any]]:
+    """
+    La mesa de transmisión del partido en transmisión PARA ESTE USUARIO (services/corporativo_tv_service.transmisiones):
+    `modo` "tv" con las cadenas de su universo que lo transmiten (cada una con sus 2 comentaristas y su invitado) o "radio" si
+    no tiene ninguna (anónimo, sin la sección Corporativos o sin contrato de TV de ninguna de las dos selecciones).
+    Solo lo necesario para dibujar la mesa: nada de pagos, aficionados ni a qué selección representa su corporativo.
+    None si no hay partido en transmisión.
+    """
+    juego = _match_en_progreso()
+    if not juego:
+        return None
+    mesas = []
+    try:
+        from services.auth_service import tiene_permiso
+        if usuario and tiene_permiso(usuario, "corporativos"):
+            from services.corporativo_tv_service import transmisiones
+            for fila in transmisiones(usuario, [juego], en_vivo=True).get(str(juego["_id"]), []):
+                t, inv = fila["tele"], fila.get("invitado")
+                coms = ((t.get("equipo") or {}).get("comentaristas")) or []
+                mesas.append({
+                    "tele": {"id": t["id"], "nombre": t["nombre"], "logo": t.get("logo"), "color": t["color"], "color2": t["color2"],
+                             "lema": t.get("lema"), "pais_id": fila.get("pais_id"), "pais": fila.get("pais")},
+                    "comentaristas": [{"nombre": c.get("nombre"), "avatar_url": c.get("avatar_url"),
+                                       "rol": "narrador" if i == 0 else "analista"} for i, c in enumerate(coms[:2])],
+                    "invitado": {"jugador_id": inv["jugador_id"], "nombre": inv["nombre"], "pais_id": inv.get("pais_id")} if inv else None,
+                })
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Mesa de transmisión: {e}")
+        mesas = []
+    return {"match_id": str(juego["_id"]), "modo": "tv" if mesas else "radio", "mesas": mesas}
+
+
 def obtener_juego_por_id(juego_oid) -> Optional[Dict[str, Any]]:
     """
     El partido completo por _id. Si se está transmitiendo, sale del mismo caché que `_match_en_progreso` (solo se relee

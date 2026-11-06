@@ -2468,6 +2468,8 @@ document.addEventListener('DOMContentLoaded', function () {
             : (data.adicional_actual ? `${data.minuto_actual}+${data.adicional_actual}'` : `${data.minuto_actual}'`);
         minutoActual.classList.toggle('marcador-tv__minuto--final', !!data.finalizado);
         renderEventos(data.eventos, data.local, data.visitante, data.match_id);
+        // La mesa de narradores (TV o radio) comenta las jugadas recién reveladas: nunca debe romper el resto del panel
+        try { if (window.TransmisionVivo) TransmisionVivo.actualizar(data); } catch (err) { console.error('Transmisión en vivo:', err); }
         renderMarcadorTv(data);
         await actualizarPlantillasSiCorresponde(data.match_id);
         actualizarLineasPorEsquema(data);

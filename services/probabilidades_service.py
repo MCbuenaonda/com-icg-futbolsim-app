@@ -152,6 +152,13 @@ def _cargar_estado(mundial_id: str) -> dict:
             "id": 1, "confederacion_id": 1, "fase_eliminatoria": 1, "grupo": 1, "estado": 1, "estadisticas.poder": 1}):
         equipos[d["id"]] = {"conf": d.get("confederacion_id"), "fase": d.get("fase_eliminatoria"), "grupo": d.get("grupo"),
                             "estado": d.get("estado") or "", "poder": (d.get("estadisticas") or {}).get("poder") or 0.0}
+    # Al terminar su fase, quien YA clasificó al Mundial (o va al repechaje) sale de 'internacional' y queda solo en 'historial':
+    # sin sumarlos aquí el modelo no los cuenta (el Mundial nunca llegaba a 48 equipos y todas las etapas salían en 0)
+    for d in db["historial"].find({"mundial_id": mundial_id, "estado": {"$regex": "^(CALIFICADO_MUNDIAL|REPECHAJE)"}},
+                                  {"id": 1, "confederacion_id": 1, "fase_eliminatoria": 1, "grupo": 1, "estado": 1, "estadisticas.poder": 1}):
+        if d["id"] not in equipos:
+            equipos[d["id"]] = {"conf": d.get("confederacion_id"), "fase": d.get("fase_eliminatoria"), "grupo": d.get("grupo"),
+                                "estado": d.get("estado") or "", "poder": (d.get("estadisticas") or {}).get("poder") or 0.0}
     paises = {p["id"]: {"conf": p.get("confederacion_id"), "rankin": (p.get("estadisticas") or {}).get("rankin") or 999}
               for p in db["paises"].find({}, {"id": 1, "confederacion_id": 1, "estadisticas.rankin": 1})}
     mundial = db["mundiales"].find_one({"activo": True}, {"pais_id": 1}) or {}
@@ -398,7 +405,7 @@ def recalcular(iteraciones: int = ITERACIONES) -> Optional[dict]:
     """Corre la simulación y guarda una corrida por cantidad de partidos jugados (idempotente por clave)."""
     mundial_id = _mundial_activo_id()
     clave = _clave_estado(mundial_id)
-    if db["probabilidades_mundial"].find_one({"mundial_id": mundial_id, "clave": clave}, {"_id": 1}):
+    if db["probabilidades_mundial"].find_one({"mundial_id": mundial_id, "clave": clave, "invalida": {"$ne": True}}, {"_id": 1}):
         return None
     inicio = time.time()
     r = simular(iteraciones)
@@ -406,7 +413,11 @@ def recalcular(iteraciones: int = ITERACIONES) -> Optional[dict]:
     paises = {str(t): [round(c[e] / n, 4) for e in ETAPAS] for t, c in r["conteo"].items()}
     doc = {"mundial_id": mundial_id, "clave": clave, "generado_en": datetime.utcnow(), "iteraciones": n,
            "segundos": round(time.time() - inicio, 1), "mu": round(r["modelo"].mu, 3), "etapas": ETAPAS, "paises": paises}
-    db["probabilidades_mundial"].update_one({"mundial_id": mundial_id, "clave": clave}, {"$setOnInsert": doc}, upsert=True)
+    col = db["probabilidades_mundial"]
+    if col.find_one({"mundial_id": mundial_id, "clave": clave, "invalida": True}, {"_id": 1}):
+        col.replace_one({"mundial_id": mundial_id, "clave": clave, "invalida": True}, doc)   # la corrida inválida de esta clave se reemplaza por la buena
+    else:
+        col.update_one({"mundial_id": mundial_id, "clave": clave}, {"$setOnInsert": doc}, upsert=True)
     return doc
 
 
@@ -424,7 +435,7 @@ def recalcular_en_segundo_plano() -> bool:
             return False
         mundial_id = _mundial_activo_id()
         clave = _clave_estado(mundial_id)
-        if db["probabilidades_mundial"].find_one({"mundial_id": mundial_id, "clave": clave}, {"_id": 1}):
+        if db["probabilidades_mundial"].find_one({"mundial_id": mundial_id, "clave": clave, "invalida": {"$ne": True}}, {"_id": 1}):
             return False
         ahora = datetime.utcnow()
         candado = db["probabilidades_candado"].find_one_and_update(
@@ -452,7 +463,7 @@ def probabilidades_pais(pais_id: int) -> Optional[dict]:
     """
     mundial_id = _mundial_activo_id()
     clave = _clave_estado(mundial_id)
-    corridas = list(db["probabilidades_mundial"].find({"mundial_id": mundial_id}, {"clave": 1, "generado_en": 1, "iteraciones": 1,
+    corridas = list(db["probabilidades_mundial"].find({"mundial_id": mundial_id, "invalida": {"$ne": True}}, {"clave": 1, "generado_en": 1, "iteraciones": 1,
                                                                                     f"paises.{pais_id}": 1}).sort("clave", 1))
     desactualizada = not corridas or corridas[-1]["clave"] != clave
     if desactualizada:
@@ -464,9 +475,14 @@ def probabilidades_pais(pais_id: int) -> Optional[dict]:
     iteraciones = ultima.get("iteraciones") or ITERACIONES
     # asegurado / eliminado según el estado REAL (no según la simulación: 3.000 de 3.000 no es certeza)
     inter = db["internacional"].find_one({"id": pais_id}, {"estado": 1}) or {}
+    # quien ya clasificó (o va al repechaje) sale de 'internacional' al cerrar su fase y queda en 'historial': no es un eliminado
+    previo = {} if inter else (db["historial"].find_one({"id": pais_id, "mundial_id": mundial_id, "estado": {"$regex": "^(CALIFICADO_MUNDIAL|REPECHAJE)"}},
+                                                         {"estado": 1}) or {})
+    estado_real = inter.get("estado") or previo.get("estado") or ""
     anfitrion = (db["mundiales"].find_one({"activo": True}, {"pais_id": 1}) or {}).get("pais_id")
-    asegurado_mundial = pais_id == anfitrion or (inter.get("estado") or "") in ESTADOS_MUNDIAL
-    eliminado = not inter and not asegurado_mundial
+    asegurado_mundial = pais_id == anfitrion or estado_real in ESTADOS_MUNDIAL
+    en_repechaje = estado_real.startswith("REPECHAJE")
+    eliminado = not inter and not previo and not asegurado_mundial
     etapas = []
     for e, p in zip(ETAPAS, valores):
         # margen de error de Monte Carlo (95%): no es la incertidumbre del modelo, solo la del muestreo
@@ -474,7 +490,7 @@ def probabilidades_pais(pais_id: int) -> Optional[dict]:
         etapas.append({"codigo": e, "nombre": NOMBRE_ETAPA[e], "p": p, "pct": round(p * 100, 1), "margen": round(margen * 100, 1),
                        "asegurado": e == "mundial" and asegurado_mundial, "imposible": eliminado})
     historia = [{"clave": c["clave"], "valores": (c.get("paises") or {}).get(str(pais_id)) or [0.0] * len(ETAPAS)} for c in corridas]
-    return {"pendiente": False, "eliminado": eliminado, "asegurado_mundial": asegurado_mundial, "etapas": etapas, "historia": historia, "clave": ultima["clave"], "clave_actual": clave,
+    return {"pendiente": False, "eliminado": eliminado, "asegurado_mundial": asegurado_mundial, "en_repechaje": en_repechaje, "etapas": etapas, "historia": historia, "clave": ultima["clave"], "clave_actual": clave,
             "desactualizada": desactualizada, "iteraciones": iteraciones, "generado_en": ultima.get("generado_en")}
 
 

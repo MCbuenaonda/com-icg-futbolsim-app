@@ -99,7 +99,7 @@ def _enriquecer_vista_confederacion(confederacion: dict, conf_id: int, mundial_i
     Datos derivados para templates/confederacion.html (sin tocar la estructura 'fases' de arriba):
       - por fase: nombre para mostrar, descripción del formato (config/eliminatorias.py), avance de
         partidos jugados/total y la tabla de cada grupo YA ORDENADA (puntos, DG, GF) con la racha de
-        los últimos 5 resultados y el estado de cada selección: 'avanzo' (aparece en una fase
+        los últimos 5 resultados y el estado de cada selección: 'calificado' (ya está en el Mundial), 'repechaje', 'avanzo' (aparece en una fase
         posterior), 'eliminado' o 'en_juego'
       - resumen: ronda actual de N, partidos y goles del torneo, líder de la fase vigente
       - últimos resultados y próximos partidos de la confederación
@@ -154,7 +154,15 @@ def _enriquecer_vista_confederacion(confederacion: dict, conf_id: int, mundial_i
                                                    (p.get("estadisticas") or {}).get("goles_favor", 0)), reverse=True)
             tabla = []
             for pos, p in enumerate(filas, start=1):
-                if p.get("id") in posteriores:
+                # El estado propio del país (lo deja clasificacion_service al cerrar la ronda) distingue a quien CLASIFICÓ al
+                # Mundial —o va al repechaje— de quien quedó eliminado: ninguno de los dos aparece en una ronda posterior de
+                # su confederación y antes se marcaban igual como «eliminado».
+                propio = str(p.get("estado") or "")
+                if propio.startswith("CALIFICADO_MUNDIAL"):
+                    estado = "calificado"
+                elif propio.startswith("REPECHAJE"):
+                    estado = "repechaje"
+                elif p.get("id") in posteriores or propio.startswith("CLASIFICADO"):
                     estado = "avanzo"
                 elif p.get("eliminado") or datos["jugada"]:
                     estado = "eliminado"

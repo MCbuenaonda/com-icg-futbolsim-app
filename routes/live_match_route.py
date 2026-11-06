@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from schemas.live_match_schema import StartAutoSimulationResponse, StartedMatchOut, LiveMatchOut, TablaGrupoOut, PlantillasLiveOut
-from services.live_match_service import iniciar_simulacion_automatica, obtener_estado_live, obtener_tabla_grupo_partido_en_vivo, obtener_posiciones_plantillas_en_vivo, obtener_destacados_estadisticas_en_vivo
+from schemas.live_match_schema import StartAutoSimulationResponse, StartedMatchOut, LiveMatchOut, TablaGrupoOut, PlantillasLiveOut, TransmisionLiveOut
+from services.live_match_service import iniciar_simulacion_automatica, obtener_estado_live, obtener_tabla_grupo_partido_en_vivo, obtener_posiciones_plantillas_en_vivo, obtener_destacados_estadisticas_en_vivo, obtener_mesa_transmision
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, requiere_permiso
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
@@ -133,6 +133,19 @@ def get_live_plantillas():
         raise HTTPException(status_code=404, detail="No hay ningún partido en transmisión en este momento.")
 
     return PlantillasLiveOut(**plantillas)
+
+
+@route.get("/live/transmision", response_model=TransmisionLiveOut, name="matches_live_transmision")
+def get_live_transmision(request: Request):
+    """
+    Quién narra el partido en transmisión para TU universo: las cadenas de TV con sus comentaristas e invitado, o `modo: radio`
+    (narrador genérico) si no hay ninguna o no tienes sesión. Sin autenticación obligatoria: anónimo = radio. Se pide una vez
+    por partido.
+    """
+    mesa = obtener_mesa_transmision(obtener_usuario_actual(request))
+    if not mesa:
+        raise HTTPException(status_code=404, detail="No hay ningún partido en transmisión en este momento.")
+    return TransmisionLiveOut(**mesa)
 
 
 @route.get("/live/interes", name="matches_live_interes")

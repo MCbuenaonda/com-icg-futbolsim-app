@@ -35,7 +35,9 @@
 
     // ---------------------------------------------------------------- qué es cada jugada
     const TIPOS = [   // [fragmento del tipo, clase]; gana la primera coincidencia
+        ['TANDA DE PENALTIS', 'tanda'], ['SEGUNDO TIEMPO EXTRA', 'segextra'],
         ['ANULADO', 'var'], ['VAR', 'var'],
+        ['GOL DE PENAL', 'tandagol'],
         ['PENAL', 'penal'],
         ['GOL', 'gol'],
         ['ROJA', 'roja'], ['DT EXPULSADO', 'roja'],
@@ -53,6 +55,11 @@
     ];
     function clasificar(evento) {
         const tipo = (evento && evento.tipo) || '';
+        // en la tanda de penales (periodo 5) cada cobro tiene sus propias frases: no es un penal señalado en juego
+        if (evento && evento.periodo === 5) {
+            if (tipo.includes('PENAL FALLADO')) return 'tandafallo';
+            if (tipo.includes('PREPARACIÓN')) return 'tandaprep';
+        }
         for (const [fragmento, clase] of TIPOS) if (tipo.includes(fragmento)) return clase;
         return 'jugada';
     }
@@ -68,8 +75,9 @@
         lesion:     { p: 0.9,  prio: 2, cadena: ['N', 'A:0.6'] },
         cambio:     { p: 0.6,  prio: 1, cadena: ['N:0.7', 'A:0.6'] },
         dt:         { p: 0.5,  prio: 1, cadena: ['N:0.6', 'A:0.6'] },
-        atajada:    { p: 0.85, prio: 2, cadena: ['N', 'A:0.45', 'I:0.3'] },
-        remate:     { p: 0.6,  prio: 1, cadena: ['N', 'A:0.4', 'I:0.25'] },
+        // el desenlace de un disparo (atajada, desviado, bloqueado, córner) SIEMPRE se narra: si no, la jugada queda a medias (preparación o gol sí, pero qué pasó con el tiro no)
+        atajada:    { p: 1.0,  prio: 2, cadena: ['N', 'A:0.45', 'I:0.3'] },
+        remate:     { p: 1.0,  prio: 2, cadena: ['N', 'A:0.4', 'I:0.25'] },
         error:      { p: 0.8,  prio: 2, cadena: ['N', 'A:0.5'] },
         corner:     { p: 0.35, prio: 1, cadena: ['N:0.6', 'A:0.5'] },
         regate:     { p: 0.35, prio: 1, cadena: ['N', 'A:0.5'] },
@@ -86,6 +94,10 @@
         extra:      { p: 1.0,  prio: 3, cadena: ['N', 'A'] },
         tanda:      { p: 1.0,  prio: 3, cadena: ['N', 'A', 'I:0.7'] },
         final:      { p: 0,    prio: 3, cadena: ['N', 'A', 'I'] },   // el pitido final lo cubre la despedida (crear().despedida)
+        segextra:   { p: 1.0,  prio: 3, cadena: ['N', 'A:0.8'] },
+        tandaprep:  { p: 0.85, prio: 2, cadena: ['N', 'A:0.3'] },
+        tandagol:   { p: 1.0,  prio: 3, cadena: ['N', 'A:0.8', 'I:0.5'] },
+        tandafallo: { p: 1.0,  prio: 3, cadena: ['N', 'A:0.85', 'I:0.55'] },
         saque:      { p: 0.2,  prio: 0, cadena: ['N'] },
         jugada:     { p: 0.2,  prio: 0, cadena: ['N', 'A:0.4'] },
     };
@@ -209,6 +221,52 @@
             I: ['Respeto para los dos equipos; así es el fútbol.'],
         },
         saque: { N: ['{desc}'], A: [], I: [] },
+        segextra: {
+            N: ['{desc}', 'Arranca la segunda parte del tiempo extra. {desc}', 'Se reanuda la prórroga. {desc}'],
+            A: ['Quedan quince minutos: ya no se piensa en la táctica, se piensa en no fallar.', 'Con las piernas cargadas, un error o un chispazo lo cambia todo.'],
+            I: ['Aquí el cuerpo ya no responde; manda la cabeza y el corazón.'],
+        },
+        // tanda de penales: {tlinea} la tanda hasta ahora, {j} el tirador (o el portero en `tandafallo`), {j2} el tirador en `tandafallo`
+        tandaprep: {
+            N: ['{desc}', 'Silencio en el estadio. {desc}', 'El balón en el punto penal. {desc}'],
+            A: ['Todo está en la cabeza del que cobra; la técnica ya no importa.', 'El portero tiene que elegir un lado y confiar.'],
+            I: [],
+        },
+        tandaprep_subita: {
+            N: ['¡Muerte súbita! El que falle, pierde. {desc}', 'Seguimos en la muerte súbita: cada cobro lo puede definir todo. {desc}', '{desc} Aquí ya no hay margen de error.'],
+            A: ['En la muerte súbita no se puede fallar: el que lo hace se va a casa.'],
+            I: [],
+        },
+        tandagol: {
+            N: ['¡GOOOL! {desc} {tlinea}.', '¡Adentro! {j} no perdona desde los once metros. {tlinea}.', '{desc} La tanda va {tlinea}.'],
+            A: ['Mucha personalidad de {j} para cobrar así, sin dudar.', 'Eso da confianza a todo el equipo.', 'Se nota la sangre fría de {j}.'],
+            I: ['Desde el punto penal se juega la cabeza: ese lo cobró muy tranquilo.', 'Cuando entras así, el equipo respira.'],
+        },
+        tandagol_subita: {
+            N: ['¡GOL en la muerte súbita! {desc} {tlinea}.', '¡Lo convierte {j}! Ahora la presión pasa al otro lado. {tlinea}.'],
+            A: ['La presión pasa al siguiente: ahora tiene que anotar sí o sí.'],
+            I: ['Anotar en muerte súbita es lo más difícil: todo el peso cae sobre tus hombros.'],
+        },
+        tandagol_decide: {
+            N: ['¡GOOOL y se acaba! {j} anota el penal decisivo: {ganaT} gana la tanda. {tlinea}.', '¡Se define! {desc} {ganaT} se impone en los penales. {tlinea}.'],
+            A: ['Un cobro con mucha frialdad para cerrar la tanda.', 'Qué manera de definir una serie tan apretada.'],
+            I: ['Ese es el penal más difícil de la vida: el que te da el pase. Qué tranquilidad.'],
+        },
+        tandafallo: {
+            N: ['¡LO ATAJA {j}! Falla {j2}. {tlinea}.', '¡{j} se queda con el penal de {j2}! {tlinea}.', '{desc} La tanda va {tlinea}.'],
+            A: ['El portero leyó el cobro desde antes de que patearan.', 'Un penal fallado en una tanda pesa el doble: queda en la cabeza de todos.'],
+            I: ['Fallar un penal así es muy duro; el compañero que lo ataja se convierte en héroe.', 'Nadie quiere ser el que falle, pero le puede pasar a cualquiera.'],
+        },
+        tandafallo_subita: {
+            N: ['¡LO ATAJA {j}! Falla {j2} en la muerte súbita. {tlinea}.', '{desc} En la muerte súbita, fallar pesa el doble. {tlinea}.'],
+            A: ['En la muerte súbita un fallo es casi una sentencia.'],
+            I: ['Cuando se falla en una muerte súbita, el silencio es lo más duro.'],
+        },
+        tandafallo_decide: {
+            N: ['¡LO ATAJA {j}! ¡Y se acabó la tanda! {ganaT} gana en los penales. {tlinea}.', '¡Falla {j2} y {ganaT} se lleva la tanda! {tlinea}.'],
+            A: ['Cruel: un penal fallado decide una serie que estuvo ajustadísima.'],
+            I: ['Duele muchísimo perder así; el que falla carga esto años, aunque no sea su culpa.'],
+        },
         jugada: { N: ['{desc}'], A: ['Es un partido que se está jugando con mucha intensidad.'], I: [] },
     };
 
@@ -333,6 +391,14 @@
             I: { propio: ['Un cambio que aporta piernas frescas; tiene lógica.'], rival: ['Un cambio que busca equilibrio; veremos si le da resultado.'] },
         },
     };
+    SUBJ.tandagol = {
+        A: { propio: ['¡Qué personalidad, {j}! ¡Así se cobra, {pais}!', '¡Gol de {pais}! ¡Qué sangre fría!'], rival: ['Ay, otro más para {contra}... {pais}, ahora te toca no fallar.', 'Convirtió bien {j}; ahora nos toca a nosotros.'] },
+        I: { propio: ['Lo cobró muy bien; hay que reconocerle la tranquilidad.'], rival: ['Fue un buen cobro: no tuvo opción el portero de {pais}.'] },
+    };
+    SUBJ.tandafallo = {   // el evento es del equipo del PORTERO: `propio` = el portero de {pais} la atajó
+        A: { propio: ['¡Qué portero tiene {pais}! ¡Esa mano vale una Copa!', '¡Se vistió de héroe! ¡Vamos, {pais}!'], rival: ['No puede ser... {pais} falló y ahora toca sufrir.', 'Qué dolor, qué dolor. Había que hacerlo mejor desde los once pasos.'] },
+        I: { propio: ['Muy buena lectura del portero, merece el reconocimiento.'], rival: ['Un fallo así lo puede tener cualquiera; hay que seguir con la cabeza arriba.'] },
+    };
     // lo que está en juego según la etapa (se usa de vez en cuando en las jugadas más importantes)
     const ETAPA = {
         knockout: {
@@ -405,6 +471,7 @@
     };
     const DESPEDIDA = {
         resultado: {
+            tanda: ['¡Se acabó! {gg}-{gp} en el tiempo reglamentario y {gan} gana en los penales {tg} a {tp} ante {per}.', 'Final en {estadio}: empate {gg}-{gp} y {gan} se impone desde el punto penal, {tg}-{tp}.'],
             victoria: ['¡Y se acabó! {gan} se lleva el partido {gg}-{gp} ante {per}.', 'Final del partido: {gan} gana {gg} a {gp} y se queda con los tres puntos.',
                        'Termina el partido en {estadio}: {gan} {gg}, {per} {gp}.'],
             goleada: ['¡Paliza en {estadio}! {gan} golea {gg}-{gp} a {per}.', 'Se acabó, y fue una goleada: {gan} {gg}, {per} {gp}.', '¡Qué manera de ganar! {gan} arrasa a {per} por {gg}-{gp}.'],
@@ -413,6 +480,7 @@
             vacio: ['Se acabó el partido: {local} y {visita} empatan sin goles.', 'Cero a cero en {estadio}: un partido de mucho cuidado en las áreas.'],
         },
         analisis: {
+            tanda: ['Una tanda para el infarto: así se define el fútbol cuando ya no queda nada más que dar.', 'Los penales son una lotería con muchísima cabeza: hoy le tocó a {gan} sonreír.'],
             figura: ['Para mí la figura fue {figura}, que {golesTxt}.', 'Hay que destacar a {figura}: {golesTxt} y marcó la diferencia.'],
             victoria: ['{gan} lo ganó con orden y paciencia: se llevó los puntos por detalles.', 'Un resultado que premia a {gan}, que supo aprovechar mejor sus momentos.',
                        '{per} tuvo sus opciones, pero le faltó contundencia.'],
@@ -446,7 +514,9 @@
         });
         const lista = Object.values(goleadores).sort((a, b) => b.n - a.n);
         const gana = gl > gv ? 'local' : (gv > gl ? 'visitante' : null);
-        return { local: data.local, visitante: data.visitante, gl, gv, ganador: gana ? (gana === 'local' ? data.local : data.visitante) : null,
+        const ta = estadoTanda(eventos, eventos.length - 1, { local: data.local, visitante: data.visitante });
+        const tandaRes = ta && ta.decidida ? { ganador: ta.ganador, perdedor: ta.ganador === data.local ? data.visitante : data.local, tg: Math.max(ta.gl, ta.gv), tp: Math.min(ta.gl, ta.gv) } : null;
+        return { tanda: tandaRes, local: data.local, visitante: data.visitante, gl, gv, ganador: gana ? (gana === 'local' ? data.local : data.visitante) : null,
                  perdedor: gana ? (gana === 'local' ? data.visitante : data.local) : null, gg: Math.max(gl, gv), gp: Math.min(gl, gv),
                  diferencia: Math.abs(gl - gv), figura: lista[0] && lista[0].n >= 1 ? lista[0] : null, rojas, estadio: data.estadio };
     }
@@ -499,16 +569,35 @@
             return est === 'gana' || est === 'pierde' ? est : null;
         }
 
+        // «Ioannis Pittas» -> «Ioannis Pittas de Chipre» (la primera mención de cada jugador de la jugada): así quien no conoce a los
+        // jugadores sabe de qué lado va la jugada. No toca el texto si no se conoce su país o si ya lo dice.
+        function conPais(texto, jugadores) {
+            if (typeof o.paisDe !== 'function') return texto;
+            let t = texto;
+            (jugadores || []).slice(0, 3).forEach(nombre => {
+                const pais = nombre && o.paisDe(nombre);
+                if (!pais) return;
+                const i = t.indexOf(nombre);
+                if (i < 0) return;
+                const despues = t.slice(i + nombre.length);
+                if (/^\s*(de|del)\s/i.test(despues) || despues.trimStart().startsWith('(')) return;
+                t = t.slice(0, i + nombre.length) + ' de ' + pais + despues;
+            });
+            return t;
+        }
+
         function recordarPlantilla(id) { recientes.push(id); if (recientes.length > 14) recientes.shift(); }
 
         function elegirPlantilla(pool, clave, rng, datos) {
             const candidatas = [];
-            pool.forEach((plantilla, i) => {
+            const reunir = (evitarRecientes) => pool.forEach((plantilla, i) => {
                 const id = clave + ':' + i;
-                if (recientes.includes(id)) return;
+                if (evitarRecientes && recientes.includes(id)) return;
                 const texto = rellenar(plantilla, datos);
                 if (texto) candidatas.push({ id, texto });
             });
+            reunir(true);
+            if (!candidatas.length) reunir(false);   // si todas se usaron hace poco, mejor repetir una que quedarse callado (sobre todo con el desenlace de un disparo)
             if (!candidatas.length) return null;
             const elegida = candidatas[Math.floor(rng() * candidatas.length)];
             recordarPlantilla(elegida.id);
@@ -550,21 +639,31 @@
             const equipoEvento = (equipo === o.local || equipo === o.visitante) ? equipo : null;
             const rival = equipoEvento ? (esLocal ? o.visitante : o.local) : null;
             const datos = {
-                desc: limpiarDescripcion(evento.descripcion), j: apellido(jugadores[0]), j2: apellido(jugadores[1]),
+                desc: conPais(limpiarDescripcion(evento.descripcion), jugadores), j: apellido(jugadores[0]), j2: apellido(jugadores[1]),
                 eq: equipoEvento, rival, min: ctx.minuto, marc: ctx.marcador, local: o.local, visita: o.visitante, estadio: o.estadio,
             };
             const pro = propio(mesaIdx);
             const lado = pro && equipoEvento ? (equipoEvento === pro.nombre ? 'propio' : 'rival') : null;
             const suf = pro && lado ? sufijoSituacion(clase, evento, pro, ctx) : null;
             if (pro) { datos.pais = pro.nombre; datos.contra = pro.contra; }
+            // tanda de penales: marcador de la tanda y variantes de muerte súbita / cobro decisivo
+            const ta = ctx.tanda || null;
+            let claseF = clase;
+            if (ta) {
+                datos.tlinea = `${o.local} ${ta.gl}, ${o.visitante} ${ta.gv}`;
+                if (ta.ganador) datos.ganaT = ta.ganador;
+                if (ta.decidida && FRASES[clase + '_decide']) claseF = clase + '_decide';
+                else if (ta.subita && FRASES[clase + '_subita']) claseF = clase + '_subita';
+                // en un cobro de la tanda el rival está en `evento.equipo` o es el otro: {j2} es el tirador cuando el que habla es el portero
+            }
             const salida = [];
             const pasos = soloReaccion ? ['A:0.9'] : cfg.cadena;
             let retraso = 250 + Math.floor(rng() * 300);
             pasos.forEach((paso, k) => {
                 const [codigo, prob] = paso.split(':');
                 if (prob && rng() > parseFloat(prob)) return;
-                let pool = (FRASES[clase] || {})[codigo] || [];
-                let clavePool = `${clase}:${codigo}`;
+                let pool = (FRASES[claseF] || {})[codigo] || [];
+                let clavePool = `${claseF}:${codigo}`;
                 // con opinión: el analista (del país de la cadena) con pasión y el invitado con una mirada objetiva
                 if (pro && lado && (codigo === 'A' || (codigo === 'I' && mesas[mesaIdx].invitado)) && rng() < (codigo === 'A' ? 0.85 : 0.7)) {
                     const fuentes = [];
@@ -584,7 +683,8 @@
                 // en la radio no hay invitado: su comentario lo dice la misma voz
                 const texto = pool.length === 1 && clavePool.startsWith('subj:') ? pool[0] : elegirPlantilla(pool, clavePool, rng, datos);
                 if (!texto) return;
-                const rol = evitarRepetir(mesaIdx, hablante(mesaIdx, codigo), rng);
+                // lo que pasa en la jugada siempre lo cuenta el narrador (nunca se cede a otro por haber hablado seguido)
+                const rol = codigo === 'N' ? hablante(mesaIdx, codigo) : evitarRepetir(mesaIdx, hablante(mesaIdx, codigo), rng);
                 registrar(mesaIdx, rol);
                 // `paso` ordena la cadena; solo el primero espera un poco (los demás entran en cuanto termina el anterior)
                 salida.push({
@@ -641,8 +741,8 @@
             const rng = azar(`${o.matchId}:fin:${mesaIdx}`);
             const mesa = mesas[mesaIdx] || {};
             const cadena = (mesa.tele && mesa.tele.nombre) || '';
-            const tipo = res.ganador ? (res.diferencia >= 3 ? 'goleada' : 'victoria') : (res.gg === 0 ? 'vacio' : 'empate');
-            const datos = { gan: res.ganador, per: res.perdedor, gg: res.gg, gp: res.gp, local: res.local, visita: res.visitante, estadio: res.estadio, cadena,
+            const tipo = res.tanda ? 'tanda' : (res.ganador ? (res.diferencia >= 3 ? 'goleada' : 'victoria') : (res.gg === 0 ? 'vacio' : 'empate'));
+            const datos = { gan: res.tanda ? res.tanda.ganador : res.ganador, per: res.tanda ? res.tanda.perdedor : res.perdedor, tg: res.tanda && res.tanda.tg, tp: res.tanda && res.tanda.tp, gg: res.gg, gp: res.gp, local: res.local, visita: res.visitante, estadio: res.estadio, cadena,
                             figura: res.figura && apellido(res.figura.nombre), n: res.figura && res.figura.n, rojas: res.rojas, s: res.rojas > 1 ? 's' : '',
                             golesTxt: res.figura && (res.figura.n > 1 ? `anotó ${res.figura.n} goles` : 'anotó el gol') };
             const lineas = [];
@@ -652,15 +752,16 @@
             };
             if (o.modo !== 'tv') {
                 pon('radio', DESPEDIDA.resultado[tipo], 'r');
-                pon('radio', res.figura && rng() < 0.7 ? DESPEDIDA.analisis.figura : DESPEDIDA.analisis[tipo], 'a');
+                pon('radio', !res.tanda && res.figura && rng() < 0.7 ? DESPEDIDA.analisis.figura : DESPEDIDA.analisis[tipo], 'a');
                 pon('radio', DESPEDIDA.radio, 'x');
             } else {
                 const tieneInvitado = !!mesa.invitado;
                 pon('narrador', DESPEDIDA.resultado[tipo], 'r');
                 const pro = propio(mesaIdx);
-                const estadoFin = pro ? (res.ganador === pro.nombre ? 'gana' : (res.perdedor === pro.nombre ? 'pierde' : 'empata')) : null;
+                const ganFin = res.tanda ? res.tanda.ganador : res.ganador, perFin = res.tanda ? res.tanda.perdedor : res.perdedor;
+                const estadoFin = pro ? (ganFin === pro.nombre ? 'gana' : (perFin === pro.nombre ? 'pierde' : 'empata')) : null;
                 if (pro) { datos.pais = pro.nombre; datos.contra = pro.contra; }
-                pon('analista', pro && rng() < 0.85 ? DESPEDIDA_PAIS.A[estadoFin] : (res.figura && rng() < 0.7 ? DESPEDIDA.analisis.figura : DESPEDIDA.analisis[tipo]), 'a');
+                pon('analista', pro && rng() < 0.85 ? DESPEDIDA_PAIS.A[estadoFin] : (!res.tanda && res.figura && rng() < 0.7 ? DESPEDIDA.analisis.figura : DESPEDIDA.analisis[tipo]), 'a');
                 if (res.rojas && rng() < 0.6) pon('analista', DESPEDIDA.analisis.roja, 'ro');
                 if (tieneInvitado) pon('invitado', pro && rng() < 0.65 ? DESPEDIDA_PAIS.I[estadoFin] : DESPEDIDA.invitado, 'i');
                 pon('analista', DESPEDIDA.gracias, 'g');
@@ -678,12 +779,67 @@
     // Solo las jugadas verdaderamente importantes llevan tarjeta, como en una transmisión de TV: gol, amonestado, expulsado y el
     // portero que ataja un penal. Orden de los nombres en `evento.jugadores` (lo deja el motor): gol [goleador, portero, asistente];
     // amarilla [amonestado, rival]; roja y doble amarilla [expulsado]; penal fallado [portero, tirador].
+    // Estado de la tanda de penales hasta el evento `k` (con él incluido): cobros de cada equipo en orden, goles, si ya está decidida
+    // y si se juega la muerte súbita. `partido` = {local, visitante}. null si todavía no empezó la tanda.
+    function estadoTanda(eventos, k, partido) {
+        if (!eventos || !partido) return null;
+        let inicio = -1;
+        for (let i = 0; i <= k && i < eventos.length; i++) if ((eventos[i].tipo || '').includes('TANDA DE PENALTIS')) { inicio = i; break; }
+        if (inicio < 0) return null;
+        const rl = [], rv = [];
+        for (let i = inicio + 1; i <= k && i < eventos.length; i++) {
+            const ev = eventos[i], t = ev.tipo || '';
+            if (t.includes('GOL DE PENAL')) (ev.equipo === partido.local ? rl : rv).push(true);
+            else if (t.includes('PENAL FALLADO')) (ev.equipo === partido.local ? rv : rl).push(false);   // el equipo del evento es el del portero
+            else if (t.includes('PENAL ANULADO')) (ev.equipo === partido.local ? rl : rv).push(false);
+        }
+        const gl = rl.filter(Boolean).length, gv = rv.filter(Boolean).length, tl = rl.length, tv = rv.length;
+        let decidida = false;
+        if (tl <= 5 && tv <= 5) decidida = gl > gv + Math.max(0, 5 - tv) || gv > gl + Math.max(0, 5 - tl) || (tl === 5 && tv === 5 && gl !== gv);
+        else decidida = tl === tv && gl !== gv;
+        const subita = tl > 5 || tv > 5 || (tl === 5 && tv === 5 && gl === gv);
+        return { rl, rv, gl, gv, tl, tv, decidida, subita, ganador: decidida ? (gl > gv ? partido.local : partido.visitante) : null };
+    }
+
     const GOLES_TIPO = { 'GOL DE TIRO LIBRE': 'de tiro libre', 'GOL DE CÓRNER': 'de córner' };
-    function grafico(evento, indice, eventos) {
+    // Cada pieza del arbitraje: [fragmento del tipo, clase de la pieza, titular, rótulo, puesto del árbitro]; gana la primera
+    const ARBITRAJE = [
+        ['SILBATO INICIAL', 'inicio', '¡ARRANCA EL PARTIDO!', 'Pitido inicial', 'central'],
+        ['FINAL DEL PRIMER TIEMPO', 'descanso', 'FINAL DEL PRIMER TIEMPO', 'Medio tiempo', 'central'],
+        ['COMIENZA EL SEGUNDO TIEMPO', 'segundo', 'ARRANCA EL SEGUNDO TIEMPO', 'Segundo tiempo', 'central'],
+        ['SEGUNDO TIEMPO EXTRA', 'extra', 'SEGUNDO TIEMPO EXTRA', 'Tiempo extra', 'central'],
+        ['TIEMPO EXTRA', 'extra', '¡TIEMPO EXTRA!', 'Alargue', 'central'],
+        ['TIEMPO AÑADIDO', 'anadido', 'TIEMPO AÑADIDO', 'Cuarto árbitro', 'cuarto'],
+        ['PITIDO FINAL', 'final', 'FINAL DEL PARTIDO', 'Pitido final', 'central'],
+        ['REVISIÓN VAR', 'revision', 'REVISIÓN VAR', 'Revisión pedida', 'cuarto'],
+    ];
+    function grafico(evento, indice, eventos, partido) {
         const tipo = (evento && evento.tipo) || '';
         const j = (evento && evento.jugadores) || [];
-        if (!j.length) return null;
         const clase = clasificar(evento);
+        // --- tanda de penales: el aviso y cada cobro, con el marcador de la tanda
+        if (tipo.includes('TANDA DE PENALTIS')) return { accion: 'tanda', evento: indice, fase: 'inicio', titulo: '¡TANDA DE PENALES!', prio: 3, estado: estadoTanda(eventos, indice, partido), minuto: evento.minuto };
+        if (partido && (clase === 'tandagol' || clase === 'tandafallo' || (evento.periodo === 5 && tipo.includes('PENAL ANULADO')))) {
+            const fallo = clase === 'tandafallo';
+            const equipoTirador = fallo ? (evento.equipo === partido.local ? partido.visitante : partido.local) : evento.equipo;
+            return { accion: 'tanda', evento: indice, fase: 'cobro', resultado: clase === 'tandagol' ? 'gol' : (fallo ? 'atajado' : 'anulado'), tirador: fallo ? j[1] : j[0], portero: fallo ? j[0] : null,
+                     equipo: equipoTirador, prio: 3, estado: estadoTanda(eventos, indice, partido), minuto: evento.minuto };
+        }
+        // --- el cuerpo arbitral: pitidos, tiempo añadido, alargue y las decisiones del VAR (con el rostro del árbitro)
+        const arb = ARBITRAJE.find(a => tipo.includes(a[0]));
+        if (arb) return { accion: 'arbitro', evento: indice, clase: arb[1], titulo: arb[2], rotulo: arb[3], rol: evento.arbitro_rol || arb[4], arbitro: evento.arbitro || null,
+                          minutos: evento.minutos_anadidos != null ? evento.minutos_anadidos : null, detalle: arb[1] === 'revision' ? limpiarDescripcion(evento.descripcion) : null,
+                          minuto: evento.minuto, adicional: evento.adicional, prio: arb[1] === 'anadido' ? 1 : 2 };
+        if (tipo.includes('VAR - ')) {
+            const ok = tipo.includes('CONFIRMADO'), anula = tipo.includes('ANULADO');
+            return { accion: 'arbitro', evento: indice, clase: ok ? 'var_ok' : (anula ? 'var_anula' : 'var_cambia'),
+                     titulo: ok ? 'DECISIÓN CONFIRMADA' : (anula ? 'JUGADA ANULADA' : 'DECISIÓN REVISADA'), rotulo: 'VAR', rol: evento.arbitro_rol === 'var' ? 'var' : 'var', arbitro: evento.arbitro || null,
+                     detalle: limpiarDescripcion(evento.descripcion), minuto: evento.minuto, prio: 2 };
+        }
+        // --- lesión
+        if (clase === 'lesion' && j.length) return { accion: 'lesion', titulo: 'LESIONADO', evento: indice, jugador: j[0], equipo: evento.equipo || null, minuto: evento.minuto, lesion: evento.lesion || null,
+                                                      gravedad: evento.gravedad || null, sale: !!evento.sale_lesionado, sinCambio: !!evento.sin_cambio, prio: 2 };
+        if (!j.length) return null;
         const base = { evento: indice, jugador: j[0], equipo: evento.equipo || null, minuto: evento.minuto };
         if (clase === 'gol' && !tipo.includes('TANDA') && tipo.indexOf('GOL DE PENAL') < 0) {
             const previos = (eventos || []).slice(0, indice + 1).filter(e => clasificar(e) === 'gol' && ((e.jugadores || [])[0] === j[0])).length;
@@ -782,7 +938,7 @@
     }
     const PRESENTA = ['{quien} presenta', '{quien} les trae', 'Un dato de {quien}'];
 
-    const api = { crear, clasificar, grafico, resumen, estadisticas, elegirDato, PRESENTA, POSICIONES, tocaMarcador, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };
+    const api = { crear, clasificar, grafico, estadoTanda, resumen, estadisticas, elegirDato, PRESENTA, POSICIONES, tocaMarcador, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.Narracion = api;
 })(typeof window !== 'undefined' ? window : globalThis);

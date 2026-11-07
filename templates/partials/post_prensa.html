@@ -1,4 +1,5 @@
 {# Publicación de PRENSA (services/prensa_service.vista): un medio opina de un partido, un jugador o un técnico. Variable: post. #}
+{% import "partials/macros.html" as m %}
 <article class="x-post x-post--prensa" style="--medio: {{ post.medio.color }};">
     <div class="d-flex gap-2">
         {% if post.periodista.avatar_url %}<img class="tv-cara medio-cara" src="{{ post.periodista.avatar_url }}" alt="" loading="lazy" onerror="this.remove()" title="{{ post.periodista.nombre }}">{% else %}<span class="medio-avatar" title="{{ post.medio.nombre }}">{{ post.medio.nombre[:1] }}</span>{% endif %}
@@ -7,14 +8,20 @@
                 {% if post.medio.logo %}<a href="/red-social/medios#medio-{{ post.medio_id }}" class="text-decoration-none"><img class="medio-logo" src="{{ post.medio.logo }}" alt="{{ post.medio.nombre }}" loading="lazy" onerror="this.replaceWith(document.createTextNode(this.alt))"></a>{% else %}<a href="/red-social/medios#medio-{{ post.medio_id }}" class="fw-bold text-body-emphasis text-decoration-none">{{ post.medio.nombre }}</a>{% endif %}
                 <i class="bi bi-patch-check-fill medio-verificado fs-8" title="Medio de comunicación"></i>
                 <span class="text-muted fs-8">· {{ post.periodista.nombre }}</span>
-                <span class="text-muted fs-8">· {{ post.fecha }}</span>
+                <span class="prensa-fecha" title="{{ post.fecha }} {{ post.hora }}"><i class="bi bi-calendar3"></i>{{ post.fecha_corta }}{% if post.hora %} · {{ post.hora }}{% endif %}</span>
                 <span class="x-post-tipo ms-auto"><i class="bi {{ post.icono }}"></i>{{ post.etiqueta }}</span>
             </div>
-            <div class="fs-7 text-body-emphasis mt-1 x-post-texto">{{ post.texto }}</div>
+            {% if post.partido %}{% set pt = post.partido %}
+            <a class="prensa-partido" href="/juegos/{{ post.juego_id }}" title="Ver el partido">
+                {% if pt.tag %}<span class="prensa-partido__tag">{{ pt.tag }}</span>{% endif %}
+                <span class="prensa-partido__equipos">{{ m.bandera(pt.local.bandera, pais_id=pt.local.id) }}<b>{{ pt.local.nombre }}</b>{% if pt.marcador %}<em>{{ pt.marcador }}</em>{% else %}<i>vs</i>{% endif %}<b>{{ pt.visitante.nombre }}</b>{{ m.bandera(pt.visitante.bandera, pais_id=pt.visitante.id) }}</span>
+                {% if pt.grupo %}<span class="prensa-partido__grupo">{{ pt.grupo }}</span>{% endif %}
+            </a>{% endif %}
+            <blockquote class="prensa-cita x-post-texto">{{ post.texto }}</blockquote>
             <div class="x-post-pie">
                 <span class="x-post-rubro medio-tono medio-tono--{{ post.categoria_tono }}" title="Tono de la nota hacia lo que comenta"><i class="bi {{ post.tono_icono }}"></i>{{ post.tono_nombre }}</span>
                 {% for v in post.valoraciones %}<span class="x-post-rubro"><i class="bi {{ 'bi-person-fill' if v.tipo == 'jugador' else ('bi-clipboard2-data' if v.tipo == 'dt' else 'bi-flag-fill') }}"></i>{{ v.nombre }}</span>{% endfor %}
-                <a class="x-post-rubro text-decoration-none" href="/juegos/{{ post.juego_id }}"><i class="bi bi-box-arrow-up-right"></i>Ver el partido</a>
+                
             </div>
             <div class="x-acciones mt-2">
                 <span class="x-accion x-accion--comentar"><i class="bi bi-chat"></i>{{ post.comentarios | numero_compacto }}</span>

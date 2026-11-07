@@ -51,6 +51,23 @@
 
 <div id="panelInactivo" class="card card-logo-fondo card-logo-fondo--sin-brillo vivo-inactivo mb-4 d-none" style="--logo-color: #64748b;">
     <div class="card-body p-4 p-md-5 text-center">
+        <!-- Previa del próximo partido: el estadio de fondo (se aleja y se acerca), equipos, día, clima y aforo (live_match.js::cargarPrevia) -->
+        <section id="previaPartido" class="previa d-none" aria-label="Previa del próximo partido">
+            <div class="previa__fondo"><img id="previaEstadioImg" alt="" decoding="async"></div>
+            <div class="previa__velo"></div>
+            <div class="previa__cuerpo">
+                <span class="previa__etiqueta"><i class="bi bi-broadcast-pin"></i>Próximo partido</span>
+                <h2 class="previa__estadio" id="previaEstadio"></h2>
+                <p class="previa__sede" id="previaSede"></p>
+                <div class="previa__vs">
+                    <div class="previa__equipo previa__equipo--local"><span id="previaLocalEscudo"></span><strong id="previaLocal"></strong></div>
+                    <span class="previa__vs-texto">VS</span>
+                    <div class="previa__equipo previa__equipo--visita"><span id="previaVisitaEscudo"></span><strong id="previaVisita"></strong></div>
+                </div>
+                <p class="previa__fase" id="previaFase"></p>
+                <div class="previa__chips" id="previaChips"></div>
+            </div>
+        </section>
         <span class="vivo-inactivo__icono"><i class="bi bi-broadcast"></i></span>
         <p id="mensajeInactivo" class="text-white mb-3">No hay ningún partido en transmisión en este momento.</p>
         {% if puede('simular_partidos') %}
@@ -62,14 +79,9 @@
         {% endif %}
         <div id="errorSimular" class="alert alert-danger mt-3 d-none"></div>
         {% if puede('juego_en_vivo') %}
-        <!-- Juego en Vivo fuera de transmisión: resumen del último partido jugado + elegir país
-             para el próximo (el mismo que va a tomar "Simular siguiente") -->
+        <!-- Juego en Vivo fuera de transmisión: solo el resumen del último partido jugado (elegir país vive en /juegos) -->
         <div class="mx-auto text-start text-white" style="max-width: 640px;">
             <div id="jevResumenInactivo" class="mt-4 d-none"></div>
-            <div id="jevProximo" class="mt-4 d-none">
-                <h6 class="fw-bold mb-1">🎮 Próximo partido: <span id="jevProximoTitulo"></span></h6>
-                <div id="jevProximoSelector"></div>
-            </div>
         </div>
         {% endif %}
     </div>
@@ -369,8 +381,8 @@
     </div>
 </div>
 
-<link rel="stylesheet" href="{{ url_for('static', path='/css/live_match.css') }}?v=20261030f">
-<link rel="stylesheet" href="{{ url_for('static', path='/css/transmision_vivo.css') }}?v=20261107e">
+<link rel="stylesheet" href="{{ url_for('static', path='/css/live_match.css') }}?v=20261108g">
+<link rel="stylesheet" href="{{ url_for('static', path='/css/transmision_vivo.css') }}?v=20261108g">
 
 <script>
     // Configuración que depende del usuario (permisos); el resto de la lógica vive en static/js/live_match.js
@@ -380,8 +392,8 @@
     };
 </script>
 <script src="{{ url_for('static', path='/js/cancha_jugada.js') }}?v=20261029a"></script>
-<script src="{{ url_for('static', path='/js/narracion.js') }}?v=20261107e"></script>
-<script src="{{ url_for('static', path='/js/transmision_vivo.js') }}?v=20261107e"></script>
-<script src="{{ url_for('static', path='/js/live_match.js') }}?v=20261107e"></script>
+<script src="{{ url_for('static', path='/js/narracion.js') }}?v=20261108g"></script>
+<script src="{{ url_for('static', path='/js/transmision_vivo.js') }}?v=20261108g"></script>
+<script src="{{ url_for('static', path='/js/live_match.js') }}?v=20261108g"></script>
 {% endblock %}
 

@@ -1781,7 +1781,10 @@ def get_data_fase_actual_dashboard():
     
     # El partido de referencia del encabezado: el que se está TRANSMITIENDO (ya simulado, pero todavía en la
     # ventana de revelación de /en-vivo) y, si no hay, el próximo por jugarse (el primero 'creado' por fecha y hora)
-    en_vivo = partidos_coll.find_one({"transmision.estado": "in_progress"}, {"confederacion_id": 1, "fase_id": 1, "jornada": 1})
+    en_vivo = partidos_coll.find_one({"transmision.estado": "in_progress"},
+                                    {"confederacion_id": 1, "fase_id": 1, "jornada": 1, "fecha": 1, "hora": 1, "tiempo_extra": 1,
+                                     "equipo_local.id": 1, "equipo_local.nombre": 1, "equipo_local.bandera": 1,
+                                     "equipo_visitante.id": 1, "equipo_visitante.nombre": 1, "equipo_visitante.bandera": 1})
     proximo = obtener_juego_activo()[0]
     primer_partido = en_vivo or proximo
 
@@ -2234,3 +2237,17 @@ def generar_clima_partido(ubicacion: dict, hora: str = None):
             "desgaste": clima["modificador_desgaste"]
         }
     }
+
+
+DIAS_CORTOS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+MESES_CORTOS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+
+def fecha_larga(fecha) -> str:
+    """'1899-07-14' -> 'Vie 14 Jul 1899' (filtro Jinja `fecha_larga`; si no es una fecha ISO devuelve el texto tal cual)."""
+    try:
+        from datetime import date
+        a, m, d = (int(x) for x in str(fecha)[:10].split("-"))
+        return f"{DIAS_CORTOS[date(a, m, d).weekday()]} {d} {MESES_CORTOS[m - 1]} {a}"
+    except (ValueError, IndexError, TypeError):
+        return str(fecha or "")

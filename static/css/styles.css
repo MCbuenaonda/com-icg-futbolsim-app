@@ -5165,3 +5165,27 @@ button.tv-logo:hover { transform: scale(1.04); }
 .medio-logo--sm { height: 1.15rem; max-width: 8rem; }
 .medio-cara { width: 2.6rem; height: 2.6rem; flex: 0 0 auto; }
 .medio-linea { font-weight: 700; font-size: 0.72rem; }
+
+
+/* --- Prensa en la red social: fecha, tag del partido y la nota como cita --- */
+.x-post--prensa { border-left-width: 4px; background: linear-gradient(100deg, color-mix(in srgb, var(--medio, #fb923c) 9%, transparent) 0%, transparent 45%); transition: background 0.25s, transform 0.2s; }
+.x-post--prensa:hover { background: linear-gradient(100deg, color-mix(in srgb, var(--medio, #fb923c) 16%, transparent) 0%, transparent 55%); }
+.prensa-fecha { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: var(--bs-secondary-color); padding: 0.05rem 0.5rem; border-radius: 99px;
+    background: rgba(148, 163, 184, 0.12); font-variant-numeric: tabular-nums; }
+.prensa-fecha i { font-size: 0.68rem; color: var(--medio, #fb923c); }
+.prensa-partido { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem 0.7rem; margin-top: 0.5rem; padding: 0.35rem 0.65rem; border-radius: 10px; text-decoration: none; color: inherit;
+    background: rgba(8, 12, 22, 0.55); border: 1px solid rgba(255, 255, 255, 0.1); transition: border-color 0.2s, transform 0.2s; }
+.prensa-partido:hover { border-color: var(--medio, #fb923c); transform: translateY(-1px); color: inherit; }
+.prensa-partido__tag { font-weight: 800; font-size: 0.72rem; letter-spacing: 0.06em; padding: 0.1rem 0.5rem; border-radius: 6px; color: #fff;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--medio, #fb923c) 80%, #000), color-mix(in srgb, var(--medio, #fb923c) 45%, #0b1220)); }
+.prensa-partido__equipos { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; min-width: 0; }
+.prensa-partido__equipos b { font-weight: 700; }
+.prensa-partido__equipos em, .prensa-partido__equipos i { font-style: normal; font-weight: 800; padding: 0 0.45rem; border-radius: 6px; background: rgba(255, 255, 255, 0.08); font-variant-numeric: tabular-nums; }
+.prensa-partido__equipos i { font-weight: 500; font-size: 0.72rem; color: var(--bs-secondary-color); }
+.prensa-partido__equipos .img-pais { height: 1.05rem; width: auto; }
+.prensa-partido__grupo { margin-left: auto; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bs-secondary-color); }
+.prensa-cita { position: relative; margin: 0.55rem 0 0; padding: 0.15rem 0 0.15rem 1.9rem; font-size: 0.95rem; line-height: 1.5; color: var(--bs-emphasis-color); }
+.prensa-cita::before { content: "\201C"; position: absolute; left: 0; top: -0.35rem; font: 900 2.6rem/1 Georgia, serif; color: var(--medio, #fb923c); opacity: 0.75; }
+.x-post--prensa .x-post-pie { margin-top: 0.5rem; }
+@media (max-width: 575.98px) { .prensa-partido__grupo { margin-left: 0; } .prensa-cita { padding-left: 1.6rem; font-size: 0.9rem; } }
+.prensa-partido__equipos { flex-wrap: wrap; } .prensa-partido__equipos em { white-space: nowrap; }

@@ -169,6 +169,7 @@ document.addEventListener('DOMContentLoaded', function () {
         panelInactivo.classList.remove('d-none');
         mensajeInactivo.textContent = mensaje || 'No hay ningún partido en transmisión en este momento.';
         programarAutoPlay();
+        cargarPrevia();
         mostrarJuegoEnVivoInactivo();
         // Sin permiso para simular no hay botón: se sigue consultando (más espaciado) para que
         // la transmisión aparezca sola cuando un administrador arranque el próximo partido.
@@ -514,7 +515,7 @@ document.addEventListener('DOMContentLoaded', function () {
             canchaPlanteamiento = data.planteamiento || {};
             canchaEspejo = data.espejo_extremos || {};
             canchaPlantillasMatchId = matchId;
-            if (window.TransmisionVivo) TransmisionVivo.plantillas({ ids: canchaIds, dorsales: canchaDorsales, posiciones: canchaPlantillas });
+            if (window.TransmisionVivo) TransmisionVivo.plantillas({ ids: canchaIds, dorsales: canchaDorsales, posiciones: canchaPlantillas, paises: data.paises || {}, arbitros: data.arbitros || {} });
         } catch (e) {
             // Sin conexión momentánea o partido recién terminado -- la etiqueta simplemente
             // sigue mostrando solo el nombre hasta el próximo poll, sin romper nada.
@@ -2862,9 +2863,54 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+
+    // ---------------------------------------------------------------- previa del próximo partido (sin transmisión)
+    // El estadio de fondo (se aleja y se acerca), el estadio, «Local VS Visita», el día, el clima y el aforo. Se pide cada ≥ 20 s
+    // mientras no hay transmisión (el próximo partido cambia cuando termina uno) y se repinta solo si cambió el partido.
+    const previaCaja = document.getElementById('previaPartido');
+    let previaId = null, previaPedida = 0;
+    const ICONO_CLIMA = { 'Despejado': 'bi-moon-stars-fill', 'Soleado': 'bi-sun-fill', 'Calor Extremo': 'bi-thermometer-sun', 'Lluvia Intensa': 'bi-cloud-rain-heavy-fill', 'Nieve / Frio Intenso': 'bi-snow2' };
+    async function cargarPrevia() {
+        if (!previaCaja || Date.now() - previaPedida < 20000) return;
+        previaPedida = Date.now();
+        try {
+            const resp = await fetch('/matches/live/proximo');
+            if (!resp.ok) { previaCaja.classList.add('d-none'); panelInactivo.classList.remove('vivo-inactivo--con-previa'); previaId = null; return; }
+            const d = await resp.json();
+            if (d.match_id === previaId) return;
+            previaId = d.match_id;
+            const $ = id => document.getElementById(id);
+            const img = $('previaEstadioImg');
+            img.onerror = () => { previaCaja.classList.add('previa--sin-imagen'); };
+            previaCaja.classList.remove('previa--sin-imagen');
+            if (d.estadio_img) img.src = d.estadio_img; else previaCaja.classList.add('previa--sin-imagen');
+            $('previaEstadio').textContent = d.estadio || 'Estadio por confirmar';
+            $('previaSede').textContent = [d.ciudad, d.pais_sede].filter(Boolean).join(', ');
+            $('previaLocal').textContent = d.local.nombre; $('previaVisita').textContent = d.visitante.nombre;
+            const escudo = (eq) => window.UI && UI.bandera ? UI.bandera(eq.bandera, { id: eq.id, tipo: 'escudo' }) : (eq.bandera || '');
+            $('previaLocalEscudo').innerHTML = escudo(d.local); $('previaVisitaEscudo').innerHTML = escudo(d.visitante);
+            $('previaFase').textContent = [d.grupo, d.jornada].filter(Boolean).join(' · ');
+            const chips = [];
+            chips.push(`<span class="previa__chip"><i class="bi bi-calendar-event"></i>${escaparHtml(d.fecha_texto || d.fecha || '')}${d.hora ? ` · ${escaparHtml(d.hora)}` : ''}</span>`);
+            if (d.clima && d.clima.condicion) {
+                const t = d.clima.temperatura_c != null ? ` · ${Math.round(d.clima.temperatura_c)}°C` : '';
+                chips.push(`<span class="previa__chip"><i class="bi ${ICONO_CLIMA[d.clima.condicion] || 'bi-cloud-sun-fill'}"></i>${escaparHtml(d.clima.condicion)}${t}</span>`);
+            }
+            if (d.aforo && d.aforo.asistencia != null) {
+                const pct = d.aforo.porcentaje_ocupacion != null ? ` · ${Math.round(d.aforo.porcentaje_ocupacion)}%` : '';
+                chips.push(`<span class="previa__chip"><i class="bi bi-people-fill"></i>${Number(d.aforo.asistencia).toLocaleString('es-MX')} espectadores${pct}</span>`);
+            }
+            $('previaChips').innerHTML = chips.join('');
+            previaCaja.classList.remove('d-none');
+            panelInactivo.classList.add('vivo-inactivo--con-previa');
+            // reinicia la entrada animada
+            previaCaja.classList.remove('previa--entra'); void previaCaja.offsetWidth; previaCaja.classList.add('previa--entra');
+        } catch (e) { /* sin previa: queda el aviso de siempre */ }
+    }
+
     // Fuera de transmisión: resumen del último partido visto + selector del próximo
     async function mostrarJuegoEnVivoInactivo() {
-        if (!JEV_HABILITADO || !jevProximo) return;
+        if (!JEV_HABILITADO || !jevResumenInactivo) return;
         if (jevPanel) jevPanel.classList.add('d-none');
         if (jev.ultimoMatchVisto) {
             try {
@@ -2875,7 +2921,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             } catch (e) { /* sin resumen */ }
         }
-        jevMostrarProximo(jevProximo, jevProximoTitulo, jevProximoSelector);
     }
 
     // Selector de país del próximo partido (el que va a tomar "Simular siguiente")

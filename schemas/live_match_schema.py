@@ -192,6 +192,7 @@ class PlantillasLiveOut(BaseModel):
     titulares_visitante: List[str] = []
     dorsales: Dict[str, int] = {}  # nombre del jugador -> número de camiseta
     ids: Dict[str, int] = {}  # nombre del jugador -> id (para su avatar en "Jugadores en Cancha")
+    paises: Dict[str, str] = {}  # nombre del jugador -> nombre de su selección (la narración de TV/radio lo menciona)
     tactica_local: Optional[str] = None
     tactica_visitante: Optional[str] = None
     # Línea (1 POR, 2 DEF, 3 MED, 4 DEL) de cada titular, alineada por índice con titulares_*
@@ -212,3 +213,42 @@ class PlantillasLiveOut(BaseModel):
     espejo_extremos: Dict[str, bool] = {}
     # Cuerpo arbitral del partido con su rostro ({rol: {nombre, url}}): la ventana de avisos de la cancha muestra quién marcó
     arbitros: Dict[str, Any] = {}
+
+
+class EquipoPreviaOut(BaseModel):
+    id: Optional[int] = None
+    nombre: Optional[str] = None
+    bandera: str = ""
+    siglas: str = ""
+
+
+class ClimaPreviaOut(BaseModel):
+    condicion: Optional[str] = None
+    temperatura_c: Optional[float] = None
+    humedad_porcentaje: Optional[float] = None
+    viento_kmh: Optional[float] = None
+
+
+class AforoPreviaOut(BaseModel):
+    asistencia: Optional[int] = None
+    capacidad_estadio: Optional[int] = None
+    porcentaje_ocupacion: Optional[float] = None
+    estado: Optional[str] = None
+
+
+class ProximoPartidoOut(BaseModel):
+    """Previa del próximo partido de /en-vivo (sin transmisión): estadio, equipos, fecha, clima y aforo."""
+    match_id: str
+    local: EquipoPreviaOut
+    visitante: EquipoPreviaOut
+    estadio: Optional[str] = None
+    estadio_img: Optional[str] = None
+    ciudad: Optional[str] = None
+    pais_sede: Optional[str] = None
+    fecha: Optional[str] = None
+    fecha_texto: Optional[str] = None
+    hora: Optional[str] = None
+    grupo: Optional[str] = None
+    jornada: Optional[str] = None
+    clima: Optional[ClimaPreviaOut] = None
+    aforo: Optional[AforoPreviaOut] = None

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from services.juegos_service import obtener_juegos_programados, enriquecer_juegos_programados, armar_detalle_partido, obtener_juego_activo, obtener_juegos_calendario, armar_eventos_calendario, resaltar_jugadores_en_descripcion, resaltar_cronica
+from services.juegos_service import obtener_juegos_programados, enriquecer_juegos_programados, armar_detalle_partido, obtener_juego_activo, obtener_juegos_calendario, armar_eventos_calendario, resaltar_jugadores_en_descripcion, resaltar_cronica, fecha_larga
 from services.cronica_service import asegurar_cronica
 from services.auth_service import context_usuario_actual, obtener_usuario_actual, requiere_permiso, tiene_permiso
 from services import foto_partido_service as FOTO
@@ -21,6 +21,7 @@ client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
 templates = Jinja2Templates(directory="templates", context_processors=[context_usuario_actual])
 templates.env.globals.update(GLOBALES_JINJA)
+templates.env.filters["fecha_larga"] = fecha_larga
 templates.env.filters["resaltar_jugadores"] = resaltar_jugadores_en_descripcion
 templates.env.filters["resaltar_cronica"] = resaltar_cronica
 route = APIRouter(prefix=PREFIX_JUEGOS_PATH, tags=["Juegos"])

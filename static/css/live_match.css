@@ -780,3 +780,59 @@
 /* Especialidad que decidió la jugada (config/especialidades.py) */
 .evento__especialidad { display: inline-flex; align-items: center; gap: 0.2rem; margin-left: 0.3rem; padding: 0 0.45rem; border-radius: 999px;
     font-size: 0.68rem; font-weight: 700; color: #ddd6fe; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.45); }
+
+/* ======================================================================
+   Previa del próximo partido (/en-vivo sin transmisión): el estadio de fondo se aleja y se acerca despacio
+   ====================================================================== */
+.vivo-inactivo--con-previa .vivo-inactivo__icono { display: none; }
+.vivo-inactivo--con-previa #mensajeInactivo { font-size: 0.85rem; color: var(--bs-secondary-color) !important; margin-top: 1.1rem; }
+.previa { position: relative; isolation: isolate; overflow: hidden; margin: 0; padding: clamp(1.6rem, 4vw, 3rem) 1rem clamp(1.4rem, 3.5vw, 2.4rem);
+    min-height: clamp(26rem, 30vw, 34rem); display: grid; place-items: center; border-radius: 22px; border: 1px solid rgba(255, 255, 255, 0.08); background: radial-gradient(ellipse at 50% 60%, #12304a 0%, #070d1a 75%); }
+.previa__fondo { position: absolute; inset: 0; z-index: -3; display: grid; place-items: center; overflow: hidden; }
+.previa__fondo img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: contain; object-position: 50% 50%; opacity: 1; filter: saturate(1.15) brightness(1.12) drop-shadow(0 1.5rem 2.5rem rgba(0, 0, 0, 0.55));
+    transform-origin: 50% 50%; animation: previa-zoom 18s ease-in-out infinite alternate; }
+.previa--sin-imagen .previa__fondo img { display: none; }
+@keyframes previa-zoom {
+    0%   { transform: scale(1); }       /* cerca: el estadio completo, ocupando todo el alto de la sección */
+    100% { transform: scale(0.78); }    /* se aleja: se ve entero con aire alrededor */
+}
+.previa__velo { position: absolute; inset: 0; z-index: -2;
+    background: linear-gradient(180deg, rgba(6, 10, 20, 0.6) 0%, rgba(6, 10, 20, 0.08) 32%, rgba(6, 10, 20, 0.08) 62%, rgba(6, 10, 20, 0.8) 100%),
+                radial-gradient(ellipse 42% 38% at 50% 50%, rgba(6, 10, 20, 0.38) 0%, transparent 100%); }
+.previa::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; box-shadow: inset 0 0 6rem rgba(0, 0, 0, 0.5); }
+.previa__cuerpo { display: flex; flex-direction: column; align-items: center; gap: 0.55rem; max-width: 56rem; width: 100%; text-shadow: 0 0.1em 0.6em rgba(0, 0, 0, 0.7); }
+.previa__etiqueta { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.2rem 0.9rem; border-radius: 99px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #fecaca; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); text-shadow: none; }
+.previa__etiqueta .bi { animation: previa-parpadeo 1.6s infinite; color: #f87171; }
+@keyframes previa-parpadeo { 50% { opacity: 0.3; } }
+.previa__estadio { margin: 0.3rem 0 0; font-size: clamp(1.3rem, 3.4vw, 2.1rem); font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; }
+.previa__sede { margin: 0; font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase; color: #cbd5e1; }
+.previa__sede:empty { display: none; }
+.previa__vs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: clamp(0.6rem, 2.5vw, 2rem); width: 100%; margin: 0.9rem 0 0.2rem; }
+.previa__equipo { display: flex; align-items: center; gap: 0.9rem; min-width: 0; }
+.previa__equipo--local { justify-content: flex-end; text-align: right; }
+.previa__equipo--visita { flex-direction: row-reverse; justify-content: flex-end; text-align: left; }
+.previa__equipo strong { font-size: clamp(1.15rem, 3.6vw, 2.2rem); font-weight: 900; line-height: 1.05; color: #fff; overflow-wrap: anywhere; }
+.previa__equipo .img-pais { height: clamp(2.6rem, 7vw, 4.6rem); width: auto; max-width: clamp(2.6rem, 7vw, 4.6rem); object-fit: contain; filter: drop-shadow(0 0.5rem 0.9rem rgba(0, 0, 0, 0.7)); }
+.previa__equipo span { display: inline-flex; font-size: clamp(2rem, 6vw, 3.4rem); line-height: 1; }
+.previa__vs-texto { display: inline-grid; place-items: center; width: clamp(2.6rem, 6vw, 3.6rem); height: clamp(2.6rem, 6vw, 3.6rem); border-radius: 50%; font-weight: 900; font-size: clamp(0.9rem, 2.2vw, 1.25rem); letter-spacing: 0.05em; color: #0b1220;
+    background: linear-gradient(145deg, #fde68a, #f59e0b); box-shadow: 0 0 0 0.25rem rgba(251, 191, 36, 0.25), 0 0.6rem 1.4rem rgba(0, 0, 0, 0.5); text-shadow: none; }
+.previa__fase { margin: 0; font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: #94a3b8; }
+.previa__fase:empty { display: none; }
+.previa__chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.55rem; margin-top: 0.6rem; }
+.previa__chip { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.95rem; border-radius: 99px; font-size: 0.88rem; font-weight: 600; color: #f1f5f9; text-shadow: none;
+    background: rgba(8, 12, 22, 0.62); border: 1px solid rgba(255, 255, 255, 0.18); backdrop-filter: blur(6px); }
+.previa__chip .bi { color: #fbbf24; font-size: 1rem; }
+/* entrada: lo de adentro aparece en cascada */
+.previa--entra .previa__cuerpo > * { animation: previa-entra 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+.previa--entra .previa__cuerpo > :nth-child(2) { animation-delay: 0.08s; } .previa--entra .previa__cuerpo > :nth-child(3) { animation-delay: 0.16s; }
+.previa--entra .previa__cuerpo > :nth-child(4) { animation-delay: 0.26s; } .previa--entra .previa__cuerpo > :nth-child(5) { animation-delay: 0.38s; }
+.previa--entra .previa__cuerpo > :nth-child(6) { animation-delay: 0.48s; }
+@keyframes previa-entra { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+@media (max-width: 575.98px) {
+    .previa { min-height: 20rem; }
+    .previa__vs { grid-template-columns: 1fr; justify-items: center; gap: 0.5rem; }
+    .previa__equipo, .previa__equipo--local, .previa__equipo--visita { flex-direction: row; justify-content: center; text-align: center; }
+    .previa__chip { font-size: 0.78rem; padding: 0.3rem 0.7rem; }
+}
+@media (prefers-reduced-motion: reduce) { .previa__fondo img { animation: none; transform: scale(1); } .previa--entra .previa__cuerpo > *, .previa__etiqueta .bi { animation: none; } }

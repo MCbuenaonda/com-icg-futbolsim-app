@@ -63,7 +63,7 @@
                 <div class="col-6 col-md-3 col-xl-2">
                     <select name="fecha" class="form-select form-select-sm auto-filtro" aria-label="Fecha">
                         <option value="">Fecha</option>
-                        {% for fecha in fechas %}<option value="{{ fecha }}" {{ 'selected' if filtros.fecha == fecha }}>{{ fecha }}</option>{% endfor %}
+                        {% for fecha in fechas %}<option value="{{ fecha }}" {{ 'selected' if filtros.fecha == fecha }}>{{ fecha | fecha_larga }}</option>{% endfor %}
                     </select>
                 </div>
                 <div class="col-6 col-md-3 col-xl-2">
@@ -107,7 +107,7 @@
 
                 <!-- Fecha/hora, confederación y grupo -->
                 <div class="partido-card__top">
-                    <span class="partido-card__fecha"><i class="bi bi-calendar-event"></i>{{ juego.fecha }}<span class="partido-card__hora"><i class="bi bi-clock"></i>{{ juego.hora }}</span></span>
+                    <span class="partido-card__fecha"><i class="bi bi-calendar-event"></i>{{ juego.fecha | fecha_larga }}<span class="partido-card__hora"><i class="bi bi-clock"></i>{{ juego.hora }}</span></span>
                     {% if sigla_conf %}<a href="/confederacion/{{ juego.confederacion_id }}" class="partido-card__conf partido-card__conf--enlace" title="Ver el detalle de {{ sigla_conf }}">{% if lc %}<img src="{{ lc.url }}" alt="">{% endif %}{{ sigla_conf }}</a>{% else %}<span class="partido-card__conf">Partido</span>{% endif %}
                 </div>
                 <div class="partido-card__meta">

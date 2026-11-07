@@ -126,7 +126,7 @@
         est.modo = modo;
         est.narrador = window.Narracion.crear({
             matchId, local: data.local, visitante: data.visitante, idLocal: data.id_local, idVisita: data.id_visita,
-            estadio: data.estadio, fase: data.fase_id, modo, mesas: modo === 'tv' ? mesas : [],
+            estadio: data.estadio, fase: data.fase_id, paisDe: nombre => plantillas.paises[nombre], modo, mesas: modo === 'tv' ? mesas : [],
         });
         est.tele = modo === 'tv' ? mesas.map(m => m.tele || {}) : [];
         est.patro = modo === 'tv' ? Object.assign({ paises: {}, jugadores: {} }, info.patrocinadores || {}) : { paises: {}, jugadores: {} };
@@ -154,9 +154,10 @@
     // ---------------------------------------------------------------- gráficos de transmisión (como en la TV)
     // Tarjeta de jugador (gol, amonestado, expulsado, portero que ataja un penal) y el «comercial» del marcador con el estadio
     // de fondo y, al final, el logo de la cadena. Solo en la televisión: la radio no tiene pantalla.
-    let plantillas = { ids: {}, dorsales: {}, posiciones: {} };   // las completa live_match.js (GET /matches/live/plantillas)
-    const GRAFICO_MS = { jugador: 6800, marcador: 6200, dato: 9600, penal: 5000, cambio: 4600 };   // la tarjeta de jugador y el dato terminan con el logo
-    const ACCION_TXT = { gol: 'GOL', amarilla: 'TARJETA AMARILLA', roja: 'TARJETA ROJA', atajo: 'PENAL ATAJADO' };
+    let plantillas = { ids: {}, dorsales: {}, posiciones: {}, paises: {}, arbitros: {} };   // las completa live_match.js (GET /matches/live/plantillas)
+    const GRAFICO_MS = { jugador: 6800, marcador: 6200, dato: 9600, penal: 5000, cambio: 4600, arbitro: 6800, tanda: 4600 };   // la tarjeta de jugador y el dato terminan con el logo
+    const ACCION_TXT = { gol: 'GOL', amarilla: 'TARJETA AMARILLA', roja: 'TARJETA ROJA', atajo: 'PENAL ATAJADO', lesion: 'LESIÓN' };
+    const ROL_ARBITRO = { central: 'Árbitro central', linea1: 'Juez de línea', linea2: 'Juez de línea', cuarto: 'Cuarto árbitro', var: 'Árbitro VAR' };
 
     function equipoId(nombre) {
         const d = est && est.ultimo;
@@ -197,6 +198,8 @@
         } else if (g.accion === 'amarilla') detalle = `<span>${g.rival ? 'Falta sobre ' + e(g.rival) : 'Primera advertencia'}</span>`;
         else if (g.accion === 'roja') detalle = `<span>${e(g.motivo || '')}</span><span>Su equipo se queda con uno menos</span>`;
         else if (g.accion === 'atajo') detalle = `<span>Detuvo el disparo de ${e(g.tirador)}</span>`;
+        else if (g.accion === 'lesion') detalle = [g.lesion ? `<span>${e(g.lesion.charAt(0).toUpperCase() + g.lesion.slice(1))}${g.gravedad ? ` · ${e(g.gravedad)}` : ''}</span>` : '',
+            `<span>${g.sale ? 'Sale del campo' : 'Sigue en el campo, tocado'}</span>`, g.sinCambio ? '<span>Su equipo se queda con uno menos</span>' : ''].join('');
         const nombre = e(g.jugador);
         return `<div class="tv-gfx tv-gfx--jugador tv-gfx--${g.accion}" style="${bandera ? `--bandera:url('${e(bandera)}');` : ''}">
             <div class="tv-gfx__fondo">${escudo ? `<img class="tv-gfx__escudo" src="${e(escudo)}" alt="" onerror="this.remove()">` : ''}</div>
@@ -231,6 +234,52 @@
                     <i class="bi bi-lightning-charge-fill"></i>
                     <span class="tv-gfx__duelista tv-gfx__duelista--i">${carita(g.infractor)}<b>${e(g.infractor)}</b><small>comete la falta</small></span>
                 </div></div></div>`;
+    }
+
+    // el rostro del árbitro (de plantillas.arbitros: {rol: {nombre, url}}); si el evento no trae el nombre se usa el del puesto
+    function arbitroDe(g) {
+        const a = plantillas.arbitros || {};
+        if (g.arbitro) for (const r of Object.keys(a)) if (a[r] && a[r].nombre === g.arbitro) return { nombre: g.arbitro, url: a[r].url };
+        const x = a[g.rol] || a.central || {};
+        return { nombre: g.arbitro || x.nombre || '', url: g.arbitro ? null : x.url };
+    }
+    // pitidos, tiempo añadido, alargue y VAR: tarjeta con el árbitro que lo marca
+    function htmlArbitro(g, mesa) {
+        const ar = arbitroDe(g);
+        const cara = ar.url ? `<img src="${e(ar.url)}" alt="" decoding="async" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>';
+        const extra = g.clase === 'anadido' && g.minutos != null ? `<span class="tv-gfx__anadido" title="Minutos añadidos">+${e(g.minutos)}<small>MIN</small></span>` : '';
+        const marca = g.minuto != null ? `${Math.floor(g.minuto)}${g.adicional ? '+' + g.adicional : ''}'` : '';
+        return `<div class="tv-gfx tv-gfx--jugador tv-gfx--arbitro tv-gfx--arb-${e(g.clase)}">
+            <div class="tv-gfx__fondo"></div><span class="tv-gfx__barrido"></span>
+            <div class="tv-gfx__rostro"><span>${cara}</span><b class="tv-gfx__dorsal tv-gfx__dorsal--rol"><i class="bi bi-flag-fill"></i></b></div>
+            <div class="tv-gfx__cuerpo">
+                <small class="tv-gfx__tag">${e(g.rotulo)}${marca ? ` · ${marca}` : ''}</small>
+                <strong class="tv-gfx__titulo tv-gfx__titulo--largo">${e(g.titulo)}</strong>
+                <span class="tv-gfx__nombre">${e(ar.nombre)}</span>
+                <span class="tv-gfx__meta">${e(ROL_ARBITRO[g.rol] || 'Árbitro')}</span>
+                ${extra}${g.detalle ? `<span class="tv-gfx__detalle"><span>${e(g.detalle)}</span></span>` : ''}
+            </div>${cierreCadena(mesa)}</div>`;
+    }
+    // tanda de penales: marcador con los cobros de cada equipo (● gol, ✕ fallado) y el último cobro
+    function htmlTanda(g, mesa) {
+        const d = est.ultimo || {}, t = g.estado || { rl: [], rv: [], gl: 0, gv: 0, subita: false, decidida: false };
+        const escL = imagenPais(d.id_local, 'escudo'), escV = imagenPais(d.id_visita, 'escudo');
+        const casillas = Math.max(5, t.rl.length, t.rv.length);
+        const puntos = (r) => Array.from({ length: casillas }, (_, k) => `<i class="tv-gfx__tiro ${r[k] === true ? 'tv-gfx__tiro--gol' : (r[k] === false ? 'tv-gfx__tiro--falla' : '')}${k === r.length - 1 && g.fase === 'cobro' ? ' es-ultimo' : ''}">${r[k] === true ? '<i class="bi bi-circle-fill"></i>' : (r[k] === false ? '<i class="bi bi-x-lg"></i>' : '')}</i>`).join('');
+        const fila = (nombre, esc, r, goles) => `<div class="tv-gfx__tanda-fila ${g.equipo === nombre ? 'es-tirador' : ''}">${esc ? `<img src="${e(esc)}" alt="" onerror="this.remove()">` : ''}<b>${e(nombre)}</b><span class="tv-gfx__tiros">${puntos(r)}</span><em>${goles}</em></div>`;
+        let pie = '';
+        if (g.fase === 'inicio') pie = '<span>El ganador se decide desde el punto penal</span>';
+        else if (g.resultado === 'gol') pie = `<span class="ok"><i class="bi bi-check-circle-fill"></i>${e(g.tirador)} anota</span>`;
+        else if (g.resultado === 'atajado') pie = `<span class="mal"><i class="bi bi-hand-index-thumb-fill"></i>${e(g.portero)} ataja el disparo de ${e(g.tirador)}</span>`;
+        else pie = `<span class="mal"><i class="bi bi-slash-circle-fill"></i>Penal anulado a ${e(g.tirador)}</span>`;
+        if (t.decidida) pie += `<span class="gana"><i class="bi bi-trophy-fill"></i>Gana ${e(t.ganador)}</span>`;
+        return `<div class="tv-gfx tv-gfx--jugador tv-gfx--tanda">
+            <div class="tv-gfx__fondo"></div><span class="tv-gfx__barrido"></span>
+            <div class="tv-gfx__tanda">
+                <small class="tv-gfx__tag">${t.subita ? 'MUERTE SÚBITA' : 'TANDA DE PENALES'}</small>
+                ${fila(d.local, escL, t.rl, t.gl)}${fila(d.visitante, escV, t.rv, t.gv)}
+                <div class="tv-gfx__tanda-pie">${pie}</div>
+            </div></div>`;
     }
 
     // cambio: sale uno (rojo), entra otro (verde)
@@ -312,9 +361,9 @@
         if (m.grafico && prio < 3 && prio <= m.graficoPrio) return false;
         clearTimeout(m.graficoTimer);
         m.grafico = tipo; m.graficoPrio = prio;
-        const html = { jugador: () => htmlJugador(datos, i), penal: () => htmlPenal(datos, i), cambio: () => htmlCambio(datos, i), dato: () => htmlDato(i, datos), marcador: () => htmlMarcador(i) };
+        const html = { jugador: () => htmlJugador(datos, i), arbitro: () => htmlArbitro(datos, i), tanda: () => htmlTanda(datos, i), penal: () => htmlPenal(datos, i), cambio: () => htmlCambio(datos, i), dato: () => htmlDato(i, datos), marcador: () => htmlMarcador(i) };
         cont.innerHTML = html[tipo]();
-        cont.className = `tv-set__grafico tv-set__grafico--${tipo} is-activo`;
+        cont.className = `tv-set__grafico tv-set__grafico--${tipo === 'arbitro' ? 'jugador' : tipo} is-activo`;   // el árbitro usa la misma animación que la tarjeta de jugador
         m.raiz.classList.add('con-grafico');
         const dur = (reducido ? 0.6 : 1) * GRAFICO_MS[tipo];
         m.graficoTimer = setTimeout(() => {
@@ -526,15 +575,20 @@
         let pitidoFinal = false;
         for (let k = est.cursor; k < eventos.length; k++) {
             // el marcador del momento del evento: si hay varios nuevos solo el último puede citar el marcador actual
-            const c = k === eventos.length - 1 ? ctx : { marcador: '', minuto: ctx.minuto };
+            const partido = { local: data.local, visitante: data.visitante };
+            const c = Object.assign(k === eventos.length - 1 ? ctx : { marcador: '', minuto: ctx.minuto }, { tanda: window.Narracion.estadoTanda(eventos, k, partido) });
             const its = est.narrador.proponer(eventos[k], k, c);
-            const g = est.modo === 'tv' ? window.Narracion.grafico(eventos[k], k, eventos) : null;
+            const g = est.modo === 'tv' ? window.Narracion.grafico(eventos[k], k, eventos, partido) : null;
             if (g) {
                 // la tarjeta sustituye al destello de «¡GOL!» / tarjeta (el gol conserva la sacudida de la pantalla)
                 if (its.length && its[0].efecto) its[0].efecto = its[0].efecto === 'gol' ? 'sacude' : null;
-                const tipoG = g.accion === 'penal' ? 'penal' : (g.accion === 'cambio' ? 'cambio' : 'jugador');
-                const mesaG = its.length ? its[0].mesa : mesaDelEquipo(g.equipo);
-                setTimeout(() => { if (est && est.matchId === data.match_id) mostrarGrafico(mesaG, tipoG, g); }, Math.max(0, (k - est.cursor) * 600) + 150);
+                const tipoG = { penal: 'penal', cambio: 'cambio', arbitro: 'arbitro', tanda: 'tanda' }[g.accion] || 'jugador';
+                // el arbitraje y la tanda se ven en todos los televisores; lo demás, en el de la cadena que narra la jugada
+                const mesasG = (g.accion === 'arbitro' || g.accion === 'tanda') ? est.mesas.map((_, n) => n) : [its.length ? its[0].mesa : mesaDelEquipo(g.equipo)];
+                mesasG.forEach(mesaG => setTimeout(() => { if (est && est.matchId === data.match_id) mostrarGrafico(mesaG, tipoG, g); }, Math.max(0, (k - est.cursor) * 600) + 150));
+                // al arrancar y en el descanso, después del árbitro sale el comercial del marcador
+                const claseG = window.Narracion.clasificar(eventos[k]);
+                if (g.accion === 'arbitro' && (claseG === 'inicio' || claseG === 'descanso')) setTimeout(() => quizaMarcador(claseG), 8200);
             } else if (est.modo === 'tv') {
                 const clase = window.Narracion.clasificar(eventos[k]);
                 // en el pitido final no hay comercial: la despedida termina con el logo de la cadena
@@ -605,6 +659,6 @@
         est.mesas.forEach((m, i) => { if (!m.mostrando) programar(i); });
     });
 
-    function ponerPlantillas(p) { plantillas = { ids: p.ids || {}, dorsales: p.dorsales || {}, posiciones: p.posiciones || {} }; }
+    function ponerPlantillas(p) { plantillas = { ids: p.ids || {}, dorsales: p.dorsales || {}, posiciones: p.posiciones || {}, paises: p.paises || {}, arbitros: p.arbitros || {} }; }
     window.TransmisionVivo = { actualizar, plantillas: ponerPlantillas, grafico: mostrarGrafico };
 })();

@@ -195,6 +195,33 @@ def vista(d: dict) -> dict:
             "likes": likes, "reposts": likes // (7 + h % 5), "comentarios": likes // (13 + h % 9), "visualizaciones": likes * (12 + h % 9)}
 
 
+def adjuntar_partidos(items: List[dict]) -> List[dict]:
+    """Agrega a cada publicación `partido` = {tag, local, visitante, marcador, grupo}: UNA consulta para todas (nunca una por nota)."""
+    try:
+        from bson import ObjectId
+        ids = {i["juego_id"] for i in items if i.get("juego_id")}
+        validos = []
+        for x in ids:
+            try: validos.append(ObjectId(x))
+            except Exception: pass
+        proy = {"tag": 1, "grupo": 1, "equipo_local.id": 1, "equipo_local.nombre": 1, "equipo_local.bandera": 1, "equipo_local.siglas": 1,
+                "equipo_visitante.id": 1, "equipo_visitante.nombre": 1, "equipo_visitante.bandera": 1, "equipo_visitante.siglas": 1,
+                "resultado.goles_local": 1, "resultado.goles_visitante": 1}
+        por_id = {str(j["_id"]): j for j in db["juegos"].find({"_id": {"$in": validos}}, proy)} if validos else {}
+        for i in items:
+            j = por_id.get(i.get("juego_id"))
+            if not j:
+                continue
+            l, v, r = j.get("equipo_local") or {}, j.get("equipo_visitante") or {}, j.get("resultado") or {}
+            i["partido"] = {"tag": j.get("tag"), "grupo": j.get("grupo"),
+                            "local": {"nombre": l.get("nombre"), "bandera": l.get("bandera"), "id": l.get("id")},
+                            "visitante": {"nombre": v.get("nombre"), "bandera": v.get("bandera"), "id": v.get("id")},
+                            "marcador": f"{r['goles_local']} - {r['goles_visitante']}" if r.get("goles_local") is not None else None}
+    except Exception as e:
+        print(f"[prensa] adjuntar_partidos: {e}")
+    return items
+
+
 def de_partido(juego_id: str, limite: int = 6) -> List[dict]:
     docs = list(db[COL].find({"juego_id": str(juego_id)}))
     docs.sort(key=lambda d: -abs(d["tono"]))
@@ -223,7 +250,7 @@ def buscar(q: str = "", cursor: Optional[tuple] = None, limite: int = 12) -> Lis
         corte = {"$or": [{"fecha": {"$lt": fecha}}, {"fecha": fecha, "hora": {"$lt": hora}}]}
         consulta = {"$and": [consulta, corte]} if consulta else corte
     docs = db[COL].find(consulta, {"creado_en": 0}).sort([("fecha", -1), ("hora", -1)]).limit(limite + 4)
-    return [vista(d) for d in docs]
+    return adjuntar_partidos([vista(d) for d in docs])
 
 
 # --- Reputación mediática ---------------------------------------------------------------------------------------------

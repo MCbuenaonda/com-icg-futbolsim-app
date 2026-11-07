@@ -605,8 +605,9 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
         p["id"]: p.get("siglas", "") for p in db["posiciones"].find({}, {"id": 1, "siglas": 1})
     }
     jugadores = list(db["jugadores"].find(
-        {"pais_id": {"$in": [id_local, id_visita]}}, {"id": 1, "nombre": 1, "posicion_id": 1, "numero": 1, "leyenda": 1}
+        {"pais_id": {"$in": [id_local, id_visita]}}, {"id": 1, "nombre": 1, "posicion_id": 1, "numero": 1, "leyenda": 1, "pais_id": 1}
     ))
+    nombre_pais = {id_local: (juego.get("equipo_local") or {}).get("nombre"), id_visita: (juego.get("equipo_visitante") or {}).get("nombre")}
     resultado = juego.get("resultado") or {}
     # Táctica persistida por registrar_resultado_juego; el 11 titular viene en el orden de
     # FORMACIONES[tactica] (ver seleccionar_plantilla_titular), así que la línea de cada titular
@@ -618,6 +619,7 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
         "jugadores": {j["nombre"]: posiciones_por_id.get(j.get("posicion_id"), "") for j in jugadores},
         "dorsales": {j["nombre"]: j.get("numero") for j in jugadores if j.get("numero") is not None},
         "ids": {j["nombre"]: j["id"] for j in jugadores if j.get("id") is not None},  # avatar (bucket jugadores/<id>.svg)
+        "paises": {j["nombre"]: nombre_pais.get(j.get("pais_id")) for j in jugadores if nombre_pais.get(j.get("pais_id"))},  # la narración dice de qué país es cada jugador
         "leyendas": [j["nombre"] for j in jugadores if j.get("leyenda")],  # insignia de leyenda en la cancha y el once
         **_mascota_en_vivo(),
         "titulares_local": resultado.get("titulares_local", []),
@@ -636,4 +638,37 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
         "formaciones": dict(FORMACIONES),
         "planteamiento": {lado: {k: v for k, v in (plan or {}).items() if k in ("esquema", "etiqueta", "postura", "motivo")}
                           for lado, plan in (resultado.get("planteamiento") or {}).items()},
+    }
+
+
+
+def obtener_proximo_partido() -> Optional[Dict[str, Any]]:
+    """
+    La previa del próximo partido (el primero 'creado' por fecha y hora) para la vista /en-vivo cuando no hay transmisión: estadio,
+    equipos, día y hora, clima y aforo. Si el partido todavía no tiene clima/aforo se generan y se guardan, igual que al abrir su
+    detalle previo (así el partido se juega con los mismos que se anunciaron). None si no quedan partidos pendientes.
+    """
+    from services.juegos_service import calcular_asistencia, generar_clima_partido, guardar_aforo_clima_juego, fecha_larga
+    juego, _ = obtener_juego_activo()
+    if not juego or juego.get("estado") != "creado":
+        return None
+    local, visita, ub = juego.get("equipo_local") or {}, juego.get("equipo_visitante") or {}, juego.get("ubicacion") or {}
+    if "aforo" not in juego or "clima" not in juego:
+        try:
+            juego["aforo"] = juego.get("aforo") or calcular_asistencia(juego.get("fase_id") or 1, local.get("rankin") or 50, visita.get("rankin") or 50)
+            juego["clima"] = juego.get("clima") or generar_clima_partido(ub, juego.get("hora"))
+            guardar_aforo_clima_juego(str(juego["_id"]), juego["aforo"], juego["clima"])
+        except Exception as e:
+            print(f"[en vivo] previa: no se pudo generar clima/aforo: {e}")
+    eq = lambda d: {"id": d.get("id"), "nombre": d.get("nombre"), "bandera": d.get("bandera") or "", "siglas": d.get("siglas") or ""}
+    clima, aforo = juego.get("clima") or {}, juego.get("aforo") or {}
+    return {
+        "match_id": str(juego["_id"]), "local": eq(local), "visitante": eq(visita),
+        "estadio": ub.get("estadio"), "estadio_img": url_estadio(ub.get("id")), "ciudad": ub.get("nombre"), "pais_sede": ub.get("pais"),
+        "fecha": juego.get("fecha"), "fecha_texto": fecha_larga(juego.get("fecha")), "hora": juego.get("hora"),
+        "grupo": juego.get("grupo"), "jornada": juego.get("jornada"),
+        "clima": {"condicion": clima.get("condicion"), "temperatura_c": clima.get("temperatura_c"), "humedad_porcentaje": clima.get("humedad_porcentaje"),
+                  "viento_kmh": clima.get("viento_kmh")} if clima else None,
+        "aforo": {"asistencia": aforo.get("asistencia"), "capacidad_estadio": aforo.get("capacidad_estadio"),
+                  "porcentaje_ocupacion": aforo.get("porcentaje_ocupacion"), "estado": aforo.get("estado")} if aforo.get("asistencia") is not None else None,
     }

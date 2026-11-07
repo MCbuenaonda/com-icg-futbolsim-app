@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from schemas.live_match_schema import StartAutoSimulationResponse, StartedMatchOut, LiveMatchOut, TablaGrupoOut, PlantillasLiveOut, TransmisionLiveOut
-from services.live_match_service import iniciar_simulacion_automatica, obtener_estado_live, obtener_tabla_grupo_partido_en_vivo, obtener_posiciones_plantillas_en_vivo, obtener_destacados_estadisticas_en_vivo, obtener_mesa_transmision
+from schemas.live_match_schema import StartAutoSimulationResponse, StartedMatchOut, LiveMatchOut, TablaGrupoOut, PlantillasLiveOut, TransmisionLiveOut, ProximoPartidoOut
+from services.live_match_service import iniciar_simulacion_automatica, obtener_estado_live, obtener_tabla_grupo_partido_en_vivo, obtener_posiciones_plantillas_en_vivo, obtener_destacados_estadisticas_en_vivo, obtener_mesa_transmision, obtener_proximo_partido
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, requiere_permiso
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
@@ -117,6 +117,15 @@ def get_live_tabla_grupo():
         raise HTTPException(status_code=404, detail="No hay ningún partido en transmisión en este momento.")
 
     return TablaGrupoOut(**tabla)
+
+
+@route.get("/live/proximo", response_model=ProximoPartidoOut, name="matches_live_proximo")
+def get_proximo_partido():
+    """Previa del próximo partido pendiente (estadio, equipos, día, clima y aforo) para /en-vivo cuando no hay transmisión."""
+    previa = obtener_proximo_partido()
+    if not previa:
+        raise HTTPException(status_code=404, detail="No quedan partidos pendientes.")
+    return ProximoPartidoOut(**previa)
 
 
 @route.get("/live/plantillas", response_model=PlantillasLiveOut, name="matches_live_plantillas")

@@ -101,7 +101,36 @@ def obtener_mesa_transmision(usuario: Optional[dict]) -> Optional[Dict[str, Any]
     except Exception as e:
         logging.getLogger(__name__).warning(f"Mesa de transmisión: {e}")
         mesas = []
-    return {"match_id": str(juego["_id"]), "modo": "tv" if mesas else "radio", "mesas": mesas}
+    return {"match_id": str(juego["_id"]), "modo": "tv" if mesas else "radio", "mesas": mesas,
+            "patrocinadores": _patrocinadores_del_partido(usuario, juego) if mesas else {"paises": {}, "jugadores": {}}}
+
+
+def _marca_para_pantalla(m: dict) -> dict:
+    """De la vista completa de una marca, solo lo que dibuja la transmisión: logo, colores, lema y quién la dirige."""
+    d = m.get("dueno") or {}
+    return {"id": m["id"], "nombre": m["nombre"], "logo": m.get("logo"), "color": m["color"], "color2": m["color2"], "lema": m.get("lema"),
+            "dueno": {"nombre": d.get("nombre"), "avatar_url": d.get("avatar_url")} if d.get("nombre") else None}
+
+
+def _patrocinadores_del_partido(usuario: Optional[dict], juego: dict) -> Dict[str, Any]:
+    """
+    Marcas de TU universo que patrocinan a las dos selecciones o a sus jugadores: {"paises": {pais_id: [marca]}, "jugadores":
+    {jugador_id: [marca]}}. La transmisión de TV las usa para que el dueño de una marca presente un dato del partido. Nunca lanza.
+    """
+    salida: Dict[str, Any] = {"paises": {}, "jugadores": {}}
+    try:
+        from services.corporativo_marcas_service import patrocinios_de_pais
+        for lado in ("equipo_local", "equipo_visitante"):
+            pid = (juego.get(lado) or {}).get("id")
+            if pid is None:
+                continue
+            r = patrocinios_de_pais(usuario, pid)
+            salida["paises"][str(pid)] = [_marca_para_pantalla(m) for m in r["seleccion"]]
+            for jid, marcas in r["jugadores"].items():
+                salida["jugadores"][str(jid)] = [_marca_para_pantalla(m) for m in marcas]
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Patrocinadores de la transmisión: {e}")
+    return salida
 
 
 def obtener_juego_por_id(juego_oid) -> Optional[Dict[str, Any]]:

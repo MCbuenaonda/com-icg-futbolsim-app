@@ -157,11 +157,33 @@ class MesaOut(BaseModel):
     invitado: Optional[MesaInvitadoOut] = None
 
 
+class MarcaDuenoOut(BaseModel):
+    nombre: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+class MarcaPatrocinadoraOut(BaseModel):
+    """Una marca de tu universo que patrocina a una selección o a un jugador del partido (para el dato «presentado por»)."""
+    id: int
+    nombre: str
+    logo: Optional[str] = None
+    color: str
+    color2: str
+    lema: Optional[str] = None
+    dueno: Optional[MarcaDuenoOut] = None
+
+
+class PatrocinadoresOut(BaseModel):
+    paises: Dict[str, List[MarcaPatrocinadoraOut]] = {}     # pais_id -> marcas de la selección
+    jugadores: Dict[str, List[MarcaPatrocinadoraOut]] = {}  # jugador_id -> marcas del jugador
+
+
 class TransmisionLiveOut(BaseModel):
     """Quién narra el partido en transmisión PARA EL USUARIO de la sesión (lista cerrada: nada de pagos ni aficionados)."""
     match_id: str
     modo: str  # tv | radio
     mesas: List[MesaOut] = []
+    patrocinadores: PatrocinadoresOut = PatrocinadoresOut()
 
 
 class PlantillasLiveOut(BaseModel):

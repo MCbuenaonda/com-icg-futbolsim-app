@@ -65,6 +65,7 @@
                         <span class="tv-set__envivo"><i></i>EN VIVO</span>
                     </div>
                     <div class="tv-set__mosca">${t.logo ? `<img src="${e(t.logo)}" alt="${e(t.nombre)}" onerror="this.remove()">` : e(t.nombre)}</div>
+                    ${t.pais ? `<div class="tv-set__origen" title="Televisora de ${e(t.pais)}">${imagenPais(t.pais_id, 'icono') ? `<img src="${e(imagenPais(t.pais_id, 'icono'))}" alt="" onerror="this.remove()">` : ''}<span>${e(t.pais)}</span></div>` : ''}
                     <div class="tv-set__mesa">
                         ${asiento('analista', anal && anal.nombre, rostroComentarista(anal))}
                         ${asiento('narrador', narr && narr.nombre, rostroComentarista(narr))}
@@ -114,7 +115,8 @@
     async function iniciar(data) {
         const matchId = data.match_id;
         detener();
-        est = { matchId, listo: false, cursor: null, mesas: [], colas: [], ultimo: data, narrador: null, tele: [], ultimoMarcador: Date.now() };
+        est = { matchId, listo: false, cursor: null, mesas: [], colas: [], ultimo: data, narrador: null, tele: [], ultimoMarcador: Date.now(),
+                patro: { paises: {}, jugadores: {} }, datosUsados: [], ultimoDato: Date.now() };
         const info = await cargarMesa();
         if (!est || est.matchId !== matchId) return;   // cambió el partido mientras cargaba
         const modo = info.modo === 'tv' && (info.mesas || []).length ? 'tv' : 'radio';
@@ -124,12 +126,13 @@
         est.modo = modo;
         est.narrador = window.Narracion.crear({
             matchId, local: data.local, visitante: data.visitante, idLocal: data.id_local, idVisita: data.id_visita,
-            estadio: data.estadio, modo, mesas: modo === 'tv' ? mesas : [],
+            estadio: data.estadio, fase: data.fase_id, modo, mesas: modo === 'tv' ? mesas : [],
         });
         est.tele = modo === 'tv' ? mesas.map(m => m.tele || {}) : [];
+        est.patro = modo === 'tv' ? Object.assign({ paises: {}, jugadores: {} }, info.patrocinadores || {}) : { paises: {}, jugadores: {} };
         est.mesas = mesas.map((_, i) => ({
             raiz: raiz.querySelector(`[data-mesa="${i}"]`), mostrando: null, timer: null, ultimaFin: Date.now(), fundido: null,
-            grafico: null, graficoTimer: null, ultimoMarcador: Date.now() + i * 40000,
+            grafico: null, graficoPrio: 0, graficoTimer: null, ultimoMarcador: Date.now() + i * 40000,
         }));
         est.colas = mesas.map(() => []);
         est.cursor = (data.eventos || []).length;   // no se cuenta la historia: se narra desde aquí
@@ -152,7 +155,7 @@
     // Tarjeta de jugador (gol, amonestado, expulsado, portero que ataja un penal) y el «comercial» del marcador con el estadio
     // de fondo y, al final, el logo de la cadena. Solo en la televisión: la radio no tiene pantalla.
     let plantillas = { ids: {}, dorsales: {}, posiciones: {} };   // las completa live_match.js (GET /matches/live/plantillas)
-    const GRAFICO_MS = { jugador: 4800, marcador: 6200 };
+    const GRAFICO_MS = { jugador: 6800, marcador: 6200, dato: 9600, penal: 5000, cambio: 4600 };   // la tarjeta de jugador y el dato terminan con el logo
     const ACCION_TXT = { gol: 'GOL', amarilla: 'TARJETA AMARILLA', roja: 'TARJETA ROJA', atajo: 'PENAL ATAJADO' };
 
     function equipoId(nombre) {
@@ -161,9 +164,26 @@
         return nombre === d.local ? d.id_local : (nombre === d.visitante ? d.id_visita : null);
     }
     function ordinal(n) { return `${n}.º`; }
+    // con dos cadenas, la que tiene los derechos del equipo del evento (si no, la primera)
+    function mesaDelEquipo(nombre) {
+        const id = equipoId(nombre);
+        const k = est.tele.findIndex(t => t && id != null && t.pais_id === id);
+        return k >= 0 ? k : 0;
+    }
     function imagenPais(id, tipo) { return window.UI && UI.urlImagenPais ? UI.urlImagenPais(id, tipo) : null; }
 
-    function htmlJugador(g) {
+    // cierre común de las tarjetas: cortina con los colores y logo de la cadena (como al final del comercial del marcador)
+    function cierreCadena(i) {
+        const t = (est && est.tele[i]) || {};
+        return `<span class="tv-gfx__cortina"></span><div class="tv-gfx__cadena">${t.logo ? `<img src="${e(t.logo)}" alt="${e(t.nombre)}" onerror="this.remove()">` : `<b>${e(t.nombre || '')}</b>`}${t.lema ? `<small>${e(t.lema)}</small>` : ''}</div>`;
+    }
+    function carita(nombre, clase = '') {
+        const id = plantillas.ids[nombre];
+        const img = id != null && window.UI && UI.urlAvatar ? `<img src="${e(UI.urlAvatar(id))}" alt="" decoding="async" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>';
+        return `<span class="tv-gfx__cara ${clase}">${img}</span>`;
+    }
+
+    function htmlJugador(g, mesa) {
         const paisId = equipoId(g.equipo);
         const id = plantillas.ids[g.jugador];
         const dorsal = plantillas.dorsales[g.jugador];
@@ -188,7 +208,80 @@
                 <span class="tv-gfx__nombre">${nombre}</span>
                 <span class="tv-gfx__meta">${[pos, e(g.equipo || '')].filter(Boolean).join(' · ')}</span>
                 <span class="tv-gfx__detalle">${detalle}</span>
+            </div>${cierreCadena(mesa)}</div>`;
+    }
+
+    // penal señalado: el área con el punto penal, quién recibió la falta y quién la cometió
+    function htmlPenal(g, mesa) {
+        const paisId = equipoId(g.equipo);
+        const bandera = imagenPais(paisId, 'plana'), escudo = imagenPais(paisId, 'escudo');
+        return `<div class="tv-gfx tv-gfx--jugador tv-gfx--penal" style="${bandera ? `--bandera:url('${e(bandera)}');` : ''}">
+            <div class="tv-gfx__fondo">${escudo ? `<img class="tv-gfx__escudo" src="${e(escudo)}" alt="" onerror="this.remove()">` : ''}</div>
+            <span class="tv-gfx__barrido"></span>
+            <div class="tv-gfx__area" aria-hidden="true"><svg viewBox="0 0 200 130">
+                <rect x="2" y="2" width="196" height="126" rx="3" class="area-linea"/><rect x="58" y="2" width="84" height="26" class="area-linea"/>
+                <rect x="18" y="2" width="164" height="62" class="area-linea"/><path d="M78 64 A24 24 0 0 0 122 64" class="area-linea"/>
+                <circle cx="100" cy="46" r="3" class="area-punto"/><circle cx="100" cy="46" r="3" class="area-onda"/><circle cx="100" cy="112" r="5.5" class="area-balon"/></svg></div>
+            <div class="tv-gfx__cuerpo">
+                <small class="tv-gfx__tag">PENAL${g.minuto != null ? ` · ${Math.floor(g.minuto)}'` : ''}</small>
+                <strong class="tv-gfx__titulo">¡PENAL!</strong>
+                <span class="tv-gfx__nombre">a favor de ${e(g.equipo || '')}</span>
+                <div class="tv-gfx__duelo">
+                    <span class="tv-gfx__duelista tv-gfx__duelista--v">${carita(g.victima)}<b>${e(g.victima)}</b><small>recibe la falta</small></span>
+                    <i class="bi bi-lightning-charge-fill"></i>
+                    <span class="tv-gfx__duelista tv-gfx__duelista--i">${carita(g.infractor)}<b>${e(g.infractor)}</b><small>comete la falta</small></span>
+                </div></div></div>`;
+    }
+
+    // cambio: sale uno (rojo), entra otro (verde)
+    function htmlCambio(g, mesa) {
+        const paisId = equipoId(g.equipo);
+        const bandera = imagenPais(paisId, 'plana'), escudo = imagenPais(paisId, 'escudo');
+        const lado = (nombre, clase, etiqueta) => `<div class="tv-gfx__movimiento tv-gfx__movimiento--${clase}">${carita(nombre)}${plantillas.dorsales[nombre] != null ? `<b class="tv-gfx__dorsal">${e(plantillas.dorsales[nombre])}</b>` : ''}<strong>${e(nombre)}</strong><em><i class="bi bi-arrow-${clase === 'sale' ? 'down' : 'up'}-circle-fill"></i>${etiqueta}</em></div>`;
+        return `<div class="tv-gfx tv-gfx--jugador tv-gfx--cambio" style="${bandera ? `--bandera:url('${e(bandera)}');` : ''}">
+            <div class="tv-gfx__fondo">${escudo ? `<img class="tv-gfx__escudo" src="${e(escudo)}" alt="" onerror="this.remove()">` : ''}</div>
+            <span class="tv-gfx__barrido"></span>
+            <div class="tv-gfx__cambio">
+                <small class="tv-gfx__tag">CAMBIO${g.minuto != null ? ` · ${Math.floor(g.minuto)}'` : ''} · ${e(g.equipo || '')}</small>
+                <div class="tv-gfx__cambio-fila">${lado(g.sale, 'sale', 'SALE')}<i class="bi bi-arrow-left-right tv-gfx__flecha"></i>${lado(g.entra, 'entra', 'ENTRA')}</div>
             </div></div>`;
+    }
+
+    // dato del partido «presentado por» el dueño de una marca patrocinadora (o, sin patrocinador, por el analista de la mesa)
+    function marcaDelDato(dato) {
+        const p = est.patro || { paises: {}, jugadores: {} };
+        const conDueno = lista => (lista || []).filter(m => m.dueno && m.dueno.nombre);
+        const id = plantillas.ids[dato.jugador];
+        let lista = conDueno(p.jugadores[String(id)]);                                   // 1.º: quien patrocina al propio jugador
+        if (!lista.length) lista = conDueno(p.paises[String(equipoId(dato.equipo))]);    // 2.º: quien patrocina a su selección
+        if (!lista.length) lista = [].concat(...Object.values(p.paises).map(conDueno));  // 3.º: cualquiera de las dos selecciones
+        return lista.length ? lista[Math.floor(Math.random() * lista.length)] : null;
+    }
+    function htmlDato(i, d) {
+        const marca = d.marca, t = est.tele[i] || {};
+        const m = est.mesas[i];
+        const analista = m && m.raiz.querySelector('.tv-asiento--analista .tv-asiento__rostro img');
+        const quien = marca ? marca.dueno.nombre : (m.raiz.querySelector('.tv-placa--analista b') || {}).textContent || 'El analista';
+        const rostro = marca ? (marca.dueno.avatar_url ? `<img src="${e(marca.dueno.avatar_url)}" alt="" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>')
+                             : (analista ? `<img src="${e(analista.src)}" alt="">` : '<i class="bi bi-person-fill"></i>');
+        const presenta = window.Narracion.PRESENTA[Math.floor(Math.random() * window.Narracion.PRESENTA.length)].replace('{quien}', `<b>${e(quien)}</b>`);
+        const paisId = equipoId(d.equipo);
+        const bandera = imagenPais(paisId, 'plana'), escudo = imagenPais(paisId, 'escudo');
+        const pos = window.Narracion.POSICIONES[plantillas.posiciones[d.jugador]] || '';
+        const colores = marca ? `--tv:${e(marca.color)};--tv2:${e(marca.color2)};` : '';
+        const cierre = marca
+            ? `<span class="tv-gfx__cortina"></span><div class="tv-gfx__cadena tv-gfx__cadena--marca">${marca.logo ? `<img src="${e(marca.logo)}" alt="${e(marca.nombre)}" onerror="this.remove()">` : `<b>${e(marca.nombre)}</b>`}${marca.lema ? `<small>${e(marca.lema)}</small>` : ''}<span class="tv-gfx__marca-pie">Patrocinador oficial</span></div>`
+            : cierreCadena(i);
+        return `<div class="tv-gfx tv-gfx--dato" style="${colores}${bandera ? `--bandera:url('${e(bandera)}');` : ''}">
+            <div class="tv-gfx__dato-fondo"></div>
+            <div class="tv-gfx__presenta"><span class="tv-gfx__presenta-cara">${rostro}</span><span class="tv-gfx__presenta-texto">${presenta}</span>${marca ? `<small>${e(marca.nombre)}</small>` : '<small>Análisis de la transmisión</small>'}</div>
+            <div class="tv-gfx__dato">
+                <small class="tv-gfx__tag">${e(d.etiqueta)}</small>
+                <strong class="tv-gfx__titulo">${e(d.titulo)}</strong>
+                <div class="tv-gfx__dato-jugador">${carita(d.jugador)}
+                    <div><b>${e(d.jugador)}</b><small>${escudo ? `<img src="${e(escudo)}" alt="" onerror="this.remove()">` : ''}${[e(d.equipo || ''), pos].filter(Boolean).join(' · ')}</small></div></div>
+                <span class="tv-gfx__dato-cifra">${e(d.cifra)}</span>
+            </div>${cierre}</div>`;
     }
     function htmlMarcador(i) {
         const d = est.ultimo || {}, t = est.tele[i] || {};
@@ -208,27 +301,45 @@
         </div>`;
     }
 
-    // tipo: 'jugador' (datos del gráfico de Narracion.grafico) o 'marcador'. Una pieza a la vez por televisor; la tarjeta de
-    // un gol o una roja pasa por encima de un comercial que esté saliendo.
+    // tipo: 'jugador' (gol, tarjetas, penal atajado), 'penal', 'cambio', 'dato' o 'marcador'. Una pieza a la vez por televisor: la de
+    // `prio` 3 (gol, expulsión, penal) interrumpe a lo que esté en pantalla; las demás esperan a que termine la actual.
     function mostrarGrafico(i, tipo, datos) {
-        if (!est || !est.listo || est.modo !== 'tv') return;
+        if (!est || !est.listo || est.modo !== 'tv') return false;
         const m = est.mesas[i];
         const cont = m && m.raiz.querySelector('.tv-set__grafico');
-        if (!cont || m.cerrada) return;
-        if (m.grafico && !(tipo === 'jugador' && m.grafico === 'marcador') && !(datos && datos.prio >= 3 && m.grafico === 'jugador')) return;
+        if (!cont || m.cerrada) return false;
+        const prio = (datos && datos.prio) || 1;
+        if (m.grafico && prio < 3 && prio <= m.graficoPrio) return false;
         clearTimeout(m.graficoTimer);
-        m.grafico = tipo;
-        cont.innerHTML = tipo === 'jugador' ? htmlJugador(datos) : htmlMarcador(i);
+        m.grafico = tipo; m.graficoPrio = prio;
+        const html = { jugador: () => htmlJugador(datos, i), penal: () => htmlPenal(datos, i), cambio: () => htmlCambio(datos, i), dato: () => htmlDato(i, datos), marcador: () => htmlMarcador(i) };
+        cont.innerHTML = html[tipo]();
         cont.className = `tv-set__grafico tv-set__grafico--${tipo} is-activo`;
         m.raiz.classList.add('con-grafico');
         const dur = (reducido ? 0.6 : 1) * GRAFICO_MS[tipo];
         m.graficoTimer = setTimeout(() => {
             cont.classList.add('is-saliendo');
             m.graficoTimer = setTimeout(() => {
-                cont.className = 'tv-set__grafico'; cont.innerHTML = ''; m.grafico = null; m.raiz.classList.remove('con-grafico');
+                cont.className = 'tv-set__grafico'; cont.innerHTML = ''; m.grafico = null; m.graficoPrio = 0; m.raiz.classList.remove('con-grafico');
             }, reducido ? 0 : 450);
         }, dur);
         if (tipo === 'marcador') est.mesas[i].ultimoMarcador = Date.now();
+        return true;
+    }
+    // en una pausa (nadie ha hablado en un rato) puede salir un dato del partido presentado por el dueño de una marca patrocinadora
+    // o, si ninguna de las dos selecciones tiene patrocinador, por el analista; nunca antes del minuto 8 ni dos seguidos
+    function quizaDato(i) {
+        if (!est || est.modo !== 'tv' || !window.Narracion.elegirDato) return false;
+        const m = est.mesas[i], ahora = Date.now();
+        if (m.cerrada || m.grafico || (est.ultimo && est.ultimo.minuto_actual < 8)) return false;
+        if (ahora - est.ultimoDato < 70000 || ahora - m.ultimoMarcador < 25000 || Math.random() > 0.5) return false;
+        const d = window.Narracion.elegirDato(est.ultimo.eventos, est.datosUsados, Math.random);
+        if (!d) return false;
+        d.marca = marcaDelDato(d);
+        if (!mostrarGrafico(i, 'dato', d)) return false;
+        est.ultimoDato = ahora;
+        est.datosUsados.push(d.clave); if (est.datosUsados.length > 6) est.datosUsados.shift();
+        return true;
     }
     // el comercial del marcador sale de vez en cuando (y en el arranque, el descanso y el final); nunca sobre una tarjeta
     function quizaMarcador(clase) {
@@ -246,7 +357,7 @@
         return data.finalizado ? 'FINAL' : (data.adicional_actual ? `${data.minuto_actual}+${data.adicional_actual}'` : `${data.minuto_actual}'`);
     }
     function contexto(data) {
-        return { marcador: `${data.goles_local}-${data.goles_visitante}`, minuto: String(data.minuto_actual != null ? Math.floor(data.minuto_actual) : '') };
+        return { golesLocal: data.goles_local, golesVisita: data.goles_visitante, marcador: `${data.goles_local}-${data.goles_visitante}`, minuto: String(data.minuto_actual != null ? Math.floor(data.minuto_actual) : '') };
     }
     function actualizarHud(data) {
         raiz.querySelectorAll('[data-hud]').forEach(h => {
@@ -300,6 +411,7 @@
         const hasta = m.ultimaFin + SILENCIO_MIN + Math.random() * SILENCIO_EXTRA;
         m.timer = setTimeout(() => {
             if (!est || !est.listo || m.mostrando || est.colas[i].length) return programar(i);
+            if (quizaDato(i)) { m.ultimaFin = Date.now() + GRAFICO_MS.dato * 0.6; return programar(i); }   // la pausa se llena con el dato
             const c = est.narrador.charla(contexto(est.ultimo), i);
             if (c) mostrar(i, c); else programar(i);
         }, Math.max(500, hasta - ahora));
@@ -417,10 +529,12 @@
             const c = k === eventos.length - 1 ? ctx : { marcador: '', minuto: ctx.minuto };
             const its = est.narrador.proponer(eventos[k], k, c);
             const g = est.modo === 'tv' ? window.Narracion.grafico(eventos[k], k, eventos) : null;
-            if (g && its.length) {
+            if (g) {
                 // la tarjeta sustituye al destello de «¡GOL!» / tarjeta (el gol conserva la sacudida de la pantalla)
-                if (its[0].efecto) its[0].efecto = its[0].efecto === 'gol' ? 'sacude' : null;
-                setTimeout(() => { if (est && est.matchId === data.match_id) mostrarGrafico(its[0].mesa, 'jugador', g); }, Math.max(0, (k - est.cursor) * 600) + 150);
+                if (its.length && its[0].efecto) its[0].efecto = its[0].efecto === 'gol' ? 'sacude' : null;
+                const tipoG = g.accion === 'penal' ? 'penal' : (g.accion === 'cambio' ? 'cambio' : 'jugador');
+                const mesaG = its.length ? its[0].mesa : mesaDelEquipo(g.equipo);
+                setTimeout(() => { if (est && est.matchId === data.match_id) mostrarGrafico(mesaG, tipoG, g); }, Math.max(0, (k - est.cursor) * 600) + 150);
             } else if (est.modo === 'tv') {
                 const clase = window.Narracion.clasificar(eventos[k]);
                 // en el pitido final no hay comercial: la despedida termina con el logo de la cadena

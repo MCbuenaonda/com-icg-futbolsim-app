@@ -2870,13 +2870,40 @@ document.addEventListener('DOMContentLoaded', function () {
     const previaCaja = document.getElementById('previaPartido');
     let previaId = null, previaPedida = 0;
     const ICONO_CLIMA = { 'Despejado': 'bi-moon-stars-fill', 'Soleado': 'bi-sun-fill', 'Calor Extremo': 'bi-thermometer-sun', 'Lluvia Intensa': 'bi-cloud-rain-heavy-fill', 'Nieve / Frio Intenso': 'bi-snow2' };
+    // Por dónde se transmite (para TI): las cadenas de TV de tu universo con su invitado (jugador y país) o la radio.
+    // Se repinta solo si cambió (el invitado puede aparecer después de cargar la previa).
+    let previaTxFirma = null;
+    function pintarTransmisionPrevia(tx) {
+        const caja = document.getElementById('previaTransmision');
+        if (!caja) return;
+        const firma = JSON.stringify(tx || null);
+        if (firma === previaTxFirma) return;
+        previaTxFirma = firma;
+        const bandera = (id) => window.UI && UI.bandera ? UI.bandera('', { id, tipo: 'icono' }) : '';
+        if (!tx || tx.modo !== 'tv' || !(tx.cadenas || []).length) {
+            caja.innerHTML = `<div class="previa__tx previa__tx--radio"><span class="previa__tx-icono"><i class="bi bi-broadcast"></i></span>
+                <div><small>Se transmite por</small><strong>Radio</strong><em>Narración por radio, sin cadena de televisión de tu universo</em></div></div>`;
+            return;
+        }
+        caja.innerHTML = tx.cadenas.map(c => {
+            const inv = c.invitado;
+            const logo = c.logo ? `<img src="${escaparHtml(c.logo)}" alt="" onerror="this.remove()">` : '<i class="bi bi-tv-fill"></i>';
+            const invitado = inv
+                ? `<span class="previa__tx-invitado"><i class="bi bi-person-video3"></i>Invitado: <b>${escaparHtml(inv.nombre || '')}</b>${inv.pais ? `<span class="previa__tx-pais">${inv.pais_id != null ? bandera(inv.pais_id) : ''}${escaparHtml(inv.pais)}</span>` : ''}</span>`
+                : '<span class="previa__tx-invitado previa__tx-invitado--nadie">Sin invitado</span>';
+            return `<div class="previa__tx" style="${c.color ? `--tv:${escaparHtml(c.color)};` : ''}">
+                <span class="previa__tx-icono previa__tx-icono--logo">${logo}</span>
+                <div><small>Se transmite por TV</small><strong>${escaparHtml(c.nombre)}</strong>${c.pais ? `<em>${escaparHtml(c.pais)}</em>` : ''}${invitado}</div></div>`;
+        }).join('');
+    }
     async function cargarPrevia() {
         if (!previaCaja || Date.now() - previaPedida < 20000) return;
         previaPedida = Date.now();
         try {
             const resp = await fetch('/matches/live/proximo');
-            if (!resp.ok) { previaCaja.classList.add('d-none'); panelInactivo.classList.remove('vivo-inactivo--con-previa'); previaId = null; return; }
+            if (!resp.ok) { previaTxFirma = null; previaCaja.classList.add('d-none'); panelInactivo.classList.remove('vivo-inactivo--con-previa'); previaId = null; return; }
             const d = await resp.json();
+            pintarTransmisionPrevia(d.transmision);
             if (d.match_id === previaId) return;
             previaId = d.match_id;
             const $ = id => document.getElementById(id);

@@ -26,6 +26,18 @@ import random
 import sys
 
 CX = 256
+
+# --- Retratos a medida (leyendas): se aplican DESPUÉS del sorteo normal, así el resto de los avatares no cambia ---------
+# Claves: piel (hex), textura, pelo (clave de PELOS), ojos (clave de OJOS), peinado, barba (None = sin barba), boca, forma,
+# cuello_camiseta, forma_ojos, entradas, edad; y de las cejas/nariz: grosor_cejas, inclinacion_cejas (+ = hacia adentro y abajo,
+# ceño serio), nariz_ancho, nariz_largo.
+AJUSTES_JUGADOR = {
+    # Pelé (Brasil): joven, piel oscura, pelo negro muy corto y rizado, cejas rectas y firmes, nariz ancha, mirada seria y serena,
+    # sin barba, camiseta con cuello de polo (retrato de referencia del usuario)
+    4671: {"piel": "#5e331a", "textura": "muy_rizado", "pelo": "negro", "ojos": "marron", "peinado": "corto", "barba": None,
+           "boca": "seria", "forma": "oval", "cuello_camiseta": "polo", "forma_ojos": "almendrado", "entradas": False, "edad": 22,
+           "grosor_cejas": 10, "inclinacion_cejas": 3, "nariz_ancho": 19, "nariz_largo": 5},
+}
 CONTORNO = "#1f1a17"
 ANCHO_TRAZO = 5
 
@@ -174,6 +186,16 @@ class Avatar:
         # forma de ojos: variación general (no depende de la región)
         self.forma_ojos = _elegir(r, {"almendrado": 45, "redondo": 30, "rasgado": 25})
         self.jersey = jersey  # (principal, secundario)
+        self.ajuste = AJUSTES_JUGADOR.get(jugador_id, {})
+        for k in ("piel", "textura", "peinado", "barba", "boca", "forma", "cuello_camiseta", "forma_ojos", "entradas", "edad"):
+            if k in self.ajuste:
+                setattr(self, k, self.ajuste[k])
+        if "pelo" in self.ajuste:
+            self.pelo = PELOS[self.ajuste["pelo"]]
+        if "ojos" in self.ajuste:
+            self.ojos = OJOS[self.ajuste["ojos"]]
+        if "piel" in self.ajuste:
+            self.piel_sombra = _oscurecer(self.piel, 0.9)
         self._geometria()
 
     # --- geometría de la cara -----------------------------------------------------------------------
@@ -269,6 +291,8 @@ class Avatar:
         r = self.rnd
         grosor = r.uniform(7, 11)
         inclinacion = r.uniform(-4, 5)
+        grosor = self.ajuste.get("grosor_cejas", grosor)
+        inclinacion = self.ajuste.get("inclinacion_cejas", inclinacion)
         y = self.ojo_y - 30
         color = self.pelo if self.peinado != "calvo" or self.pelo not in CANAS else "#3b2a20"
         partes = []
@@ -281,6 +305,8 @@ class Avatar:
     def _nariz(self):
         ancho = self.rnd.choice([13, 16, 19])
         largo = self.rnd.choice([0, 5, 9])
+        ancho = self.ajuste.get("nariz_ancho", ancho)
+        largo = self.ajuste.get("nariz_largo", largo)
         y0, y1 = self.ojo_y + 8, self.ojo_y + 48 + largo
         return (f'<path d="M{CX + 6} {y0}C{CX + 12} {y0 + 20} {CX + 16} {y1 - 14} {CX + 12} {y1 - 6}" fill="none" stroke="{_oscurecer(self.piel, 0.68)}" stroke-width="3.5" stroke-linecap="round"/>'
                 f'<path d="M{CX - 6} {y0 + 6}L{CX - 4} {y1 - 18}" stroke="#fff" stroke-opacity="0.45" stroke-width="4" stroke-linecap="round"/>'
@@ -518,6 +544,30 @@ def generar(carpeta):
     print(f"{len(jugadores)} SVG en {destino}")
 
 
+def generar_solo(carpeta, ids):
+    """Solo los jugadores indicados (p. ej. un retrato a medida de AJUSTES_JUGADOR): `--solo 4671,5812`."""
+    destino = os.path.join(carpeta, "jugadores")
+    os.makedirs(destino, exist_ok=True)
+    from services.imagenes_pais_service import db
+    pais_ids = {j["pais_id"] for j in db["jugadores"].find({"id": {"$in": ids}}, {"pais_id": 1})}
+    nombres = [p["nombre"] for p in db["paises"].find({"id": {"$in": list(pais_ids)}}, {"nombre": 1})]
+    paises, jerseys, jugadores = _datos(nombres)
+    n = 0
+    for j in jugadores:
+        if j["id"] in ids:
+            with open(os.path.join(destino, f"{j['id']}.svg"), "w") as f:
+                f.write(_avatar_de(j, paises, jerseys))
+            n += 1
+    print(f"{n} SVG en {destino}")
+
+
+def subir_solo(carpeta, ids):
+    import subprocess
+    archivos = [os.path.join(carpeta, "jugadores", f"{i}.svg") for i in ids]
+    subprocess.run(["gcloud", "storage", "cp", *archivos, "gs://com-icg-mundial/jugadores/",
+                    "--gzip-local-all", "--content-type=image/svg+xml", "--cache-control=public, max-age=604800", "-q"], check=True)
+
+
 def subir(carpeta):
     import subprocess
     subprocess.run(["gcloud", "storage", "cp", os.path.join(carpeta, "jugadores", "*.svg"), "gs://com-icg-mundial/jugadores/",
@@ -536,5 +586,7 @@ def asignar():
 if __name__ == "__main__":
     modo = sys.argv[1] if len(sys.argv) > 1 else ""
     carpeta = sys.argv[2] if len(sys.argv) > 2 else "avatares_generados"
+    ids_solo = [int(x) for x in sys.argv[3].split(",")] if len(sys.argv) > 3 else []
     {"--muestra": lambda: muestra(carpeta), "--generar": lambda: generar(carpeta),
-     "--subir": lambda: subir(carpeta), "--asignar": asignar}.get(modo, lambda: print(__doc__))()
+     "--subir": lambda: subir(carpeta), "--asignar": asignar,
+     "--solo": lambda: generar_solo(carpeta, ids_solo), "--subir-solo": lambda: subir_solo(carpeta, ids_solo)}.get(modo, lambda: print(__doc__))()

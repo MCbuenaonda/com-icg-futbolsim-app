@@ -836,3 +836,20 @@
     .previa__chip { font-size: 0.78rem; padding: 0.3rem 0.7rem; }
 }
 @media (prefers-reduced-motion: reduce) { .previa__fondo img { animation: none; transform: scale(1); } .previa--entra .previa__cuerpo > *, .previa__etiqueta .bi { animation: none; } }
+
+/* por dónde se transmite el próximo partido: cadenas de TV con su invitado, o la radio */
+.previa__transmision { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.7rem; width: 100%; margin-top: 0.7rem; }
+.previa__tx { --tv: #38bdf8; display: flex; align-items: center; gap: 0.75rem; max-width: 22rem; padding: 0.55rem 1rem 0.55rem 0.6rem; text-align: left; text-shadow: none;
+    border-radius: 14px; background: rgba(8, 12, 22, 0.66); border: 1px solid color-mix(in srgb, var(--tv) 55%, rgba(255, 255, 255, 0.15)); backdrop-filter: blur(6px);
+    box-shadow: inset 3px 0 0 var(--tv); }
+.previa__tx-icono { flex: 0 0 auto; display: grid; place-items: center; width: 2.9rem; height: 2.9rem; border-radius: 10px; font-size: 1.4rem; color: #cbd5e1; background: rgba(255, 255, 255, 0.08); }
+.previa__tx-icono--logo { background: rgba(6, 10, 20, 0.8); padding: 0.3rem; } .previa__tx-icono img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.previa__tx div { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.previa__tx small { font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: #94a3b8; }
+.previa__tx strong { font-size: 1rem; color: #fff; } .previa__tx em { font-style: normal; font-size: 0.78rem; color: #cbd5e1; }
+.previa__tx-invitado { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-top: 0.2rem; font-size: 0.8rem; color: #e2e8f0; }
+.previa__tx-invitado .bi { color: var(--tv); } .previa__tx-invitado b { color: #fff; }
+.previa__tx-invitado--nadie { color: #94a3b8; font-style: italic; }
+.previa__tx-pais { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.05rem 0.5rem; border-radius: 99px; font-size: 0.74rem; background: rgba(255, 255, 255, 0.1); }
+.previa__tx-pais .img-pais { height: 0.95rem; width: auto; }
+@media (max-width: 575.98px) { .previa__tx { max-width: 100%; width: 100%; } }

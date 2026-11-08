@@ -87,7 +87,8 @@ def obtener_mesa_transmision(usuario: Optional[dict]) -> Optional[Dict[str, Any]
     try:
         from services.auth_service import tiene_permiso
         if usuario and tiene_permiso(usuario, "corporativos"):
-            from services.corporativo_tv_service import transmisiones
+            from services.corporativo_tv_service import transmisiones, asegurar_invitados_en_vivo
+            asegurar_invitados_en_vivo(usuario, juego)   # si su universo iba atrasado, las cadenas eligen invitado ahora
             for fila in transmisiones(usuario, [juego], en_vivo=True).get(str(juego["_id"]), []):
                 t, inv = fila["tele"], fila.get("invitado")
                 coms = ((t.get("equipo") or {}).get("comentaristas")) or []
@@ -642,7 +643,7 @@ def obtener_posiciones_plantillas_en_vivo() -> Optional[Dict[str, Any]]:
 
 
 
-def obtener_proximo_partido() -> Optional[Dict[str, Any]]:
+def obtener_proximo_partido(usuario: Optional[dict] = None) -> Optional[Dict[str, Any]]:
     """
     La previa del próximo partido (el primero 'creado' por fecha y hora) para la vista /en-vivo cuando no hay transmisión: estadio,
     equipos, día y hora, clima y aforo. Si el partido todavía no tiene clima/aforo se generan y se guardan, igual que al abrir su
@@ -662,7 +663,25 @@ def obtener_proximo_partido() -> Optional[Dict[str, Any]]:
             print(f"[en vivo] previa: no se pudo generar clima/aforo: {e}")
     eq = lambda d: {"id": d.get("id"), "nombre": d.get("nombre"), "bandera": d.get("bandera") or "", "siglas": d.get("siglas") or ""}
     clima, aforo = juego.get("clima") or {}, juego.get("aforo") or {}
+    # por dónde se transmite PARA ESTE USUARIO: las cadenas de TV de su universo con su invitado (jugador y país) o la radio
+    cadenas = []
+    try:
+        from services.auth_service import tiene_permiso
+        if usuario and tiene_permiso(usuario, "corporativos"):
+            from services.corporativo_tv_service import transmisiones, asegurar_invitados_en_vivo
+            from services.corporativo_mercado_service import valores
+            asegurar_invitados_en_vivo(usuario, juego)   # si su universo iba atrasado, las cadenas eligen invitado ya
+            paises = valores()["info_paises"]
+            for fila in transmisiones(usuario, [juego]).get(str(juego["_id"]), []):
+                t, inv = fila["tele"], fila.get("invitado")
+                cadenas.append({"id": t["id"], "nombre": t["nombre"], "logo": t.get("logo"), "color": t.get("color"), "pais": fila.get("pais"),
+                                "invitado": {"nombre": inv["nombre"], "jugador_id": inv["jugador_id"], "pais_id": inv.get("pais_id"),
+                                             "pais": paises.get(inv.get("pais_id"), {}).get("nombre")} if inv else None})
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Previa: transmisión del próximo partido: {e}")
+        cadenas = []
     return {
+        "transmision": {"modo": "tv" if cadenas else "radio", "cadenas": cadenas},
         "match_id": str(juego["_id"]), "local": eq(local), "visitante": eq(visita),
         "estadio": ub.get("estadio"), "estadio_img": url_estadio(ub.get("id")), "ciudad": ub.get("nombre"), "pais_sede": ub.get("pais"),
         "fecha": juego.get("fecha"), "fecha_texto": fecha_larga(juego.get("fecha")), "hora": juego.get("hora"),

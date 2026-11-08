@@ -120,9 +120,9 @@ def get_live_tabla_grupo():
 
 
 @route.get("/live/proximo", response_model=ProximoPartidoOut, name="matches_live_proximo")
-def get_proximo_partido():
+def get_proximo_partido(request: Request):
     """Previa del próximo partido pendiente (estadio, equipos, día, clima y aforo) para /en-vivo cuando no hay transmisión."""
-    previa = obtener_proximo_partido()
+    previa = obtener_proximo_partido(obtener_usuario_actual(request))
     if not previa:
         raise HTTPException(status_code=404, detail="No quedan partidos pendientes.")
     return ProximoPartidoOut(**previa)

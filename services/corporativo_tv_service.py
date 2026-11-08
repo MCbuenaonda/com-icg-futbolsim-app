@@ -576,13 +576,14 @@ def _elegible(estado, c: dict, ciclo: int, seq: int, en_gira: set, ocupados: set
     return _juega_en_ciclo_activo(pais) is None
 
 
-def programar_invitados(estado, ciclo: int, seq: int) -> None:
-    """Para los próximos TV_INVITADO_HORIZONTE partidos: cada cadena con contrato ACTIVO de una de las dos selecciones,
-    con TV_INVITADO_PROB, elige un invitado AL AZAR entre los representados que cumplen las condiciones."""
+def programar_invitados(estado, ciclo: int, seq: int, partidos: Optional[List[dict]] = None) -> None:
+    """Para los próximos TV_INVITADO_HORIZONTE partidos (o los `partidos` dados): cada cadena con contrato ACTIVO de una de las
+    dos selecciones, con TV_INVITADO_PROB, elige un invitado AL AZAR entre los representados que cumplen las condiciones."""
     try:
         espejo_inv = _espejo_inv(estado)
-        proximos = list(db["juegos"].find({"estado": "creado"}, {"equipo_local.id": 1, "equipo_visitante.id": 1, "fecha": 1, "hora": 1})
-                        .sort([("fecha", 1), ("hora", 1)]).limit(C.TV_INVITADO_HORIZONTE))
+        proximos = partidos if partidos is not None else list(
+            db["juegos"].find({"estado": "creado"}, {"equipo_local.id": 1, "equipo_visitante.id": 1, "fecha": 1, "hora": 1})
+            .sort([("fecha", 1), ("hora", 1)]).limit(C.TV_INVITADO_HORIZONTE))
         if not proximos:
             return
         from services.corporativo_acciones_service import _cargar_giras
@@ -608,7 +609,10 @@ def programar_invitados(estado, ciclo: int, seq: int) -> None:
                     espejo_inv[inv_id] = doc
                     _ins_inv(doc)
                     continue
-                pool = [c for c in jugadores if _elegible(estado, c, ciclo, seq, en_gira, ocupados)]
+                # los jugadores de las dos selecciones que juegan este partido no pueden ser el invitado
+                en_el_partido = {(j.get(l) or {}).get("id") for l in ("equipo_local", "equipo_visitante")}
+                pool = [c for c in jugadores if valores()["info_jugadores"].get(c["ref_id"], {}).get("pais_id") not in en_el_partido
+                        and _elegible(estado, c, ciclo, seq, en_gira, ocupados)]
                 if not pool:
                     continue
                 c = rng.choice(pool)   # al azar: todos los que cumplen tienen la misma probabilidad
@@ -631,6 +635,34 @@ def programar_invitados(estado, ciclo: int, seq: int) -> None:
                              "bi-broadcast", clave=f"tv-invitado:{inv_id}")
     except Exception as e:
         print(f"[corporativos] invitados de TV: {e}")
+
+
+def asegurar_invitados_en_vivo(usuario: Optional[dict], juego: dict) -> None:
+    """El partido que se está transmitiendo ya no está «creado», así que si el universo del usuario iba atrasado (los invitados se
+    eligen al ponerlo al día, solo para los próximos partidos) nadie le programó invitado. Aquí se eligen en el momento de la
+    transmisión, con las mismas reglas; al ponerse al día el universo el partido se procesa y el invitado cobra como cualquier otro.
+    Idempotente (si ya hay invitaciones del partido no hace nada), nunca lanza y no espera si el universo se está actualizando."""
+    try:
+        if not usuario or not juego:
+            return
+        uid, jid = str(usuario["_id"]), str(juego["_id"])
+        if db[COL_INV].count_documents({"universo_id": uid, "juego_id": jid}, limit=1):
+            return
+        ids_paises = [(juego.get(l) or {}).get("id") for l in ("equipo_local", "equipo_visitante")]
+        if not db[COL].count_documents({"universo_id": uid, "estado": "ACTIVO", "pais_id": {"$in": ids_paises}}, limit=1):
+            return   # ninguna cadena de su universo transmite este partido: nada que programar
+        universo = U.obtener_universo(uid)
+        if not universo:
+            return
+        from services import corporativo_ciclo_service as economia
+        try:
+            with U.candado(uid):
+                estado = economia.Estado(uid)
+                programar_invitados(estado, universo["ultimo_ciclo"] + 1, universo["cursor_seq"], partidos=[juego])
+        except ValueError:
+            return   # el universo se está poniendo al día: ese proceso lo resolverá o se verá sin invitado
+    except Exception as e:
+        print(f"[corporativos] invitados en vivo: {e}")
 
 
 def _ins_inv(doc: dict) -> None:

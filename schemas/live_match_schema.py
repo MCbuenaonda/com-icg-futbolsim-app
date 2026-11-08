@@ -236,6 +236,27 @@ class AforoPreviaOut(BaseModel):
     estado: Optional[str] = None
 
 
+class InvitadoPreviaOut(BaseModel):
+    nombre: Optional[str] = None
+    jugador_id: Optional[int] = None
+    pais_id: Optional[int] = None
+    pais: Optional[str] = None
+
+
+class CadenaPreviaOut(BaseModel):
+    id: Optional[int] = None
+    nombre: str
+    logo: Optional[str] = None
+    color: Optional[str] = None
+    pais: Optional[str] = None
+    invitado: Optional[InvitadoPreviaOut] = None
+
+
+class TransmisionPreviaOut(BaseModel):
+    modo: str = "radio"   # "tv" con las cadenas de TU universo, o "radio"
+    cadenas: List[CadenaPreviaOut] = []
+
+
 class ProximoPartidoOut(BaseModel):
     """Previa del próximo partido de /en-vivo (sin transmisión): estadio, equipos, fecha, clima y aforo."""
     match_id: str
@@ -252,3 +273,4 @@ class ProximoPartidoOut(BaseModel):
     jornada: Optional[str] = None
     clima: Optional[ClimaPreviaOut] = None
     aforo: Optional[AforoPreviaOut] = None
+    transmision: Optional[TransmisionPreviaOut] = None

@@ -133,4 +133,86 @@ AJUSTES_TECNICOS_2 = {
     446: _t("#d4996f","castano_oscuro","raya",None,"seria","redonda"), # Herrera
     447: _t("#efc4a4","negro","corto",None,"seria","oval"), # Passy
     449: _t("#d4996f","#8a8582","raya",None,"seria","alargada",entradas=True), # Aguirre
+    472: _t("#c68458","negro","rulos",None,"seria","oval",textura="rizado"), # P. López
+    487: _t("#5e331a","negro","rapado",None,"seria","redonda"), # Providence
+    491: _t("#5e331a","negro","calvo",None,"seria","redonda"), # Brunswijk
+    495: _t("#452313","negro","calvo",None,"seria","redonda"), # Bee
+    499: _t("#5e331a","negro","calvo",None,"seria","alargada"), # Cox
+    504: _t("#93572e","negro","corto",None,"seria","oval"), # L. Oliveira
+    507: _t("#d4996f","negro","ondulado","completa","seria","alargada"), # Zemmamouch
+    508: _t("#d4996f","#8a8582","calvo","completa","seria","oval"), # Belmadi
+    509: _t("#d4996f","negro","tupe","incipiente","seria","alargada"), # Saïfi
+    510: _t("#d4996f","negro","ondulado","candado","sonrisa","alargada"), # Bensaoula
+    523: _t("#93572e","negro","corto",None,"seria","oval"), # Nilson
+    534: _t("#e3ac86","castano_oscuro","corto",None,"seria","oval",anteojos=True), # José Rui
+    552: _t("#efc4a4","castano_oscuro","ondulado",None,"seria","alargada",anteojos=True), # Andrey
+    557: _t("#efc4a4","#c9c9c9","corto",None,"sonrisa","alargada",anteojos=True,entradas=True), # Troussier
+    558: _t("#5e331a","rubio","corto","completa","seria","oval",anteojos=True), # Cissé
+    559: _t("#5e331a","negro","rapado",None,"seria","oval"), # Romaric
+    562: _t("#d4996f","negro","calvo",None,"seria","redonda"), # H. Hassan
+    563: _t("#d4996f","negro","rulos","completa","seria","oval",textura="rizado"), # Mido
+    565: _t("#d4996f","negro","corto","completa","seria","oval"), # Shawky
+    590: _t("#452313","negro","calvo","incipiente","seria","oval"), # M'Boge
+    591: _t("#5e331a","negro","rapado",None,"seria","oval"), # Appiah
+    592: _t("#452313","negro","calvo","completa","sonrisa","oval"), # Addo
+    594: _t("#5e331a","negro","calvo",None,"sonrisa","oval"), # Sarpei
+    596: _t("#452313","negro","rapado",None,"seria","redonda",anteojos=True), # K. Diawara
+    645: _t("#452313","negro","rapado",None,"seria","oval"), # S. Diawara
+    646: _t("#efc4a4","castano_claro","raya","incipiente","seria","alargada",anteojos=True), # Ouahbi
+    647: _t("#c68458","#c9c9c9","corto",None,"seria","oval",entradas=True), # Fakhir
+    648: _t("#d4996f","negro","corto","incipiente","seria","alargada"), # Ammouta
+    649: _t("#d4996f","negro","corto",None,"seria","oval"), # Aissati
+    662: _t("#c68458","#8a8582","corto",None,"seria","alargada",anteojos=True,entradas=True), # Shéu
+    677: _t("#452313","negro","calvo",None,"seria","redonda"), # Amunike
+    680: _t("#5e331a","negro","rapado",None,"seria","oval"), # Afolabi
+    686: _t("#5e331a","negro","calvo","candado","seria","oval"), # Makélélé
+    687: _t("#452313","negro","rapado",None,"seria","alargada",entradas=True), # Ibengé
+    689: _t("#5e331a","negro","rapado","incipiente","seria","alargada"), # Musampa
+    701: _t("#452313","negro","rapado","incipiente","seria","oval"), # Thiaw
+    703: _t("#5e331a","negro","calvo","incipiente","seria","oval"), # Daf
+    712: _t("#5e331a","negro","rastas",None,"seria","alargada",textura="muy_rizado"), # Lahoud
+    722: _t("#efc4a4","#c9c9c9","corto","incipiente","seria","alargada"), # Carnell
+    737: _t("#5e331a","negro","rapado",None,"sonrisa","redonda"), # Odhiambo
+    746: _t("#d4996f","negro","corto",None,"seria","oval",entradas=True), # Kadri
+    747: _t("#d4996f","negro","raya",None,"seria","alargada"), # Maâloul
+    748: _t("#d4996f","#6e6a68","corto",None,"sonrisa","oval"), # Lamouchi
+    749: _t("#d4996f","#c9c9c9","ondulado",None,"seria","oval",anteojos=True), # Kebaier
+    750: _t("#93572e","negro","corto","candado","seria","oval",entradas=True), # Chabbi
+    768: _t("#93572e","negro","rapado",None,"sonrisa","oval"), # Pritchard
+    772: _t("#d4996f","negro","tupe","incipiente","seria","alargada"), # Dastgir
+    781: _t("#efc4a4","#6e6a68","corto","incipiente","seria","cuadrada",entradas=True), # Postecoglou
+    782: _t("#efc4a4","castano_oscuro","corto","incipiente","sonrisa","redonda"), # Cklamovski
+    784: _t("#efc4a4","#6e6a68","tupe",None,"seria","oval"), # Corica
+    785: _t("#f6d7c3","pelirrojo","corto",None,"seria","oval"), # Foxe
+    791: _t("#b0703f","negro","raya",None,"seria","oval"), # Choton
+    796: _t("#b0703f","negro","calvo",None,"seria","redonda"), # Mustafa
+    798: _t("#b0703f","negro","calvo",None,"sonrisa","redonda"), # Samak
+    799: _t("#e3ac86","negro","corto",None,"seria","oval"), # Momin
+    813: _t("#c68458","negro","corto","completa","seria","oval"), # Mubarak
+    818: _t("#efc4a4","negro","flequillo",None,"sonrisa","oval"), # Shao
+    824: _t("#e3ac86","#4a4542","corto",None,"seria","cuadrada"), # Jo Tong-sop
+    826: _t("#e3ac86","negro","flequillo",None,"seria","oval"), # Shin
+    828: _t("#e3ac86","#4a4542","raya",None,"sonrisa","oval",anteojos=True), # An Ik-soo
+    830: _t("#e3ac86","negro","raya",None,"seria","redonda"), # Lee Young-jin
+    848: _t("#e3ac86","#6e6a68","corto","candado","sonrisa","oval"), # Tsang
+    851: _t("#e3ac86","negro","flequillo",None,"sonrisa","alargada"), # Izumi
+    852: _t("#b0703f","negro","calvo",None,"seria","oval",anteojos=True), # Ali
+    856: _t("#c68458","negro","flequillo","candado","sonrisa","alargada"), # Sudarsono
+    857: _t("#c68458","negro","rapado",None,"seria","oval"), # Yulianto
+    859: _t("#b0703f","negro","corto","candado","sonrisa","oval"), # Rotinsulu
+    866: _t("#d4996f","negro","tupe",None,"seria","alargada"), # Ghalenoei
+    867: _t("#d4996f","negro","tupe","completa","seria","alargada"), # Shojaei
+    869: _t("#d4996f","negro","tupe","incipiente","seria","oval"), # Alenemeh
+    876: _t("#d4996f","negro","corto","candado","seria","alargada"), # Sellami
+    878: _t("#efc4a4","castano_claro","corto",None,"seria","alargada"), # Nafash
+    890: _t("#c68458","negro","ondulado","incipiente","seria","oval"), # Jamil
+    897: _t("#c68458","negro","calvo",None,"seria","oval"), # Taha
+    906: _t("#b0703f","#c9c9c9","ondulado",None,"sonrisa","oval"), # Rajagopal
+    913: _t("#b0703f","negro","corto","candado","seria","oval"), # Mahloof
+    938: _t("#b0703f","negro","corto","completa","seria","alargada"), # Haque
+    953: _t("#d4996f","negro","calvo","candado","seria","oval"), # Ibrahim
+    962: _t("#c68458","negro","calvo",None,"seria","oval"), # Promrut
+    972: _t("#d4996f","negro","raya",None,"seria","alargada"), # Rakhimov
+    975: _t("#d4996f","castano_oscuro","flequillo","completa","seria","alargada"), # Vasiyev
+    1023: _t("#efc4a4","rubio","tupe",None,"seria","oval"), # Mulligan
 }

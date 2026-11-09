@@ -137,6 +137,10 @@ AJUSTES_JUGADOR = {
     5248: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'sonrisa', "forma": 'cuadrada', "cuello_camiseta": 'polo'},
     5249: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'negro', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo'},
 }
+
+# 2.ª tanda de leyendas (las de más fama), en retratos_a_medida.py; no pisa a las de arriba
+from retratos_a_medida import AJUSTES_LEYENDAS_2
+AJUSTES_JUGADOR.update({k: v for k, v in AJUSTES_LEYENDAS_2.items() if k not in AJUSTES_JUGADOR})
 CONTORNO = "#1f1a17"
 ANCHO_TRAZO = 5
 

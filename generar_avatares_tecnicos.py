@@ -72,6 +72,10 @@ AJUSTES_TECNICO = {
     280: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
 }
 
+# 2.ª tanda de DTs reales, en retratos_tecnicos_a_medida.py; no pisa a los de arriba
+from retratos_tecnicos_a_medida import AJUSTES_TECNICOS_2
+AJUSTES_TECNICO.update({k: v for k, v in AJUSTES_TECNICOS_2.items() if k not in AJUSTES_TECNICO})
+
 SACOS = {"#1f2a44": 40, "#2b2f36": 35, "#15171b": 25}       # azul marino, carbón, negro
 CAMISAS = {"#f5f6f8": 70, "#dce8f5": 30}
 PEINADOS_DT = {"corto": 30, "raya": 26, "degradado": 14, "ondulado": 10, "rapado": 10, "calvo": 10}

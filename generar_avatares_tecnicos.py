@@ -18,7 +18,59 @@ import os
 import random
 import sys
 
-from generar_avatares import CONTORNO, ANCHO_TRAZO, CX, CANAS, Avatar, _elegir, _oscurecer, _region
+from generar_avatares import CONTORNO, ANCHO_TRAZO, CX, CANAS, OJOS, PELOS, Avatar, _elegir, _oscurecer, _region
+
+# --- Retratos a medida (DTs reales de las selecciones más grandes, de su foto de Wikidata: tono de piel, pelo, barba, calvicie,
+# anteojos; con las canas y entradas de hoy, porque el DT se muestra como es ahora). Se aplican DESPUÉS del sorteo normal.
+AJUSTES_TECNICO = {
+    1: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#4a4542', "ojos": 'marron', "peinado": 'raya', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": True, "entradas": True},
+    2: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#6e6a68', "ojos": 'marron', "peinado": 'calvo', "barba": 'incipiente', "boca": 'seria', "forma": 'redonda', "anteojos": False, "entradas": False},
+    3: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#c9c9c9', "ojos": 'azul', "peinado": 'raya', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": True, "entradas": True},
+    4: {"piel": '#d4996f', "textura": 'lacio', "pelo": 'negro', "ojos": 'marron', "peinado": 'raya', "barba": None, "boca": 'seria', "forma": 'oval', "anteojos": False, "entradas": False},
+    5: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#6e6a68', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'cuadrada', "anteojos": False, "entradas": False},
+    11: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#6e6a68', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'cuadrada', "anteojos": False, "entradas": False},
+    12: {"piel": '#b0703f', "textura": 'rizado', "pelo": '#b5b5b5', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'sonrisa', "forma": 'redonda', "anteojos": True, "entradas": False},
+    13: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": True},
+    14: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#c9c9c9', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'oval', "anteojos": False, "entradas": False},
+    15: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    41: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#c9c9c9', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'dientes', "forma": 'oval', "anteojos": False, "entradas": False},
+    42: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'negro', "ojos": 'marron', "peinado": 'raya', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    43: {"piel": '#d4996f', "textura": 'lacio', "pelo": 'negro', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'dientes', "forma": 'oval', "anteojos": False, "entradas": False},
+    44: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#6e6a68', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'sonrisa', "forma": 'cuadrada', "anteojos": False, "entradas": False},
+    45: {"piel": '#efc4a4', "textura": 'ondulado', "pelo": 'castano', "ojos": 'marron', "peinado": 'ondulado', "barba": None, "boca": 'seria', "forma": 'oval', "anteojos": False, "entradas": False},
+    56: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'azul', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": True, "entradas": True},
+    57: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#6e6a68', "ojos": 'marron', "peinado": 'raya', "barba": None, "boca": 'seria', "forma": 'oval', "anteojos": False, "entradas": False},
+    58: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'redonda', "anteojos": True, "entradas": True},
+    59: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'castano', "ojos": 'azul', "peinado": 'raya', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    60: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'azul', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "anteojos": True, "entradas": True},
+    131: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#6e6a68', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'cuadrada', "anteojos": False, "entradas": False},
+    133: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'negro', "ojos": 'marron', "peinado": 'calvo', "barba": 'completa', "boca": 'seria', "forma": 'oval', "anteojos": False, "entradas": False},
+    134: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#6e6a68', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    146: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_claro', "ojos": 'marron', "peinado": 'raya', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    147: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": True},
+    148: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "ojos": 'marron', "peinado": 'raya', "barba": 'incipiente', "boca": 'seria', "forma": 'oval', "anteojos": False, "entradas": False},
+    150: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    176: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'azul', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'cuadrada', "anteojos": False, "entradas": False},
+    177: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#4a4542', "ojos": 'marron', "peinado": 'raya', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    178: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'redonda', "anteojos": False, "entradas": True},
+    179: {"piel": '#f6d7c3', "textura": 'lacio', "pelo": 'rubio_oscuro', "ojos": 'azul', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    180: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#4a4542', "ojos": 'marron', "peinado": 'raya', "barba": None, "boca": 'seria', "forma": 'cuadrada', "anteojos": False, "entradas": False},
+    206: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'redonda', "anteojos": False, "entradas": True},
+    207: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#a8a4a2', "ojos": 'marron', "peinado": 'raya', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    208: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'marron', "peinado": 'rapado', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": True},
+    209: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'negro', "ojos": 'marron', "peinado": 'raya', "barba": 'incipiente', "boca": 'seria', "forma": 'oval', "anteojos": False, "entradas": False},
+    210: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": True},
+    266: {"piel": '#d4996f', "textura": 'rizado', "pelo": 'castano_oscuro', "ojos": 'marron', "peinado": 'ondulado', "barba": None, "boca": 'seria', "forma": 'cuadrada', "anteojos": False, "entradas": False},
+    267: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'azul', "peinado": 'calvo', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    268: {"piel": '#d4996f', "textura": 'rizado', "pelo": 'negro', "ojos": 'marron', "peinado": 'ondulado', "barba": None, "boca": 'seria', "forma": 'oval', "anteojos": False, "entradas": False},
+    269: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#c9c9c9', "ojos": 'azul', "peinado": 'raya', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    270: {"piel": '#efc4a4', "textura": 'rizado', "pelo": 'castano_oscuro', "ojos": 'marron', "peinado": 'ondulado', "barba": None, "boca": 'seria', "forma": 'oval', "anteojos": False, "entradas": False},
+    276: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#c9c9c9', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    277: {"piel": '#efc4a4', "textura": 'lacio', "pelo": '#b5b5b5', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": True, "entradas": True},
+    278: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#6e6a68', "ojos": 'marron', "peinado": 'rapado', "barba": None, "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+    279: {"piel": '#e3ac86', "textura": 'lacio', "pelo": '#6e6a68', "ojos": 'marron', "peinado": 'corto', "barba": None, "boca": 'seria', "forma": 'oval', "anteojos": False, "entradas": False},
+    280: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "anteojos": False, "entradas": False},
+}
 
 SACOS = {"#1f2a44": 40, "#2b2f36": 35, "#15171b": 25}       # azul marino, carbón, negro
 CAMISAS = {"#f5f6f8": 70, "#dce8f5": 30}
@@ -55,6 +107,18 @@ class AvatarTecnico(Avatar):
             self.barba = "candado"
         self.anteojos = r.random() < (0.12 if edad < 50 else 0.3)
         self.boca = _elegir(r, {"sonrisa": 45, "seria": 40, "dientes": 15})
+        aj = AJUSTES_TECNICO.get(tecnico_id)
+        if aj:
+            for k in ("piel", "textura", "peinado", "barba", "boca", "forma", "anteojos", "entradas"):
+                if k in aj:
+                    setattr(self, k, aj[k])
+            if "pelo" in aj:
+                self.pelo = PELOS.get(aj["pelo"], aj["pelo"])
+            if "ojos" in aj:
+                self.ojos = OJOS[aj["ojos"]]
+            if "piel" in aj:
+                self.piel_sombra = _oscurecer(self.piel, 0.9)
+            self._geometria()
 
     # --- traje ---------------------------------------------------------------------------------------
     def _camiseta(self):
@@ -147,6 +211,26 @@ def generar(carpeta):
     print(f"{len(tecnicos)} SVG en {destino}")
 
 
+def generar_solo(carpeta, ids):
+    """Solo los técnicos indicados (p. ej. los retratos de AJUSTES_TECNICO): `--solo <carpeta> 1,2,3`."""
+    destino = os.path.join(carpeta, "tecnicos")
+    os.makedirs(destino, exist_ok=True)
+    paises, tecnicos = _datos()
+    n = 0
+    for t in tecnicos:
+        if t["id"] in ids:
+            with open(os.path.join(destino, f"{t['id']}.svg"), "w") as f:
+                f.write(avatar_de(t, paises))
+            n += 1
+    print(f"{n} SVG en {destino}")
+
+
+def subir_solo(carpeta, ids):
+    import subprocess
+    subprocess.run(["gcloud", "storage", "cp", *[os.path.join(carpeta, "tecnicos", f"{i}.svg") for i in ids], "gs://com-icg-mundial/tecnicos/",
+                    "--gzip-local-all", "--content-type=image/svg+xml", "--cache-control=public, max-age=604800", "-q"], check=True)
+
+
 def subir(carpeta):
     import subprocess
     subprocess.run(["gcloud", "storage", "cp", os.path.join(carpeta, "tecnicos", "*.svg"), "gs://com-icg-mundial/tecnicos/",
@@ -165,5 +249,7 @@ def asignar():
 if __name__ == "__main__":
     modo = sys.argv[1] if len(sys.argv) > 1 else ""
     carpeta = sys.argv[2] if len(sys.argv) > 2 else "avatares_generados"
+    ids_solo = [int(x) for x in sys.argv[3].split(",")] if len(sys.argv) > 3 else list(AJUSTES_TECNICO)
     {"--muestra": lambda: muestra(carpeta), "--generar": lambda: generar(carpeta), "--subir": lambda: subir(carpeta),
-     "--asignar": asignar}.get(modo, lambda: print(__doc__))()
+     "--asignar": asignar, "--solo": lambda: generar_solo(carpeta, ids_solo),
+     "--subir-solo": lambda: subir_solo(carpeta, ids_solo)}.get(modo, lambda: print(__doc__))()

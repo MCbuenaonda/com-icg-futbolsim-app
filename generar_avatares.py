@@ -37,6 +37,51 @@ AJUSTES_JUGADOR = {
     4671: {"piel": "#5e331a", "textura": "muy_rizado", "pelo": "negro", "ojos": "marron", "peinado": "corto", "barba": None,
            "boca": "seria", "forma": "oval", "cuello_camiseta": "polo", "forma_ojos": "almendrado", "entradas": False, "edad": 22,
            "grosor_cejas": 10, "inclinacion_cejas": 3, "nariz_ancho": 19, "nariz_largo": 5},
+    # Leyendas de las selecciones más grandes, tomadas de su foto de Wikidata: tono de piel, pelo, barba, calvicie y lentes (rasgos
+    # persistentes, sin canas ni arrugas: la edad es la de plenitud del juego; Kempes, Baggio y Gullit con su peinado de la época)
+    4674: {"piel": '#c68458', "textura": 'rizado', "pelo": 'negro', "peinado": 'degradado', "barba": None, "boca": 'dientes', "forma": 'oval', "cuello_camiseta": 'v', "ojos": 'marron'},
+    4672: {"piel": '#b0703f', "textura": 'rizado', "pelo": 'negro', "peinado": 'corto', "barba": 'incipiente', "boca": 'dientes', "forma": 'redonda', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4668: {"piel": '#b0703f', "textura": 'muy_rizado', "pelo": '#2b2624', "peinado": 'calvo', "barba": 'candado', "boca": 'dientes', "forma": 'cuadrada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4673: {"piel": '#c68458', "textura": 'rizado', "pelo": 'negro', "peinado": 'rapado', "entradas": True, "barba": None, "boca": 'sonrisa', "forma": 'alargada', "cuello_camiseta": 'polo', "ojos": 'marron'},
+    4649: {"piel": '#d4996f', "textura": 'rizado', "pelo": 'negro', "peinado": 'rulos', "barba": None, "boca": 'sonrisa', "forma": 'redonda', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4648: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "peinado": 'degradado', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4647: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "peinado": 'corto', "entradas": True, "barba": None, "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'polo', "ojos": 'marron'},
+    4651: {"piel": '#e3ac86', "textura": 'ondulado', "pelo": 'castano_oscuro', "peinado": 'ondulado', "barba": 'incipiente', "boca": 'sonrisa', "forma": 'oval', "cuello_camiseta": 'polo', "ojos": 'marron'},
+    4652: {"piel": '#e3ac86', "textura": 'ondulado', "pelo": 'castano', "peinado": 'ondulado', "barba": 'incipiente', "boca": 'dientes', "forma": 'cuadrada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4968: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'negro', "ojos": 'avellana', "peinado": 'calvo', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo'},
+    4967: {"piel": '#efc4a4', "textura": 'ondulado', "pelo": 'castano_oscuro', "peinado": 'raya', "barba": None, "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'polo', "ojos": 'marron'},
+    4971: {"piel": '#b0703f', "textura": 'muy_rizado', "pelo": 'negro', "peinado": 'rapado', "barba": 'candado', "boca": 'dientes', "forma": 'oval', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4970: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "peinado": 'corto', "entradas": True, "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'polo', "ojos": 'marron'},
+    4966: {"piel": '#5e331a', "textura": 'muy_rizado', "pelo": 'negro', "peinado": 'calvo', "barba": None, "boca": 'seria', "forma": 'oval', "cuello_camiseta": 'redondo', "lentes": True, "ojos": 'marron'},
+    4765: {"piel": '#efc4a4', "textura": 'ondulado', "pelo": 'negro', "peinado": 'ondulado', "barba": None, "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4772: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'castano_claro', "peinado": 'tupe', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4774: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'castano', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4773: {"piel": '#efc4a4', "textura": 'ondulado', "pelo": 'negro', "peinado": 'ondulado', "barba": None, "boca": 'seria', "forma": 'oval', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4768: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'castano', "peinado": 'corto', "barba": 'incipiente', "boca": 'sonrisa', "forma": 'oval', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    5035: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'castano_claro', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'cuadrada', "cuello_camiseta": 'polo', "ojos": 'marron'},
+    5036: {"piel": '#f6d7c3', "textura": 'lacio', "pelo": 'castano_claro', "peinado": 'corto', "entradas": True, "barba": None, "boca": 'seria', "forma": 'redonda', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    5033: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'castano', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'cuadrada', "cuello_camiseta": 'polo', "ojos": 'marron'},
+    5037: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano', "peinado": 'corto', "barba": None, "boca": 'sonrisa', "forma": 'alargada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    5034: {"piel": '#f6d7c3', "textura": 'lacio', "pelo": 'rubio_oscuro', "peinado": 'raya', "entradas": True, "barba": None, "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4934: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'castano_oscuro', "peinado": 'rapado', "entradas": True, "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4929: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'oval', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4935: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'negro', "peinado": 'degradado', "barba": 'incipiente', "boca": 'seria', "forma": 'oval', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4931: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "peinado": 'degradado', "barba": 'completa', "boca": 'seria', "forma": 'cuadrada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4939: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'castano_oscuro', "peinado": 'corto', "entradas": True, "barba": None, "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'v', "ojos": 'marron'},
+    5094: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'negro', "peinado": 'corto', "barba": 'completa', "boca": 'seria', "forma": 'cuadrada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    5102: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'negro', "peinado": 'largo_atado', "barba": 'incipiente', "boca": 'sonrisa', "forma": 'oval', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    5104: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "peinado": 'corto', "barba": 'incipiente', "boca": 'dientes', "forma": 'alargada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    5100: {"piel": '#e3ac86', "textura": 'ondulado', "pelo": 'castano_oscuro', "peinado": 'ondulado', "barba": 'completa', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'polo', "ojos": 'marron'},
+    5096: {"piel": '#d4996f', "textura": 'lacio', "pelo": 'negro', "peinado": 'rapado', "entradas": True, "barba": None, "boca": 'sonrisa', "forma": 'cuadrada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    5236: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'castano', "ojos": 'azul', "peinado": 'raya', "barba": None, "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo'},
+    5234: {"piel": '#efc4a4', "textura": 'lacio', "pelo": 'castano_claro', "peinado": 'rapado', "entradas": True, "barba": None, "boca": 'dientes', "forma": 'alargada', "cuello_camiseta": 'polo', "ojos": 'marron'},
+    5235: {"piel": '#efc4a4', "textura": 'ondulado', "pelo": 'castano', "peinado": 'ondulado', "barba": 'incipiente', "boca": 'seria', "forma": 'cuadrada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    5226: {"piel": '#efc4a4', "textura": 'ondulado', "pelo": 'castano_claro', "ojos": 'azul', "peinado": 'ondulado', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo'},
+    5233: {"piel": '#b0703f', "textura": 'muy_rizado', "pelo": 'negro', "peinado": 'rastas', "barba": None, "boca": 'seria', "forma": 'oval', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4740: {"piel": '#d4996f', "textura": 'lacio', "pelo": 'negro', "peinado": 'degradado', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'polo', "ojos": 'marron'},
+    4739: {"piel": '#efc4a4', "textura": 'ondulado', "pelo": 'castano_claro', "ojos": 'azul', "peinado": 'ondulado', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo'},
+    4732: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'cuadrada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
+    4734: {"piel": '#d4996f', "textura": 'lacio', "pelo": 'negro', "peinado": 'largo_atado', "barba": None, "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo', "ojos": 'marron'},
 }
 CONTORNO = "#1f1a17"
 ANCHO_TRAZO = 5
@@ -191,7 +236,7 @@ class Avatar:
             if k in self.ajuste:
                 setattr(self, k, self.ajuste[k])
         if "pelo" in self.ajuste:
-            self.pelo = PELOS[self.ajuste["pelo"]]
+            self.pelo = PELOS.get(self.ajuste["pelo"], self.ajuste["pelo"])   # clave de PELOS o un hex
         if "ojos" in self.ajuste:
             self.ojos = OJOS[self.ajuste["ojos"]]
         if "piel" in self.ajuste:
@@ -455,9 +500,21 @@ class Avatar:
         return f'<path d="{_suave(forma)}" fill="{color}" {trazo}/>' + \
                f'<path d="M{CX - 50} {self.top + 4}Q{CX + 10} {self.top - 16} {CX + 70} {self.top + 10}" fill="none" stroke="{brillo}" stroke-width="3" stroke-linecap="round"/>'
 
+    def _lentes(self):
+        """Anteojos de armazón (solo si el retrato a medida lo pide: `lentes`)."""
+        if not self.ajuste.get("lentes"):
+            return ""
+        y = self.ojo_y
+        marco = "#1f1a17"
+        aros = "".join(f'<rect x="{CX + s * 46 - 31}" y="{y - 22}" width="62" height="44" rx="14" fill="#9ec5e8" fill-opacity="0.18" '
+                       f'stroke="{marco}" stroke-width="5"/>' for s in (-1, 1))
+        puente = f'<path d="M{CX - 15} {y - 6}Q{CX} {y - 12} {CX + 15} {y - 6}" fill="none" stroke="{marco}" stroke-width="5"/>'
+        patillas = "".join(f'<path d="M{CX + s * 77} {y - 8}L{CX + s * (self.sien + 6)} {y - 10}" stroke="{marco}" stroke-width="4"/>' for s in (-1, 1))
+        return aros + puente + patillas
+
     def svg(self):
         cuerpo = (self._pelo_detras() + self._camiseta() + self._cuello() + self._orejas() + self._cara() + self._barba()
-                  + self._ojos() + self._cejas() + self._nariz() + self._boca() + self._pelo())
+                  + self._ojos() + self._cejas() + self._nariz() + self._boca() + self._pelo() + self._lentes())
         return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" '
                 f'stroke-linecap="round">{cuerpo}</svg>')
 

@@ -139,8 +139,9 @@ AJUSTES_JUGADOR = {
 }
 
 # 2.ª tanda de leyendas (las de más fama), en retratos_a_medida.py; no pisa a las de arriba
-from retratos_a_medida import AJUSTES_LEYENDAS_2
+from retratos_a_medida import AJUSTES_LEYENDAS_2, AJUSTES_ACTUALES
 AJUSTES_JUGADOR.update({k: v for k, v in AJUSTES_LEYENDAS_2.items() if k not in AJUSTES_JUGADOR})
+AJUSTES_JUGADOR.update({k: v for k, v in AJUSTES_ACTUALES.items() if k not in AJUSTES_JUGADOR})
 CONTORNO = "#1f1a17"
 ANCHO_TRAZO = 5
 

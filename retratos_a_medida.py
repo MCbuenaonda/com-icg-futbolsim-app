@@ -1048,4 +1048,40 @@ AJUSTES_ACTUALES = {
     1185: _r("#452313","rizado","negro","rapado",None,"seria","oval"), # Castillo
     1508: _r("#7a4524","rizado","negro","degradado",None,"seria","oval"), # Restes
     2893: _r("#efc4a4","lacio","castano_oscuro","raya",None,"seria","alargada"), # A. González
+    267: _r("#c68458","rizado","negro","rulos",None,"seria","alargada"), # Herrington
+    1019: _r("#452313","rizado","negro","rapado",None,"seria","oval"), # Oulaï
+    2075: _r("#c68458","rizado","negro","degradado","incipiente","seria","oval"), # Pálsson
+    326: _r("#d4996f","lacio","negro","degradado","completa","seria","alargada"), # Mahmudov
+    3006: _r("#5e331a","rizado","negro","degradado",None,"seria","alargada"), # Mexer
+    2665: _r("#efc4a4","lacio","castano_claro","corto","incipiente","seria","alargada"), # Velkovski
+    3903: _r("#d4996f","lacio","negro","tupe","completa","seria","alargada"), # Khribin
+    1322: _r("#efc4a4","lacio","castano_claro","rapado",None,"seria","alargada"), # Hatka
+    3820: _r("#efc4a4","lacio","castano_oscuro","tupe","incipiente","seria","alargada"), # Ristić
+    3494: _r("#452313","rizado","rubio","degradado","incipiente","seria","alargada"), # Tshibola
+    96: _r("#452313","rizado","negro","degradado","incipiente","seria","oval"), # Dala
+    3127: _r("#452313","rizado","negro","rapado",None,"seria","alargada"), # Ajayi
+    1538: _r("#d4996f","lacio","negro","corto","incipiente","seria","alargada"), # Bouanga
+    2830: _r("#c68458","lacio","negro","rapado","incipiente","seria","alargada"), # Saïdane
+    2330: _r("#d4996f","lacio","negro","corto","completa","seria","alargada"), # Al-Mardi
+    2624: _r("#efc4a4","lacio","castano_oscuro","corto",None,"seria","alargada"), # Thill
+    2047: _r("#efc4a4","lacio","castano_claro","corto",None,"seria","alargada"), # Peacock-Farrell
+    3600: _r("#efc4a4","lacio","castano_oscuro","corto",None,"seria","alargada"), # Bălușă
+    1318: _r("#efc4a4","lacio","rubio","corto","incipiente","seria","alargada"), # Hirst
+    2627: _r("#e3ac86","rizado","castano_oscuro","ondulado","completa","sonrisa","alargada"), # Sinani
+    2061: _r("#c68458","rizado","negro","degradado",None,"seria","alargada"), # Lewis
+    3381: _r("#7a4524","rizado","negro","rapado",None,"seria","oval"), # M. López
+    3318: _r("#d4996f","rizado","castano_oscuro","rulos",None,"seria","alargada"), # Carrasquilla
+    3455: _r("#d4996f","rizado","negro","rulos","completa","seria","alargada"), # Abunada
+    3147: _r("#efc4a4","lacio","castano_claro","corto","incipiente","seria","alargada"), # Selvik
+    1015: _r("#452313","rizado","castano_oscuro","rapado","candado","seria","oval"), # Agbadou
+    3457: _r("#d4996f","rizado","negro","rulos","completa","seria","alargada"), # Gaber
+    4467: _r("#e3ac86","lacio","negro","corto",None,"sonrisa","oval"), # Nematov
+    173: _r("#d4996f","rizado","negro","rulos","candado","seria","alargada"), # Al-Johani
+    599: _r("#c68458","rizado","negro","degradado",None,"sonrisa","oval"), # Vanderson
+    2820: _r("#d4996f","lacio","negro","tupe","incipiente","seria","alargada"), # Belammari
+    1369: _r("#efc4a4","lacio","castano_oscuro","corto",None,"sonrisa","alargada"), # Fresneda
+    2249: _r("#5e331a","rizado","negro","rulos",None,"sonrisa","oval"), # Kayode
+    1139: _r("#f6d7c3","lacio","rubio","corto",None,"seria","alargada"), # Froholdt
+    1619: _r("#452313","rizado","negro","rapado",None,"seria","oval"), # Adjetey
+    2312: _r("#93572e","rizado","negro","rapado",None,"seria","oval"), # Nasib
 }

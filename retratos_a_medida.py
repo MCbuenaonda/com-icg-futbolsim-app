@@ -338,6 +338,21 @@ AJUSTES_LEYENDAS_2 = {
     4663: _r("#d4996f","lacio","negro","flequillo",None,"sonrisa","alargada"), # Moreno
     5219: _r("#efc4a4","lacio","castano_claro","calvo",None,"seria","oval"), # Berg
     5274: _r("#efc4a4","lacio","castano_claro","raya",None,"seria","alargada"), # Petrescu
+    4718: _r("#e3ac86","lacio","negro","corto","incipiente","sonrisa","alargada"), # Santa Cruz
+    4985: _r("#e3ac86","lacio","castano_oscuro","raya","incipiente","seria","alargada"), # Kaladze
+    5180: _r("#e3ac86","lacio","negro","corto","incipiente","seria","alargada"), # Pandev
+    5213: _r("#e3ac86","lacio","negro","corto","completa","seria","alargada"), # Vučinić
+    4892: _r("#f6d7c3","lacio","rubio","corto","incipiente","seria","alargada"), # Krohn-Dehli
+    5947: _r("#5e331a","rizado","negro","rapado",None,"sonrisa","redonda"), # Abedi Pele
+    4686: _r("#e3ac86","ondulado","negro","ondulado","incipiente","seria","alargada"), # Salas
+    6288: _r("#d4996f","lacio","negro","rapado","incipiente","seria","oval"), # Khazri
+    4842: _r("#efc4a4","lacio","negro","raya","incipiente","seria","alargada"), # Spahić
+    5263: _r("#efc4a4","lacio","castano_claro","corto","incipiente","seria","oval"), # Kadlec
+    4710: _r("#d4996f","lacio","negro","corto",None,"seria","oval"), # Gamarra
+    4941: _r("#f6d7c3","lacio","rubio","corto","incipiente","seria","alargada"), # Klavan
+    5009: _r("#e3ac86","lacio","negro","largo_atado","completa","seria","alargada"), # Kyrgiakos
+    5221: _r("#f6d7c3","lacio","rubio","corto",None,"seria","alargada"), # Gamst Pedersen
+    4806: _r("#efc4a4","lacio","negro","raya",None,"seria","alargada"), # Sindelar
 }
 
 

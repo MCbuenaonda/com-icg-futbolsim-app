@@ -122,7 +122,7 @@
             <div class="card-body p-3 p-md-4">
                 <h2 class="vivo-titulo"><i class="bi {{ icono }}" style="color: {{ color }};"></i>{{ titulo }}</h2>
                 {% if loop.last %}<p class="text-muted small mb-2" style="font-size: .72rem;">Neto acumulado de la actividad registrada (no es el historial contable completo de tu saldo).</p>{% endif %}
-                {% if datos %}<div class="cuenta-grafica"><canvas id="{{ canvas }}"></canvas></div>
+                {% if datos %}<div class="cuenta-grafica">{% if not loop.last %}<div class="cuenta-dona-total"><strong id="{{ canvas }}Total"></strong><span>pts</span></div>{% endif %}<canvas id="{{ canvas }}"></canvas></div>
                 {% else %}<p class="text-muted text-center py-4 mb-0">{{ vacio }}</p>{% endif %}
             </div>
         </div>
@@ -163,7 +163,7 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
 // Historial de movimientos: de a 30 filas ("Mostrar más")
 document.addEventListener('DOMContentLoaded', () => {
@@ -200,9 +200,13 @@ document.addEventListener('DOMContentLoaded', function () {
         maintainAspectRatio: false,
         cutout: '62%',
         borderColor: '#0b1220',
+        borderWidth: 3,
+        hoverOffset: 6,
         plugins: { legend: { position: 'bottom', labels: { color: '#cbd5e1', boxWidth: 10, usePointStyle: true } } }
     };
 
+    const poner = (id, datos) => { const e = document.getElementById(id + 'Total'); if (e) e.textContent = Object.values(datos).reduce((a, b) => a + Math.abs(b), 0).toLocaleString('es-MX'); };
+    poner('chartGastos', gastoPorCategoria); poner('chartIngresos', ingresoPorCategoria);
     const ctxGastos = document.getElementById('chartGastos');
     if (ctxGastos) {
         const labels = Object.keys(gastoPorCategoria);
@@ -233,10 +237,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     label: 'Balance acumulado',
                     data: evolucionSaldo.map(e => e.saldo_acumulado),
                     borderColor: '#38bdf8',
-                    backgroundColor: 'rgba(56,189,248,.15)',
+                    backgroundColor: (c) => {
+                        const a = c.chart.chartArea; if (!a) return 'rgba(56,189,248,.15)';
+                        const g = c.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
+                        g.addColorStop(0, 'rgba(56,189,248,.35)'); g.addColorStop(1, 'rgba(56,189,248,0)'); return g;
+                    },
                     tension: 0.3,
                     fill: true,
-                    pointRadius: 2
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4
                 }]
             },
             options: {
@@ -244,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { ticks: { color: '#adb5bd', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,.05)' } },
+                    x: { ticks: { color: '#adb5bd', maxTicksLimit: 5, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,.05)' } },
                     y: { ticks: { color: '#adb5bd' }, grid: { color: 'rgba(255,255,255,.05)' } }
                 }
             }

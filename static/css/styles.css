@@ -1383,7 +1383,12 @@ body {
 .marcador-tv__info { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.45rem; margin-top: 0.9rem; font-size: 0.8rem; }
 .marcador-tv__info > span { display: inline-flex; align-items: center; padding: 0.2rem 0.7rem; border-radius: 999px; color: #cbd5e1; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.08); }
 .marcador-tv__info > span.d-none { display: none !important; }
-.marcador-tv__info .estadio-ilustracion--mini { width: 2.2rem; height: 1.4rem; }
+/* cada chip en una sola línea: si el nombre del estadio no cabe (pantallas angostas) se recorta con «…» en vez de partirse */
+.marcador-tv__info > span { white-space: nowrap; max-width: 100%; }
+.marcador-tv__estadio-nombre { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marcador-tv__info .estadio-ilustracion--mini { width: 2.2rem; height: 1.4rem; flex: 0 0 2.2rem; }   /* sin el flex-basis el recuadro medía 92px y el chip se calculaba con 2.2rem: el nombre se partía */
+/* salto de línea entre las dos filas de chips (grupo · fecha · asistencia / estadio · clima) */
+.marcador-tv__info > span.marcador-tv__info-salto { flex: 0 0 100%; height: 0; padding: 0; border: 0; background: none; margin: -0.45rem 0 0; }
 @media (max-width: 575.98px) {
     .marcador-tv { padding: 1rem 0.5rem 0.8rem; }
     .marcador-tv__fila { gap: 0.4rem; }

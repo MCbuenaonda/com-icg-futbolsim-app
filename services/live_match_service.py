@@ -396,6 +396,8 @@ def obtener_estado_live() -> Optional[Dict[str, Any]]:
         "fecha": formatear_fecha_es(juego.get("fecha")) if juego.get("fecha") else None,
         "hora": juego.get("hora"),
         "aforo": juego.get("aforo"),
+        "clima": {k: (juego.get("clima") or {}).get(k) for k in ("condicion", "temperatura_c", "humedad_porcentaje", "viento_kmh")}
+                 if (juego.get("clima") or {}).get("condicion") else None,
         "confederacion_id": juego.get("confederacion_id"),
         "fase_id": juego.get("fase_id"),
         "id_local": id_local,

@@ -63,6 +63,13 @@ class StartAutoSimulationResponse(BaseModel):
     mensaje: str
 
 
+class ClimaOut(BaseModel):
+    condicion: Optional[str] = None
+    temperatura_c: Optional[float] = None
+    humedad_porcentaje: Optional[float] = None
+    viento_kmh: Optional[float] = None
+
+
 class AforoOut(BaseModel):
     asistencia: int
     capacidad_estadio: Optional[int] = None
@@ -89,6 +96,7 @@ class LiveMatchOut(BaseModel):
     fecha: Optional[str] = None
     hora: Optional[str] = None
     aforo: Optional[AforoOut] = None
+    clima: Optional[ClimaOut] = None   # chip del clima junto al estadio
     confederacion_id: Optional[int] = None
     fase_id: Optional[int] = None
     id_local: Optional[int] = None

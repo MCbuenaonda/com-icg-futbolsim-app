@@ -43,6 +43,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const infoPartidoEstadio = document.getElementById('infoPartidoEstadio');
     const infoPartidoFecha = document.getElementById('infoPartidoFecha');
     const infoPartidoAforo = document.getElementById('infoPartidoAforo');
+    const infoPartidoClima = document.getElementById('infoPartidoClima');
+    // Ícono de cada condición del clima (el chip de la fila del estadio y el de la previa)
+    const ICONO_CLIMA = { 'Despejado': 'bi-moon-stars-fill', 'Soleado': 'bi-sun-fill', 'Calor Extremo': 'bi-thermometer-sun', 'Lluvia Intensa': 'bi-cloud-rain-heavy-fill', 'Nieve / Frio Intenso': 'bi-snow2' };
 
     const panelTablaGrupo = document.getElementById('panelTablaGrupo');
     const tablaGrupoLetra = document.getElementById('tablaGrupoLetra');
@@ -1693,7 +1696,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const imagen = data.estadio_img
                 ? `<span class="estadio-ilustracion estadio-ilustracion--mini d-inline-block align-middle me-2"><img src="${UI.escapar(data.estadio_img)}" alt="" decoding="async" onerror="this.parentNode.remove()"></span>`
                 : '<i class="bi bi-geo-alt-fill me-1"></i>';
-            infoPartidoEstadio.innerHTML = data.estadio ? `${imagen}${UI.escapar(data.estadio)}` : '';
+            infoPartidoEstadio.innerHTML = data.estadio ? `${imagen}<span class="marcador-tv__estadio-nombre">${UI.escapar(data.estadio)}</span>` : '';
+            infoPartidoEstadio.title = data.estadio || '';   // nombre completo si se recorta
         }
         infoPartidoEstadio.classList.toggle('d-none', !data.estadio);
 
@@ -1708,6 +1712,14 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             infoPartidoAforo.classList.add('d-none');
         }
+
+        // Clima, al lado del estadio
+        const clima = data.clima && data.clima.condicion ? data.clima : null;
+        if (clima) {
+            const t = clima.temperatura_c != null ? ` · ${Math.round(clima.temperatura_c)}°C` : '';
+            infoPartidoClima.innerHTML = `<i class="bi ${ICONO_CLIMA[clima.condicion] || 'bi-cloud-sun-fill'} me-1"></i>${UI.escapar(clima.condicion)}${t}`;
+        }
+        infoPartidoClima.classList.toggle('d-none', !clima);
     }
 
     // Tabla del Grupo: se pide UNA sola vez por partido (services/live_match_service.py
@@ -2869,7 +2881,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // mientras no hay transmisión (el próximo partido cambia cuando termina uno) y se repinta solo si cambió el partido.
     const previaCaja = document.getElementById('previaPartido');
     let previaId = null, previaPedida = 0;
-    const ICONO_CLIMA = { 'Despejado': 'bi-moon-stars-fill', 'Soleado': 'bi-sun-fill', 'Calor Extremo': 'bi-thermometer-sun', 'Lluvia Intensa': 'bi-cloud-rain-heavy-fill', 'Nieve / Frio Intenso': 'bi-snow2' };
     // Por dónde se transmite (para TI): las cadenas de TV de tu universo con su invitado (jugador y país) o la radio.
     // Se repinta solo si cambió (el invitado puede aparecer después de cargar la previa).
     let previaTxFirma = null;

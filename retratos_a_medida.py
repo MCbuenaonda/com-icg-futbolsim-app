@@ -156,7 +156,7 @@ AJUSTES_LEYENDAS_2 = {
     6057: _r("#5e331a", "muy_rizado", "negro", "rapado", None, "seria", "alargada"),                               # Keita
     5337: _r("#e3ac86", "rizado", "castano_oscuro", "corto", None, "seria", "alargada"),                           # Özalan
     4709: _r("#d4996f", "lacio", "negro", "corto", None, "seria", "oval"),                                         # Chilavert
-    5631: _r("#d4996f", "rizado", "negro", "rulos", None, "seria", "alargada"),                                    # Hugo Sánchez
+    5631: _r("#d4996f", "muy_rizado", "negro", "afro", None, "dientes", "oval", cuello="v"),   # Hugo Sánchez (México), corregido desde su foto
     4741: _r("#e3ac86", "lacio", "castano_oscuro", "raya", None, "seria", "alargada"),                             # Ghiggia
     5039: _r("#efc4a4", "lacio", "castano_oscuro", "corto", "incipiente", "sonrisa", "alargada"),                  # Given
     5319: _r("#efc4a4", "lacio", "rubio", "corto", None, "seria", "oval"),                                         # S. Larsson
@@ -353,6 +353,10 @@ AJUSTES_LEYENDAS_2 = {
     5009: _r("#e3ac86","lacio","negro","largo_atado","completa","seria","alargada"), # Kyrgiakos
     5221: _r("#f6d7c3","lacio","rubio","corto",None,"seria","alargada"), # Gamst Pedersen
     4806: _r("#efc4a4","lacio","negro","raya",None,"seria","alargada"), # Sindelar
+    5628: _r("#efc4a4","rizado","castano_claro","ondulado",None,"seria","oval",cuello="polo"),   # Luis García (México), desde su foto
+    5622: _r("#d4996f","lacio","negro","ondulado",None,"sonrisa","alargada",cuello="polo"),   # Jorge Campos (México), desde su foto
+    6458: _r("#e3ac86", "lacio", "negro", "flequillo", None, "sonrisa", "redonda", cuello="redondo"),   # Lee Woon-jae (Corea del Sur), desde su foto
+    5508: _r("#d4996f", "lacio", "negro", "degradado", "incipiente", "seria", "oval", cuello="v"),   # Claudio Reyna (EE. UU.), desde su foto
 }
 
 
@@ -1384,4 +1388,9 @@ AJUSTES_ACTUALES = {
     4294: _r("#93572e","rizado","negro","rulos","incipiente","seria","oval"), # Cardines
     4516: _r("#c68458","lacio","castano_oscuro","corto",None,"seria","alargada"), # Carmona
     4246: _r("#c68458","lacio","negro","tupe",None,"seria","oval"), # Freitas
+    2900: _r("#e3ac86", "lacio", "negro", "degradado", "incipiente", "seria", "cuadrada", cuello="v"),   # Erick Lira (México), desde su foto
+    199: _r("#e3ac86", "lacio", "castano_oscuro", "corto", None, "seria", "cuadrada", cuello="redondo"),   # Emiliano Martínez (Argentina), desde su foto
+    1368: _r("#e3ac86", "muy_rizado", "castano_oscuro", "afro", "completa", "dientes", "oval", cuello="v"),   # Marc Cucurella (España), desde su foto
+    991: _r("#efc4a4", "lacio", "negro", "flequillo", None, "dientes", "alargada", cuello="redondo"),   # Kim Seung-gyu (Corea del Sur), desde su foto
+    1004: _r("#efc4a4", "lacio", "negro", "flequillo", None, "seria", "redonda", cuello="v"),   # Kim Tae-hyeon (Corea del Sur), desde su foto
 }

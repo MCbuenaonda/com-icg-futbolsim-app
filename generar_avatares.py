@@ -116,7 +116,7 @@ AJUSTES_JUGADOR = {
     4937: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'negro', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo'},
     4938: {"piel": '#e3ac86', "textura": 'ondulado', "pelo": 'negro', "ojos": 'marron', "peinado": 'corto', "barba": 'incipiente', "boca": 'seria', "forma": 'oval', "cuello_camiseta": 'polo'},
     4932: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "ojos": 'marron', "peinado": 'degradado', "barba": 'completa', "boca": 'seria', "forma": 'cuadrada', "cuello_camiseta": 'redondo'},
-    4930: {"piel": '#e3ac86', "textura": 'rizado', "pelo": 'castano_oscuro', "ojos": 'marron', "peinado": 'rulos', "barba": None, "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo'},
+    4930: {"piel": '#e3ac86', "textura": 'muy_rizado', "pelo": 'castano', "ojos": 'marron', "peinado": 'afro', "barba": None, "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'v'},   # Carles Puyol, corregido desde su foto
     4933: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_claro', "ojos": 'marron', "peinado": 'melena', "barba": None, "boca": 'seria', "forma": 'alargada', "cuello_camiseta": 'redondo'},
     5097: {"piel": '#e3ac86', "textura": 'lacio', "pelo": 'castano_oscuro', "ojos": 'marron', "peinado": 'raya', "barba": 'incipiente', "boca": 'sonrisa', "forma": 'cuadrada', "cuello_camiseta": 'redondo'},
     5103: {"piel": '#e3ac86', "textura": 'ondulado', "pelo": 'negro', "ojos": 'marron', "peinado": 'rulos', "barba": None, "boca": 'seria', "forma": 'oval', "cuello_camiseta": 'redondo'},

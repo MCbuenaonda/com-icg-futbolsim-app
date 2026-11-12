@@ -119,9 +119,18 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <h2 class="vivo-titulo mb-0"><i class="bi bi-list-ol text-success"></i>Tablas de posiciones</h2>
         <div class="d-flex gap-2 flex-wrap small">
+            {% if c.id == 8 %}
+            <span class="scouter-zona conf-zona--d16">Clasificó a 16avos</span>
+            <span class="scouter-zona conf-zona--d8">A 8vos</span>
+            <span class="scouter-zona conf-zona--d4">A 4tos</span>
+            <span class="scouter-zona conf-zona--sf">A Semis</span>
+            <span class="scouter-zona conf-zona--fin">A la Final</span>
+            <span class="scouter-zona conf-zona--calificado"><i class="bi bi-trophy-fill me-1"></i>Campeón</span>
+            {% else %}
             <span class="scouter-zona conf-zona--calificado"><i class="bi bi-trophy-fill me-1"></i>Clasificó al Mundial</span>
             <span class="scouter-zona conf-zona--repechaje">Al repechaje</span>
             <span class="scouter-zona scouter-zona--DIRECTO">Avanzó de ronda</span>
+            {% endif %}
             <span class="scouter-zona conf-zona--en_juego">En juego</span>
             <span class="scouter-zona conf-zona--eliminado">Eliminado</span>
         </div>
@@ -156,7 +165,7 @@
                                 {% for e in tabla %}{% set s = e.estadisticas %}
                                 <a href="/paises/{{ e.id }}" class="conf-tabla__fila conf-tabla__fila--{{ e.estado }}">
                                     <span class="scouter-tabla__pos">{{ e.posicion }}</span>
-                                    <span class="scouter-tabla__equipo">{{ m.bandera(e.bandera, pais_id=e.id) }}<span class="text-truncate">{{ e.nombre }}</span>{% if e.estado == 'avanzo' %}<i class="bi bi-arrow-up-circle-fill text-success" title="Avanzó de ronda"></i>{% elif e.estado == 'calificado' %}<i class="bi bi-trophy-fill text-warning" title="Clasificó al Mundial"></i>{% elif e.estado == 'repechaje' %}<i class="bi bi-arrow-repeat text-info" title="Va al repechaje"></i>{% endif %}</span>
+                                    <span class="scouter-tabla__equipo">{{ m.bandera(e.bandera, pais_id=e.id) }}<span class="text-truncate">{{ e.nombre }}</span>{% if e.estado == 'campeon' %}<i class="bi bi-trophy-fill text-warning" title="Campeón del Mundial"></i>{% elif e.estado == 'avanzo' and e.destino %}<span class="conf-destino conf-destino--{{ e.destino_cod }}" title="{{ 'Clasificó a ' ~ e.destino if e.destino_cod in ['d16', 'd8', 'd4', 'sf', 'fin'] else e.destino }}">{{ e.destino }}</span>{% elif e.estado == 'avanzo' %}<i class="bi bi-arrow-up-circle-fill text-success" title="Avanzó de ronda"></i>{% elif e.estado == 'calificado' %}<i class="bi bi-trophy-fill text-warning" title="Clasificó al Mundial"></i>{% elif e.estado == 'repechaje' %}<i class="bi bi-arrow-repeat text-info" title="Va al repechaje"></i>{% endif %}</span>
                                     <span>{{ s.juegos_jugados or 0 }}</span>
                                     <span class="conf-tabla__opc text-success">{{ s.juegos_ganados or 0 }}</span>
                                     <span class="conf-tabla__opc text-muted">{{ s.juegos_empatados or 0 }}</span>

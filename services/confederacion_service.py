@@ -93,6 +93,37 @@ def get_confederacion(id_confederacion, logger):
 # Nombre de las fases de eliminación directa del Mundial (fases 8-13)
 NOMBRE_FASE_KO = {8: "16avos de final", 9: "8vos de final", 10: "4tos de final", 11: "Semifinal", 12: "Tercer puesto", 13: "Gran final"}
 
+# El Mundial en sí es la confederación 8: sus equipos llegan con el estado CALIFICADO_MUNDIAL (ya están en el torneo), así que ahí la
+# copa de «clasificó al Mundial» no aplica; lo que se muestra es a qué ronda del propio Mundial pasó cada uno.
+CONF_MUNDIAL = 8
+FASE_DESTINO = {"16VOS": 8, "8VOS": 9, "4TOS": 10, "SEMIS": 11, "3ER": 12, "FINAL": 13}   # CLASIFICADO_<ronda> -> fase a la que clasificó
+DESTINO_FASE = {8: ("16avos", "d16"), 9: ("8vos", "d8"), 10: ("4tos", "d4"), 11: ("Semis", "sf"), 12: ("3er puesto", "3er"), 13: ("Final", "fin")}
+
+
+def _estado_mundial(propio: str, fid: int, siguiente_fase):
+    """
+    Estado de una selección en una fase del Mundial: (estado, texto del destino, código del destino). 'avanzo' lleva el destino
+    (a qué ronda pasó); quien está jugando la fase (incluida la de grupos) es 'en_juego' aunque su estado diga que ya clasificó
+    a ella; 'campeon' es el único que conserva la copa. None si el estado propio no alcanza y hay que usar la regla general.
+    """
+    if propio.startswith("GANADOR_COPA"):
+        return "campeon", "Campeón", "campeon"
+    if propio.startswith("GANADOR_SUBCAMPEON"):
+        return "avanzo", "Subcampeón", "fin"
+    if propio.startswith("GANADOR_3ER"):
+        return "avanzo", "3er lugar", "3er"
+    if propio.startswith("ELIMINADO") or propio.startswith("GANADOR_4TO"):
+        return "eliminado", None, None
+    if propio.startswith("CLASIFICADO_"):
+        destino = FASE_DESTINO.get(propio.split("_")[1])
+        if destino is not None:
+            return ("avanzo", *DESTINO_FASE[destino]) if destino > fid else ("en_juego", None, None)
+    if siguiente_fase in DESTINO_FASE:
+        return "avanzo", *DESTINO_FASE[siguiente_fase]
+    if propio.startswith("CALIFICADO_MUNDIAL"):
+        return "en_juego", None, None
+    return None
+
 
 def _enriquecer_vista_confederacion(confederacion: dict, conf_id: int, mundial_id: str) -> None:
     """
@@ -100,7 +131,8 @@ def _enriquecer_vista_confederacion(confederacion: dict, conf_id: int, mundial_i
       - por fase: nombre para mostrar, descripción del formato (config/eliminatorias.py), avance de
         partidos jugados/total y la tabla de cada grupo YA ORDENADA (puntos, DG, GF) con la racha de
         los últimos 5 resultados y el estado de cada selección: 'calificado' (ya está en el Mundial), 'repechaje', 'avanzo' (aparece en una fase
-        posterior), 'eliminado' o 'en_juego'
+        posterior), 'eliminado' o 'en_juego'. En el Mundial (confederación 8) no hay copa de «clasificó»: cada selección que avanza lleva
+        el destino (16avos, 8vos, 4tos, Semis, Final) y solo el campeón conserva la copa
       - resumen: ronda actual de N, partidos y goles del torneo, líder de la fase vigente
       - últimos resultados y próximos partidos de la confederación
     Una sola consulta de partidos (con proyección) para todo lo anterior.
@@ -158,7 +190,14 @@ def _enriquecer_vista_confederacion(confederacion: dict, conf_id: int, mundial_i
                 # Mundial —o va al repechaje— de quien quedó eliminado: ninguno de los dos aparece en una ronda posterior de
                 # su confederación y antes se marcaban igual como «eliminado».
                 propio = str(p.get("estado") or "")
-                if propio.startswith("CALIFICADO_MUNDIAL"):
+                destino = destino_cod = None
+                mundial = None
+                if conf_id == CONF_MUNDIAL:
+                    siguiente = next((f for f in fases_ordenadas if f > fid and p.get("id") in ids_por_fase[f]), None)
+                    mundial = _estado_mundial(propio, fid, siguiente)
+                if mundial:
+                    estado, destino, destino_cod = mundial
+                elif propio.startswith("CALIFICADO_MUNDIAL"):
                     estado = "calificado"
                 elif propio.startswith("REPECHAJE"):
                     estado = "repechaje"
@@ -169,7 +208,8 @@ def _enriquecer_vista_confederacion(confederacion: dict, conf_id: int, mundial_i
                 else:
                     estado = "en_juego"
                 tabla.append({"posicion": pos, "id": p.get("id"), "nombre": p.get("nombre"), "bandera": p.get("bandera"), "siglas": p.get("siglas"),
-                              "estadisticas": p.get("estadisticas") or {}, "estado": estado, "forma": forma.get((fid, p.get("id")), [])[-5:]})
+                              "estadisticas": p.get("estadisticas") or {}, "estado": estado, "destino": destino, "destino_cod": destino_cod,
+                              "forma": forma.get((fid, p.get("id")), [])[-5:]})
             datos["tablas"][grupo] = tabla
 
     def partido(j):

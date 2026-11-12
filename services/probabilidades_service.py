@@ -19,6 +19,12 @@ del anfitrión, sorteo del Mundial por bombos de ranking con las restricciones p
 una vuelta, 8 mejores terceros, dieciseisavos (1° contra 3° evitando el mismo grupo) y llaves a partido único con
 alargue y penales. El partido que se está transmitiendo cuenta como no jugado (no adelanta nada).
 
+YA SORTEADO EL MUNDIAL (fase 7 en adelante, 'confederación' 8): las eliminatorias terminaron, así que los 48 son los
+de los grupos reales y se simula solo lo que falta: tablas con sus resultados y partidos pendientes, luego los
+dieciseisavos (si todavía no se sortearon) y las llaves reales que ya existan (fases 8-11 y 13) con sus resultados.
+(Antes ignoraba la confederación 8: el conjunto de clasificados quedaba vacío, no llegaba a 48 y todas las etapas
+del Mundial salían en 0 apenas se hacía el sorteo.)
+
 Se guarda una corrida por cada cantidad de partidos jugados en la colección 'probabilidades_mundial' (así queda la
 historia para el gráfico de evolución). Se recalcula en un hilo de fondo al terminar un partido o al abrir una
 ficha si está desactualizada; restart_mundial borra la colección.
@@ -70,6 +76,9 @@ REGLAS = {
 GRUPOS_FASE = {1: {1: 12, 2: 1, 3: 2, 4: 9, 5: 2, 6: 10}, 2: {1: 4, 3: 6, 4: 2, 5: 2, 6: 9},
                3: {3: 3, 4: 1, 5: 2, 6: 3}, 4: {5: 1, 6: 2}, 5: {6: 1}, 6: {7: 2}}
 ESTADOS_MUNDIAL = ("CALIFICADO_MUNDIAL", "CALIFICADO_MUNDIAL_ANFITRION")
+CONF_MUNDIAL = 8   # confederacion_id de los equipos y partidos del Mundial en sí (fase 7: grupos; 8-13: llaves)
+# fase de cada llave que cuenta para una etapa (la 12 es el tercer lugar y no suma a ninguna)
+FASES_LLAVES = {8: "dieciseisavos", 9: "octavos", 10: "cuartos", 11: "semifinal", 13: "final"}
 
 
 # =================================================================================================================
@@ -134,19 +143,33 @@ def _cargar_estado(mundial_id: str) -> dict:
         "resultado.penaltis_local": 1, "resultado.penaltis_visitante": 1}))
     jugados, pendientes = [], defaultdict(list)
     resultados = defaultdict(list)   # (conf, fase, grupo) -> [(a, b, ga, gb, pa, pb)]
+    grupos_mundial = defaultdict(set)   # letra -> equipos de ese grupo del Mundial (ya sorteado)
+    llaves = defaultdict(list)          # fase 8-11 y 13 -> [(letra, local, visita, ganador real o None)]
     for j in juegos:
         a, b = (j.get("equipo_local") or {}).get("id"), (j.get("equipo_visitante") or {}).get("id")
         if a is None or b is None:
             continue
-        clave = (j.get("confederacion_id"), j.get("fase_id"), (j.get("grupo") or "").replace("Grupo ", ""))
+        fase = j.get("fase_id")
+        letra = (j.get("grupo") or "").replace("Grupo ", "")
+        # las fases 7 en adelante son del Mundial: su 'confederación' es la 8 (pseudo-confederación del torneo)
+        clave = (CONF_MUNDIAL if (fase or 0) >= 7 else j.get("confederacion_id"), fase, letra)
         jugado = j.get("estado") == "finalizado" and (j.get("transmision") or {}).get("estado") != "in_progress"
+        ganador = None
         if jugado:
             r = j.get("resultado") or {}
             ga, gb = r.get("goles_local") or 0, r.get("goles_visitante") or 0
             jugados.append((a, b, ga, gb))
             resultados[clave].append((a, b, ga, gb, r.get("penaltis_local"), r.get("penaltis_visitante")))
+            if ga != gb:
+                ganador = a if ga > gb else b
+            elif r.get("penaltis_local") is not None and r.get("penaltis_visitante") is not None:
+                ganador = a if r["penaltis_local"] > r["penaltis_visitante"] else b
         else:
             pendientes[clave].append((a, b))
+        if fase == 7:
+            grupos_mundial[letra].update((a, b))
+        elif fase in FASES_LLAVES:
+            llaves[fase].append((letra, a, b, ganador))
     equipos = {}
     for d in db["internacional"].find({}, {
             "id": 1, "confederacion_id": 1, "fase_eliminatoria": 1, "grupo": 1, "estado": 1, "estadisticas.poder": 1}):
@@ -163,7 +186,8 @@ def _cargar_estado(mundial_id: str) -> dict:
               for p in db["paises"].find({}, {"id": 1, "confederacion_id": 1, "estadisticas.rankin": 1})}
     mundial = db["mundiales"].find_one({"activo": True}, {"pais_id": 1}) or {}
     return {"jugados": jugados, "pendientes": pendientes, "resultados": resultados, "equipos": equipos,
-            "paises": paises, "anfitrion": mundial.get("pais_id")}
+            "paises": paises, "anfitrion": mundial.get("pais_id"),
+            "grupos_mundial": {l: sorted(ts) for l, ts in grupos_mundial.items()}, "llaves": dict(llaves)}
 
 
 # =================================================================================================================
@@ -325,26 +349,61 @@ def _simular_mundial(modelo, estado, mundial: set, conteo):
         orden, stats = _jugar_grupo(modelo, g, [], [], poder, ida_vuelta=False)
         primeros.append((orden[0], letra)); segundos.append((orden[1], letra))
         terceros.append((stats[orden[2]], orden[2], letra))
-    terceros.sort(key=lambda c: (c[0], random.random()), reverse=True)
+    _llaves(modelo, conteo, _cruces_16vos(primeros, segundos, terceros))
+
+
+def _cruces_16vos(primeros, segundos, terceros):
+    """8 primeros contra los 8 mejores terceros y el resto entre sí, evitando cruzar con el mismo grupo de la fase anterior
+    (grupos_service.asignar_grupos_16vos). 'terceros' llega como (estadísticas, equipo, letra)."""
+    terceros = sorted(terceros, key=lambda c: (c[0], random.random()), reverse=True)
     terceros = [(t, l) for _, t, l in terceros[:8]]
-    for t, _ in primeros + segundos + terceros:
-        conteo[t]["dieciseisavos"] += 1
-    # dieciseisavos (grupos_service.asignar_grupos_16vos): 8 primeros contra los 8 terceros y el resto entre sí,
-    # evitando cruzar con el mismo grupo de la fase anterior
+    primeros, segundos = primeros[:], segundos[:]
     random.shuffle(primeros); random.shuffle(segundos); random.shuffle(terceros)
     cruces = _emparejar(primeros[:8], terceros)
     bolsa = segundos + primeros[8:]
     random.shuffle(bolsa)
     cruces += _emparejar(bolsa[:8], bolsa[8:])
-    ronda = [modelo.eliminatoria(a, b) for a, b in cruces]
-    for etapa in ("octavos", "cuartos", "semifinal", "final"):
-        for t in ronda:
-            conteo[t][etapa] += 1
-        if etapa == "final":
-            break
-        ronda = [modelo.eliminatoria(ronda[i], ronda[i + 1]) for i in range(0, len(ronda), 2)]
-    campeon = modelo.eliminatoria(ronda[0], ronda[1])
-    conteo[campeon]["campeon"] += 1
+    return cruces
+
+
+def _llaves(modelo, conteo, cruces16, reales=None):
+    """
+    Dieciseisavos hasta la final a partido único (alargue y penales). 'reales' trae las llaves que YA se sortearon
+    (fase -> [(letra, local, visita, ganador o None)]): esas se respetan con sus resultados y solo se simula lo que
+    falta; las que no, salen de los ganadores de la ronda anterior emparejados como los arma el reglamento (A-B, C-D…).
+    """
+    reales = reales or {}
+    participantes = None
+    for i, (fase, etapa) in enumerate(sorted(FASES_LLAVES.items())):
+        if fase in reales:
+            partidos = sorted(reales[fase], key=lambda p: p[0])
+            cruces = [(a, b) for _, a, b, _ in partidos]
+            ganadores = [g for *_, g in partidos]
+        else:
+            cruces = cruces16 if i == 0 else [(participantes[k], participantes[k + 1]) for k in range(0, len(participantes), 2)]
+            ganadores = [None] * len(cruces)
+        for a, b in cruces:
+            conteo[a][etapa] += 1
+            conteo[b][etapa] += 1
+        participantes = [g if g is not None else modelo.eliminatoria(a, b) for (a, b), g in zip(cruces, ganadores)]
+    conteo[participantes[0]]["campeon"] += 1
+
+
+def _simular_mundial_real(modelo, estado, conteo):
+    """El Mundial YA sorteado: grupos reales con sus resultados y partidos pendientes, y las llaves reales que existan."""
+    poder = {t: e["poder"] for t, e in estado["equipos"].items()}
+    llaves = estado["llaves"]
+    cruces16 = None
+    if 8 not in llaves:   # todavía no se sortearon los dieciseisavos: salen de las tablas de grupos
+        primeros, segundos, terceros = [], [], []
+        for letra, equipos in sorted(estado["grupos_mundial"].items()):
+            clave = (CONF_MUNDIAL, 7, letra)
+            orden, stats = _jugar_grupo(modelo, equipos, estado["resultados"].get(clave, []), estado["pendientes"].get(clave, []),
+                                        poder, ida_vuelta=False)
+            primeros.append((orden[0], letra)); segundos.append((orden[1], letra))
+            terceros.append((stats[orden[2]], orden[2], letra))
+        cruces16 = _cruces_16vos(primeros, segundos, terceros)
+    _llaves(modelo, conteo, cruces16, llaves)
 
 
 def _cabe(grupo, t, paises):
@@ -370,7 +429,14 @@ def simular(iteraciones: int = ITERACIONES, semilla: Optional[int] = None) -> di
     random.seed(semilla)
     conteo = defaultdict(lambda: defaultdict(int))
     confs = sorted({e["conf"] for e in estado["equipos"].values() if e["conf"] and e["conf"] <= 7})
+    # ya sorteado el Mundial: los 48 son los de los grupos reales (las eliminatorias terminaron) y solo falta jugarlo
+    del_mundial = {t for ts in estado["grupos_mundial"].values() for t in ts}
     for _ in range(iteraciones):
+        if del_mundial:
+            for t in del_mundial:
+                conteo[t]["mundial"] += 1
+            _simular_mundial_real(modelo, estado, conteo)
+            continue
         mundial, repechaje = set(), []
         for conf in confs:
             if conf == 7:

@@ -201,6 +201,9 @@ def obtener_resumen_cuenta(user_id: str) -> Dict[str, Any]:
             "monto": r.get("total_earned", 0)
         })
 
+    for mv in db['sedes_naming_movimientos'].find({"user_id": usuario_oid}):
+        feed.append({"fecha": mv["created_at"], "categoria": "Sede", "descripcion": mv.get("concepto", "Derechos de nombre"), "monto": mv.get("monto", 0)})
+
     for b in boletos:
         if b.get("fecha_creacion"):
             feed.append({

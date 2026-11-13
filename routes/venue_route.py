@@ -8,6 +8,7 @@ from services.venue_service import (
     obtener_ciudades_disponibles, buscar_ciudades_directorio, contar_ciudades_directorio,
     buy_city_venue, sell_city_venue, obtener_portafolio_sedes, obtener_portafolio_vista, resumen_directorio
 )
+from services import naming_sedes_service as NS
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, exigir_mismo_usuario_o_admin
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
@@ -72,6 +73,35 @@ def sell(request: Request, ciudad_id: int):
         raise HTTPException(status_code=500, detail="Error interno al procesar la venta")
 
 
+# --- Derechos de nombre de estadios (services/naming_sedes_service.py) ---
+def _usuario_o_401(request: Request) -> dict:
+    usuario = obtener_usuario_actual(request)
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Necesitas iniciar sesión")
+    return usuario
+
+
+@route.get("/naming", name="venues_naming")
+def naming_vista_api(request: Request):
+    """Ofertas de marcas y contratos vigentes de TUS sedes."""
+    return NS.vista_usuario(_usuario_o_401(request)["_id"])
+
+
+@route.post("/naming/{naming_id}/{accion}", name="venues_naming_accion")
+def naming_accion(request: Request, naming_id: str, accion: str):
+    """accion: aceptar | rechazar | romper (siempre sobre una oferta/contrato de TU sede)."""
+    usuario = _usuario_o_401(request)
+    funciones = {"aceptar": NS.aceptar, "rechazar": NS.rechazar, "romper": NS.romper}
+    if accion not in funciones:
+        raise HTTPException(status_code=404, detail="Acción desconocida")
+    try:
+        return funciones[accion](usuario["_id"], naming_id)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="ID inválido")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @route.get("/my-portfolio/{user_id}", response_model=List[SedeOut], name="venues_portfolio")
 def my_portfolio(user_id: str, request: Request):
     """Sedes activas del usuario, con partidos alojados y ganancias totales."""
@@ -130,5 +160,5 @@ def portafolio_vista(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="mi_portafolio_sedes.html",
-        context={"p": portafolio, "sedes": portafolio["sedes"]}
+        context={"p": portafolio, "sedes": portafolio["sedes"], "naming": NS.vista_usuario(usuario["_id"])}
     )

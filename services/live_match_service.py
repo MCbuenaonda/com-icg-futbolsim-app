@@ -364,7 +364,12 @@ def obtener_estado_live() -> Optional[Dict[str, Any]]:
     siglas_local = (juego.get("equipo_local") or {}).get("siglas") or nombre_local
     siglas_visitante = (juego.get("equipo_visitante") or {}).get("siglas") or nombre_visitante
     grupo = juego.get("grupo")
-    estadio = (juego.get("ubicacion") or {}).get("estadio")
+    _ub = juego.get("ubicacion") or {}
+    try:
+        from services.naming_sedes_service import nombre_estadio as _nombre_estadio
+        estadio = _nombre_estadio(_ub.get("id"), _ub.get("estadio"))      # el nombre comercial si una marca lo tiene
+    except Exception:
+        estadio = _ub.get("estadio")
     id_local = (juego.get("equipo_local") or {}).get("id")
     id_visita = (juego.get("equipo_visitante") or {}).get("id")
 

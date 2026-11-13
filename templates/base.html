@@ -74,7 +74,7 @@
 
                     {% if puede('quinielas', 'selecciones', 'sedes', 'once_ideal', 'album', 'misiones', 'juego_en_vivo', 'ranking_usuarios', 'corporativos', 'asistente') %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/quinielas', '/selecciones', '/sedes', '/once-ideal', '/album-estampas', '/misiones', '/ranking', '/corporativo', '/asistente') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Mi Juego</a>
+                        <a class="nav-link dropdown-toggle {{ 'active' if nav_activo('/quinielas', '/selecciones', '/sedes', '/once-ideal', '/album-estampas', '/misiones', '/ranking', '/corporativo', '/asistente') }}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Mi Juego<span class="pend-badge pend-badge--punto d-none" data-pend-total></span></a>
                         <ul class="dropdown-menu dropdown-menu-dark">
                             {% if puede('asistente') %}<li><a class="dropdown-item fw-semibold {{ 'active' if nav_activo('/asistente') }}" href="/asistente/"><i class="bi bi-clipboard-data-fill me-2 text-warning"></i>Preguntale al Profe</a></li>
                             <li><hr class="dropdown-divider"></li>{% endif %}
@@ -92,19 +92,19 @@
                             {% endif %}
                             {% if puede('sedes') %}
                             <li><a class="dropdown-item {{ 'active' if nav_activo('/sedes/directorio') }}" href="{{ url_for('venues_directorio_vista') }}"><i class="bi bi-geo-alt-fill me-2"></i>Directorio de Sedes</a></li>
-                            <li><a class="dropdown-item {{ 'active' if nav_activo('/sedes/portafolio') }}" href="{{ url_for('venues_portafolio_vista') }}"><i class="bi bi-building me-2"></i>Mis Sedes</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/sedes/portafolio') }}" href="{{ url_for('venues_portafolio_vista') }}"><i class="bi bi-building me-2"></i>Mis Sedes<span class="pend-badge d-none" data-pend-item="sedes"></span></a></li>
                             {% endif %}
-                            {% if puede('corporativos') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/corporativo') }}" href="/corporativo/"><i class="bi bi-buildings-fill me-2"></i>Corporativos Deportivos</a></li>{% endif %}
+                            {% if puede('corporativos') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/corporativo') }}" href="/corporativo/"><i class="bi bi-buildings-fill me-2"></i>Corporativos Deportivos<span class="pend-badge d-none" data-pend-item="corporativos"></span></a></li>{% endif %}
                             {% if puede('album', 'once_ideal') %}<li><h6 class="dropdown-header">Colección y Fantasy</h6></li>{% endif %}
                             {% if puede('album') %}
-                            <li><a class="dropdown-item {{ 'active' if nav_activo('/album-estampas/sobres') }}" href="{{ url_for('album_sobres_vista') }}"><i class="bi bi-gift-fill me-2"></i>Abrir Sobres</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/album-estampas/sobres') }}" href="{{ url_for('album_sobres_vista') }}"><i class="bi bi-gift-fill me-2"></i>Abrir Sobres<span class="pend-badge d-none" data-pend-item="album"></span></a></li>
                             <li><a class="dropdown-item {{ 'active' if nav_activo('/album-estampas/coleccion') }}" href="{{ url_for('album_coleccion_vista') }}"><i class="bi bi-collection-fill me-2"></i>Mi Álbum</a></li>
                             {% endif %}
                             {% if puede('once_ideal') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/once-ideal') }}" href="/once-ideal/"><i class="bi bi-stars me-2"></i>Once Ideal (Fantasy)</a></li>{% endif %}
                             {% if puede('misiones', 'ranking_usuarios') %}<li><hr class="dropdown-divider"></li>{% endif %}
                             {% if puede('ranking_usuarios') %}<li><a class="dropdown-item {{ 'active' if nav_activo('/ranking') }}" href="/ranking/"><i class="bi bi-bar-chart-steps me-2"></i>Ranking de usuarios</a></li>{% endif %}
                             {% if puede('misiones') %}
-                            <li><a class="dropdown-item {{ 'active' if nav_activo('/misiones') }}" href="/misiones/"><i class="bi bi-calendar-check-fill me-2"></i>Misiones Diarias</a></li>
+                            <li><a class="dropdown-item {{ 'active' if nav_activo('/misiones') }}" href="/misiones/"><i class="bi bi-calendar-check-fill me-2"></i>Misiones Diarias<span class="pend-badge d-none" data-pend-item="misiones"></span></a></li>
                             {% endif %}
                         </ul>
                     </li>
@@ -429,5 +429,37 @@
     </script>
     {% endif %}
     {% block extra_scripts %}{% endblock %}
+<script>
+// Indicadores de tareas pendientes en el menú (services/pendientes_service.py): un globito por sección y un punto en «Mi Juego»
+(function () {
+    const SESION = {{ 'true' if usuario_actual else 'false' }};
+    if (!SESION) return;
+    function pintar(data) {
+        const sec = (data && data.secciones) || {};
+        const detalle = {};
+        ((data && data.items) || []).forEach(i => { (detalle[i.seccion] = detalle[i.seccion] || []).push(i.titulo); });
+        document.querySelectorAll('[data-pend-item]').forEach(el => {
+            const n = sec[el.dataset.pendItem] || 0;
+            el.textContent = n > 99 ? '99+' : n;
+            el.classList.toggle('d-none', !n);
+            const enlace = el.closest('a');
+            if (enlace) enlace.title = n ? (detalle[el.dataset.pendItem] || []).join(' · ') : '';
+        });
+        // «Mi Juego»: todo lo pendiente que vive en ese menú (las recompensas de nivel ya tienen su globito en la insignia)
+        const total = Object.keys(sec).filter(k => k !== 'niveles').reduce((a, k) => a + sec[k], 0);
+        document.querySelectorAll('[data-pend-total]').forEach(el => { el.textContent = total > 99 ? '99+' : total; el.classList.toggle('d-none', !total); });
+    }
+    async function cargar(fresco) {
+        try {
+            const r = await fetch('/cuenta/pendientes' + (fresco === true ? '?fresco=true' : ''), { credentials: 'same-origin' });
+            if (r.ok) pintar(await r.json());
+        } catch (e) { /* sin red: se queda como estaba */ }
+    }
+    document.addEventListener('DOMContentLoaded', () => cargar());
+    setInterval(() => { if (!document.hidden) cargar(); }, 60000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) cargar(); });
+    window.UIPendientes = { recargar: () => cargar(true) };
+})();
+</script>
 </body>
 </html>

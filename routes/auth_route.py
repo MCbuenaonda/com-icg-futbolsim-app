@@ -156,6 +156,18 @@ def cambiar_password_submit(
     )
 
 
+@route.get("/cuenta/pendientes", name="cuenta_pendientes")
+def cuenta_pendientes(request: Request, fresco: bool = False):
+    """Tareas pendientes del usuario (check-in, recompensas, sobres, ofertas...) para los indicadores del menú."""
+    usuario = obtener_usuario_actual(request)
+    if not usuario:
+        return JSONResponse({"detail": "Inicia sesión."}, status_code=401)
+    from services import pendientes_service
+    if fresco:
+        pendientes_service.invalidar(usuario["_id"])
+    return pendientes_service.obtener(usuario)
+
+
 @route.get("/cuenta/saldo", name="cuenta_saldo")
 def cuenta_saldo(request: Request):
     """Saldo actual del usuario (lo usa static/js/ui.js para refrescar la pill del navbar

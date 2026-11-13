@@ -168,7 +168,7 @@
                 <div class="partido-card__sede">
                     {% if img_juego %}<img src="{{ img_juego }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">{% else %}<i class="bi bi-geo-alt-fill text-danger fs-5"></i>{% endif %}
                     <div class="min-w-0">
-                        <strong>{{ juego.ubicacion.estadio }}</strong>
+                        <strong>{{ estadio_nombre(juego.ubicacion.id, juego.ubicacion.estadio) }}</strong>
                         <small>{{ juego.ubicacion.nombre }}, {{ juego.ubicacion.pais }}</small>
                     </div>
                 </div>

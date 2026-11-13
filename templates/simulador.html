@@ -206,7 +206,7 @@
                     <span class="estadio-ilustracion estadio-ilustracion--mini">{% if img_partido %}<img src="{{ img_partido }}" alt="" onerror="this.remove()">{% else %}<i class="bi bi-geo-alt-fill"></i>{% endif %}</span>
                     <div class="min-w-0">
                         <span class="previa-ficha__label">Sede{% if marcas_partido and marcas_partido.dueno_sede %} <i class="bi bi-briefcase-fill text-success" title="Sos dueño de esta sede"></i>{% endif %}</span>
-                        <strong class="d-block text-truncate" title="{{ partido.ubicacion.estadio }}">{{ partido.ubicacion.estadio }}</strong>
+                        <strong class="d-block text-truncate" title="{{ estadio_nombre(partido.ubicacion.id, partido.ubicacion.estadio) }}">{{ estadio_nombre(partido.ubicacion.id, partido.ubicacion.estadio) }}</strong>
                         <small class="text-muted text-truncate d-block">{{ partido.ubicacion.nombre }}, {{ partido.ubicacion.pais }}</small>
                     </div>
                 </div>

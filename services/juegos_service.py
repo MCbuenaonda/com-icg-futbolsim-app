@@ -906,6 +906,13 @@ def aplicar_efectos_secundarios(
     except Exception as e:
         print(f"No se pudo generar la prensa: {e}")
 
+    # Derechos de nombre de estadios (services/naming_sedes_service.py): cada 8 partidos terminados las marcas ofertan. Nunca lanza.
+    try:
+        from services.naming_sedes_service import evaluar_ronda
+        evaluar_ronda()
+    except Exception as e:
+        print(f"No se pudo evaluar el naming de sedes: {e}")
+
     # Probabilidades de clasificar / avanzar (services/probabilidades_service.py): se recalculan en un proceso
     # aparte con el partido ya contado. Nunca lanza.
     try:

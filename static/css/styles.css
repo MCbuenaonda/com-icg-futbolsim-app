@@ -5262,3 +5262,28 @@ button.tv-logo:hover { transform: scale(1.04); }
 .gm-equipo:hover { color: #4ade80; }
 .gm-detalle > summary { cursor: pointer; color: var(--bs-secondary-color); font-size: 0.85rem; font-weight: 600; }
 .gm-detalle > summary:hover { color: #fff; }
+
+/* Derechos de nombre de estadios (mi_portafolio_sedes.html) */
+.naming-oferta { height: 100%; padding: 0.9rem; border-radius: 14px; background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(0, 0, 0, 0.25) 60%); border: 1px solid rgba(245, 158, 11, 0.3); }
+.naming-oferta__marca { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.6rem; }
+.naming-oferta__marca img { width: 2.6rem; height: 2.6rem; object-fit: contain; padding: 0.25rem; border-radius: 10px; background: #0b1220; border: 1px solid rgba(255, 255, 255, 0.1); }
+.naming-oferta__marca strong { display: block; color: #fff; } .naming-oferta__marca small { color: var(--bs-secondary-color); font-size: 0.72rem; }
+.naming-oferta__nombre { color: #cbd5e1; font-size: 0.9rem; margin-bottom: 0.6rem; }
+.naming-oferta__nombre strong { color: #fbbf24; } .naming-oferta__nombre small { display: block; color: var(--bs-secondary-color); font-size: 0.7rem; }
+.naming-oferta__datos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; text-align: center; }
+.naming-oferta__datos span { padding: 0.3rem; border-radius: 10px; background: rgba(0, 0, 0, 0.3); }
+.naming-oferta__datos small { display: block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; color: var(--bs-secondary-color); }
+.naming-oferta__datos strong { font-variant-numeric: tabular-nums; color: #fff; }
+.naming-oferta__aviso { margin-top: 0.6rem; font-size: 0.72rem; color: var(--bs-secondary-color); }
+.naming-contrato { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0; padding: 0.35rem 0.6rem; border-radius: 10px; font-size: 0.75rem; color: #cbd5e1; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.25); }
+.naming-contrato img { width: 1.5rem; height: 1.5rem; object-fit: contain; flex: 0 0 auto; }
+.naming-contrato span { flex: 1 1 auto; min-width: 0; } .naming-contrato strong { color: #fbbf24; }
+@media (max-width: 575.98px) { .naming-oferta__datos { grid-template-columns: repeat(2, 1fr); } }
+
+/* Indicadores de tareas pendientes en el menú (base.html) */
+.pend-badge { display: inline-block; min-width: 1.15rem; padding: 0.05rem 0.38rem; margin-left: 0.45rem; border-radius: 999px; font-size: 0.66rem; font-weight: 800; line-height: 1.25; text-align: center;
+    color: #1c1004; background: #fbbf24; box-shadow: 0 0 0 2px rgba(11, 18, 32, 0.9); animation: pend-latido 2.4s ease-in-out infinite; vertical-align: middle; }
+.pend-badge--punto { animation-duration: 2s; }
+@keyframes pend-latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+.dropdown-item .pend-badge { float: right; margin-top: 0.15rem; }
+@media (prefers-reduced-motion: reduce) { .pend-badge { animation: none; } }

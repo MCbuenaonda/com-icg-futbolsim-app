@@ -50,6 +50,37 @@
 
 <div id="alertaPortafolio" class="alert d-none" role="alert"></div>
 
+{% if naming and naming.ofertas %}
+<!-- Derechos de nombre: marcas que quieren bautizar tus estadios (services/naming_sedes_service.py) -->
+<div class="card sd-panel mb-4 naming-ofertas">
+    <div class="card-body">
+        <h2 class="sd-subtitulo"><i class="bi bi-megaphone-fill text-warning"></i>Ofertas de derechos de nombre <span class="badge bg-warning text-dark ms-1">{{ naming.ofertas | length }}</span></h2>
+        <p class="text-secondary small mb-3">Una marca le pone su nombre al estadio y te paga una firma y un extra por cada partido que aloje. Si rompes el contrato antes de tiempo, pagas el {{ naming.penalizacion_pct }}% de la firma.</p>
+        <div class="row g-3">
+            {% for o in naming.ofertas %}
+            <div class="col-12 col-lg-6">
+                <div class="naming-oferta">
+                    <div class="naming-oferta__marca">{% if o.logo %}<img src="{{ o.logo }}" alt="" onerror="this.remove()">{% endif %}<div><strong>{{ o.marca }}</strong><small>{{ o.lema or '' }}</small></div></div>
+                    <div class="naming-oferta__nombre">{{ o.estadio_original }} <i class="bi bi-arrow-right mx-1"></i><strong>{{ o.nombre }}</strong><small>{{ o.ciudad }}</small></div>
+                    <div class="naming-oferta__datos">
+                        <span><small>Firma</small><strong class="text-success">+{{ o.firma }}</strong></span>
+                        <span><small>Por partido</small><strong class="text-success">+{{ o.pago_partido }}</strong></span>
+                        <span><small>Semis y final</small><strong class="text-success">+{{ o.pago_partido_alto }}</strong></span>
+                        <span><small>Partidos</small><strong>{{ o.programados }}</strong></span>
+                    </div>
+                    <div class="naming-oferta__aviso"><i class="bi bi-info-circle me-1"></i>Si el estadio se queda sin alojar partidos, la marca reclama {{ o.penalizacion }} pts de la firma.</div>
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="button" class="btn btn-success btn-sm fw-bold flex-fill btn-naming" data-accion="aceptar" data-id="{{ o.id }}"><i class="bi bi-check-lg me-1"></i>Aceptar</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm flex-fill btn-naming" data-accion="rechazar" data-id="{{ o.id }}">Rechazar</button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if sedes %}
 <div class="row g-3 mb-4">
     <div class="col-12 col-lg-8">
@@ -94,7 +125,15 @@
             </div>
             <div class="sd-sede__cuerpo">
                 <h3 class="sd-sede__nombre">{{ sede.ciudad_nombre }}</h3>
-                <div class="sd-sede__estadio"><i class="bi bi-building-fill"></i>{{ sede.estadio or 'Estadio sin nombre' }}</div>
+                <div class="sd-sede__estadio"><i class="bi bi-building-fill"></i>{{ sede.naming.nombre if sede.naming else (sede.estadio or 'Estadio sin nombre') }}</div>
+                {% if sede.naming %}
+                {% set contrato = (naming.contratos | selectattr('ciudad_id', 'equalto', sede.ciudad_id) | list | first) if naming else none %}
+                <div class="naming-contrato">
+                    {% if sede.naming.logo %}<img src="{{ sede.naming.logo }}" alt="" onerror="this.remove()">{% endif %}
+                    <span>Patrocinado por <strong>{{ sede.naming.marca }}</strong>{% if contrato %} · +{{ contrato.pago_partido }} por partido · {{ contrato.partidos }} cobrado{{ 's' if contrato.partidos != 1 }}{% endif %}</span>
+                    {% if contrato %}<button type="button" class="btn btn-link btn-sm text-danger p-0 btn-naming" data-accion="romper" data-id="{{ contrato.id }}" data-penalizacion="{{ contrato.penalizacion }}" data-nombre="{{ contrato.nombre }}">Romper</button>{% endif %}
+                </div>
+                {% endif %}
 
                 <div class="sd-sede__ganado">
                     <div><small class="sd-rotulo">Ganado</small><strong><span data-contar>{{ sede.total_revenue_earned }}</span><small class="sd-sede__pts"> pts</small></strong></div>
@@ -129,7 +168,7 @@
                 </div>
                 {% endif %}
 
-                <button type="button" class="btn btn-outline-danger btn-sm w-100 fw-bold btn-vender mt-auto" data-ciudad-id="{{ sede.ciudad_id }}" data-nombre="{{ sede.ciudad_nombre }}" data-reembolso="{{ sede.reembolso }}">
+                <button type="button" class="btn btn-outline-danger btn-sm w-100 fw-bold btn-vender mt-auto" data-ciudad-id="{{ sede.ciudad_id }}" data-nombre="{{ sede.ciudad_nombre }}" data-reembolso="{{ sede.reembolso }}" data-penalizacion="{{ sede.penalizacion_venta or 0 }}">
                     <i class="bi bi-bag-dash-fill me-1"></i>Vender por {{ sede.reembolso }} pts
                 </button>
             </div>
@@ -171,13 +210,41 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Derechos de nombre: aceptar / rechazar una oferta, o romper un contrato (con la indemnización a la vista)
+    document.querySelectorAll('.btn-naming').forEach(btn => {
+        btn.addEventListener('click', async function () {
+            const accion = btn.dataset.accion;
+            if (accion === 'romper') {
+                const ok = await UI.confirmar({
+                    titulo: `Romper el contrato de ${btn.dataset.nombre}`,
+                    mensaje: `Pagas ${btn.dataset.penalizacion} pts de indemnización y la marca no vuelve a ofrecerle a esta sede en este Mundial.`,
+                    textoConfirmar: `Pagar ${btn.dataset.penalizacion} pts y romper`, peligro: true,
+                });
+                if (!ok) return;
+            }
+            btn.disabled = true;
+            try {
+                const resp = await fetch(`/venues/naming/${btn.dataset.id}/${accion}`, { method: 'POST' });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.detail || 'No se pudo completar la acción.');
+                UI.refrescarSaldo();
+                UI.mostrarAlertaEn(alertaPortafolio, accion === 'aceptar' ? `¡Contrato firmado! Cobraste ${data.firma} pts.` : (accion === 'romper' ? 'Contrato roto.' : 'Oferta rechazada.'), 'success');
+                setTimeout(() => window.location.reload(), 900);
+            } catch (err) {
+                UI.mostrarAlertaEn(alertaPortafolio, err.message, 'danger');
+                btn.disabled = false;
+            }
+        });
+    });
+
     const urlVenderTemplate = "{{ url_for('venues_sell', ciudad_id='__CIUDAD_ID__') }}";
     const alertaPortafolio = document.getElementById('alertaPortafolio');
     document.querySelectorAll('.btn-vender').forEach(btn => {
         btn.addEventListener('click', async function () {
             const ok = await UI.confirmar({
                 titulo: `Vender ${btn.dataset.nombre}`,
-                mensaje: `Recibes ${btn.dataset.reembolso} pts (el 80% de lo que pagaste) y dejas de cobrar sus regalías.`,
+                mensaje: `Recibes ${btn.dataset.reembolso} pts (el 80% de lo que pagaste) y dejas de cobrar sus regalías.`
+                    + (Number(btn.dataset.penalizacion) ? ` Como el estadio tiene un contrato de derechos de nombre vigente, la marca reclama ${btn.dataset.penalizacion} pts de la firma y se descuentan de ese reembolso.` : ''),
                 textoConfirmar: `Vender por ${btn.dataset.reembolso} pts`, peligro: true,
             });
             if (!ok) return;

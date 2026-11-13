@@ -197,6 +197,12 @@ def crear_indices():
     )
     print("✅ Índices creados en 'city_ownerships'")
 
+    sedes_naming = db['sedes_naming']
+    sedes_naming.create_index([("ciudad_id", 1), ("estado", 1)], name="ciudad_estado")
+    sedes_naming.create_index([("user_id", 1), ("estado", 1)], name="user_estado")
+    db['sedes_naming_movimientos'].create_index([("user_id", 1), ("created_at", -1)], name="user_fecha")
+    print("✅ Índices creados en 'sedes_naming'")
+
     city_revenue_history = db['city_revenue_history']
     city_revenue_history.create_index("user_id", name="user_id")
     city_revenue_history.create_index("ciudad_id", name="ciudad_id")

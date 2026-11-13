@@ -170,6 +170,7 @@
             const datos = await resp.json();
             const { monto } = datos;
             actualizarInsigniaNivel(datos);
+            if (window.UIPendientes) window.UIPendientes.recargar();   // las tareas pendientes del menú también cambian con cada acción
             const anterior = Number(pill.dataset.monto || NaN);
             pill.dataset.monto = monto;
             pill.innerHTML = `<i class="bi bi-coin me-1"></i>${Number(monto).toLocaleString('en-US')} pts`;
@@ -256,7 +257,7 @@
     //  la muestra mientras dure cualquier otra espera.
     // ---------------------------------------------------------------------------------------------
     const RETARDO_FETCH = 400, RETARDO_AVISO = 700;
-    const SIN_CARGADOR = [/\/matches\/live/, /\/matches\/pulso/, /\/live-game\//, /\/cuenta\/saldo/, /\/niveles\/visto/, /\/seguimiento$/];
+    const SIN_CARGADOR = [/\/matches\/live/, /\/matches\/pulso/, /\/live-game\//, /\/cuenta\/saldo/, /\/cuenta\/pendientes/, /\/niveles\/visto/, /\/seguimiento$/];
     let barra = null, aviso = null, activos = 0, timerAviso = null;
 
     function asegurarNodos() {

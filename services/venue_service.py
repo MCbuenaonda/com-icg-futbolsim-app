@@ -97,7 +97,7 @@ def obtener_ciudades_disponibles(pais_id: int) -> List[dict]:
         {
             "ciudad_id": c["id"],
             "nombre": c.get("nombre"),
-            "estadio": c.get("estadio"),
+            "estadio": nombre_estadio(c.get("id"), c.get("estadio")),
             "tipo": c.get("tipo"),
             "pais_id": c.get("pais_id"),
             "pais_nombre": c.get("pais"),
@@ -229,6 +229,9 @@ def resumen_directorio(usuario_id: str) -> dict:
                        "reembolso": int(PORCENTAJE_REEMBOLSO_VENTA * 100)}}
 
 
+from services.naming_sedes_service import naming_de, penalizacion_por_venta, nombre_estadio
+
+
 def obtener_portafolio_vista(user_id: str) -> dict:
     """Portafolio para la vista: cada sede con su recupero (ganado vs. pagado), sinergia de álbum, próximo partido y últimas
     regalías; totales; y la serie de ingresos acumulados de las sedes (para el gráfico)."""
@@ -250,6 +253,7 @@ def obtener_portafolio_vista(user_id: str) -> dict:
         s.update({"recupero_pct": round(ganado / pagado * 100) if pagado else 0, "neto": ganado - pagado,
                   "tengo_estampa": s["ciudad_id"] in estampas, "programados": p.get("n", 0), "proximo": p.get("proximo"),
                   "reembolso": round(pagado * PORCENTAJE_REEMBOLSO_VENTA),
+                  "naming": naming_de(s["ciudad_id"]), "penalizacion_venta": penalizacion_por_venta(s["ciudad_id"]),
                   "estadio_img": f"{IMAGENES_PAISES_URL}/{imgs[s['ciudad_id']]}?v={VERSION_IMAGENES['estadio']}" if imgs.get(s["ciudad_id"]) else None,
                   "ultimas": [{"monto": h["total_earned"], "sinergia": h.get("album_synergy_applied"), "fecha": h["created_at"]}
                               for h in reversed(por_ciudad.get(s["ciudad_id"], [])[-3:])]})
@@ -361,6 +365,19 @@ def sell_city_venue(user_id: str, ciudad_id: int) -> dict:
 
     reembolso = round(inversion["purchase_price"] * PORCENTAJE_REEMBOLSO_VENTA)
 
+    # Si el estadio tiene un contrato de derechos de nombre vigente, vender lo termina y la marca reclama parte de la firma
+    # (se descuenta del reembolso: nunca deja el saldo bajo cero)
+    try:
+        from services import naming_sedes_service
+        penalizacion = naming_sedes_service.cerrar_por_venta(user_id, ciudad_id)
+        if penalizacion:
+            descuento = min(penalizacion, reembolso)
+            reembolso -= descuento
+            db['sedes_naming_movimientos'].insert_one({"user_id": usuario_oid, "ciudad_id": ciudad_id, "monto": -descuento,
+                                                       "concepto": "La marca reclama parte de la firma por la venta de la sede", "created_at": datetime.now()})
+    except Exception as e:
+        print(f"Naming de sedes (venta): {e}")
+
     db['usuarios'].update_one({"_id": usuario_oid}, {"$inc": {"monto": reembolso}})
     db['ciudades'].update_one({"id": ciudad_id}, {"$set": {"owner_user_id": 0}})
 
@@ -464,6 +481,12 @@ def process_match_city_revenue(match_data: Dict[str, Any]) -> None:
         })
         niveles_service.otorgar_xp(dueno_oid, "SEDE_REGALIA", f"{match_id}:{ciudad_id}")
         ids_con_estampa.discard(dueno_str)  # el dueño ya cobró arriba, no cobra pasivo de nuevo
+        # Derechos de nombre del estadio (services/naming_sedes_service.py): pago extra por alojar el partido
+        try:
+            from services import naming_sedes_service
+            naming_sedes_service.cobrar_partido(ciudad_id, fase_id, match_id)
+        except Exception as e:
+            print(f"Naming de sedes: {e}")
 
     # Recompensa pasiva (+20 pts) para todo el resto de usuarios que tienen la estampa
     for user_id_str in ids_con_estampa:

@@ -45,6 +45,7 @@ REGLAS_XP = {
     "SELECCION_DIVIDENDO": {"xp": 5,    "tope_diario": 10,   "titulo": "Cobrar un dividendo o bono de fase", "icono": "bi-cash-coin",     "modulo": "selecciones"},
     "SEDE_COMPRA":         {"xp": 15,   "tope_diario": 2,    "titulo": "Comprar una sede",                  "icono": "bi-building",       "modulo": "sedes"},
     "SEDE_REGALIA":        {"xp": 3,    "tope_diario": 10,   "titulo": "Cobrar una regalía de sede",        "icono": "bi-coin",           "modulo": "sedes"},
+    "SEDE_NAMING":         {"xp": 8,    "tope_diario": 3,    "titulo": "Firmar derechos de nombre de un estadio", "icono": "bi-megaphone", "modulo": "sedes"},
     # Corporativos Deportivos (services/corporativo_*): asumir un cargo, fichar, cerrar un ciclo con utilidad, operar en la bolsa
     "CORP_CARGO":          {"xp": 40,   "tope_diario": None, "titulo": "Asumir la dirección de un corporativo", "icono": "bi-briefcase-fill", "modulo": "corporativos"},
     "CORP_FICHAJE":        {"xp": 10,   "tope_diario": 3,    "titulo": "Fichar un representado (corporativos)", "icono": "bi-pen-fill",      "modulo": "corporativos"},

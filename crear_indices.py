@@ -203,6 +203,12 @@ def crear_indices():
     db['sedes_naming_movimientos'].create_index([("user_id", 1), ("created_at", -1)], name="user_fecha")
     print("✅ Índices creados en 'sedes_naming'")
 
+    declaraciones = db['declaraciones']
+    declaraciones.create_index([("juego_id", 1)], name="juego")
+    declaraciones.create_index([("hablante.tipo", 1), ("hablante.id", 1), ("fecha", -1)], name="hablante_fecha")
+    db['prensa'].create_index([("declaracion_id", 1)], name="declaracion", sparse=True)
+    print("✅ Índices creados en 'declaraciones'")
+
     city_revenue_history = db['city_revenue_history']
     city_revenue_history.create_index("user_id", name="user_id")
     city_revenue_history.create_index("ciudad_id", name="ciudad_id")

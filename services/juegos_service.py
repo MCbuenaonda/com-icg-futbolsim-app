@@ -906,6 +906,13 @@ def aplicar_efectos_secundarios(
     except Exception as e:
         print(f"No se pudo generar la prensa: {e}")
 
+    # Declaraciones tras el partido (services/declaraciones_service.py): el DT o la figura hablan y la prensa reacciona. Nunca lanza.
+    try:
+        from services.declaraciones_service import asegurar_declaraciones
+        asegurar_declaraciones(db["juegos"].find_one({"_id": ObjectId(juego_id)}))
+    except Exception as e:
+        print(f"No se pudieron generar las declaraciones: {e}")
+
     # Derechos de nombre de estadios (services/naming_sedes_service.py): cada 8 partidos terminados las marcas ofertan. Nunca lanza.
     try:
         from services.naming_sedes_service import evaluar_ronda

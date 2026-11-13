@@ -193,6 +193,7 @@
     </div>
     {% endif %}
 
+    {% set rueda_items = declaraciones_de("jugador", jugador.id) %}{% set rueda_titulo = "Lo que ha dicho " ~ jugador.nombre %}{% set rueda_con_enlace = True %}{% include "partials/rueda_prensa.html" %}
     {% set prensa_items = prensa_sobre("jugador", jugador.id) %}{% set prensa_rep = prensa_reputacion("jugador", jugador.id) %}{% set prensa_titulo = "Lo que dice la prensa de " ~ jugador.nombre %}{% include "partials/prensa_lista.html" %}
 
     <!-- En televisión (corporativo_tv_service.invitaciones_de): sus apariciones como invitado especial en las transmisiones

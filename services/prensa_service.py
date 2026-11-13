@@ -170,7 +170,7 @@ def asegurar_prensa(j: Optional[dict], forzar: bool = False) -> int:
 # --- Vistas ----------------------------------------------------------------------------------------------------------
 LINEA_COLOR = {"sensacionalista": "#f43f5e", "analitica": "#38bdf8", "critica": "#f59e0b", "oficialista": "#a78bfa", "optimista": "#22c55e", "popular": "#fb923c"}
 ETIQUETA = {"PARTIDO": ("Crónica", "bi-newspaper"), "OPINION": ("Opinión", "bi-chat-quote-fill"), "JUGADOR": ("Jugador", "bi-person-lines-fill"),
-            "DT": ("Técnico", "bi-clipboard2-data")}
+            "DT": ("Técnico", "bi-clipboard2-data"), "REACCION": ("Reacción", "bi-reply-fill")}
 TONO_TEXTO = {"elogio": ("Elogia", "bi-hand-thumbs-up-fill"), "critica": ("Critica", "bi-hand-thumbs-down-fill"), "neutral": ("Neutral", "bi-dash-circle")}
 
 
@@ -223,7 +223,7 @@ def adjuntar_partidos(items: List[dict]) -> List[dict]:
 
 
 def de_partido(juego_id: str, limite: int = 6) -> List[dict]:
-    docs = list(db[COL].find({"juego_id": str(juego_id)}))
+    docs = list(db[COL].find({"juego_id": str(juego_id), "tipo": {"$ne": "REACCION"}}))   # las reacciones van dentro de cada declaración
     docs.sort(key=lambda d: -abs(d["tono"]))
     return [vista(d) for d in docs[:limite]]
 

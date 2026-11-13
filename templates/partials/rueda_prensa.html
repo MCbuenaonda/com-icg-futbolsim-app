@@ -1,0 +1,36 @@
+{# Rueda de prensa: lo que dijeron el DT o la figura tras un partido y cómo reaccionó la prensa (services/declaraciones_service.py).
+   Variables: rueda_items (lista de declaraciones_de_partido / declaraciones_de) y rueda_titulo. Requiere `m` (partials/macros.html). #}
+{% import "partials/macros.html" as m %}
+{% if rueda_items %}
+<div class="card card-seccion mb-4">
+  <div class="card-body p-3">
+    <h2 class="vivo-titulo"><i class="bi bi-mic-fill" style="color:#38bdf8;"></i>{{ rueda_titulo }}</h2>
+    <div class="rueda-lista">
+      {% for d in rueda_items %}
+      <div class="rueda-decl">
+        <div class="rueda-decl__quien">
+          {% if d.hablante.tipo == 'dt' %}{{ m.avatar_tecnico(d.hablante.id, d.equipo.id, 'sm') }}{% else %}{{ m.avatar(d.hablante.id, d.equipo.id, 'sm') }}{% endif %}
+          <div class="min-w-0">
+            <strong class="text-white">{{ d.hablante.nombre }}</strong>
+            <small class="d-block text-muted">{{ 'Director técnico' if d.hablante.tipo == 'dt' else 'Jugador' }} · {{ d.equipo.nombre }} · {{ d.fecha_corta }}</small>
+          </div>
+          <span class="rueda-decl__tipo">{{ d.titulo }}</span>
+        </div>
+        <blockquote class="rueda-decl__cita">«{{ d.cita }}»</blockquote>
+        {% for r in d.reacciones %}
+        <div class="prensa-nota" style="--medio: {{ r.medio.color }};">
+          <span class="medio-avatar medio-avatar--sm" title="{{ r.medio.nombre }}">{{ r.medio.nombre[:1] }}</span>
+          <div class="min-w-0">
+            <div class="small"><strong class="text-white">{{ r.medio.nombre }}</strong> <span class="text-muted">· <strong class="prensa-periodista">{{ r.periodista.nombre }}</strong></span>
+              <span class="medio-tono medio-tono--{{ r.categoria_tono }} ms-1"><i class="bi {{ r.tono_icono }}"></i>{{ r.tono_nombre }}</span></div>
+            <div class="text-body-secondary fs-8">{{ r.texto }}</div>
+          </div>
+        </div>
+        {% endfor %}
+        {% if rueda_con_enlace %}<a class="fs-8 text-decoration-none" href="/juegos/{{ d.juego_id }}">Ver el partido</a>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}

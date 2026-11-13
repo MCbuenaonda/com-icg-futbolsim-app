@@ -358,6 +358,16 @@ def _prensa_sobre(tipo, ref):
     return sobre(tipo, ref)
 
 
+def _declaraciones_de_partido(juego_id):
+    from services.declaraciones_service import de_partido
+    return de_partido(juego_id)
+
+
+def _declaraciones_de(tipo, ref):
+    from services.declaraciones_service import de_hablante
+    return de_hablante(tipo, ref)
+
+
 def _estadio_nombre(ciudad_id, original=None):
     """Nombre comercial del estadio si una marca tiene los derechos de nombre (services/naming_sedes_service.py)."""
     from services.naming_sedes_service import nombre_estadio
@@ -365,7 +375,7 @@ def _estadio_nombre(ciudad_id, original=None):
 
 
 GLOBALES_JINJA = {
-    "estadio_nombre": _estadio_nombre,
+    "estadio_nombre": _estadio_nombre, "declaraciones_de_partido": _declaraciones_de_partido, "declaraciones_de": _declaraciones_de,
     "prensa_de_partido": _prensa_de_partido, "pronosticos_partido": _pronosticos_partido, "prensa_sobre": _prensa_sobre, "prensa_reputacion": _prensa_reputacion,
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,

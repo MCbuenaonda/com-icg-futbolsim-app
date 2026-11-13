@@ -155,13 +155,24 @@ def publicaciones(usuario: Optional[dict], q: str = "", filtro: str = "todo", an
         ids_partidos = [p["match_id"] for p in pagina if p["clase"] == "partido"]
         if ids_partidos:
             por = {}
-            for d in db_prensa["prensa"].find({"juego_id": {"$in": ids_partidos}}):
+            for d in db_prensa["prensa"].find({"juego_id": {"$in": ids_partidos}, "tipo": {"$ne": "REACCION"}}):
                 por.setdefault(d["juego_id"], []).append(d)
             for p in pagina:
                 if p["clase"] == "partido" and por.get(p["match_id"]):
                     p["prensa"] = [vista_prensa(d) for d in sorted(por[p["match_id"]], key=lambda d: -abs(d["tono"]))[:3]]
     except Exception as e:
         print(f"[red social] prensa de los partidos: {e}")
+
+    # Lo que dijeron el DT o la figura tras el partido (services/declaraciones_service.py), con la primera reacción de la prensa
+    try:
+        from services.declaraciones_service import para_partidos
+        ids_partidos = [p["match_id"] for p in pagina if p["clase"] == "partido"]
+        por_decl = para_partidos(ids_partidos) if ids_partidos else {}
+        for p in pagina:
+            if p["clase"] == "partido" and por_decl.get(p["match_id"]):
+                p["declaraciones"] = por_decl[p["match_id"]]
+    except Exception as e:
+        print(f"[red social] declaraciones de los partidos: {e}")
 
     # Respuestas de las marcas en el hilo de cada partido
     if uid:

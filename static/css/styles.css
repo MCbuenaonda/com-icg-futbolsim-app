@@ -1114,6 +1114,10 @@ body {
 .bitacora-fila--V { --res-color: #22c55e; }
 .bitacora-fila--D { --res-color: #ef4444; }
 .bitacora-fila:hover, .bitacora-fila:focus-visible { color: inherit; transform: translateX(3px); border-color: color-mix(in srgb, var(--res-color) 55%, transparent); background-color: rgba(255, 255, 255, 0.03); }
+.bitacora-lista { max-height: 26rem; overflow-y: auto; overscroll-behavior: contain; padding-right: 0.35rem; scrollbar-width: thin; scrollbar-color: rgba(148, 163, 184, 0.45) transparent; }
+.bitacora-lista > .bitacora-fila { flex: 0 0 auto; }
+.bitacora-lista::-webkit-scrollbar { width: 8px; }
+.bitacora-lista::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 8px; }
 .bitacora-fila__fecha { line-height: 1.2; min-width: 0; }
 .bitacora-fila__fecha strong { display: block; font-size: 0.82rem; color: #fff; white-space: nowrap; }
 .bitacora-fila__fecha small { display: block; font-size: 0.7rem; color: var(--bs-secondary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -5236,3 +5240,25 @@ button.tv-logo:hover { transform: scale(1.04); }
 .x-post--prensa .x-post-pie { margin-top: 0.5rem; }
 @media (max-width: 575.98px) { .prensa-partido__grupo { margin-left: 0; } .prensa-cita { padding-left: 1.6rem; font-size: 0.9rem; } }
 .prensa-partido__equipos { flex-wrap: wrap; } .prensa-partido__equipos em { white-space: nowrap; }
+
+/* Inicio: tablas de los grupos del Mundial */
+.gm-leyenda { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; font-size: 0.75rem; color: var(--bs-secondary-color); }
+.gm-punto { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; margin-right: 0.4rem; }
+.gm-punto--pasa { background: #22c55e; } .gm-punto--tercero { background: #f59e0b; }
+.gm-grupo { height: 100%; padding: 0.7rem 0.8rem; border-radius: 14px; background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.07); }
+.gm-grupo__cab { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.4rem; }
+.gm-grupo__cab strong { color: #fff; font-size: 0.95rem; } .gm-grupo__cab small { color: var(--bs-secondary-color); font-size: 0.68rem; }
+.gm-tabla { width: 100%; border-collapse: separate; border-spacing: 0 3px; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.gm-tabla th { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; color: var(--bs-secondary-color); text-align: center; padding: 0 0.3rem; }
+.gm-tabla th:nth-child(2) { text-align: left; }
+.gm-tabla td { text-align: center; padding: 0.3rem; background: rgba(255, 255, 255, 0.035); color: #cbd5e1; }
+.gm-tabla td:first-child { border-radius: 8px 0 0 8px; border-left: 3px solid transparent; } .gm-tabla td:last-child { border-radius: 0 8px 8px 0; }
+.gm-fila--pasa td:first-child { border-left-color: #22c55e; } .gm-fila--tercero td:first-child { border-left-color: #f59e0b; }
+.gm-pos { width: 1.4rem; font-weight: 700; color: var(--bs-secondary-color) !important; }
+.gm-pts { font-weight: 900; color: #fff !important; }
+.gm-tabla td:nth-child(2) { text-align: left; }
+.gm-equipo { display: flex; align-items: center; gap: 0.45rem; color: #fff; text-decoration: none; font-weight: 600; min-width: 0; }
+.gm-equipo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gm-equipo:hover { color: #4ade80; }
+.gm-detalle > summary { cursor: pointer; color: var(--bs-secondary-color); font-size: 0.85rem; font-weight: 600; }
+.gm-detalle > summary:hover { color: #fff; }

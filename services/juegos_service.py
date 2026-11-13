@@ -1858,6 +1858,21 @@ def get_data_clasificados_mundial():
     return paises
 
 
+def get_data_grupos_mundial():
+    """Tablas de la fase de grupos del Mundial (fase 7, confederación 8) para el inicio, una por grupo y ya
+    ordenadas con el desempate reglamentario. [] si todavía no hay grupos sorteados. Cada fila lleva `zona`:
+    'pasa' (1.º y 2.º), 'tercero' (compite por uno de los 8 mejores terceros) o '' (4.º)."""
+    from services.clasificacion_service import obtener_tablas_posiciones_por_grupo
+    tablas = obtener_tablas_posiciones_por_grupo(db, 7, 8)
+    grupos = []
+    for letra in sorted(tablas):
+        filas = []
+        for i, f in enumerate(tablas[letra]):
+            filas.append({**f, "pos": i + 1, "zona": "pasa" if i < 2 else "tercero" if i == 2 else ""})
+        grupos.append({"letra": letra, "filas": filas, "jugados": sum(f["juegos_jugados"] for f in filas) // 2})
+    return grupos
+
+
 def _etiqueta_estado_mundial(estado: str) -> Optional[str]:
     """'ELIMINADO_8VOS' -> 'Eliminado en 8vos', 'GANADOR_...' -> 'Campeón'; None si sigue en carrera."""
     estado = estado.upper()

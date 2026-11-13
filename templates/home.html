@@ -445,9 +445,9 @@
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
                 <div>
                     <h5 class="fw-bold text-white mb-1 d-flex align-items-center gap-2">
-                        <i class="bi bi-trophy-fill text-warning"></i>Equipos Clasificados al Mundial
+                        <i class="bi bi-trophy-fill text-warning"></i>{{ 'Fase de grupos del Mundial' if grupos_mundial else 'Equipos Clasificados al Mundial' }}
                     </h5>
-                    <small class="text-muted">Selecciones con boleto a la Fase Final de la Copa del Mundo</small>
+                    <small class="text-muted">{{ 'Así van los 12 grupos de la Copa del Mundo' if grupos_mundial else 'Selecciones con boleto a la Fase Final de la Copa del Mundo' }}</small>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
                     {% if puede('paises') %}<a href="/paises/" class="btn btn-sm btn-outline-light rounded-pill px-3"><i class="bi bi-globe2 me-1"></i>Todos los países</a>{% endif %}
@@ -455,6 +455,39 @@
                 </div>
             </div>
 
+            {% if grupos_mundial %}
+            <!-- Mundial ya sorteado: tabla de cada grupo (1.º y 2.º pasan; el 3.º compite por uno de los 8 mejores terceros) -->
+            <div class="gm-leyenda mb-3">
+                <span><b class="gm-punto gm-punto--pasa"></b>Pasa a 16avos</span>
+                <span><b class="gm-punto gm-punto--tercero"></b>Mejor tercero (8 de 12 avanzan)</span>
+            </div>
+            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-3">
+                {% for g in grupos_mundial %}
+                <div class="col">
+                    <div class="gm-grupo">
+                        <div class="gm-grupo__cab"><strong>Grupo {{ g.letra }}</strong><small>{{ g.jugados }} de 6 partidos</small></div>
+                        <table class="gm-tabla">
+                            <thead><tr><th></th><th>Selección</th><th title="Partidos jugados">PJ</th><th title="Diferencia de goles">DG</th><th title="Puntos">Pts</th></tr></thead>
+                            <tbody>
+                            {% for f in g.filas %}
+                                <tr class="gm-fila gm-fila--{{ f.zona or 'fuera' }}">
+                                    <td class="gm-pos">{{ f.pos }}</td>
+                                    <td><a href="/paises/{{ f.pais_id }}" class="gm-equipo">{{ m.bandera(f.bandera, pais_id=f.pais_id) }}<span>{{ f.nombre }}</span></a></td>
+                                    <td>{{ f.juegos_jugados }}</td>
+                                    <td>{{ '%+d' % f.diferencia_goles if f.diferencia_goles else 0 }}</td>
+                                    <td class="gm-pts">{{ f.puntos }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <details class="gm-detalle"{{ '' if clasificados else ' hidden' }}>
+                <summary>Ver las {{ n_clasificados }} selecciones por confederación</summary>
+                <div class="pt-3">
+            {% else %}
             <!-- Cupos ocupados -->
             <div class="cupos-mundial mb-3">
                 <div class="d-flex justify-content-between align-items-baseline mb-1">
@@ -463,6 +496,7 @@
                 </div>
                 <div class="cupos-mundial__barra"><span style="width: {{ [100, (n_clasificados * 100 / cupos) | round(1)] | min }}%;"></span></div>
             </div>
+            {% endif %}
 
             {% if clasificados %}
             {% set confs = clasificados | map(attribute='confederacion') | unique | list %}
@@ -496,7 +530,7 @@
                 </div>
                 {% endfor %}
             </div>
-            {% else %}
+            {% elif not grupos_mundial %}
             <!-- Estado vacío: ocupa todo el ancho (antes quedaba encajonado en una columna de la grilla) -->
             <div class="clasificados-vacio">
                 <img src="{{ imagen_inicio('copa') }}" alt="" loading="lazy" decoding="async" onerror="this.remove()">
@@ -506,6 +540,7 @@
                 </div>
             </div>
             {% endif %}
+            {% if grupos_mundial %}</div></details>{% endif %}
         </div>
     </div>
 

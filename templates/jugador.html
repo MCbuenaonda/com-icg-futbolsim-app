@@ -410,7 +410,7 @@
             <div class="grafico-ficha mb-1" style="height: 150px;"><canvas id="graficoAporte" role="img" aria-label="{{ 'Atajadas' if es_arquero else 'Goles' }} por partido"></canvas></div>
             <div class="grafico-ficha__leyenda mb-3"><span><b class="bg-success"></b>Su equipo ganó</span><span><b class="bg-secondary"></b>Empató</span><span><b class="bg-danger"></b>Perdió</span></div>
             {% endif %}
-            <div class="d-flex flex-column gap-2" id="listaBitacora">
+            <div class="d-flex flex-column gap-2 bitacora-lista" id="listaBitacora" tabindex="0" aria-label="Listado de partidos del jugador">
                 {% for p in bitacora.partidos %}
                 <a href="/juegos/{{ p.id }}" class="bitacora-fila bitacora-fila--{{ p.resultado }}" title="Ver el detalle del partido">
                     <span class="bitacora-fila__fecha"><strong>{{ p.fecha }}</strong><small>{{ p.fase }}</small></span>

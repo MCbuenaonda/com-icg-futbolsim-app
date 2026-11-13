@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from config.settings import PREFIX_HOME_PATH
 from services.mundial_service import crear_nuevo_mundial, restart_mundial, get_data_dashboard_stats, obtener_ordinal_mundial_actual, formatear_ordinal_torneo
-from services.juegos_service import get_data_dashboard_last_games, get_data_fase_actual_dashboard, get_data_clasificados_mundial, formatear_numero_compacto, ICONO_ESTADO_ANIMO
+from services.juegos_service import get_data_dashboard_last_games, get_data_fase_actual_dashboard, get_data_clasificados_mundial, get_data_grupos_mundial, formatear_numero_compacto, ICONO_ESTADO_ANIMO
 from services.confederacion_service import get_data_confederaciones_dashboard
 from services.auth_service import context_usuario_actual, requiere_permiso, obtener_usuario_actual
 from services.arte_mundial_service import tema_sede
@@ -51,6 +51,12 @@ def inicio(request: Request):
     clasificados = get_data_clasificados_mundial()
     
     stats["clasificados_count"] = len(clasificados)
+    # con el Mundial ya sorteado el inicio muestra las tablas de cada grupo en vez de solo la lista de clasificados
+    try:
+        grupos_mundial = get_data_grupos_mundial()
+    except Exception as e:
+        logger.error(f"Grupos del Mundial en el inicio: {e}")
+        grupos_mundial = []
 
     # "Un día como hoy" (services/calendario_service.py): nunca espera; si el calendario todavía no está armado, no se muestra
     try:
@@ -73,7 +79,8 @@ def inicio(request: Request):
             "fase_actual": fase_actual,
             "confederaciones": confederaciones,
             "feed_items": feed_items,
-            "clasificados": clasificados
+            "clasificados": clasificados,
+            "grupos_mundial": grupos_mundial
         }
     )
 

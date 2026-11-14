@@ -109,6 +109,8 @@
 
     {% set tx_juego_id, tx_jugado = partido._id | string, True %}{% include "partials/transmision.html" %}
     {% set tx_juego_id, tx_jugado = partido._id | string, True %}{% include "partials/pronosticos.html" %}
+    {% set riv = rivalidad_partido(partido.equipo_local.id, partido.equipo_visitante.id) %}
+    {% if riv %}<div class="alert alert-warning d-flex align-items-center gap-2 mb-4 py-2"><i class="bi bi-fire fs-5"></i><div><strong>{{ riv.etiqueta }}</strong> · {{ riv.motivos | join(', ') }}</div></div>{% endif %}
     {% set pol = polemica_partido(partido._id | string) %}{% include "partials/polemica.html" %}
     {% set rueda_items = declaraciones_de_partido(partido._id | string) %}{% set rueda_titulo = "Rueda de prensa" %}{% include "partials/rueda_prensa.html" %}
     {% set prensa_items = prensa_de_partido(partido._id | string) %}{% set prensa_titulo = "Lo que dice la prensa" %}{% include "partials/prensa_lista.html" %}

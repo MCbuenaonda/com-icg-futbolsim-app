@@ -179,6 +179,8 @@ def procesar_partido(estado, aporte: dict, ciclo: int, juego_id: str, seq: int) 
                 _terminar(estado, doc, ciclo, seq, "Terminó la representación", bono=False)
                 continue
             monto = doc["tarifa"].get(resultado, doc["tarifa"]["derrota"])
+            from services import clima_economico as CLIMA   # el clima del ciclo mueve lo que pagan las televisoras
+            monto = CLIMA.aplicar(estado.corps[c["sigla"]], monto, ciclo)
             t = catalogo().get(doc["televisora_id"], {})
             nombre = valores()["info_paises"].get(pais_id, {}).get("nombre", "?")
             _cobrar(estado, doc, c, monto, ciclo, f"{t.get('nombre', 'TV')}: {nombre} ({resultado})", juego_id)

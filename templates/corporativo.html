@@ -182,6 +182,35 @@
       <div class="alert alert-warning small d-flex gap-2 align-items-center"><i class="bi bi-box-arrow-right"></i>
         <span>Estás en preaviso: al cierre del ciclo {{ mc.preaviso.hasta_ciclo }} pasas a <strong>{{ mc.preaviso.sigla }}</strong>. Sigues cobrando, pero no puedes operar en el mercado.</span></div>
       {% endif %}
+      {% if mc.clima %}
+      <!-- Clima económico (services/clima_economico.py): auge / normal / recesión por ciclo, igual para todos; seguro opcional -->
+      <div class="card card-seccion mb-4 corp-clima corp-clima--{{ mc.clima.actual.estado }}">
+        <div class="card-body p-3">
+          <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+            <div>
+              <h2 class="vivo-titulo mb-1"><i class="bi {{ 'bi-sun-fill' if mc.clima.actual.estado == 'auge' else 'bi-cloud-drizzle-fill' if mc.clima.actual.estado == 'recesion' else 'bi-cloud-sun-fill' }}"></i>Clima económico: {{ mc.clima.actual.nombre }}</h2>
+              <p class="small text-body-secondary mb-2">{% if mc.clima.actual.pct %}Este ciclo las marcas y las televisoras pagan {{ '%+d' | format(mc.clima.actual.pct) }}% {{ 'más' if mc.clima.actual.pct > 0 else 'menos' }}. {% else %}Pagos normales este ciclo. {% endif %}Es igual para todos los corporativos y cambia despacio.</p>
+              <div class="corp-clima__linea">
+                {% for f in mc.clima.historial %}<span class="corp-clima__punto corp-clima__punto--{{ f.estado }}" title="Ciclo {{ f.ciclo }}: {{ f.nombre }}"></span>{% endfor %}
+                <span class="corp-clima__punto corp-clima__punto--{{ mc.clima.actual.estado }} corp-clima__punto--ahora" title="Ciclo {{ mc.clima.actual.ciclo }} (ahora): {{ mc.clima.actual.nombre }}"></span>
+                {% for f in mc.clima.pronostico %}<span class="corp-clima__punto corp-clima__punto--{{ f.estado }} corp-clima__punto--futuro" title="Ciclo {{ f.ciclo }} (pronóstico): {{ f.nombre }}"></span>{% endfor %}
+              </div>
+              <small class="text-muted">Próximo ciclo: <strong class="text-white">{{ mc.clima.pronostico[0].nombre }}</strong></small>
+            </div>
+            <div class="corp-clima__seguro">
+              <strong class="text-white d-block"><i class="bi bi-shield-fill-check me-1"></i>Seguro de ingresos</strong>
+              <small class="text-muted d-block mb-2">Prima del {{ mc.clima.seguro.prima_pct }}% de lo asegurable por ciclo{% if mc.clima.seguro.prima_estimada %} (~{{ '{:,}'.format(mc.clima.seguro.prima_estimada) }}){% endif %}; cubre el {{ mc.clima.seguro.cobertura_pct }}% de lo que dejes de ganar por la recesión y las crisis de marcas.</small>
+              {% if mc.clima.seguro.activo %}
+              <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill btn-seguro" data-accion="cancelar">Cancelar seguro</button>
+              <span class="badge bg-success ms-1">Activo</span>
+              {% else %}
+              <button type="button" class="btn btn-sm btn-success rounded-pill btn-seguro" data-accion="activar">Activar seguro</button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
       <div class="card card-logo-fondo card-logo-fondo--sin-brillo corp-mio-card mb-4" style="--logo-color: {{ mc.color }}; --corp-acento: {{ mc.acento }};">
         <img src="{{ mc.logo }}" alt="" aria-hidden="true" class="card-logo-fondo__logo" onerror="this.remove()">
         <div class="card-body p-3 p-md-4">
@@ -732,6 +761,20 @@
 <script src="/static/js/marcas.js?v=3"></script>
 <script src="/static/js/televisoras.js?v=5"></script>
 <script src="/static/js/entrevistas.js?v=1"></script>
+<script>
+// Seguro de ingresos (clima económico): activar o cancelar
+document.querySelectorAll('.btn-seguro').forEach(btn => btn.addEventListener('click', async () => {
+    const accion = btn.dataset.accion;
+    btn.disabled = true;
+    try {
+        const resp = await fetch(`/corporativos/seguro/${accion}`, { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'No se pudo completar la acción.');
+        UI.toast(data.mensaje, { icono: 'bi-shield-check' });
+        setTimeout(() => location.reload(), 700);
+    } catch (err) { UI.toast(err.message, { icono: 'bi-exclamation-triangle-fill' }); btn.disabled = false; }
+}));
+</script>
 <script>
     // Pestañas de la carrera: se abre la del #hash, si no la última que elegiste (localStorage) y si no Resumen
     // (o, sin cargo, Ofertas). Espera a DOMContentLoaded: Bootstrap se carga al final de base.html.

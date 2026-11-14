@@ -1,0 +1,30 @@
+{# Rivales y aliados de algo (selección, marca, medio o cadena). Variables: rel = relaciones_de(tipo, id) y rel_titulo. Requiere `m`. #}
+{% import "partials/macros.html" as m %}
+{% if rel and (rel.rivales or rel.aliados) %}
+<div class="card card-seccion mb-4">
+  <div class="card-body p-3">
+    <h2 class="vivo-titulo"><i class="bi bi-fire" style="color:#fb923c;"></i>{{ rel_titulo }}</h2>
+    <div class="row g-3">
+      {% for titulo, lista, icono in (('Rivales', rel.rivales, '⚔️'), ('Aliados', rel.aliados, '🤝')) %}
+      {% if lista %}
+      <div class="col-12 col-md-6">
+        <span class="historial-grupo">{{ titulo }}</span>
+        <ul class="list-unstyled mb-0 small">
+          {% for x in lista %}
+          <li class="d-flex align-items-start gap-2 py-1">
+            <span>{{ icono }}</span>
+            <span class="min-w-0">
+              {% if x.bandera %}{{ m.bandera(x.bandera, pais_id=x.pais_id) }} {% endif %}<strong class="text-white">{{ x.nombre }}</strong>
+              {% if x.etiqueta %}<span class="badge {{ 'bg-danger' if x.etiqueta == 'Clásico' else 'bg-secondary' }} ms-1">{{ x.etiqueta }}</span>{% endif %}
+              <small class="d-block text-muted">{{ x.motivos | join(', ') }}</small>
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}

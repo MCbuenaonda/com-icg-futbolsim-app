@@ -155,7 +155,7 @@ def publicaciones(usuario: Optional[dict], q: str = "", filtro: str = "todo", an
         ids_partidos = [p["match_id"] for p in pagina if p["clase"] == "partido"]
         if ids_partidos:
             por = {}
-            for d in db_prensa["prensa"].find({"juego_id": {"$in": ids_partidos}, "tipo": {"$ne": "REACCION"}}):
+            for d in db_prensa["prensa"].find({"juego_id": {"$in": ids_partidos}, "tipo": {"$nin": ["REACCION", "ESCANDALO"]}}):
                 por.setdefault(d["juego_id"], []).append(d)
             for p in pagina:
                 if p["clase"] == "partido" and por.get(p["match_id"]):

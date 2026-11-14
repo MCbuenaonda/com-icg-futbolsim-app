@@ -149,6 +149,13 @@ def crear_nuevo_mundial() -> Dict[str, Any]:
     except Exception as e:
         print(f"No se pudieron limpiar las lesiones: {e}")
 
+    # 5f. Rivalidades de selecciones: salen de lo jugado, así que cada Mundial empieza de cero (las de marcas, medios y TV son permanentes)
+    try:
+        from services.relaciones_service import limpiar_selecciones
+        limpiar_selecciones()
+    except Exception as e:
+        print(f"No se pudieron limpiar las rivalidades: {e}")
+
     # 5e. Disciplina: cada Mundial empieza sin suspendidos ni amarillas (services/disciplina_service.py)
     try:
         from services.disciplina_service import limpiar_disciplina
@@ -357,7 +364,7 @@ def restart_mundial():
     fantasy_teams.delete_many({})
     reward_transactions.delete_many({})
     city_ownerships.delete_many({})
-    for _c in ("sedes_naming", "sedes_naming_movimientos", "sedes_naming_rondas", "declaraciones", "polemicas"):
+    for _c in ("sedes_naming", "sedes_naming_movimientos", "sedes_naming_rondas", "declaraciones", "polemicas", "escandalos", "escandalos_rondas"):
         db[_c].delete_many({})
     fantasy_points_history.delete_many({})
     historial_aficionados.delete_many({})

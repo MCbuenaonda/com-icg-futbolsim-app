@@ -72,7 +72,7 @@ def _contexto_lados(j: dict) -> tuple:
         lados[lado] = {"eq": s["nombre"], "rival": r["nombre"], "gl": s["goles"], "gv": r["goles"], "dif": s["goles"] - r["goles"], "res": res,
                        "eliminacion": ctx["eliminacion"], "historia": ctx.get("historia"), "sorpresa": ctx.get("sorpresa") and ctx["ganador"] == lado,
                        "dt": s.get("dt"), "dt_id": s.get("dt_id"), "temperamento": temperamentos.get(s.get("dt_id")),
-                       "roja_propia": roja[lado], "dt_expulsado": dt_exp[lado], "penal_contra": penal_contra[lado], "polemica_contra": contra[lado],
+                       "roja_propia": roja[lado], "dt_expulsado": dt_exp[lado], "penal_contra": penal_contra[lado], "polemica_contra": contra[lado], "clasico": bool(ctx.get("clasico")),
                        "expulsado": ids_exp.get(lado),
                        "figura": None if (s.get("figura") or {}).get("id") in leyendas else s.get("figura")}
     return ctx, lados

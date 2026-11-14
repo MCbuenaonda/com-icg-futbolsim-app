@@ -69,6 +69,9 @@ def _pendientes(usuario: dict) -> List[dict]:
                 ("propuestas", "Propuesta del mercado", db["corp_ofertas"].count_documents({**filtro, "estado": "PENDIENTE", "tipo": {"$in": list(TIPOS_PROPUESTA)}}), "/corporativo/#cpDecisiones"),
                 ("entrevistas", "Entrevista pendiente", db["corp_entrevistas"].count_documents({**filtro, "estado": "PENDIENTE"}), "/corporativo/#cpDecisiones"),
             ]
+        if sigla and universo.get("estado") == "EN_CARGO":
+            from services.escandalos_service import contar_pendientes as crisis_pendientes
+            partes.append(("crisis", "Marca en crisis", crisis_pendientes(uid, sigla), "/corporativo/marcas"))
         total = sum(p[2] for p in partes)
         if total:
             detalle = ", ".join(f"{p[2]} {p[1].lower()}{'s' if p[2] != 1 else ''}" for p in partes if p[2])

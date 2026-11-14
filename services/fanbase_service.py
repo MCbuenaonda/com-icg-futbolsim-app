@@ -80,7 +80,7 @@ IMPORTANCIA_TOPE = (0.5, 2.0)        # el multiplicador nunca sale de este rango
 AFICIONADOS_MINIMO = 1_000
 
 
-def importancia_partido(juego: Dict[str, Any], juego_id: str) -> Dict[int, Dict[str, Any]]:
+def _importancia_base(juego: Dict[str, Any], juego_id: str) -> Dict[int, Dict[str, Any]]:
     """
     {pais_id: {"factor": float, "motivo": str|None}} de los dos equipos de un partido, según lo que se jugaba. Debe llamarse ANTES
     de actualizar las tablas con el resultado: el partido ya está guardado como finalizado, así que se cuenta como pendiente
@@ -112,6 +112,23 @@ def importancia_partido(juego: Dict[str, Any], juego_id: str) -> Dict[int, Dict[
     except Exception as e:
         print(f"[fanbase] no se pudo calcular la importancia del partido {juego_id}: {e}")
         return neutro
+
+
+def importancia_partido(juego: Dict[str, Any], juego_id: str) -> Dict[int, Dict[str, Any]]:
+    """Importancia por equipo (ver _importancia_base) con el extra de un CLÁSICO (services/relaciones_service.py): sube un 20% lo que se juega
+    en popularidad, sumado a lo demás y siempre dentro del tope. Nunca lanza."""
+    salida = _importancia_base(juego, juego_id)
+    try:
+        from config import relaciones as CR
+        from services.relaciones_service import de_partido
+        rel = de_partido((juego.get("equipo_local") or {}).get("id"), (juego.get("equipo_visitante") or {}).get("id"))
+        if rel and rel["clasico"]:
+            for pid, imp in salida.items():
+                imp["factor"] = round(imp["factor"] * CR.IMPORTANCIA_CLASICO, 3)
+                imp["motivo"] = f"{imp['motivo']}; clásico" if imp.get("motivo") else "clásico"
+    except Exception as e:
+        print(f"[fanbase] clásico: {e}")
+    return salida
 
 
 def _calcular_delta_detallado(match_data: Dict[str, Any], player_events: Dict[int, dict], team_id: int, aficionados_actual: int) -> Dict[str, Any]:

@@ -316,12 +316,29 @@ def panel_hoy(mc: dict, ofertas_empleo: list, ciclo: int) -> list:
     huecos = (mc.get("calendario") or {}).get("huecos") or []
     if huecos:
         agregar(9, "bi-calendar-x", "info", "Huecos en el calendario", f"Hay ciclos con poca actividad en tu cartera; mira las sugerencias para cubrirlos.", "#cpCartera")
+    clima = mc.get("clima") or {}
+    if clima and not (clima.get("seguro") or {}).get("activo"):
+        prox = (clima.get("pronostico") or [{}])[0]
+        if prox.get("estado") == "recesion":
+            agregar(6, "bi-cloud-lightning-rain-fill", "warning", "Se anticipa una recesión", f"El ciclo {prox['ciclo']} pagarán {abs(prox['pct'])}% menos las marcas y las televisoras. Un seguro cubre el {(clima.get('seguro') or {}).get('cobertura_pct', 60)}% de lo que dejes de ganar.", "#cpResumen")
+        elif (clima.get("actual") or {}).get("estado") == "recesion":
+            agregar(10, "bi-cloud-drizzle-fill", "info", "Ciclo de recesión", f"Este ciclo las marcas y las televisoras pagan {abs(clima['actual']['pct'])}% menos; es pasajero.", "#cpResumen")
     if mc.get("marketing_disponible"):
         agregar(11, "bi-stars", "success", "Campaña de marketing disponible", f"Sube la reputación y el patrocinio este ciclo por {mc.get('costo_marketing', 0):,}.", "#cpDecisiones")
     if mc.get("scouting_disponible"):
         agregar(12, "bi-binoculars-fill", "success", "Scouting disponible", f"Busca talentos este ciclo por {mc.get('costo_scouting', 0):,}.", "#cpDecisiones")
     items.sort(key=lambda x: x["prioridad"])
     return items[:6]
+
+
+def cambiar_seguro(user_id, activar: bool) -> dict:
+    """Activa o cancela el seguro de ingresos de TU corporativo (prima y cobertura en config/clima.py; se cobra al cierre de cada ciclo)."""
+    universo = U.obtener_universo(user_id)
+    cargo = (universo or {}).get("cargo")
+    if not cargo or universo.get("estado") != "EN_CARGO":
+        raise ValueError("Necesitas dirigir un corporativo para contratar un seguro")
+    U.db["corp_corporativos"].update_one({"universo_id": user_id, "sigla": cargo["sigla"]}, {"$set": {"seguro": bool(activar)}})
+    return {"ok": True, "activo": bool(activar), "mensaje": "Seguro activado: se cobra la prima al cierre de cada ciclo." if activar else "Seguro cancelado."}
 
 
 def obtener_vista_inicio(user_id) -> dict:
@@ -343,7 +360,7 @@ def obtener_vista_inicio(user_id) -> dict:
     if cargo:
         mi_corp = next((c for c in corporativos if c["sigla"] == cargo["sigla"]), None)
         doc = U.db["corp_corporativos"].find_one({"universo_id": user_id, "sigla": cargo["sigla"]},
-                                                  {"historial": 1, "ciclo_actual": 1, "saneamiento": 1, "marketing_hasta_ciclo": 1, "capital": 1}) or {}
+                                                  {"historial": 1, "ciclo_actual": 1, "saneamiento": 1, "marketing_hasta_ciclo": 1, "capital": 1, "seguro": 1}) or {}
         historial = doc.get("historial") or []
         ultimo = historial[-1] if historial else None
         ultimo_pago = U.db["corp_movimientos"].find_one({"universo_id": user_id, "tipo": "SUELDO_CEO"}, sort=[("ciclo", -1)])
@@ -376,6 +393,15 @@ def obtener_vista_inicio(user_id) -> dict:
         except Exception as e:
             print(f"[corporativos] sugerencias del calendario: {e}")
             cal["huecos"] = []
+        try:   # clima económico del ciclo y seguro opcional (services/clima_economico.py)
+            from services import clima_economico as CLIMA
+            from config import clima as CLC
+            ase = (doc.get("ciclo_actual") or {}).get("asegurable") or ((doc.get("historial") or [{}])[-1].get("asegurable") or 0)
+            mi_corp["clima"] = {**CLIMA.vista(ciclo_ahora), "seguro": {"activo": bool(doc.get("seguro")), "prima_pct": round(CLC.SEGURO_PRIMA * 100, 1), "cobertura_pct": round(CLC.SEGURO_COBERTURA * 100),
+                                                                       "prima_estimada": CLIMA.prima(ase) if ase else None,
+                                                                       "ultima_prima": (doc.get("ciclo_actual") or {}).get("seguro_prima", 0), "ultimo_pago": (doc.get("ciclo_actual") or {}).get("seguro_pago", 0)}}
+        except Exception as e:
+            print(f"[corporativos] clima: {e}")
         mi_corp.update(calendario=cal, saneamiento=_saneamiento_vista(doc),
                        acuerdos=[nombrar(a) for a in A.acuerdos_de(user_id, cargo["sigla"]) if a["estado"] == "ACTIVO"],
                        giras=_giras_vista(A, user_id, cargo["sigla"], universo), renta_esperada=renta_esperada(activos),

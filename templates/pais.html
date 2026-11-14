@@ -288,6 +288,9 @@
         </div>
     </div>
 
+    {# RIVALES de la selección (services/relaciones_service.py): clásicos y rivalidades que salen de lo jugado #}
+    {% set rel = relaciones_de('seleccion', pais.id) %}{% set rel_titulo = "Rivales de " ~ pais.nombre %}{% include "partials/rivales.html" %}
+
     {# MARCAS (corporativo_marcas_service.patrocinios_de_pais): quién patrocina a la selección y a sus jugadores en tu universo #}
     {% if puede('corporativos') %}
     {% set pp = patrocinios_pais(usuario_actual, pais.id) %}

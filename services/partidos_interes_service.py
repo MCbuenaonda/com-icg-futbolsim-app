@@ -32,7 +32,7 @@ LISTAS_JUGADOR_CLAVE = {"goles", "asistencias", "contribucion", "atajadas", "val
 PODIO = 3                       # solo suma al nivel quien está entre los 3 primeros de una lista clave
 RIESGO_CUERDA_FLOJA = 25        # % de chance de cese tras el partido
 TOP = 10
-PESOS = {"decisivo": 4, "serie": 3, "mata_mata": 4, "dt_riesgo": 2, "dt_debut": 1, "top_seleccion": 1, "top_jugador": 1}
+PESOS = {"rivalidad": 2, "decisivo": 4, "serie": 3, "mata_mata": 4, "dt_riesgo": 2, "dt_debut": 1, "top_seleccion": 1, "top_jugador": 1}
 NIVELES = [(6, "imperdible", "Imperdible", "bi-fire"), (4, "caliente", "Partido caliente", "bi-thermometer-high"),
            (2, "interesante", "Para seguir", "bi-eye-fill")]
 
@@ -265,6 +265,17 @@ def motivos_partidos(juegos: List[dict], detalle: bool = False, en_vivo: bool = 
                     chips.append({"tipo": "decisivo", "icono": "bi-hourglass-bottom", "texto": "Última fecha del grupo con la clasificación abierta"})
                     puntaje += PESOS["decisivo"] - 1
 
+        # 1b) ¿es un clásico o una rivalidad? (services/relaciones_service.py)
+        try:
+            from services.relaciones_service import de_partido, texto_motivos
+            rel = de_partido(loc.get("id"), vis.get("id"))
+        except Exception:
+            rel = None
+        if rel:
+            chips.append({"tipo": "rivalidad", "icono": "bi-fire", "texto": f"{rel['etiqueta']}: {texto_motivos(rel)}"})
+            puntaje += PESOS["rivalidad"] + (1 if rel["clasico"] else 0)
+            det["rivalidad"] = rel
+
         # 2) DT en la cuerda floja o debutando
         det["dts"] = {}
         for pid in (loc.get("id"), vis.get("id")):
@@ -307,7 +318,7 @@ def motivos_partidos(juegos: List[dict], detalle: bool = False, en_vivo: bool = 
                 puntaje += PESOS["top_jugador"] if figura["posicion"] <= PODIO else 0
 
         nivel = next(({"codigo": c, "texto": tx, "icono": ic} for umbral, c, tx, ic in NIVELES if puntaje >= umbral), None)
-        orden = {"decisivo": 0, "mata_mata": 0, "serie": 1, "dt_riesgo": 2, "dt_debut": 3, "top_jugador": 4, "top_seleccion": 5}
+        orden = {"decisivo": 0, "mata_mata": 0, "rivalidad": 1, "serie": 1, "dt_riesgo": 2, "dt_debut": 3, "top_jugador": 4, "top_seleccion": 5}
         chips.sort(key=lambda c: orden.get(c["tipo"], 9))
         salida[jid] = {"puntaje": puntaje, "nivel": nivel, "chips": chips, **({"detalle": det} if detalle else {})}
     return salida

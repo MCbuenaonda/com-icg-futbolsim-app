@@ -209,6 +209,22 @@ def marcas_interesadas(contrato_id: str, request: Request):
     return _accion(marcas.interesadas, _usuario_api(request)["_id"], contrato_id)
 
 
+@route.post("/seguro/{accion}", name="corporativos_seguro")
+def seguro(accion: str, request: Request):
+    """Activa o cancela el seguro de ingresos de tu corporativo (clima económico): accion = activar | cancelar."""
+    if accion not in ("activar", "cancelar"):
+        raise HTTPException(status_code=404, detail="Acción desconocida")
+    from services import corporativo_service
+    return _accion(corporativo_service.cambiar_seguro, _usuario_api(request)["_id"], accion == "activar")
+
+
+@route.post("/marcas/crisis/{pat_id}/{accion}", name="corporativos_crisis_marca")
+def crisis_marca(pat_id: str, accion: str, request: Request):
+    """Responde a la crisis de una marca que te patrocina: accion = respaldar | distancia (services/escandalos_service.py)."""
+    from services import escandalos_service
+    return _accion(escandalos_service.responder_crisis, _usuario_api(request)["_id"], pat_id, accion)
+
+
 @route.post("/contratos/{contrato_id}/promover", name="corporativos_promover")
 def promover(contrato_id: str, datos: PromoverIn, request: Request):
     from services import corporativo_marcas_service as marcas

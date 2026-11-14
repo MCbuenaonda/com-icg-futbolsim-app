@@ -35,6 +35,28 @@
     </div>
   </div>
 
+  {% if crisis %}
+  <!-- Marcas en crisis (services/escandalos_service.py): escasez pasajera con aviso; tú decides si respaldas a la marca o tomas distancia -->
+  <h2 class="vivo-titulo"><i class="bi bi-exclamation-octagon-fill text-danger"></i>Marcas en crisis <span class="text-muted small fw-normal">(pagan menos mientras dure)</span></h2>
+  <div class="mk-ofertas mb-4">
+    {% for c in crisis %}
+    <div class="mk-oferta" style="--marca: #ef4444;">
+      <div class="min-w-0 flex-grow-1">
+        <div class="fw-bold text-white">{{ c.marca }} · patrocina a {{ c.nombre }}
+          <span class="badge {{ 'bg-danger' if c.severidad == 3 else 'bg-warning text-dark' if c.severidad == 2 else 'bg-secondary' }} ms-1">{{ 'Grave' if c.severidad == 3 else 'Seria' if c.severidad == 2 else 'Leve' }}</span>
+          {% if not c.propia %}<span class="badge bg-info text-dark ms-1">Salpicada por {{ c.marca_en_crisis }}</span>{% endif %}</div>
+        <div class="small text-body-secondary">{{ c.titular }}</div>
+        <div class="small text-muted">Paga <strong class="text-white">{{ c.rebaja_pct }}%</strong> menos · quedan {{ c.partidos_restantes }} partidos{% if c.respaldado %} · <span class="text-success">ya la respaldaste</span>{% endif %}</div>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        {% if not c.respaldado %}<button class="btn btn-sm btn-outline-success rounded-pill btn-crisis" data-accion="respaldar" data-id="{{ c.id }}" data-marca="{{ c.marca }}" data-costo="{{ c.costo_respaldo }}" title="Campaña de apoyo: quita el riesgo extra y la rebaja baja a la mitad"><i class="bi bi-shield-check me-1"></i>Respaldar ({{ '{:,}'.format(c.costo_respaldo) }})</button>{% endif %}
+        <button class="btn btn-sm btn-outline-danger rounded-pill btn-crisis" data-accion="distancia" data-id="{{ c.id }}" data-marca="{{ c.marca }}" title="Terminas el patrocinio sin castigo y liberas el cupo"><i class="bi bi-box-arrow-left me-1"></i>Tomar distancia</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if r and r.ofertas %}
   <h2 class="vivo-titulo"><i class="bi bi-envelope-paper-heart-fill text-warning"></i>Ofertas para responder <span class="text-muted small fw-normal">(vencen a los 8 partidos)</span></h2>
   <div class="mk-ofertas mb-4">
@@ -200,6 +222,28 @@
   </div>
 </div>
 <script src="/static/js/marcas.js?v=3"></script>
+<script>
+// Responder a la crisis de una marca: respaldar (paga la campaña de apoyo) o tomar distancia (termina el patrocinio sin castigo)
+document.querySelectorAll('.btn-crisis').forEach(btn => btn.addEventListener('click', async () => {
+    const accion = btn.dataset.accion;
+    const ok = await UI.confirmar({
+        titulo: accion === 'respaldar' ? `Respaldar a ${btn.dataset.marca}` : `Tomar distancia de ${btn.dataset.marca}`,
+        mensaje: accion === 'respaldar' ? `Pagas ${Number(btn.dataset.costo).toLocaleString('es')} en una campaña de apoyo: se quita el riesgo extra de corte y la rebaja baja a la mitad mientras dure la crisis.`
+                                        : 'Terminas el patrocinio sin castigo y queda libre el cupo; pierdes lo que esa marca te pagaba.',
+        textoConfirmar: accion === 'respaldar' ? 'Respaldar' : 'Tomar distancia', peligro: accion !== 'respaldar',
+    });
+    if (!ok) return;
+    btn.disabled = true;
+    try {
+        const resp = await fetch(`/corporativos/marcas/crisis/${encodeURIComponent(btn.dataset.id)}/${accion}`, { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'No se pudo completar la acción.');
+        UI.toast(data.mensaje, { icono: 'bi-shield-check' });
+        UI.refrescarSaldo();
+        setTimeout(() => location.reload(), 900);
+    } catch (err) { UI.toast(err.message, { icono: 'bi-exclamation-triangle-fill' }); btn.disabled = false; }
+}));
+</script>
 <script>
 (() => {
   const buscar = document.getElementById('mkBuscar'), rubro = document.getElementById('mkRubro'), alcance = document.getElementById('mkAlcance');

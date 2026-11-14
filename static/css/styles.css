@@ -5295,3 +5295,14 @@ button.tv-logo:hover { transform: scale(1.04); }
 .rueda-decl__tipo { margin-left: auto; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.68rem; font-weight: 700; color: #7dd3fc; background: rgba(56, 189, 248, 0.14); white-space: nowrap; }
 .rueda-decl__cita { margin: 0 0 0.6rem; padding-left: 0.8rem; border-left: 3px solid #38bdf8; color: #e2e8f0; font-style: italic; font-size: 0.95rem; }
 @media (max-width: 575.98px) { .rueda-decl__quien { flex-wrap: wrap; } .rueda-decl__tipo { margin-left: 0; } }
+
+/* Clima económico en el inicio de Corporativos (templates/corporativo.html) */
+.corp-clima { border-left: 4px solid #94a3b8; }
+.corp-clima--auge { border-left-color: #22c55e; background: linear-gradient(90deg, rgba(34, 197, 94, 0.1), transparent 40%); }
+.corp-clima--recesion { border-left-color: #f59e0b; background: linear-gradient(90deg, rgba(245, 158, 11, 0.1), transparent 40%); }
+.corp-clima__linea { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.4rem; }
+.corp-clima__punto { width: 0.9rem; height: 0.9rem; border-radius: 50%; background: #64748b; opacity: 0.85; }
+.corp-clima__punto--auge { background: #22c55e; } .corp-clima__punto--recesion { background: #f59e0b; }
+.corp-clima__punto--ahora { width: 1.2rem; height: 1.2rem; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25); opacity: 1; }
+.corp-clima__punto--futuro { opacity: 0.45; border: 1px dashed rgba(255, 255, 255, 0.5); }
+.corp-clima__seguro { max-width: 22rem; padding: 0.7rem 0.9rem; border-radius: 12px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); }

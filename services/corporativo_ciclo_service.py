@@ -123,7 +123,8 @@ def ciclo_vacio() -> dict:
     """Acumulados del ciclo en curso de un corporativo. 'extra' = patrocinios de marcas, acuerdos y giras (ingresos);
     'gastos_extra' = costos de las giras; 'comision_ceo' = comisión de las marcas que cobra el CEO con el sueldo."""
     return {"renta": 0, "honorarios": 0, "amortizacion": 0, "sueldo": 0, "impago": False, "fichajes": 0,
-            "patrocinio": 0, "extra": 0, "gastos_extra": 0, "fama": {}, "comision_ceo": 0, "marcas_bruto": 0, "tv": 0, "tv_invitados": 0}
+            "patrocinio": 0, "extra": 0, "gastos_extra": 0, "fama": {}, "comision_ceo": 0, "marcas_bruto": 0, "tv": 0, "tv_invitados": 0,
+            "asegurable": 0, "perdida_clima": 0, "seguro_prima": 0, "seguro_pago": 0}
 
 
 # --- Partido -------------------------------------------------------------------------------------
@@ -235,6 +236,8 @@ def cerrar_ciclo_economia(estado: Estado, ciclo: int) -> None:
         # Patrocinio del ciclo (juegue o no; la campaña de marketing vigente lo multiplica)
         mult = C.MARKETING_BONO_PATROCINIO if (corp.get("marketing_hasta_ciclo") or 0) >= ciclo else 1.0
         pat = R.patrocinio(c["tipo"], valor, popularidad(c["tipo"], c["ref_id"], valor), mult)
+        from services import clima_economico as CLIMA   # el clima del ciclo (auge/normal/recesión) mueve el patrocinio base
+        pat = CLIMA.aplicar(corp, pat, ciclo)
         corp["capital"] += pat
         corp["ciclo_actual"]["patrocinio"] += pat
         c["renta_total"] = c.get("renta_total", 0) + pat
@@ -273,6 +276,19 @@ def cerrar_ciclo_economia(estado: Estado, ciclo: int) -> None:
     for sigla, corp in estado.corps.items():
         honor = sum(1 for x in estado.contratos if x["activo"] and x["sigla"] == sigla)
         ca = corp["ciclo_actual"]
+        # Seguro (solo el corporativo del usuario, si lo activó): prima sobre lo asegurable e indemnización por lo que dejó de ganar (services/clima_economico.py)
+        if corp.get("es_del_usuario") and corp.get("seguro") and ca.get("asegurable"):
+            from services import clima_economico as CLIMA
+            prima, pago = CLIMA.prima(ca["asegurable"]), CLIMA.indemnizacion(ca.get("perdida_clima", 0))
+            prima = min(prima, max(0, int(corp["capital"])))
+            corp["capital"] += pago - prima
+            ca["gastos_extra"] += prima
+            ca["extra"] += pago
+            ca["seguro_prima"], ca["seguro_pago"] = prima, pago
+            if prima:
+                estado.mover(sigla, ciclo, "SEGURO_PRIMA", -prima, "Prima del seguro de ingresos (marcas, TV y patrocinio)")
+            if pago:
+                estado.mover(sigla, ciclo, "SEGURO_INDEMNIZACION", pago, "Indemnización del seguro por la recesión y las crisis de marcas")
         if ca["honorarios"]:
             estado.mover(sigla, ciclo, "HONORARIOS", -ca["honorarios"], f"Honorarios de {honor} representados (mantenimiento y partidos jugados)")
         if ca["patrocinio"]:

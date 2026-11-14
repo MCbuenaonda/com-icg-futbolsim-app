@@ -107,7 +107,15 @@ def tipo_dt(c: dict, rng: random.Random) -> str:
     return rng.choices(list(pesos), list(pesos.values()))[0]
 
 
+CITAS_CLASICO = {"respeta_rival": ["Un clásico siempre es especial: {rival} nos exige al máximo y eso se respeta.", "Contra {rival} nunca hay partidos fáciles; es un clásico y se juega distinto.",
+                                    "Estos duelos con {rival} se sienten diferente, lo saben los dos equipos."],
+                 "pide_calma": ["Es un clásico y duele, pero hay que mantener la calma: contra {rival} habrá revancha.", "No hay que dramatizar: así son los clásicos con {rival}."],
+                 "elogia_equipo": ["Ganar un clásico ante {rival} tiene un valor especial para todos.", "Los muchachos entendieron lo que significa jugar contra {rival}."]}
+
+
 def cita(tipo: str, c: dict, rng: random.Random) -> str:
+    if c.get("clasico") and tipo in CITAS_CLASICO and rng.random() < 0.6:
+        return rng.choice(CITAS_CLASICO[tipo]).format(eq=c["eq"], rival=c["rival"], gl=c["gl"], gv=c["gv"])
     fuente = CITAS_DT if tipo in CITAS_DT else CITAS_JUGADOR
     return rng.choice(fuente[tipo]).format(eq=c["eq"], rival=c["rival"], gl=c["gl"], gv=c["gv"])
 

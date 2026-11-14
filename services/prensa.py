@@ -37,6 +37,9 @@ def relevancia(ctx: dict) -> float:
     r += 0.2 if ctx["eliminacion"] else 0
     r += 0.15 if ctx.get("historia") in {"remontada", "remontada_epica", "gol_agonico", "goleada", "paliza", "sorpresa", "hattrick", "rescate"} else 0
     r += 0.2 if ctx.get("sorpresa") else 0
+    if ctx.get("clasico"):   # un Clásico (services/relaciones_service.py) atrae a más medios
+        from config import relaciones as CR
+        r += CR.RELEVANCIA_CLASICO
     return min(1.0, r)
 
 

@@ -412,6 +412,17 @@ def _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre) -> 
         ev = _eventos(c, ctx, cierre)
         riesgo = R.riesgo_marca(ev, marca.get("fidelidad", 0.5), _prensa(p["tipo"], p["ref_id"], uid, ciclo))
         es_usuario = corp.get("es_del_usuario")
+        # Crisis de la marca o de una aliada (services/escandalos_service.py): paga menos y sube un poco el riesgo, salvo que el CEO la respalde
+        from services import escandalos as ESC
+        from services import escandalos_service as EC
+        crisis = EC.efecto_para(p["marca_id"], seq)
+        respaldada = bool(crisis and p.get("crisis_respaldo") == crisis["crisis_id"])
+        extra_riesgo = crisis["riesgo_extra"] if (crisis and not respaldada) else 0
+        riesgo = min(100, riesgo + extra_riesgo)
+        if crisis and es_usuario:
+            U.avisar(uid, ciclo, "MARCA", f"{marca['nombre']} " + ("está en crisis" if crisis["propia"] else "se ve salpicada por la crisis de una marca aliada"),
+                     f"{crisis['titular']} Mientras dure paga menos por el patrocinio de {nombre} y cuida su imagen. Puedes respaldarla o tomar distancia en Marcas y patrocinios.",
+                     "bi-exclamation-octagon-fill", clave=f"marca-crisis:{p['_id']}:{crisis['crisis_id']}")
         en_aviso = p.get("aviso_seq") or p.get("aviso_ciclo")
         if riesgo >= C.MARCA_RIESGO_CORTE or (en_aviso and riesgo >= C.MARCA_RIESGO_AVISO):
             motivo = _motivo_riesgo(ev)
@@ -426,12 +437,18 @@ def _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre) -> 
                          "bi-x-octagon-fill", clave=f"marca-corte:{p['_id']}")
             continue
         pago = max(1, int(round(p["pago_ciclo"] / RONDAS_POR_CICLO)))
+        pago_ref = pago   # lo que pagaría sin crisis ni clima (base del seguro)
+        pago = ESC.ajustar_pago(pago, crisis, respaldada)
+        from services import clima_economico as CLIMA   # el clima del ciclo mueve el pago de las marcas
+        pago = max(1, int(round(pago * CLIMA.factor(ciclo))))
+        CLIMA.registrar(corp, pago_ref, pago)
         en_tv = (c.get("tv_bono_hasta_seq") or 0) >= seq   # apareció hace poco como invitado en TV (corporativo_tv_service)
         if en_tv:
             pago = int(round(pago * C.TV_INVITADO_BONO_MARCAS))
         cobro = _cobrar(estado, corp, c, p, pago, ciclo, f"{marca['nombre']}: patrocinio de {nombre}" + (" (+ por su aparición en TV)" if en_tv else ""))
         cambios = {"$inc": {"pagos": 1, "cobrado": cobro["cobrado"], "comision": cobro["comision"]}, "$set": {}}
-        if ev or cierre:   # sin hechos en la ronda, el semáforo queda como estaba
+        if ev or cierre or extra_riesgo or p.get("crisis_marca"):   # sin hechos en la ronda, el semáforo queda como estaba
+            cambios["$set"]["crisis_marca"] = crisis["crisis_id"] if crisis else None
             aviso = seq if riesgo >= C.MARCA_RIESGO_AVISO else None
             cambios["$set"].update(riesgo=riesgo, aviso_seq=aviso, aviso_ciclo=ciclo if aviso else None)
             if aviso and not en_aviso and es_usuario:
@@ -573,6 +590,9 @@ def _candidatos(marca: dict, ctx: dict, ocup: dict, contratos: dict, reps: dict)
         e = R.encaje_marca(marca, rep)
         if e and (c.get("tv_bono_hasta_seq") or 0) >= (getattr(_hilo, "ancla_seq", None) or 0):   # salió en TV: más interés
             e = min(100, e + C.TV_INVITADO_ENCAJE)
+        if e:   # la crisis de una marca rival la deja con espacio para acercarse (services/escandalos_service.py)
+            from services.escandalos_service import bonus_encaje
+            e = min(100, e + bonus_encaje(marca["id"], getattr(_hilo, "ancla_seq", None) or 0))
         if e >= C.MARCA_ENCAJE_MINIMO:
             salida.append((e, c))
     salida.sort(key=lambda x: -x[0])
@@ -999,5 +1019,6 @@ def vista_marcas(user_id) -> Optional[dict]:
             "historial": [h for h in historial if h], "catalogo": catalogo_l, "rubros": RUBROS, "alcances": ALCANCES,
             "confederaciones": CONFEDERACIONES, "resumen": resumen(user_id, sigla) if sigla else None,
             "promociones_restantes": max(0, C.MARCA_PROMOCIONES_POR_RONDA - promos), "max_marcas": C.MARCAS_MAX_POR_REPRESENTADO,
+            "crisis": __import__("services.escandalos_service", fromlist=["x"]).vista_usuario(user_id, sigla, seq_u or 0),
             "ronda_en": faltan, "partidos_ronda": C.MARCA_PARTIDOS_RONDA, "rondas_ciclo": RONDAS_POR_CICLO,
             "comision": int(C.MARCA_COMISION_CEO * 100), "en_cargo": universo["estado"] == "EN_CARGO"}

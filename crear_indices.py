@@ -214,6 +214,14 @@ def crear_indices():
     sanciones.create_index([("jugador_id", 1), ("registrada_en", -1)], name="jugador_fecha")
     print("✅ Índices creados en 'sanciones_historial'")
 
+    relaciones = db['relaciones']
+    relaciones.create_index([("tipo", 1), ("a", 1)], name="tipo_a")
+    relaciones.create_index([("tipo", 1), ("b", 1)], name="tipo_b")
+    print("✅ Índices creados en 'relaciones'")
+
+    db['escandalos'].create_index([("hasta_seq", 1)], name="hasta_seq")
+    print("✅ Índices creados en 'escandalos'")
+
     city_revenue_history = db['city_revenue_history']
     city_revenue_history.create_index("user_id", name="user_id")
     city_revenue_history.create_index("ciudad_id", name="ciudad_id")

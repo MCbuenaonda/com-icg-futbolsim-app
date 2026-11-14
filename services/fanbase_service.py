@@ -350,11 +350,18 @@ def actualizar_aficionados_post_partido(
     detalle_local = _calcular_delta_detallado(match_data, player_events, id_local, aficionados_actual_local)
     detalle_visita = _calcular_delta_detallado(match_data, player_events, id_visita, aficionados_actual_visita)
 
+    # Ánimo de la barra (líder de la afición, services/directiva_service.py): ±10% al cambio de aficionados según su rasgo
+    from services.directiva_service import ajustar_delta
+    motivo_local, motivo_visita = _generar_motivo(detalle_local), _generar_motivo(detalle_visita)
+    detalle_local["delta"], barra_l = ajustar_delta(id_local, detalle_local["delta"])
+    detalle_visita["delta"], barra_v = ajustar_delta(id_visita, detalle_visita["delta"])
+    motivo_local += f" (barra {barra_l.lower()})" if barra_l else ""
+    motivo_visita += f" (barra {barra_v.lower()})" if barra_v else ""
     total_local = _aplicar_delta_aficionados(paises_coll, id_local, detalle_local["delta"])
     total_visita = _aplicar_delta_aficionados(paises_coll, id_visita, detalle_visita["delta"])
 
-    _registrar_historial_aficionados(id_local, match_id, detalle_local["delta"], total_local, _generar_motivo(detalle_local))
-    _registrar_historial_aficionados(id_visita, match_id, detalle_visita["delta"], total_visita, _generar_motivo(detalle_visita))
+    _registrar_historial_aficionados(id_local, match_id, detalle_local["delta"], total_local, motivo_local)
+    _registrar_historial_aficionados(id_visita, match_id, detalle_visita["delta"], total_visita, motivo_visita)
 
     if match_id:
         try:

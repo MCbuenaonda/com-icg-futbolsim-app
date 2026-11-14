@@ -35,8 +35,8 @@
             <div class="premio-carrera__titulo"><i class="bi {{ p.icono }}"></i>{{ p.nombre }}</div>
             <div class="premio-carrera__fila premio-carrera__fila--lider"><span class="premio-carrera__pos">🏆</span>
               <span class="min-w-0"><strong class="text-white">{% if p.ganador.bandera %}{{ m.bandera(p.ganador.bandera, pais_id=p.ganador.pais_id) }} {% endif %}{{ p.ganador.nombre }}</strong>
-                <small class="d-block text-muted">{{ p.ganador.puntos }} pts · {{ p.ganador.primeros }} de {{ p.votantes }} medios lo pusieron primero</small></span></div>
-            {% for f in p.finalistas %}<div class="premio-carrera__fila"><span class="premio-carrera__pos">{{ loop.index + 1 }}</span><span class="min-w-0"><span class="text-body-emphasis">{{ f.nombre }}</span> <small class="text-muted">· {{ f.puntos }} pts</small></span></div>{% endfor %}
+                <small class="d-block text-muted">{% if p.votantes %}{{ p.ganador.puntos }} pts · {{ p.ganador.primeros }} de {{ p.votantes }} medios lo pusieron primero{% else %}{{ p.ganador.detalle }}{% endif %}</small></span></div>
+            {% for f in p.finalistas %}<div class="premio-carrera__fila"><span class="premio-carrera__pos">{{ loop.index + 1 }}</span><span class="min-w-0"><span class="text-body-emphasis">{{ f.nombre }}</span> <small class="text-muted">· {% if p.votantes %}{{ f.puntos }} pts{% else %}{{ f.detalle }}{% endif %}</small></span></div>{% endfor %}
             {% for c in p.curiosidades %}<small class="d-block text-muted mt-1">{{ c }}</small>{% endfor %}
           </div>
         </div>

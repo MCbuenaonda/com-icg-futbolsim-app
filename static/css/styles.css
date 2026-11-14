@@ -5335,3 +5335,14 @@ button.tv-logo:hover { transform: scale(1.04); }
 .ag-cotiza > div { display: flex; justify-content: space-between; padding: 0.3rem 0.6rem; border-radius: 0.5rem; background: rgba(255, 255, 255, 0.05); }
 .ag-cotiza span { color: #94a3b8; }
 @media (prefers-reduced-motion: reduce) { .card.ag-card { transition: none; } .card.ag-card:hover { transform: none; } }
+
+/* ===== Directiva y afición (partials/directiva_*.html) ===== */
+.dv-persona { display: flex; align-items: center; gap: 0.9rem; padding: 0.8rem; border-radius: 0.9rem; border: 1px solid rgba(167, 139, 250, 0.25);
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.08), var(--bg-card, #111c2e)); height: 100%; }
+.dv-avatar { width: 4.6rem; height: 4.6rem; flex: 0 0 4.6rem; border-radius: 50%; background: #1b2740; object-fit: cover; }
+.dv-avatar--sm { width: 2.6rem; height: 2.6rem; flex-basis: 2.6rem; }
+.dv-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.05rem 0.5rem; margin-right: 0.25rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+  color: #c4b5fd; border: 1px solid rgba(167, 139, 250, 0.4); background: rgba(167, 139, 250, 0.1); }
+.dv-chip--estilo { color: #fbcfe8; border-color: rgba(244, 114, 182, 0.4); background: rgba(244, 114, 182, 0.1); }
+.dv-chip--tipo { color: #7dd3fc; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.1); margin-left: 0.4rem; }
+.dv-cita { margin: 0 0 0.75rem; padding: 0.5rem 0.9rem; border-left: 3px solid rgba(167, 139, 250, 0.6); font-size: 0.9rem; }

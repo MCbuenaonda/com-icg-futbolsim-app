@@ -35,7 +35,23 @@ def merito_arbitro(c: dict) -> float:
     return 3.0 + 0.10 * c["partidos"] - 1.2 * c["polemicas"] / n + 0.02 * (c.get("reputacion") or 0)
 
 
-MERITO = {"jugador": merito_jugador, "portero": merito_portero, "joven": merito_jugador, "tecnico": merito_tecnico, "arbitro": merito_arbitro}
+def merito_goleador(c: dict) -> float:
+    """Goles de la Copa; el desempate es la calificación y menos partidos para llegar a ellos (sin cambiar jamás el orden por goles)."""
+    return c["goles"] + 0.01 * c.get("rating", 0) - 0.001 * c["partidos"]
+
+
+def merito_juego_limpio(c: dict) -> float:
+    """Menos puntos de sanción por partido = más mérito (se compara en negativo); jugar más partidos limpio desempata."""
+    n = max(1, c["partidos"])
+    return -c["sanciones"] / n + 0.001 * n
+
+
+def merito_partido(c: dict) -> float:
+    return CP.PESO_GOLES * c["goles_totales"] + CP.PESO_HISTORIA * c.get("drama", 0.0) + (CP.PESO_ELIMINACION if c.get("eliminacion") else 0.0)
+
+
+MERITO = {"jugador": merito_jugador, "portero": merito_portero, "joven": merito_jugador, "tecnico": merito_tecnico, "arbitro": merito_arbitro,
+          "goleador": merito_goleador, "juego_limpio": merito_juego_limpio, "partido": merito_partido}
 
 
 def candidatos(categoria: str, pool: List[dict]) -> List[dict]:
@@ -102,6 +118,18 @@ def resultado(categoria: str, cands: List[dict], votacion: Dict) -> Optional[dic
         curiosidades.append(f"{votacion['patriotas']} medios votaron primero por alguien de su país.")
     return {"categoria": categoria, "ganador": _pub(ganador, votacion), "finalistas": [_pub(c, votacion) for c in orden[1:3]], "votantes": n,
             "curiosidades": curiosidades}
+
+
+def resultado_directo(categoria: str, cands: List[dict]) -> Optional[dict]:
+    """Premio decidido por los números, sin jurado: gana el de más mérito (cands ya viene ordenado) y los dos siguientes son finalistas."""
+    if not cands:
+        return None
+    vot = {"puntos": {c["id"]: 0 for c in cands}, "primeros": {c["id"]: 0 for c in cands}, "votantes": 0, "patriotas": 0}
+    res = resultado(categoria, cands, vot)
+    orden = sorted(cands, key=lambda c: -c["merito"])
+    res["ganador"], res["finalistas"] = _pub(orden[0], vot), [_pub(c, vot) for c in orden[1:3]]
+    res["curiosidades"] = []
+    return res
 
 
 def _pub(c: dict, votacion: Dict) -> dict:

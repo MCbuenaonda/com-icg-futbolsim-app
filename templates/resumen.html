@@ -115,6 +115,7 @@
     {% if hon and hon.confirmado %}<div class="alert alert-info d-flex align-items-center gap-2 mb-4 py-2"><i class="bi bi-award-fill fs-5"></i><div><strong>Homenaje a {{ hon.nombre }}</strong>, leyenda de {{ hon.pais }}. El cariño por su leyenda sumó <strong>{{ '{:,}'.format(hon.delta or 0) }}</strong> aficionados a su selección.</div></div>{% endif %}
     {% set pol = polemica_partido(partido._id | string) %}{% include "partials/polemica.html" %}
     {% set rueda_items = declaraciones_de_partido(partido._id | string) %}{% set rueda_titulo = "Rueda de prensa" %}{% include "partials/rueda_prensa.html" %}
+    {% set dv_items = directiva_de_partido(partido._id | string) %}{% include "partials/directiva_partido.html" %}
     {% set prensa_items = prensa_de_partido(partido._id | string) %}{% set prensa_titulo = "Lo que dice la prensa" %}{% include "partials/prensa_lista.html" %}
 
     <!-- PARTE MÉDICO: lesiones del partido (services/lesiones.py) y bajas con que llegó cada selección -->

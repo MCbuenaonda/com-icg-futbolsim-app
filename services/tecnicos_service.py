@@ -64,7 +64,7 @@ def puntos_esperados(aficionados_propios: float, aficionados_rival: float) -> fl
     return 3 * gana + PROB_EMPATE
 
 
-def sumar_partido(cargo: dict, gf: int, gc: int, esperados: float, dt_expulsado: bool, juego_id: str, prensa: float = 0.0) -> dict:
+def sumar_partido(cargo: dict, gf: int, gc: int, esperados: float, dt_expulsado: bool, juego_id: str, prensa: float = 0.0, barra: float = 0.0) -> dict:
     """Actualiza el cargo en memoria con el resultado (no decide nada)."""
     puntos = 3 if gf > gc else (1 if gf == gc else 0)
     cargo["partidos"] = cargo.get("partidos", 0) + 1
@@ -76,7 +76,7 @@ def sumar_partido(cargo: dict, gf: int, gc: int, esperados: float, dt_expulsado:
     cargo["puntos"] = cargo.get("puntos", 0) + puntos
     cargo["esperados"] = round(cargo.get("esperados", 0) + esperados, 3)
     from services.prensa import EFECTO_PRESION_DT
-    golpe = (GOLPE_GOLEADA if gc - gf >= 3 else 0) + (GOLPE_EXPULSION if dt_expulsado else 0) - EFECTO_PRESION_DT * prensa / 100   # la prensa suma o resta presión
+    golpe = (GOLPE_GOLEADA if gc - gf >= 3 else 0) + (GOLPE_EXPULSION if dt_expulsado else 0) - EFECTO_PRESION_DT * prensa / 100 + barra   # la prensa y la barra (líder de la afición) suman o restan presión
     cargo["presion"] = round(MEMORIA_PRESION * cargo.get("presion", 0.0) + (1 - MEMORIA_PRESION) * (esperados - puntos) + golpe, 3)
     cargo.setdefault("juegos", []).append(juego_id)
     return cargo
@@ -221,7 +221,8 @@ def registrar_partido(juego: Optional[dict]) -> None:
                 prensa = reputacion_centrada("dt", cargo.get("dt_id"))
             except Exception:
                 prensa = 0.0
-            sumar_partido(cargo, gf, gc, puntos_esperados(afic.get(pais_id), afic.get(rival_id)), bool(dt_partido.get("expulsado")), jid, prensa)
+            from services.directiva_service import presion_lider   # ánimo de la barra: aprieta o alivia al DT (config/directiva.py)
+            sumar_partido(cargo, gf, gc, puntos_esperados(afic.get(pais_id), afic.get(rival_id)), bool(dt_partido.get("expulsado")), jid, prensa, presion_lider(pais_id, gf, gc))
             campos = {k: cargo[k] for k in ("partidos", "ganados", "empatados", "perdidos", "gf", "gc", "puntos", "esperados", "presion")}
             ok = db["dt_cargos"].update_one({"_id": cargo["_id"], "juegos": {"$ne": jid}}, {"$set": campos, "$push": {"juegos": jid}})
             if not ok.modified_count:
@@ -235,6 +236,8 @@ def registrar_partido(juego: Optional[dict]) -> None:
             if eliminado:
                 db["dt_cargos"].update_one({"_id": cargo["_id"]}, {"$set": {"evaluado_eliminado": True}})
             paciencia = (pais or {}).get("federacion_paciencia") or paciencia_para(pais_id)
+            from services.directiva_service import factor_paciencia   # el rasgo del presidente de la federación (±12%)
+            paciencia = paciencia * factor_paciencia(pais_id)
             if decidir_cese(cargo, paciencia, eliminado, jid, pais_id):
                 _cesar(cargo, pais_id, jid, juego.get("mundial_id"), juego.get("fecha"), eliminado)
     except Exception as e:

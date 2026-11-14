@@ -929,6 +929,13 @@ def aplicar_efectos_secundarios(
     except Exception as e:
         print(f"No se pudieron generar las declaraciones: {e}")
 
+    # Voces de la directiva y la tribuna (services/directiva_service.py): el presidente de la federación y el líder de la afición reaccionan. Nunca lanza.
+    try:
+        from services.directiva_service import asegurar_voces
+        asegurar_voces(db["juegos"].find_one({"_id": ObjectId(juego_id)}))
+    except Exception as e:
+        print(f"No se pudieron generar las voces de la directiva: {e}")
+
     # Escándalos de marcas (services/escandalos_service.py): cada 8 partidos terminados alguna marca entra en crisis. Nunca lanza.
     try:
         from services.escandalos_service import evaluar_ronda as evaluar_escandalos

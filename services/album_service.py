@@ -686,7 +686,8 @@ PAGINAS_MEDIOS = {"tv-uefa": ("Televisión · UEFA", "bi-tv", "#38bdf8"), "tv-co
                   "prensa-concacaf": ("Prensa · CONCACAF", "bi-newspaper", "#fb923c"), "prensa-caf": ("Prensa · CAF", "bi-newspaper", "#fb923c"),
                   "prensa-ofc": ("Prensa · OFC", "bi-newspaper", "#fb923c"), "prensa-afc": ("Prensa · AFC", "bi-newspaper", "#fb923c"),
                   "prensa-int": ("Prensa · Internacional", "bi-newspaper", "#fb923c"),
-                  "agentes": ("Agentes", "bi-briefcase-fill", "#a78bfa")}
+                  "agentes": ("Agentes", "bi-briefcase-fill", "#a78bfa"), "federaciones": ("Federaciones", "bi-bank2", "#60a5fa"),
+                  "penas": ("Peñas", "bi-emoji-sunglasses-fill", "#f472b6")}
 
 
 def _catalogo_medios() -> dict:

@@ -44,6 +44,7 @@
                         {% else %}<span class="ficha-pais__estado">{{ pais.estado | replace('_', ' ') | title }}</span>{% endif %}
                     </div>
                     <h1 class="display-5 fw-bold text-white mb-1">{{ pais.nombre }}</h1>
+                    {% set premios_p = premios_de("pais", pais.id) %}{% if premios_p %}<div class="d-flex flex-wrap gap-2 mb-2">{% for pr in premios_p %}<span class="badge bg-warning text-dark"><i class="bi {{ pr.icono }} me-1"></i>{{ pr.nombre }} · Mundial {{ pr.anio }}</span>{% endfor %}</div>{% endif %}
                     {% if puede('corporativos') %}{{ m.insignia_corp(corp_representantes(usuario_actual), 'seleccion', pais.id) }}{{ m.franja_marcas(patrocinadores(usuario_actual, 'seleccion', pais.id)) }}{% endif %}
                     <p class="text-muted mb-0"><i class="bi bi-building me-1"></i>{{ pais.federacion }}</p>
                 </div>
@@ -292,6 +293,7 @@
     {% set simbolo = leyenda_simbolo(pais.id) %}
     {% if simbolo %}<div class="d-flex align-items-center gap-2 mb-3 small"><i class="bi bi-award-fill text-warning"></i><span class="text-body-secondary">Leyenda símbolo:</span> <a class="text-decoration-none text-white fw-semibold" href="/jugadores/{{ simbolo.id }}">{{ simbolo.nombre }}</a>{% if simbolo.homenajes %}<span class="badge bg-warning text-dark">Homenajeada en {{ simbolo.homenajes }} partido{{ 's' if simbolo.homenajes != 1 }}</span>{% endif %}</div>{% endif %}
     {% set rel = relaciones_de('seleccion', pais.id) %}{% set rel_titulo = "Rivales de " ~ pais.nombre %}{% include "partials/rivales.html" %}
+    {% set dv = directiva_de_pais(pais.id) %}{% include "partials/directiva_pais.html" %}
 
     {# MARCAS (corporativo_marcas_service.patrocinios_de_pais): quién patrocina a la selección y a sus jugadores en tu universo #}
     {% if puede('corporativos') %}

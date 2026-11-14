@@ -29,7 +29,8 @@ def _partidos_copa(mundial_id: str) -> List[dict]:
     return list(db["juegos"].find(
         {"mundial_id": mundial_id, "estado": "finalizado", "fase_id": {"$gte": CP.FASE_COPA}, "transmision.estado": {"$ne": "in_progress"}},
         {"fase_id": 1, "equipo_local.id": 1, "equipo_local.nombre": 1, "equipo_visitante.id": 1, "equipo_visitante.nombre": 1, "resultado.goles_local": 1,
-         "resultado.goles_visitante": 1, "resultado.calificaciones": 1, "resultado.goleadores": 1, "resultado.atajadores": 1, "resultado.dt": 1, "resultado.arbitros": 1}))
+         "resultado.goles_visitante": 1, "resultado.calificaciones": 1, "resultado.goleadores": 1, "resultado.atajadores": 1, "resultado.dt": 1, "resultado.arbitros": 1,
+         "resultado.eventos.tipo": 1, "resultado.eventos.equipo": 1, "resultado.cronica.historia": 1, "fecha": 1}))
 
 
 def _pool(mundial_id: str) -> Dict[str, List[dict]]:
@@ -38,6 +39,8 @@ def _pool(mundial_id: str) -> Dict[str, List[dict]]:
     ids = {int(k) for j in juegos for k in ((j.get("resultado") or {}).get("calificaciones") or {})}
     info = {d["id"]: d for d in db["jugadores"].find({"id": {"$in": list(ids)}}, {"_id": 0, "id": 1, "nombre": 1, "edad": 1, "posicion_id": 1, "pais_id": 1, "leyenda": 1})}
     jug: Dict[int, dict] = {}
+    equipos: Dict[int, dict] = {}   # juego limpio: sanciones por selección
+    partidos_lista: List[dict] = []   # partido del Mundial
     dts: Dict[int, dict] = {}
     centrales: Dict[str, dict] = {}
     for j in juegos:
@@ -61,6 +64,18 @@ def _pool(mundial_id: str) -> Dict[str, List[dict]]:
         for g in r.get("atajadores") or []:
             if g.get("jugador_id") in jug:
                 jug[g["jugador_id"]]["atajadas"] += g.get("atajadas", 0) or 0
+        tarjetas = {local["nombre"]: 0, visita["nombre"]: 0}
+        for e in r.get("eventos") or []:
+            t, eq_nombre = e.get("tipo") or "", e.get("equipo")
+            if eq_nombre in tarjetas:
+                tarjetas[eq_nombre] += CP.PUNTOS_TARJETA["DOBLE"] if "DOBLE AMARILLA" in t else (CP.PUNTOS_TARJETA["ROJA"] if "TARJETA ROJA" in t else (CP.PUNTOS_TARJETA["AMARILLA"] if "TARJETA AMARILLA" in t else 0))
+        for eq in (local, visita):
+            a = equipos.setdefault(eq["id"], {"id": eq["id"], "nombre": eq["nombre"], "pais_id": eq["id"], "partidos": 0, "sanciones": 0})
+            a["partidos"] += 1
+            a["sanciones"] += tarjetas.get(eq["nombre"], 0)
+        historia = ((r.get("cronica") or {}).get("historia")) or None
+        partidos_lista.append({"id": str(j["_id"]), "nombre": f"{local['nombre']} {gl}-{gv} {visita['nombre']}", "pais_id": None, "partidos": 1, "goles": gl + gv, "goles_totales": gl + gv,
+                               "historia": historia, "drama": CP.HISTORIA_DRAMA.get(historia, (0.0, ""))[0], "historia_nombre": CP.HISTORIA_DRAMA.get(historia, (0.0, ""))[1], "eliminacion": (j.get("fase_id") or 0) >= 8, "fecha": j.get("fecha")})
         for lado, eq, gf, gc in (("local", local, gl, gv), ("visita", visita, gv, gl)):
             dt = (r.get("dt") or {}).get(lado) or {}
             if dt.get("id") is None:
@@ -91,7 +106,8 @@ def _pool(mundial_id: str) -> Dict[str, List[dict]]:
             pol = sum(1 for p in db["polemicas"].find({"_id": {"$in": c["juegos"]}}, {"items": 1}) for it in p.get("items") or [] if it.get("arbitro_id") == d["id"])
             out_arb.append({"id": d["id"], "nombre": nombre, "pais_id": d.get("pais_id"), "partidos": c["partidos"], "polemicas": pol, "reputacion": puntaje_actual(d["id"]) or 0})
     return {"jugador": [a for a in jugadores if a.get("posicion_id") != 1], "portero": [a for a in jugadores if a.get("posicion_id") == 1],
-            "joven": [a for a in jugadores if (a.get("edad") or 99) <= CP.EDAD_JOVEN], "tecnico": list(dts.values()), "arbitro": out_arb}
+            "joven": [a for a in jugadores if (a.get("edad") or 99) <= CP.EDAD_JOVEN], "tecnico": list(dts.values()), "arbitro": out_arb,
+            "goleador": [a for a in jugadores if a["goles"] > 0], "juego_limpio": list(equipos.values()), "partido": partidos_lista}
 
 
 def _mundial_activo() -> Optional[dict]:
@@ -130,6 +146,12 @@ def _detalle(cat: str, c: dict) -> str:
         return f"{c['rating']:.2f} de calificación · {c['atajadas']} atajadas · {c['vallas']} valla{'s' if c['vallas'] != 1 else ''} invicta{'s' if c['vallas'] != 1 else ''}"
     if cat == "tecnico":
         return f"{c['puntos']} puntos en {c['partidos']} partidos · dif. {c['dif']:+d}"
+    if cat == "goleador":
+        return f"{c['goles']} gol{'es' if c['goles'] != 1 else ''} en {c['partidos']} partido{'s' if c['partidos'] != 1 else ''}"
+    if cat == "juego_limpio":
+        return f"{c['sanciones']} punto{'s' if c['sanciones'] != 1 else ''} de sanción en {c['partidos']} partido{'s' if c['partidos'] != 1 else ''}"
+    if cat == "partido":
+        return f"{c['goles_totales']} gol{'es' if c['goles_totales'] != 1 else ''}" + (f" · {c['historia_nombre']}" if c.get("historia_nombre") else "")
     return f"{c['partidos']} partido{'s' if c['partidos'] != 1 else ''} · {c['polemicas']} polémica{'s' if c['polemicas'] != 1 else ''}"
 
 
@@ -147,9 +169,12 @@ def asegurar_premios(mundial_id) -> int:
         docs, notas = [], []
         for cat, meta in CP.CATEGORIAS.items():
             cands = PR.candidatos(cat, pool[cat])
-            res = PR.resultado(cat, cands, PR.votar(cat, cands, medios, f"premios:{mid}"))
+            res = PR.resultado_directo(cat, cands) if meta.get("directo") else PR.resultado(cat, cands, PR.votar(cat, cands, medios, f"premios:{mid}"))
             if not res:
                 continue
+            por_id = {c["id"]: c for c in cands}
+            for x in [res["ganador"]] + res["finalistas"]:
+                x["detalle"] = _detalle(cat, por_id[x["id"]])
             docs.append({"_id": f"{mid}:{cat}", "mundial_id": mid, "anio": m.get("anio"), "otorgado_en": datetime.utcnow(), **res})
             g = res["ganador"]
             if final and medios:
@@ -160,8 +185,9 @@ def asegurar_premios(mundial_id) -> int:
                               "medio": {"nombre": medio["nombre"], "slug": medio["slug"], "papel": medio["papel"], "linea": medio["linea"], "pais_id": medio.get("pais_id")},
                               "periodista": {"nombre": per["nombre"], "rol": per["rol"], "estilo": per["estilo"], "sesgo": per["sesgo"]},
                               "tipo": "PREMIO", "tono": CP.VALOR_REPUTACION, "categoria_tono": "elogio", "titular": titular,
-                              "texto": f"{titular} El jurado de {res['votantes']} medios lo eligió con {g['puntos']} puntos." + (f" {res['curiosidades'][0]}" if res["curiosidades"] else ""),
-                              "valoraciones": [{"tipo": meta["tipo"], "id": g["id"], "nombre": g["nombre"], "valor": CP.VALOR_REPUTACION}], "peso": 1.5, "rol_cobertura": "interesado",
+                              "texto": (f"{titular} {g['detalle']}." if meta.get("directo") else f"{titular} El jurado de {res['votantes']} medios lo eligió con {g['puntos']} puntos.")
+                                       + (f" {res['curiosidades'][0]}" if res["curiosidades"] else ""),
+                              "valoraciones": [{"tipo": meta["tipo"], "id": g["id"], "nombre": g["nombre"], "valor": CP.VALOR_REPUTACION}] if meta["tipo"] else [], "peso": 1.5, "rol_cobertura": "interesado",
                               "creado_en": datetime.utcnow()})
         if docs:
             db[COL].insert_many(docs, ordered=False)
@@ -204,7 +230,7 @@ def vista_palmares() -> Dict[str, Any]:
 def premios_de(tipo: str, ref) -> List[dict]:
     """Premios ganados por un jugador, técnico o árbitro ([{nombre, anio, icono}]) para sus fichas."""
     try:
-        cats = [c for c, m in CP.CATEGORIAS.items() if m["tipo"] == ("jugador" if tipo == "jugador" else tipo)]
+        cats = [c for c, m in CP.CATEGORIAS.items() if m["tipo"] == tipo]
         return [{"nombre": CP.CATEGORIAS[d["categoria"]]["nombre"], "anio": d.get("anio"), "icono": CP.CATEGORIAS[d["categoria"]]["icono"]}
                 for d in db[COL].find({"categoria": {"$in": cats}, "ganador.id": ref})]
     except Exception:

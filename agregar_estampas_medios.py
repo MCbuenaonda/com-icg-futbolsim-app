@@ -5,6 +5,8 @@ Catálogo de las estampas de TELEVISIÓN Y MARCAS del álbum: colección 'album_
   categoria PERSONAJE  comentaristas de las televisoras (2 por cadena = 1.266)    -> rareza Normal
   categoria DUENO      dueños de las televisoras (633) y de las marcas (121)      -> rareza Dorada
                        y los 100 AGENTES (origen 'agente', ids 900000+id, página 'agentes') -> rareza Dorada
+                       y los 211 PRESIDENTES de federación (origen 'presidente', ids 1000000+país, página 'federaciones') y los 211 LÍDERES de la afición
+                       (origen 'lider', ids 1100000+país, página 'penas') -> rareza Dorada
 
 Cada documento: {id, categoria, origen 'televisora'|'marca', ref_id, nombre, detalle, imagen, pais_id, rasgo?, edad?}.
 Ids fijos y legibles: 100000+tv (logo tv), 200000+marca (logo marca), 300000+tv*10+n (comentarista n), 400000+tv (dueño tv),
@@ -36,7 +38,7 @@ def armar(db):
     nombres_pais = {p["id"]: p["nombre"] for p in db["paises"].find({}, {"id": 1, "nombre": 1})}
     rubros = list(RUBROS)
     for d in docs:
-        if d["origen"] in ("medio", "agente"):   # las de prensa y agentes ya traen su página y su orden
+        if d["origen"] in ("medio", "agente", "presidente", "lider"):   # las de prensa y agentes ya traen su página y su orden
             continue
         rol = {"LOGO": 0, "DUENO": 1, "PERSONAJE": 2}[d["categoria"]]
         if d["origen"] == "televisora":
@@ -76,6 +78,20 @@ def _armar(db):
                          "detalle": f"Dueño · {m['nombre']}", "imagen": d.get("avatar"), "pais_id": pais, "edad": d.get("edad"), "rasgo": d.get("rasgo_nombre")})
     docs += _armar_prensa(db, paises)
     docs += _armar_agentes(db)
+    docs += _armar_directiva(db)
+    return docs
+
+
+def _armar_directiva(db):
+    """Estampas de PRESIDENTES de federación y LÍDERES de la afición (Dorada): páginas «Federaciones» y «Peñas», una pestaña por confederación (generar_directiva.py)."""
+    from config.directiva import ID_ESTAMPA_LIDER, ID_ESTAMPA_PRESIDENTE
+    docs = []
+    for col, base, origen, pagina, rol in (("presidentes", ID_ESTAMPA_PRESIDENTE, "presidente", "federaciones", "Presidente"), ("lideres", ID_ESTAMPA_LIDER, "lider", "penas", "Líder de la afición")):
+        for x in db[col].find({}, {"_id": 0}).sort("id", 1):
+            conf = CONFEDERACIONES.get(x["confederacion_id"], "Otras")
+            docs.append({"id": base + x["id"], "categoria": "DUENO", "origen": origen, "ref_id": x["id"], "nombre": x["nombre"], "detalle": f"{rol} · {x['pais_nombre']}",
+                         "imagen": x.get("avatar"), "pais_id": x["pais_id"], "edad": x.get("edad"), "rasgo": x.get("rasgo_nombre") + (f" · {x['estilo_nombre']}" if x.get("estilo_nombre") else ""),
+                         "pagina": pagina, "subgrupo": conf, "orden": x["confederacion_id"] * 10 ** 6, "cadena": x["pais_nombre"], "pais_nombre": x["pais_nombre"], "rol_orden": 0})
     return docs
 
 

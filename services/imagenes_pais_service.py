@@ -34,7 +34,7 @@ db = client.get_database('mundial')
 
 TIPOS_IMAGEN = ("bandera", "plana", "jersey", "icono", "escudo")
 CARPETA_TIPO = {"plana": "bandera_plana"}               # el resto: carpeta = tipo
-VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 19, "foto_equipo": 3, "tecnico": 5, "corporativo": 2, "marca": 1, "estadio": 2, "televisora": 1, "tv_equipo": 1, "medio_logo": 1, "medio_equipo": 1, "agente": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
+VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 19, "foto_equipo": 3, "tecnico": 5, "corporativo": 2, "marca": 1, "estadio": 2, "televisora": 1, "tv_equipo": 1, "medio_logo": 1, "medio_equipo": 1, "agente": 1, "presidente": 1, "aficionado": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
 
 # {id: nombre} y {emoji: id} de 'paises' (se cargan una vez: nombres y banderas no cambian en runtime)
 _nombre_por_id: Optional[dict] = None
@@ -128,7 +128,7 @@ def url_imagen_medios(ruta: Optional[str]) -> Optional[str]:
     """Imagen de una estampa de televisión o marcas (album_medios.imagen): logo de cadena, logo de marca o avatar de persona."""
     if not ruta:
         return None
-    version = VERSION_IMAGENES.get({"televisoras": "televisora", "marcas": "marca", "tv_equipo": "tv_equipo", "medios": "medio_logo", "medios_equipo": "medio_equipo", "agentes": "agente"}.get(ruta.split("/")[0], ""), 1)
+    version = VERSION_IMAGENES.get({"televisoras": "televisora", "marcas": "marca", "tv_equipo": "tv_equipo", "medios": "medio_logo", "medios_equipo": "medio_equipo", "agentes": "agente", "presidentes": "presidente", "aficionados": "aficionado"}.get(ruta.split("/")[0], ""), 1)
     return f"{IMAGENES_PAISES_URL}/{quote(ruta)}?v={version}"
 
 
@@ -358,6 +358,16 @@ def _prensa_sobre(tipo, ref):
     return sobre(tipo, ref)
 
 
+def _directiva_de_partido(juego_id):
+    from services.directiva_service import de_partido
+    return de_partido(juego_id)
+
+
+def _directiva_de_pais(pais_id):
+    from services.directiva_service import de_pais
+    return de_pais(pais_id)
+
+
 def _declaraciones_de_partido(juego_id):
     from services.declaraciones_service import de_partido
     return de_partido(juego_id)
@@ -467,7 +477,7 @@ def _estadio_nombre(ciudad_id, original=None):
 
 
 GLOBALES_JINJA = {
-    "estadio_nombre": _estadio_nombre, "homenaje_partido": _homenaje_partido, "leyenda_simbolo": _leyenda_simbolo, "homenajes_de": _homenajes_de, "premios_de": _premios_de, "rivalidad_partido": _rivalidad_partido, "relaciones_de": _relaciones_de, "polemica_partido": _polemica_partido, "reputacion_arbitro": _reputacion_arbitro, "suspendidos_pais": _suspendidos_pais, "sanciones_partido": _sanciones_partido, "sanciones_de": _sanciones_de, "bajas_previa": _bajas_previa, "declaraciones_de_partido": _declaraciones_de_partido, "declaraciones_de": _declaraciones_de,
+    "estadio_nombre": _estadio_nombre, "homenaje_partido": _homenaje_partido, "leyenda_simbolo": _leyenda_simbolo, "homenajes_de": _homenajes_de, "premios_de": _premios_de, "rivalidad_partido": _rivalidad_partido, "relaciones_de": _relaciones_de, "polemica_partido": _polemica_partido, "reputacion_arbitro": _reputacion_arbitro, "suspendidos_pais": _suspendidos_pais, "sanciones_partido": _sanciones_partido, "sanciones_de": _sanciones_de, "bajas_previa": _bajas_previa, "declaraciones_de_partido": _declaraciones_de_partido, "directiva_de_partido": _directiva_de_partido, "directiva_de_pais": _directiva_de_pais, "declaraciones_de": _declaraciones_de,
     "prensa_de_partido": _prensa_de_partido, "pronosticos_partido": _pronosticos_partido, "prensa_sobre": _prensa_sobre, "prensa_reputacion": _prensa_reputacion,
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,

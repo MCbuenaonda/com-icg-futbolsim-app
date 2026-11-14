@@ -1,0 +1,23 @@
+{# La directiva y la tribuna tras un partido (services/directiva_service.py). Variable: dv_items = directiva_de_partido(id). #}
+{% if dv_items %}
+<div class="card card-seccion mb-4">
+  <div class="card-body p-3">
+    <h2 class="vivo-titulo"><i class="bi bi-people-fill" style="color:#a78bfa;"></i>La directiva y la tribuna</h2>
+    <div class="rueda-lista">
+      {% for v in dv_items %}
+      <div class="rueda-decl">
+        <div class="rueda-decl__quien">
+          {% if v.persona %}<img class="dv-avatar dv-avatar--sm" src="{{ v.persona.avatar }}" alt="" loading="lazy">{% endif %}
+          <div class="min-w-0">
+            <strong class="text-white">{{ v.hablante.nombre }}</strong>
+            <small class="d-block text-muted">{{ 'Presidente de la federación' if v.hablante.tipo == 'presidente' else 'Líder de la afición' }} · {{ v.equipo }} · {{ v.hablante.rasgo_nombre }}</small>
+          </div>
+          <span class="rueda-decl__tipo">{{ v.titulo }}</span>
+        </div>
+        <blockquote class="rueda-decl__cita">«{{ v.cita }}»</blockquote>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}

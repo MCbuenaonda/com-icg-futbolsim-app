@@ -231,6 +231,10 @@ def crear_indices():
     db['corp_agentes'].create_index([("universo_id", 1), ("estado", 1)], name="universo_estado")
     db['corp_agentes'].create_index([("universo_id", 1), ("contrato_id", 1)], name="universo_contrato")
     print("✅ Índices creados en 'agentes' y 'corp_agentes'")
+    db['directiva_voces'].create_index([("juego_id", 1)], name="juego")
+    db['directiva_voces'].create_index([("pais_id", 1), ("fecha", -1)], name="pais_fecha")
+    db['presidentes'].create_index("id", unique=True)
+    db['lideres'].create_index("id", unique=True)
     db['escandalos_otros'].create_index([("hasta_seq", 1)], name="hasta_seq")
     db['escandalos_otros'].create_index([("tipo", 1), ("ref_id", 1)], name="tipo_ref")
 

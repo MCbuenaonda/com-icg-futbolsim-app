@@ -212,6 +212,9 @@ def _con_crisis(estado, corp: dict, doc: dict, tele: dict, monto: int, ciclo: in
         ef = EM.efecto_tv(tele.get("id"), seq)
         if not ef:
             return monto
+        if ef["propia"] and doc.get("crisis_respaldo") == ef["crisis_id"]:   # el CEO respaldó a la cadena: la rebaja baja a la mitad
+            from config import escandalos as CE
+            ef = dict(ef, rebaja=ef["rebaja"] * CE.TV_RESPALDO_RESIDUO)
         nuevo = ESC.ajustar_tv(monto, ef)
         if nuevo < monto:
             ca = corp.get("ciclo_actual") or {}
@@ -324,6 +327,12 @@ def ofertas_iniciales_tras_compra(estado, ciclo: int, seq: int) -> None:
         print(f"[corporativos] televisoras, oferta tras la compra: {e}")
 
 
+def _agradecimiento(doc: dict) -> float:
+    """Puntos de probabilidad extra de renovar si el CEO respaldó a la cadena en su crisis (config/escandalos.py)."""
+    from config import escandalos as CE
+    return CE.TV_RESPALDO_RENUEVA if doc.get("crisis_respaldo") else 0.0
+
+
 def _ofertas_renovacion(estado, actual: dict, c: dict, ciclo: int, seq: int) -> None:
     from services.corporativo_ciclo_service import popularidad
     if any(d.get("sigue_a") == actual["_id"] for d in _de_pais(estado, actual["pais_id"])):
@@ -336,7 +345,7 @@ def _ofertas_renovacion(estado, actual: dict, c: dict, ciclo: int, seq: int) -> 
     nuevas = 0
     for t in del_pais(actual["pais_id"]):
         if t["id"] == actual["televisora_id"]:
-            sigue = rng.random() < R.tv_prob_renueva(t.get("fidelidad", 0.5), pct)
+            sigue = rng.random() < min(0.97, R.tv_prob_renueva(t.get("fidelidad", 0.5), pct) + (_agradecimiento(actual)))
             tipo = "RENOVACION"
         else:
             sigue = rng.random() < R.tv_prob_compite(t.get("nivel", 2), pct, pop)
@@ -493,6 +502,84 @@ def _crisis_cadena(tele_id: int, estado: str) -> Optional[dict]:
         return None
 
 
+def crisis_decisiones(user_id, sigla: Optional[str]) -> List[dict]:
+    """Cadenas de TUS contratos activos que están en crisis Y cuya selección jugará mientras dure (si no, no te toca y no hay nada que decidir)."""
+    if not sigla:
+        return []
+    try:
+        from config import escandalos as CE
+        from services.corporativo_mercado_service import calendario_paises
+        from services.escandalos_medios_service import crisis_de
+        cal = calendario_paises()
+        salida = []
+        for d in db[COL].find({"universo_id": user_id, "sigla": sigla, "estado": "ACTIVO"}):
+            c = crisis_de("tv", d["televisora_id"])
+            faltan = (cal.get(d["pais_id"]) or {}).get("faltan")
+            if not c or faltan is None or faltan >= c["partidos_restantes"]:
+                continue
+            t = catalogo().get(d["televisora_id"], {})
+            pais = valores()["info_paises"].get(d["pais_id"], {})
+            otras = [x["nombre"] for x in del_pais(d["pais_id"]) if x["id"] != d["televisora_id"]]
+            salida.append({"id": d["_id"], "tele": tele_vista(t) if t else {"nombre": "TV"}, "pais": pais.get("nombre"), "bandera": pais.get("bandera"), "titular": c["titular"],
+                           "severidad": c["severidad"], "rebaja_pct": int(CE.TV_REBAJA[c["severidad"]] * 100), "partidos_restantes": c["partidos_restantes"],
+                           "faltan": faltan, "respaldada": d.get("crisis_respaldo") == c["crisis_id"], "otras": otras,
+                           "costo_respaldo": int(round(R.tv_esperado(d["tarifa"]) * CE.TV_RESPALDO_PARTIDOS)), "esperado": R.tv_esperado(d["tarifa"])})
+        return salida
+    except Exception as e:
+        print(f"[corporativos] decisiones de crisis de TV: {e}")
+        return []
+
+
+def contar_crisis_pendientes(user_id, sigla: Optional[str]) -> int:
+    return sum(1 for x in crisis_decisiones(user_id, sigla) if not x["respaldada"])
+
+
+def responder_crisis(user_id, tv_id: str, accion: str) -> dict:
+    """Crisis de la cadena de un contrato tuyo: `respaldar` (pagas el valor de un partido; la rebaja baja a la mitad y la cadena renueva con más facilidad) o
+    `distancia` (rescindes sin castigo y las otras cadenas del país te hacen oferta ahora mismo, con un poco más de tarifa)."""
+    from config import escandalos as CE
+    from services.corporativo_fichajes_service import _cargo
+    from services.escandalos_medios_service import crisis_de
+    if accion not in ("respaldar", "distancia"):
+        raise ValueError("Acción desconocida")
+    U.poner_al_dia(user_id)
+    with U.candado(user_id):
+        universo, sigla, corp = _cargo(user_id)
+        doc = db[COL].find_one({"_id": tv_id, "universo_id": user_id, "sigla": sigla, "estado": "ACTIVO"})
+        if not doc:
+            raise ValueError("Ese contrato ya no está activo")
+        c = crisis_de("tv", doc["televisora_id"])
+        if not c:
+            raise ValueError("Esa cadena ya no está en crisis")
+        t = catalogo().get(doc["televisora_id"], {})
+        nombre = valores()["info_paises"].get(doc["pais_id"], {}).get("nombre", "?")
+        ciclo = U.ciclo_en_curso(universo)
+        seq = universo.get("cursor_seq") or U.seq_actual()
+        if accion == "respaldar":
+            if doc.get("crisis_respaldo") == c["crisis_id"]:
+                raise ValueError("Ya respaldaste a esta cadena en esta crisis")
+            costo = int(round(R.tv_esperado(doc["tarifa"]) * CE.TV_RESPALDO_PARTIDOS))
+            if not db["corp_corporativos"].find_one_and_update({"universo_id": user_id, "sigla": sigla, "capital": {"$gte": costo}},
+                                                               {"$inc": {"capital": -costo, "ciclo_actual.gastos_extra": costo}}):
+                raise ValueError(f"No te alcanza el capital para la campaña de apoyo ({costo:,})")
+            db["corp_movimientos"].insert_one({"universo_id": user_id, "sigla": sigla, "ciclo": ciclo, "tipo": "CRISIS_TV", "monto": -costo,
+                                               "detalle": f"Campaña de apoyo a {t.get('nombre')} en su crisis", "creado_en": datetime.utcnow()})
+            db[COL].update_one({"_id": tv_id}, {"$set": {"crisis_respaldo": c["crisis_id"]}})
+            return {"ok": True, "mensaje": f"Respaldaste a {t.get('nombre')} (campaña de apoyo: {costo:,}). La rebaja baja a la mitad mientras dure y la cadena renovará con más facilidad."}
+        contrato = db["corp_contratos"].find_one({"_id": _oid(doc["contrato_id"]), "activo": True, "sigla": sigla})
+        if not contrato:
+            raise ValueError(f"Ya no representas a {nombre}")
+        motivo = "Tomaste distancia por la crisis de la cadena"
+        db[COL].update_one({"_id": tv_id}, {"$set": {"estado": "TERMINADO", "terminado_ciclo": ciclo, "terminado_seq": seq, "motivo": motivo}})
+        db[COL].update_many({"universo_id": user_id, "pais_id": doc["pais_id"], "estado": {"$in": ["OFERTA", "FIRMADA"]}, "sigue_a": tv_id},
+                            {"$set": {"estado": "VENCIDA", "motivo": motivo}})
+        e = type("EstadoTV", (), {})()   # estado mínimo: las ofertas se escriben directo (fuera de poner_al_dia)
+        e.uid, e.corps = user_id, {sigla: {"es_del_usuario": True}}
+        for otra in [x for x in del_pais(doc["pais_id"]) if x["id"] != doc["televisora_id"]]:
+            _oferta(e, contrato, otra, "INICIAL", ciclo, seq, 1.0 + CE.TV_BONO_RIVAL[c["severidad"]])
+    return {"ok": True, "mensaje": f"Tomaste distancia de {t.get('nombre')}: terminó el contrato de {nombre} sin castigo. Las otras cadenas del país te hicieron oferta, mira Ofertas."}
+
+
 def _fila(d: dict) -> Optional[dict]:
     t = catalogo().get(d["televisora_id"])
     if not t:
@@ -633,6 +720,7 @@ def vista_televisoras(user_id) -> Optional[dict]:
         if o:
             o["actual_esperado"] = actuales.get(o["pais_id"])
     contratos = [_fila(d) for d in mis if d["estado"] in ("ACTIVO", "FIRMADA")]
+    crisis = crisis_decisiones(user_id, sigla)
     historial = [_fila(d) for d in db[COL].find({"universo_id": user_id, "sigla": sigla, "estado": {"$in": ["TERMINADO", "RECHAZADA", "VENCIDA"]}})
                  .sort([("terminado_ciclo", -1), ("ciclo", -1)]).limit(40)] if sigla else []
     # qué transmite cada cadena en tu universo (cualquier corporativo)
@@ -651,7 +739,7 @@ def vista_televisoras(user_id) -> Optional[dict]:
     corp = db["corp_corporativos"].find_one({"universo_id": user_id, "sigla": sigla}, {"ciclo_actual": 1}) if sigla else None
     res = resumen(user_id, sigla) if sigla else None
     return {"universo": universo, "sigla": sigla, "ciclo": ciclo, "en_cargo": universo["estado"] == "EN_CARGO",
-            "ofertas": [o for o in ofertas if o], "contratos": [c for c in contratos if c], "historial": [h for h in historial if h],
+            "ofertas": [o for o in ofertas if o], "contratos": [c for c in contratos if c], "historial": [h for h in historial if h], "crisis": crisis,
             "catalogo": catalogo_l, "confederaciones": {1: "UEFA", 2: "CONMEBOL", 3: "CONCACAF", 4: "CAF", 5: "OFC", 6: "AFC"},
             "niveles": T.NIVELES, "perfiles": T.PERFILES, "papeles": T.PAPEL_NOMBRE, "mis_selecciones": len(mis_paises),
             "tv_ciclo": int(((corp or {}).get("ciclo_actual") or {}).get("tv", 0)),

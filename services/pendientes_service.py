@@ -72,6 +72,8 @@ def _pendientes(usuario: dict) -> List[dict]:
         if sigla and universo.get("estado") == "EN_CARGO":
             from services.escandalos_service import contar_pendientes as crisis_pendientes
             partes.append(("crisis", "Marca en crisis|Marcas en crisis", crisis_pendientes(uid, sigla), "/corporativo/marcas"))
+            from services.corporativo_tv_service import contar_crisis_pendientes as crisis_tv_pendientes
+            partes.append(("crisis_tv", "Cadena en crisis|Cadenas en crisis", crisis_tv_pendientes(uid, sigla), "/corporativo/televisoras"))
         total = sum(p[2] for p in partes)
         if total:
             detalle = ", ".join(f"{p[2]} {p[1].split('|')[0 if p[2] == 1 else 1].lower()}" for p in partes if p[2])

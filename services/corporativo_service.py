@@ -309,6 +309,8 @@ def panel_hoy(mc: dict, ofertas_empleo: list, ciclo: int) -> list:
         agregar(6, "bi-shield-exclamation", "danger", "Patrocinios en riesgo", f"{plural(marcas['en_riesgo'], 'patrocinio podría cortarse', 'patrocinios podrían cortarse')}.", "/corporativo/marcas")
     if mc.get("crisis_pendientes"):
         agregar(5, "bi-exclamation-octagon-fill", "danger", "Marcas en crisis", f"{plural(mc['crisis_pendientes'], 'patrocinio afectado espera', 'patrocinios afectados esperan')} tu decisión: respaldar o tomar distancia.", "/corporativo/marcas")
+    if mc.get("crisis_tv_pendientes"):
+        agregar(5, "bi-tv-fill", "danger", "Cadenas en crisis", f"{plural(mc['crisis_tv_pendientes'], 'cadena de TV en crisis juega', 'cadenas de TV en crisis juegan')} con tu selección mientras dure: respaldar o tomar distancia.", "/corporativo/televisoras")
     if mc.get("entrevistas"):
         agregar(5, "bi-mic-fill", "warning", "Entrevistas pendientes", f"{plural(len(mc['entrevistas']), 'medio pide', 'medios piden')} hablar con tus representados: tu postura decide si les sube o les baja la imagen.", "#cpDecisiones")
     if mc.get("propuestas"):
@@ -422,6 +424,8 @@ def obtener_vista_inicio(user_id) -> dict:
                 o["pct"] = avance_objetivo(o)
             from services.escandalos_service import contar_pendientes as crisis_pendientes
             mi_corp["crisis_pendientes"] = crisis_pendientes(user_id, cargo["sigla"])
+            from services.corporativo_tv_service import contar_crisis_pendientes as crisis_tv_pendientes
+            mi_corp["crisis_tv_pendientes"] = crisis_tv_pendientes(user_id, cargo["sigla"])
             mi_corp["hoy"] = panel_hoy(mi_corp, ofertas, U.ciclo_en_curso(universo))
         except Exception as e:
             print(f"[corporativos] panel «Hoy»: {e}")

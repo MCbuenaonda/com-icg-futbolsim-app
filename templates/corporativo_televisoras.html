@@ -38,6 +38,26 @@
   <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>Sin cargo de CEO no recibes ofertas: puedes explorar el catálogo.</div>
   {% endif %}
 
+  {% if crisis %}
+  <h2 class="vivo-titulo"><i class="bi bi-exclamation-octagon-fill text-danger"></i>Cadenas en crisis <span class="text-muted small fw-normal">(tu selección juega mientras dure)</span></h2>
+  <div class="tv-ofertas mb-4">
+    {% for c in crisis %}
+    <div class="tv-oferta" style="--tv: {{ c.tele.color }};">
+      <span class="tv-logo tv-logo--lg"><img src="{{ c.tele.logo }}" alt="{{ c.tele.nombre }}"></span>
+      <div class="min-w-0 flex-grow-1">
+        <div class="fw-bold text-white">{{ m.bandera(c.bandera) }} {{ c.pais }} <span class="text-muted fw-normal">· {{ c.tele.nombre }}</span>
+          <span class="badge text-bg-danger ms-1">paga {{ c.rebaja_pct }}% menos{{ ' (a la mitad: la respaldaste)' if c.respaldada }}</span></div>
+        <div class="small text-muted">{{ c.titular }} Quedan {{ c.partidos_restantes }} partidos de crisis y tu selección juega en {{ c.faltan + 1 }}.</div>
+        <div class="small mt-1 d-flex flex-wrap gap-2">
+          {% if not c.respaldada %}<button class="btn btn-sm btn-outline-success rounded-pill" data-tv-crisis="respaldar" data-id="{{ c.id }}" data-nombre="{{ c.tele.nombre }}" data-costo="{{ c.costo_respaldo }}" title="Campaña de apoyo: la rebaja baja a la mitad y la cadena renueva con más facilidad"><i class="bi bi-shield-check me-1"></i>Respaldar ({{ '{:,}'.format(c.costo_respaldo) }})</button>{% endif %}
+          <button class="btn btn-sm btn-outline-danger rounded-pill" data-tv-crisis="distancia" data-id="{{ c.id }}" data-nombre="{{ c.tele.nombre }}" data-otras="{{ c.otras | join(' y ') }}" title="Rescindes sin castigo y las otras cadenas del país te hacen oferta"><i class="bi bi-box-arrow-right me-1"></i>Tomar distancia</button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if ofertas %}
   <h2 class="vivo-titulo"><i class="bi bi-envelope-paper-fill text-warning"></i>Ofertas para responder</h2>
   <div class="tv-ofertas mb-4">

@@ -299,6 +299,13 @@ def responder_entrevista(entrevista_id: str, postura: str, request: Request):
     return _accion(prensa_corp.responder, _usuario_api(request)["_id"], entrevista_id, postura)
 
 
+@route.post("/tv/{tv_id}/crisis/{accion}", name="corporativos_crisis_tv")
+def crisis_tv(tv_id: str, accion: str, request: Request):
+    """Crisis de la cadena de un contrato tuyo: accion = respaldar | distancia (services/corporativo_tv_service.responder_crisis)."""
+    from services import corporativo_tv_service as tv
+    return _accion(tv.responder_crisis, _usuario_api(request)["_id"], tv_id, accion)
+
+
 @route.post("/tv/{tv_id}/{respuesta}", name="corporativos_responder_tv")
 def responder_tv(tv_id: str, respuesta: str, request: Request):
     from services import corporativo_tv_service as tv

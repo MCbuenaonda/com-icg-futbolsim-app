@@ -16,7 +16,7 @@ REBAJA = {1: 0.15, 2: 0.30, 3: 0.45}          # de lo que paga la marca por rond
 RIESGO_EXTRA = {1: 8, 2: 16, 3: 24}
 CONTAGIO = 0.5
 ENCAJE_RIVAL = {1: 4, 2: 8, 3: 12}
-RESPALDO_CICLOS = 1.0
+RESPALDO_CICLOS = 0.33                       # antes 1,0: respaldar costaba un ciclo entero para ahorrar ~0,12 de ciclo de rebaja y casi nunca convenía
 RESPALDO_RESIDUO = 0.5
 MAX_NOTAS = 3
 
@@ -31,3 +31,7 @@ PROB_MEDIO = 0.50
 TV_REBAJA = {1: 0.10, 2: 0.20, 3: 0.30}
 TV_BONO_RIVAL = {1: 0.03, 2: 0.05, 3: 0.08}
 MEDIO_CREDIBILIDAD = {1: 0.05, 2: 0.10, 3: 0.18}
+# Decisión del CEO en la crisis de una CADENA de TV (solo se pregunta si tu selección va a jugar mientras dure: si no, la crisis no te toca)
+TV_RESPALDO_PARTIDOS = 1        # respaldar cuesta el pago esperado de UN partido de esa selección con la cadena
+TV_RESPALDO_RESIDUO = 0.5       # la rebaja baja a la mitad mientras dure la crisis
+TV_RESPALDO_RENUEVA = 0.10      # la cadena agradecida renueva con +10 puntos de probabilidad al terminar el contrato

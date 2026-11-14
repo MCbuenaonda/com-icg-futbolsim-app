@@ -2,6 +2,7 @@
  * Televisoras (Corporativos): la página /corporativo/televisoras y los chips de TV de la cartera y del inicio.
  *   [data-tv-ficha="<id>"]       -> ficha de la cadena en un modal (GET /corporativos/televisoras/{id})
  *   [data-tv-respuesta]          -> aceptar / rechazar una oferta (POST /corporativos/tv/{id}/{respuesta})
+ *   [data-tv-crisis]             -> respaldar / tomar distancia de una cadena en crisis (POST /corporativos/tv/{id}/crisis/{accion})
  *   #tvFiltros                   -> filtros y orden del catálogo, en el navegador, de a POR_PAGINA con «Mostrar más»
  * Los mensajes van a #alertaTv (o #alertaPerfil / #alertaCorp).
  */
@@ -197,7 +198,28 @@
         } catch (e) { avisar(e.message, 'danger'); }
     }
 
+    async function crisis(boton) {
+        const respaldar = boton.dataset.tvCrisis === 'respaldar';
+        const ok = await UI.confirmar({
+            titulo: respaldar ? `Respaldar a ${boton.dataset.nombre}` : `Tomar distancia de ${boton.dataset.nombre}`,
+            mensaje: respaldar ? `Pagas ${fmt(boton.dataset.costo)} en una campaña de apoyo: la rebaja baja a la mitad mientras dure la crisis y la cadena renovará con más facilidad.`
+                               : `Terminas el contrato sin castigo y pierdes lo que quede de él. ${boton.dataset.otras ? boton.dataset.otras + ' te harán oferta ahora mismo, con un poco más de tarifa.' : ''}`,
+            textoConfirmar: respaldar ? 'Respaldar' : 'Tomar distancia', peligro: !respaldar
+        });
+        if (!ok) return;
+        try {
+            const r = await UI.cargando(fetch(`/corporativos/tv/${encodeURIComponent(boton.dataset.id)}/crisis/${respaldar ? 'respaldar' : 'distancia'}`,
+                { method: 'POST', headers: { accept: 'application/json' } }));
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || 'No se pudo completar la acción');
+            avisar(d.mensaje, 'success');
+            setTimeout(() => location.reload(), 1400);
+        } catch (e) { avisar(e.message, 'danger'); }
+    }
+
     document.addEventListener('click', ev => {
+        const cr = ev.target.closest('[data-tv-crisis]');
+        if (cr) { ev.preventDefault(); crisis(cr); return; }
         const f = ev.target.closest('[data-tv-ficha]');
         const ct = !f && ev.target.closest('[data-tv-contrato]');
         if (ct) { abrirContrato(ct.dataset.tvContrato); return; }

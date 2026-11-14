@@ -157,7 +157,7 @@ def crisis_de(tipo: str, ref_id: int) -> Optional[dict]:
         seq = _seq_reloj()
         for c in _datos()["crisis"]:
             if c["tipo"] == tipo and c["ref_id"] == ref_id and c["desde_seq"] <= seq < c["hasta_seq"]:
-                return {"titular": c["titular"], "severidad": c["severidad"], "partidos_restantes": max(0, c["hasta_seq"] - seq)}
+                return {"crisis_id": c["_id"], "titular": c["titular"], "severidad": c["severidad"], "partidos_restantes": max(0, c["hasta_seq"] - seq)}
     except Exception:
         pass
     return None

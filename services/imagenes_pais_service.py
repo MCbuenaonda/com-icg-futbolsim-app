@@ -34,7 +34,7 @@ db = client.get_database('mundial')
 
 TIPOS_IMAGEN = ("bandera", "plana", "jersey", "icono", "escudo")
 CARPETA_TIPO = {"plana": "bandera_plana"}               # el resto: carpeta = tipo
-VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 19, "foto_equipo": 3, "tecnico": 5, "corporativo": 2, "marca": 1, "estadio": 2, "televisora": 1, "tv_equipo": 1, "medio_logo": 1, "medio_equipo": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
+VERSION_IMAGENES = {"bandera": 2, "icono": 2, "plana": 1, "avatar": 19, "foto_equipo": 3, "tecnico": 5, "corporativo": 2, "marca": 1, "estadio": 2, "televisora": 1, "tv_equipo": 1, "medio_logo": 1, "medio_equipo": 1, "agente": 1}   # "avatar": jugadores/<id>.svg (se redibujan con la edad)
 
 # {id: nombre} y {emoji: id} de 'paises' (se cargan una vez: nombres y banderas no cambian en runtime)
 _nombre_por_id: Optional[dict] = None
@@ -128,7 +128,7 @@ def url_imagen_medios(ruta: Optional[str]) -> Optional[str]:
     """Imagen de una estampa de televisión o marcas (album_medios.imagen): logo de cadena, logo de marca o avatar de persona."""
     if not ruta:
         return None
-    version = VERSION_IMAGENES.get({"televisoras": "televisora", "marcas": "marca", "tv_equipo": "tv_equipo", "medios": "medio_logo", "medios_equipo": "medio_equipo"}.get(ruta.split("/")[0], ""), 1)
+    version = VERSION_IMAGENES.get({"televisoras": "televisora", "marcas": "marca", "tv_equipo": "tv_equipo", "medios": "medio_logo", "medios_equipo": "medio_equipo", "agentes": "agente"}.get(ruta.split("/")[0], ""), 1)
     return f"{IMAGENES_PAISES_URL}/{quote(ruta)}?v={version}"
 
 

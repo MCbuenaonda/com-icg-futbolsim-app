@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Agentes · Corporativos{% endblock %}
+
+{% block content %}
+{#
+  Agentes de TUS representados (services/corporativo_agentes_service.vista_agentes): tus contratos vigentes con lo que aportan y
+  cobran, y el catálogo de los 100 agentes con filtros en el navegador. Contratar cotiza primero (GET .../cotizar, sin cobrar).
+#}
+<div class="container-fluid py-3 px-md-4">
+  <a href="/corporativo/" class="small text-muted text-decoration-none"><i class="bi bi-arrow-left me-1"></i>Mi carrera</a>
+  <div id="alertaAg"></div>
+
+  <div class="card card-logo-fondo card-logo-fondo--sin-brillo corp-hero my-3" style="--logo-color: #a78bfa;">
+    <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div class="min-w-0">
+        <span class="corp-sobretitulo">Ciclo {{ ciclo }} · tu universo{% if sigla %} · {{ sigla }}{% endif %}</span>
+        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-briefcase-fill me-2" style="color:#a78bfa"></i>Agentes</h1>
+        <p class="text-muted small mb-0">Un agente trabaja para UNO de tus representados durante {{ ciclos_contrato }} ciclos. Mejora lo que pagan las marcas
+          (firma y pago por ciclo), hace que se acerquen más y mueve el riesgo de que corten, pero se queda con una comisión de lo que cobran.
+          Rinde más si conoce la región del representado y cuanto mejor sea su prestigio; con uno que no encaja puedes salir perdiendo unos puntos.
+          Hasta {{ max_agentes }} a la vez y cada agente atiende a {{ agentes[0].cupo if agentes else 3 }}. Cancelar antes de tiempo cuesta {{ penalizacion_pct }}% de un ciclo de su comisión.</p>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <div class="fixture-kpi"><span>Contratos</span><strong>{{ mis_contratos | length }} / {{ max_agentes }}</strong></div>
+        <div class="fixture-kpi"><span>Bonos ganados</span><strong class="text-success">+{{ '{:,}'.format(mis_contratos | sum(attribute='bono_total')) }}</strong></div>
+        <div class="fixture-kpi"><span>Comisiones</span><strong class="text-warning">-{{ '{:,}'.format(mis_contratos | sum(attribute='comision_total')) }}</strong></div>
+      </div>
+    </div>
+  </div>
+
+  {% if not en_cargo %}
+  <div class="alert alert-info small"><i class="bi bi-info-circle me-1"></i>Sin cargo de CEO no puedes contratar agentes: puedes explorar el catálogo.</div>
+  {% endif %}
+
+  {% if mis_contratos %}
+  <h2 class="vivo-titulo"><i class="bi bi-person-check-fill text-success"></i>Tus agentes</h2>
+  <div class="ag-lista mb-4">
+    {% for x in mis_contratos %}
+    <div class="ag-contrato">
+      <img class="ag-avatar" src="{{ x.agente.avatar }}" alt="" loading="lazy">
+      <div class="min-w-0 flex-grow-1">
+        <div class="fw-bold text-white">{{ x.agente.nombre }} <span class="ag-chip"><i class="bi {{ x.agente.rasgo_icono }}"></i>{{ x.agente.rasgo_nombre }}</span>
+          {% if not x.conoce_region %}<span class="ag-chip ag-chip--aviso" title="No conoce la región de su representado: sus bonos valen la mitad"><i class="bi bi-geo-alt"></i>Región ajena</span>{% endif %}
+          {% if x.sinergia_album %}<span class="ag-chip ag-chip--ok" title="Tienes su estampa: 1 punto menos de comisión"><i class="bi bi-stars"></i>Estampa</span>{% endif %}</div>
+        <div class="small text-muted">Representa los intereses de <strong class="text-body">{{ x.representado }}</strong> · quedan {{ x.ciclos_restantes }} ciclo{{ 's' if x.ciclos_restantes != 1 }} (hasta el {{ x.hasta_ciclo }})</div>
+        <div class="ag-numeros">
+          <span title="Bono sobre firma y pago de las marcas"><i class="bi bi-arrow-up-right text-success"></i>+{{ (x.bono_pago * 100) | round(1) }}%</span>
+          <span title="Comisión que se queda"><i class="bi bi-percent text-warning"></i>{{ (x.comision * 100) | round(1) }}%</span>
+          <span title="Puntos de encaje extra con las marcas"><i class="bi bi-magnet"></i>{{ '%+d' % x.encaje }}</span>
+          <span title="Riesgo de corte del patrocinio (negativo = más seguro)"><i class="bi bi-shield"></i>{{ '%+d' % x.riesgo }}</span>
+          <span title="Neto sobre lo que pagan las marcas (1,00 = igual que sin agente)" class="{{ 'text-success' if x.neto >= 1 else 'text-danger' }}"><i class="bi bi-calculator"></i>×{{ '%.3f' % x.neto }}</span>
+          <span class="text-muted">Hasta ahora: +{{ '{:,}'.format(x.bono_total) }} / -{{ '{:,}'.format(x.comision_total) }}</span>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-outline-danger rounded-pill" data-ag-cancelar="{{ x.id }}" data-ag-costo="{{ x.penalizacion }}" data-ag-nombre="{{ x.agente.nombre }}"><i class="bi bi-x-lg me-1"></i>Cancelar</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <h2 class="vivo-titulo"><i class="bi bi-people-fill" style="color:#a78bfa"></i>Catálogo de agentes</h2>
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <input id="agBuscar" type="search" class="form-control form-control-sm" style="max-width: 16rem" placeholder="Buscar por nombre o país">
+    <select id="agConf" class="form-select form-select-sm" style="max-width: 11rem"><option value="">Toda región</option>{% for k, v in confederaciones.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select>
+    <select id="agRasgo" class="form-select form-select-sm" style="max-width: 12rem"><option value="">Todo rasgo</option>{% for r in rasgos %}<option value="{{ r.codigo }}">{{ r.nombre }}</option>{% endfor %}</select>
+    <select id="agOrden" class="form-select form-select-sm" style="max-width: 13rem"><option value="calidad">Mejor prestigio</option><option value="comision">Menor comisión</option><option value="nombre">Nombre</option></select>
+    <div class="form-check form-switch align-self-center small"><input class="form-check-input" type="checkbox" id="agCupo"><label class="form-check-label" for="agCupo">Solo con cupo</label></div>
+    <div class="form-check form-switch align-self-center small"><input class="form-check-input" type="checkbox" id="agEstampa"><label class="form-check-label" for="agEstampa">Con mi estampa</label></div>
+    <span class="small text-muted align-self-center ms-auto" id="agConteo"></span>
+  </div>
+  <div class="small text-muted mb-2">{% for r in rasgos %}<span class="me-3"><i class="bi {{ r.icono }} me-1"></i><strong>{{ r.nombre }}</strong>: {{ r.texto }}</span>{% endfor %}</div>
+  <div class="ag-grid" id="agGrid">
+    {% for a in agentes %}
+    <div class="ag-card" data-ag="{{ a.id }}" data-nombre="{{ (a.nombre ~ ' ' ~ a.pais_nombre) | lower }}" data-conf="{{ a.confederacion_id }}" data-rasgo="{{ a.rasgo }}"
+         data-calidad="{{ a.calidad }}" data-comision="{{ a.comision }}" data-cupo="{{ 1 if a.ocupados < a.cupo else 0 }}" data-estampa="{{ 1 if a.con_estampa else 0 }}" data-n="{{ a.nombre | lower }}">
+      <img class="ag-avatar ag-avatar--lg" src="{{ a.avatar }}" alt="" loading="lazy">
+      <div class="min-w-0 flex-grow-1">
+        <div class="fw-bold text-white text-truncate">{{ a.nombre }}{% if a.con_estampa %} <i class="bi bi-stars text-warning" title="Tienes su estampa del álbum"></i>{% endif %}</div>
+        <div class="small text-muted text-truncate">{% if a.bandera %}{{ a.bandera }} {% endif %}{{ a.pais_nombre }} · {{ a.edad }} años</div>
+        <div class="my-1"><span class="ag-chip"><i class="bi {{ a.rasgo_icono }}"></i>{{ a.rasgo_nombre }}</span>
+          <span class="ag-chip" title="Comisión sobre lo que cobren tus marcas"><i class="bi bi-percent"></i>{{ a.comision_texto }}</span></div>
+        <div class="ag-prestigio" title="Prestigio {{ a.calidad }}/100"><i style="width: {{ a.calidad }}%"></i></div>
+        <div class="d-flex justify-content-between align-items-center mt-2">
+          <small class="text-muted">Cupo {{ a.ocupados }}/{{ a.cupo }}</small>
+          {% if en_cargo and libres %}<button class="btn btn-sm btn-outline-light rounded-pill px-3" data-ag-contratar="{{ a.id }}" {{ 'disabled' if a.ocupados >= a.cupo }}>Contratar</button>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="modal fade" id="agModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content bg-body-tertiary">
+    <div class="modal-header border-0"><h5 class="modal-title" id="agModalTitulo">Contratar agente</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+    <div class="modal-body">
+      <label class="form-label small text-muted" for="agRep">¿A quién va a representar?</label>
+      <select id="agRep" class="form-select mb-3">{% for l in libres %}<option value="{{ l.contrato_id }}">{{ l.nombre }} · {{ 'selección' if l.tipo == 'seleccion' else 'jugador' }}</option>{% endfor %}</select>
+      <div id="agCotiza" class="small"></div>
+    </div>
+    <div class="modal-footer border-0"><button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button><button class="btn btn-accent rounded-pill px-4" id="agConfirmar">Contratar</button></div>
+  </div></div>
+</div>
+
+<script>
+(function () {
+  const alerta = (t, tipo = 'success') => { const d = document.getElementById('alertaAg'); d.innerHTML = `<div class="alert alert-${tipo} small">${UI.escapar(t)}</div>`; window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const post = async (url, cuerpo) => { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || 'No se pudo completar'); return j; };
+  // --- filtros del catálogo (en el navegador)
+  const tarjetas = [...document.querySelectorAll('.ag-card')];
+  const el = id => document.getElementById(id);
+  function filtrar() {
+    const q = el('agBuscar').value.trim().toLowerCase(), conf = el('agConf').value, ras = el('agRasgo').value, cupo = el('agCupo').checked, est = el('agEstampa').checked;
+    let n = 0;
+    tarjetas.forEach(t => { const ok = (!q || t.dataset.nombre.includes(q)) && (!conf || t.dataset.conf === conf) && (!ras || t.dataset.rasgo === ras)
+      && (!cupo || t.dataset.cupo === '1') && (!est || t.dataset.estampa === '1'); t.classList.toggle('d-none', !ok); n += ok; });
+    el('agConteo').textContent = `${n} agente${n === 1 ? '' : 's'}`;
+  }
+  function ordenar() {
+    const k = el('agOrden').value, g = el('agGrid');
+    [...tarjetas].sort((a, b) => k === 'calidad' ? b.dataset.calidad - a.dataset.calidad : (k === 'comision' ? a.dataset.comision - b.dataset.comision : a.dataset.n.localeCompare(b.dataset.n))).forEach(t => g.appendChild(t));
+  }
+  ['agBuscar', 'agConf', 'agRasgo', 'agCupo', 'agEstampa'].forEach(i => el(i).addEventListener('input', filtrar));
+  el('agOrden').addEventListener('change', ordenar); ordenar(); filtrar();
+  // --- contratar
+  let agenteId = null;
+  const modalEl = el('agModal'), modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+  async function cotizar() {
+    const caja = el('agCotiza'); if (!el('agRep').value) { caja.innerHTML = ''; return; }
+    caja.innerHTML = '<span class="text-muted">Calculando…</span>';
+    try {
+      const r = await fetch(`/corporativos/agentes/${agenteId}/cotizar?contrato_id=${encodeURIComponent(el('agRep').value)}`); const c = await r.json();
+      if (!r.ok) throw new Error(c.detail);
+      const pct = x => (x * 100).toFixed(1) + '%';
+      caja.innerHTML = `<div class="ag-cotiza"><div><span>Bono a firma y pago</span><strong class="text-success">+${pct(c.bono_pago)}</strong></div>
+        <div><span>Comisión</span><strong class="text-warning">${pct(c.comision)}</strong></div><div><span>Encaje con marcas</span><strong>${c.encaje >= 0 ? '+' : ''}${c.encaje}</strong></div>
+        <div><span>Riesgo de corte</span><strong>${c.riesgo >= 0 ? '+' : ''}${c.riesgo}</strong></div>
+        <div><span>Neto sobre lo que pagan</span><strong class="${c.neto >= 1 ? 'text-success' : 'text-danger'}">×${c.neto.toFixed(3)}</strong></div></div>
+        ${c.conoce_region ? '' : '<div class="text-warning mt-2"><i class="bi bi-geo-alt me-1"></i>No conoce la región de este representado: sus bonos valen la mitad.</div>'}
+        ${c.sinergia_album ? '<div class="text-success mt-1"><i class="bi bi-stars me-1"></i>Tu estampa del álbum le baja 1 punto la comisión.</div>' : ''}`;
+    } catch (e) { caja.innerHTML = `<span class="text-danger">${UI.escapar(e.message)}</span>`; }
+  }
+  document.querySelectorAll('[data-ag-contratar]').forEach(b => b.addEventListener('click', () => { agenteId = b.dataset.agContratar;
+    el('agModalTitulo').textContent = 'Contratar a ' + b.closest('.ag-card').querySelector('.fw-bold').textContent.trim(); modal.show(); cotizar(); }));
+  el('agRep') && el('agRep').addEventListener('change', cotizar);
+  el('agConfirmar') && el('agConfirmar').addEventListener('click', async () => {
+    const b = el('agConfirmar'); b.disabled = true;
+    try { const r = await post(`/corporativos/agentes/${agenteId}/contratar`, { contrato_id: el('agRep').value }); modal.hide(); sessionStorage.setItem('agMsg', r.mensaje); location.reload(); }
+    catch (e) { el('agCotiza').insertAdjacentHTML('beforeend', `<div class="text-danger mt-2">${UI.escapar(e.message)}</div>`); b.disabled = false; }
+  });
+  // --- cancelar
+  document.querySelectorAll('[data-ag-cancelar]').forEach(b => b.addEventListener('click', async () => {
+    const costo = Number(b.dataset.agCosto || 0);
+    const ok = await UI.confirmar({ titulo: 'Cancelar contrato', mensaje: `¿Cancelar a ${b.dataset.agNombre}?` + (costo ? ` Pagarás ${costo.toLocaleString()} por romper antes de tiempo.` : ' No tiene costo.'), textoConfirmar: 'Cancelar contrato', peligro: true });
+    if (!ok) return;
+    try { const r = await post(`/corporativos/agentes/pactos/${encodeURIComponent(b.dataset.agCancelar)}/cancelar`); sessionStorage.setItem('agMsg', r.mensaje); location.reload(); }
+    catch (e) { alerta(e.message, 'danger'); }
+  }));
+  const msg = sessionStorage.getItem('agMsg'); if (msg) { sessionStorage.removeItem('agMsg'); alerta(msg); }
+})();
+</script>
+{% endblock %}

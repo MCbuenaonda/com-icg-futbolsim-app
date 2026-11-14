@@ -38,7 +38,7 @@ class StickerOut(BaseModel):
     estilo: Optional[str] = None
     # logos, dueños, comentaristas, directores y periodistas (televisoras, marcas y prensa; colección album_medios)
     detalle: Optional[str] = None
-    origen: Optional[str] = None            # televisora | marca | medio
+    origen: Optional[str] = None            # televisora | marca | medio | agente
     rasgo: Optional[str] = None
     imagen_url: Optional[str] = None
     imagen: Optional[str] = None

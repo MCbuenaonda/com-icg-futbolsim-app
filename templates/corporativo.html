@@ -299,6 +299,8 @@
               {% set tvr = mc.tv %}
               <a href="/corporativo/televisoras" class="corp-herramienta"><i class="bi bi-broadcast"></i><strong>Televisoras</strong>
                 <small>{% if tvr and tvr.activos %}{{ tvr.activos | length }} contrato{{ 's' if tvr.activos | length != 1 }} de transmisión{% if tvr.ofertas %} · {{ tvr.ofertas | length }} oferta{{ 's' if tvr.ofertas | length != 1 }}{% endif %}{% elif tvr and tvr.ofertas %}{{ tvr.ofertas | length }} oferta{{ 's' if tvr.ofertas | length != 1 }} por tus selecciones{% else %}Derechos de TV de tus selecciones{% endif %}</small></a>
+              <a href="/corporativo/agentes" class="corp-herramienta"><i class="bi bi-briefcase-fill"></i><strong>Agentes</strong>
+                <small>Un representante que mejora lo que pagan las marcas, a cambio de una comisión</small></a>
               <a href="/corporativo/ranking" class="corp-herramienta"><i class="bi bi-trophy"></i><strong>Ranking de CEOs</strong><small>Cómo vas contra los otros CEO</small></a>
             </div>
           </div>

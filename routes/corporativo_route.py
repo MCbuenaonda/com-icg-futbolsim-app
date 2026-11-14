@@ -123,6 +123,18 @@ def corporativo_televisoras(request: Request):
     return templates.TemplateResponse(request=request, name="corporativo_televisoras.html", context=datos)
 
 
+@route_vistas.get("/agentes", response_class=HTMLResponse, name="corporativo_agentes")
+def corporativo_agentes(request: Request):
+    from services import corporativo_agentes_service as agentes
+    usuario = obtener_usuario_actual(request)
+    if not usuario:
+        return RedirectResponse(url=request.url_for("login"), status_code=303)
+    datos = agentes.vista_agentes(usuario["_id"])
+    if not datos:
+        return RedirectResponse(url=request.url_for("corporativo_inicio"), status_code=303)
+    return templates.TemplateResponse(request=request, name="corporativo_agentes.html", context=datos)
+
+
 @route_vistas.get("/{sigla}", response_class=HTMLResponse, name="corporativo_perfil")
 def corporativo_perfil(sigla: str, request: Request):
     usuario = obtener_usuario_actual(request)
@@ -216,6 +228,29 @@ def seguro(accion: str, request: Request):
         raise HTTPException(status_code=404, detail="Acción desconocida")
     from services import corporativo_service
     return _accion(corporativo_service.cambiar_seguro, _usuario_api(request)["_id"], accion == "activar")
+
+
+@route.get("/agentes/{agente_id}/cotizar", name="corporativos_agente_cotizar")
+def agente_cotizar(agente_id: int, contrato_id: str, request: Request):
+    """Cotiza (sin cobrar) lo que daría ese agente con ese representado: bono, comisión, encaje, riesgo y neto."""
+    from services import corporativo_agentes_service as agentes
+    return _accion(agentes.cotizar, _usuario_api(request)["_id"], agente_id, contrato_id)
+
+
+class ContratarAgenteIn(BaseModel):
+    contrato_id: str
+
+
+@route.post("/agentes/{agente_id}/contratar", name="corporativos_agente_contratar")
+def agente_contratar(agente_id: int, datos: ContratarAgenteIn, request: Request):
+    from services import corporativo_agentes_service as agentes
+    return _accion(agentes.contratar, _usuario_api(request)["_id"], agente_id, datos.contrato_id)
+
+
+@route.post("/agentes/pactos/{pacto_id}/cancelar", name="corporativos_agente_cancelar")
+def agente_cancelar(pacto_id: str, request: Request):
+    from services import corporativo_agentes_service as agentes
+    return _accion(agentes.cancelar, _usuario_api(request)["_id"], pacto_id)
 
 
 @route.post("/marcas/crisis/{pat_id}/{accion}", name="corporativos_crisis_marca")

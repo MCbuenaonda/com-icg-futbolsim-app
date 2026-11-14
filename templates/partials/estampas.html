@@ -318,7 +318,7 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
         <div><dt>Tipo</dt><dd>{{ x.detalle }}</dd></div>
         {% if x.pais_nombre %}<div><dt>País</dt><dd>{{ x.pais_nombre }}</dd></div>{% endif %}
       </dl>
-      <a href="{{ '/red-social/?filtro=prensa' if x.origen == 'medio' else ('/corporativo/televisoras' if x.origen == 'televisora' else '/corporativo/marcas') }}" class="estampa__link" tabindex="-1">Ver {{ 'la prensa' if x.origen == 'medio' else ('televisoras' if x.origen == 'televisora' else 'marcas') }} <i class="bi bi-arrow-right"></i></a>
+      <a href="{{ '/red-social/?filtro=prensa' if x.origen == 'medio' else ('/corporativo/agentes' if x.origen == 'agente' else ('/corporativo/televisoras' if x.origen == 'televisora' else '/corporativo/marcas')) }}" class="estampa__link" tabindex="-1">Ver {{ 'la prensa' if x.origen == 'medio' else ('agentes' if x.origen == 'agente' else ('televisoras' if x.origen == 'televisora' else 'marcas')) }} <i class="bi bi-arrow-right"></i></a>
     </div>
   </div>
 </div>
@@ -327,7 +327,7 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
 {# Comentarista (Normal) o dueño (Dorada): su avatar sobre la bandera del país de la cadena o marca #}
 {% macro persona(x, dorada=False) -%}
 {%- set bandera_url = img_pais(x.pais_id, 'plana') if x.pais_id else None -%}
-{%- set rol = ('Director' if x.origen == 'medio' else 'Dueño') if dorada else ('Periodista' if x.origen == 'medio' else 'Comentarista') -%}
+{%- set rol = 'Agente' if x.origen == 'agente' else (('Director' if x.origen == 'medio' else 'Dueño') if dorada else ('Periodista' if x.origen == 'medio' else 'Comentarista')) -%}
 <div class="estampa estampa--persona {{ 'estampa--dorada' if dorada else 'estampa--normal' }}" tabindex="0" role="button" aria-label="Estampa de {{ rol | lower }}: {{ x.nombre }}. Toca para ver el reverso">
   <div class="estampa__giro">
     <div class="estampa__cara estampa__frente" {% if bandera_url %}style="--bandera-url: url('{{ bandera_url }}')"{% endif %}>
@@ -340,11 +340,11 @@ data-canje-tipo="{{ tipo }}" data-canje-id="{{ x.id }}" data-canje-nombre="{{ no
       <div class="estampa__reverso-titulo"><span>{{ rol | upper }}</span>{{ x.nombre }}</div>
       <div class="estampa__ovr"><small>Edad</small>{{ x.edad or '—' }}</div>
       <dl class="estampa__datos">
-        <div class="estampa__dato-ancho"><dt>{{ ('Dirige' if x.origen == 'medio' else 'Es dueño de') if dorada else ('Escribe en' if x.origen == 'medio' else 'Comenta en') }}</dt><dd>{{ (x.detalle or '').split(' · ', 1)[-1] }}</dd></div>
+        <div class="estampa__dato-ancho"><dt>{{ 'Representa desde' if x.origen == 'agente' else (('Dirige' if x.origen == 'medio' else 'Es dueño de') if dorada else ('Escribe en' if x.origen == 'medio' else 'Comenta en')) }}</dt><dd>{{ (x.detalle or '').split(' · ', 1)[-1] }}</dd></div>
         {% if dorada and x.rasgo %}<div class="estampa__dato-ancho"><dt>Rasgo</dt><dd>{{ x.rasgo }}</dd></div>{% endif %}
         {% if x.pais_nombre %}<div class="estampa__dato-ancho"><dt>País</dt><dd>{{ x.pais_nombre }}</dd></div>{% endif %}
       </dl>
-      <a href="{{ '/red-social/?filtro=prensa' if x.origen == 'medio' else ('/corporativo/televisoras' if x.origen == 'televisora' else '/corporativo/marcas') }}" class="estampa__link" tabindex="-1">Ver {{ 'la prensa' if x.origen == 'medio' else ('televisoras' if x.origen == 'televisora' else 'marcas') }} <i class="bi bi-arrow-right"></i></a>
+      <a href="{{ '/red-social/?filtro=prensa' if x.origen == 'medio' else ('/corporativo/agentes' if x.origen == 'agente' else ('/corporativo/televisoras' if x.origen == 'televisora' else '/corporativo/marcas')) }}" class="estampa__link" tabindex="-1">Ver {{ 'la prensa' if x.origen == 'medio' else ('agentes' if x.origen == 'agente' else ('televisoras' if x.origen == 'televisora' else 'marcas')) }} <i class="bi bi-arrow-right"></i></a>
     </div>
   </div>
 </div>

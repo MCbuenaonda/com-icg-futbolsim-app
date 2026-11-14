@@ -4,6 +4,7 @@ Catálogo de las estampas de TELEVISIÓN Y MARCAS del álbum: colección 'album_
   categoria LOGO       logo de cada televisora (633) y de cada marca (121)        -> rareza Especial
   categoria PERSONAJE  comentaristas de las televisoras (2 por cadena = 1.266)    -> rareza Normal
   categoria DUENO      dueños de las televisoras (633) y de las marcas (121)      -> rareza Dorada
+                       y los 100 AGENTES (origen 'agente', ids 900000+id, página 'agentes') -> rareza Dorada
 
 Cada documento: {id, categoria, origen 'televisora'|'marca', ref_id, nombre, detalle, imagen, pais_id, rasgo?, edad?}.
 Ids fijos y legibles: 100000+tv (logo tv), 200000+marca (logo marca), 300000+tv*10+n (comentarista n), 400000+tv (dueño tv),
@@ -35,7 +36,7 @@ def armar(db):
     nombres_pais = {p["id"]: p["nombre"] for p in db["paises"].find({}, {"id": 1, "nombre": 1})}
     rubros = list(RUBROS)
     for d in docs:
-        if d["origen"] == "medio":   # las de prensa ya traen su página y su orden (_armar_prensa)
+        if d["origen"] in ("medio", "agente"):   # las de prensa y agentes ya traen su página y su orden
             continue
         rol = {"LOGO": 0, "DUENO": 1, "PERSONAJE": 2}[d["categoria"]]
         if d["origen"] == "televisora":
@@ -74,6 +75,20 @@ def _armar(db):
             docs.append({"id": 500000 + m["id"], "categoria": "DUENO", "origen": "marca", "ref_id": m["id"], "nombre": d["nombre"],
                          "detalle": f"Dueño · {m['nombre']}", "imagen": d.get("avatar"), "pais_id": pais, "edad": d.get("edad"), "rasgo": d.get("rasgo_nombre")})
     docs += _armar_prensa(db, paises)
+    docs += _armar_agentes(db)
+    return docs
+
+
+def _armar_agentes(db):
+    """Estampas de AGENTES (Dorada): una página «Agentes» con una pestaña por confederación (generar_agentes.py)."""
+    from config.agentes import ID_ESTAMPA_BASE
+    docs = []
+    for a in db["agentes"].find({}, {"_id": 0}).sort("id", 1):
+        conf = CONFEDERACIONES.get(a["confederacion_id"], "Otras")
+        docs.append({"id": ID_ESTAMPA_BASE + a["id"], "categoria": "DUENO", "origen": "agente", "ref_id": a["id"], "nombre": a["nombre"],
+                     "detalle": f"Agente · {a['pais_nombre']}", "imagen": a.get("avatar"), "pais_id": a["pais_id"], "edad": a.get("edad"),
+                     "rasgo": a.get("rasgo_nombre"), "pagina": "agentes", "subgrupo": conf, "orden": a["confederacion_id"] * 10 ** 6,
+                     "cadena": a["nombre"], "pais_nombre": a["pais_nombre"], "rol_orden": 0})
     return docs
 
 

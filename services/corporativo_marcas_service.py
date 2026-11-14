@@ -35,6 +35,7 @@ from pymongo.errors import BulkWriteError, DuplicateKeyError
 
 from config import corporativos as C
 from services import corporativo_reglas as R
+from services import corporativo_agentes_service as AG
 from services import corporativo_universo_service as U
 from services import red_social_textos as T
 from services.corporativo_mercado_service import valores
@@ -334,6 +335,7 @@ def cerrar_ciclo_marcas(estado, ciclo: int) -> None:
     """Cierre de ciclo: la última ronda del ciclo + vencimientos/renovaciones y los riesgos de fondo (llamado desde
     corporativo_acciones_service.cerrar_ciclo_acciones, antes de limpiar eventos_ciclo)."""
     ronda_marcas(estado, ciclo, ciclo * C.PARTIDOS_POR_CICLO, cierre=True)
+    AG.cerrar_ciclo(estado, ciclo)   # agentes: guarda lo acumulado y termina contratos vencidos
 
 
 def ronda_marcas(estado, ciclo: int, seq: int, cierre: bool = False) -> None:
@@ -418,7 +420,7 @@ def _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre) -> 
         crisis = EC.efecto_para(p["marca_id"], seq)
         respaldada = bool(crisis and p.get("crisis_respaldo") == crisis["crisis_id"])
         extra_riesgo = crisis["riesgo_extra"] if (crisis and not respaldada) else 0
-        riesgo = min(100, riesgo + extra_riesgo)
+        riesgo = min(100, max(0, riesgo + extra_riesgo + AG.riesgo_extra(c)))   # + lo que mueve su agente (si tiene)
         if crisis and es_usuario:
             U.avisar(uid, ciclo, "MARCA", f"{marca['nombre']} " + ("está en crisis" if crisis["propia"] else "se ve salpicada por la crisis de una marca aliada"),
                      f"{crisis['titular']} Mientras dure paga menos por el patrocinio de {nombre} y cuida su imagen. Puedes respaldarla o tomar distancia en Marcas y patrocinios.",
@@ -445,6 +447,7 @@ def _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre) -> 
         en_tv = (c.get("tv_bono_hasta_seq") or 0) >= seq   # apareció hace poco como invitado en TV (corporativo_tv_service)
         if en_tv:
             pago = int(round(pago * C.TV_INVITADO_BONO_MARCAS))
+        pago = AG.ajustar(estado, corp, c, pago, ciclo, f"el patrocinio de {marca['nombre']}")   # bono y comisión de su agente
         cobro = _cobrar(estado, corp, c, p, pago, ciclo, f"{marca['nombre']}: patrocinio de {nombre}" + (" (+ por su aparición en TV)" if en_tv else ""))
         cambios = {"$inc": {"pagos": 1, "cobrado": cobro["cobrado"], "comision": cobro["comision"]}, "$set": {}}
         if ev or cierre or extra_riesgo or p.get("crisis_marca"):   # sin hechos en la ronda, el semáforo queda como estaba
@@ -498,7 +501,8 @@ def _activar(estado, ciclo: int, marca: dict, c: dict, corp: dict, encaje: int, 
            "desde_seq": seq + 1, "hasta_ciclo": ciclo + ciclos, "pagos": 0, "cobrado": 0, "comision": 0, "riesgo": 0, "aviso_ciclo": None,
            "origen": origen, "estado": "ACTIVO", "motivo": None, "ciclo": ciclo, "creado_en": datetime.utcnow()}
     nombre = _nombre(c["tipo"], c["ref_id"])
-    cobro = _cobrar(estado, corp, c, doc, montos["firma"], ciclo, f"{marca['nombre']}: firma del patrocinio de {nombre}")
+    firma = AG.ajustar(estado, corp, c, montos["firma"], ciclo, f"la firma de {marca['nombre']}")
+    cobro = _cobrar(estado, corp, c, doc, firma, ciclo, f"{marca['nombre']}: firma del patrocinio de {nombre}")
     doc.update(cobrado=cobro["cobrado"], comision=cobro["comision"])
     if pat_id:
         _upd("corp_patrocinios", pat_id, {"$set": doc})
@@ -590,6 +594,8 @@ def _candidatos(marca: dict, ctx: dict, ocup: dict, contratos: dict, reps: dict)
         e = R.encaje_marca(marca, rep)
         if e and (c.get("tv_bono_hasta_seq") or 0) >= (getattr(_hilo, "ancla_seq", None) or 0):   # salió en TV: más interés
             e = min(100, e + C.TV_INVITADO_ENCAJE)
+        if e:
+            e = min(100, e + AG.encaje_extra(c))   # su agente le abre puertas
         if e:   # la crisis de una marca rival la deja con espacio para acercarse (services/escandalos_service.py)
             from services.escandalos_service import bonus_encaje
             e = min(100, e + bonus_encaje(marca["id"], getattr(_hilo, "ancla_seq", None) or 0))
@@ -850,7 +856,7 @@ def responder_oferta(user_id, pat_id: str, aceptar: bool) -> dict:
         if not c:
             db["corp_patrocinios"].update_one({"_id": pat_id}, {"$set": {"estado": "DESCARTADA", "motivo": "Ya no lo representas"}})
             raise ValueError("Ya no representas a " + nombre)
-        firma = p["firma"]
+        firma = AG.ajustar_directo(user_id, c["_id"], p["sigla"], p["firma"], ciclo, f"la firma de {marca['nombre']}")
         com = int(round(firma * C.MARCA_COMISION_CEO))   # tu 5%: se descuenta y se paga con el sueldo del cierre (marcas_bruto)
         corp = db["corp_corporativos"].find_one_and_update(
             {"universo_id": user_id, "sigla": p["sigla"]},

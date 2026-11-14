@@ -67,6 +67,8 @@ class Estado:
         self.movimientos: List[dict] = []
         self.sucios = set()
         self._indexar()
+        from services import corporativo_agentes_service as AG   # agentes del usuario (_agente en sus contratos)
+        AG.cargar(self)
         for c in self.corps.values():
             c.setdefault("ciclo_actual", ciclo_vacio())
             for k, v0 in ciclo_vacio().items():

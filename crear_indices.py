@@ -227,6 +227,11 @@ def crear_indices():
     homenajes.create_index([("jugador_id", 1)], name="jugador")
     print("✅ Índices creados en 'homenajes'")
 
+    db['agentes'].create_index("id", unique=True)
+    db['corp_agentes'].create_index([("universo_id", 1), ("estado", 1)], name="universo_estado")
+    db['corp_agentes'].create_index([("universo_id", 1), ("contrato_id", 1)], name="universo_contrato")
+    print("✅ Índices creados en 'agentes' y 'corp_agentes'")
+
     city_revenue_history = db['city_revenue_history']
     city_revenue_history.create_index("user_id", name="user_id")
     city_revenue_history.create_index("ciudad_id", name="ciudad_id")

@@ -438,6 +438,12 @@ def _relaciones_de(tipo, ref):
         return {"rivales": [], "aliados": []}
 
 
+def _premios_de(tipo, ref):
+    """Jinja: premios que ganó un jugador, técnico o árbitro en los Mundiales ([{nombre, anio, icono}])."""
+    from services.premios_service import premios_de
+    return premios_de(tipo, ref)
+
+
 def _estadio_nombre(ciudad_id, original=None):
     """Nombre comercial del estadio si una marca tiene los derechos de nombre (services/naming_sedes_service.py)."""
     from services.naming_sedes_service import nombre_estadio
@@ -445,7 +451,7 @@ def _estadio_nombre(ciudad_id, original=None):
 
 
 GLOBALES_JINJA = {
-    "estadio_nombre": _estadio_nombre, "rivalidad_partido": _rivalidad_partido, "relaciones_de": _relaciones_de, "polemica_partido": _polemica_partido, "reputacion_arbitro": _reputacion_arbitro, "suspendidos_pais": _suspendidos_pais, "sanciones_partido": _sanciones_partido, "sanciones_de": _sanciones_de, "bajas_previa": _bajas_previa, "declaraciones_de_partido": _declaraciones_de_partido, "declaraciones_de": _declaraciones_de,
+    "estadio_nombre": _estadio_nombre, "premios_de": _premios_de, "rivalidad_partido": _rivalidad_partido, "relaciones_de": _relaciones_de, "polemica_partido": _polemica_partido, "reputacion_arbitro": _reputacion_arbitro, "suspendidos_pais": _suspendidos_pais, "sanciones_partido": _sanciones_partido, "sanciones_de": _sanciones_de, "bajas_previa": _bajas_previa, "declaraciones_de_partido": _declaraciones_de_partido, "declaraciones_de": _declaraciones_de,
     "prensa_de_partido": _prensa_de_partido, "pronosticos_partido": _pronosticos_partido, "prensa_sobre": _prensa_sobre, "prensa_reputacion": _prensa_reputacion,
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,

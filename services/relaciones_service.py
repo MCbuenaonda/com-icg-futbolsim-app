@@ -152,6 +152,23 @@ def de_ref(tipo: str, ref: int, limite: int = 8) -> Dict[str, List[dict]]:
     return out
 
 
+def todas(tipo: str, limite: int = 3) -> Dict[int, Dict[str, List[dict]]]:
+    """{id: {'rivales': [...], 'aliados': [...]}} de TODAS las marcas/medios/cadenas en una consulta (catálogos); cada uno con nombre del otro lado."""
+    docs = list(db[COL].find({"tipo": tipo}, {"_id": 0}).sort("intensidad", -1))
+    out: Dict[int, Dict[str, List[dict]]] = {}
+    for d in docs:
+        for yo, otro in ((d["a"], d["b"]), (d["b"], d["a"])):
+            lista = out.setdefault(yo, {"rivales": [], "aliados": []})["rivales" if d["clase"] == "rivalidad" else "aliados"]
+            if len(lista) < limite:
+                lista.append({"id": otro, "intensidad": d["intensidad"], "motivos": d["motivos"]})
+    nombres = _nombres(tipo, list({x["id"] for r in out.values() for v in r.values() for x in v}))
+    for r in out.values():
+        for v in r.values():
+            for x in v:
+                x.update(nombres.get(x["id"], {"nombre": f"#{x['id']}"}))
+    return out
+
+
 def _nombres(tipo: str, ids: List[int]) -> Dict[int, dict]:
     """{id: {nombre, bandera?, pais_id?}} del otro lado de cada relación, según el tipo."""
     if not ids:

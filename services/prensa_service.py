@@ -179,7 +179,7 @@ def asegurar_prensa(j: Optional[dict], forzar: bool = False) -> int:
 # --- Vistas ----------------------------------------------------------------------------------------------------------
 LINEA_COLOR = {"sensacionalista": "#f43f5e", "analitica": "#38bdf8", "critica": "#f59e0b", "oficialista": "#a78bfa", "optimista": "#22c55e", "popular": "#fb923c"}
 ETIQUETA = {"PARTIDO": ("Crónica", "bi-newspaper"), "OPINION": ("Opinión", "bi-chat-quote-fill"), "JUGADOR": ("Jugador", "bi-person-lines-fill"),
-            "DT": ("Técnico", "bi-clipboard2-data"), "REACCION": ("Reacción", "bi-reply-fill"), "POLEMICA": ("Polémica", "bi-exclamation-triangle-fill"), "ESCANDALO": ("Escándalo", "bi-exclamation-octagon-fill")}
+            "DT": ("Técnico", "bi-clipboard2-data"), "REACCION": ("Reacción", "bi-reply-fill"), "POLEMICA": ("Polémica", "bi-exclamation-triangle-fill"), "ESCANDALO": ("Escándalo", "bi-exclamation-octagon-fill"), "PREMIO": ("Premio", "bi-trophy-fill")}
 TONO_TEXTO = {"elogio": ("Elogia", "bi-hand-thumbs-up-fill"), "critica": ("Critica", "bi-hand-thumbs-down-fill"), "neutral": ("Neutral", "bi-dash-circle")}
 
 
@@ -232,7 +232,7 @@ def adjuntar_partidos(items: List[dict]) -> List[dict]:
 
 
 def de_partido(juego_id: str, limite: int = 6) -> List[dict]:
-    docs = list(db[COL].find({"juego_id": str(juego_id), "tipo": {"$nin": ["REACCION", "POLEMICA", "ESCANDALO"]}}))   # las reacciones van dentro de cada declaración y las polémicas en su propio bloque
+    docs = list(db[COL].find({"juego_id": str(juego_id), "tipo": {"$nin": ["REACCION", "POLEMICA", "ESCANDALO", "PREMIO"]}}))   # las reacciones van dentro de cada declaración y las polémicas en su propio bloque
     docs.sort(key=lambda d: -abs(d["tono"]))
     return [vista(d) for d in docs[:limite]]
 
@@ -503,7 +503,12 @@ def ficha_medio(medio_id: int) -> Optional[dict]:
     pron = list(db[COL_PRON].find({"medio_id": m["id"]}, {"creado_en": 0}).sort([("fecha", -1), ("hora", -1)]).limit(6))
     for x in pron:
         x["pick_nombre"] = {"L": "Local", "E": "Empate", "V": "Visita"}[x["pick"]]
-    return {**v, "director": {**d, "avatar_url": url_imagen_medios(d.get("avatar"))},
+    try:   # rivales y aliados del medio (services/relaciones_service.py)
+        from services.relaciones_service import de_ref
+        relaciones = de_ref("medio", m["id"], 3)
+    except Exception:
+        relaciones = {"rivales": [], "aliados": []}
+    return {**v, "relaciones": relaciones, "director": {**d, "avatar_url": url_imagen_medios(d.get("avatar"))},
             "periodistas": [{**p, "avatar_url": url_imagen_medios(p.get("avatar"))} for p in eq["periodistas"]],
             "notas": notas, "total_notas": db[COL].count_documents({"medio_id": m["id"]}),
             "tono_medio": round(sum(n["tono"] for n in notas) / len(notas), 2) if notas else None,

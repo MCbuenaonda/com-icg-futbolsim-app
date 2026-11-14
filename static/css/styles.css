@@ -5306,3 +5306,10 @@ button.tv-logo:hover { transform: scale(1.04); }
 .corp-clima__punto--ahora { width: 1.2rem; height: 1.2rem; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25); opacity: 1; }
 .corp-clima__punto--futuro { opacity: 0.45; border: 1px dashed rgba(255, 255, 255, 0.5); }
 .corp-clima__seguro { max-width: 22rem; padding: 0.7rem 0.9rem; border-radius: 12px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); }
+
+/* Premios del Mundial (partials/premios.html) */
+.premio-carrera { height: 100%; padding: 0.8rem; border-radius: 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--premio) 14%, transparent), rgba(0, 0, 0, 0.22) 60%); border: 1px solid color-mix(in srgb, var(--premio) 35%, transparent); }
+.premio-carrera__titulo { font-weight: 800; color: var(--premio); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.45rem; }
+.premio-carrera__fila { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.3rem 0; font-size: 0.85rem; }
+.premio-carrera__fila--lider strong { color: #fff; }
+.premio-carrera__pos { flex: 0 0 1.5rem; text-align: center; font-weight: 800; color: var(--bs-secondary-color); }

@@ -190,6 +190,12 @@
             <div class="tv-persona tv-persona--dueno" title="{{ mk.dueno.rasgo_texto }}">{% if mk.dueno.avatar_url %}<img class="tv-cara" src="{{ mk.dueno.avatar_url }}" alt="{{ mk.dueno.nombre }}" loading="lazy" onerror="this.remove()">{% endif %}<span><strong>{{ mk.dueno.nombre }}</strong><small>dueño · {{ mk.dueno.rasgo_nombre }}</small></span></div>
             <div class="fs-8 text-muted mt-1">{{ mk.dueno.rasgo_texto }}{% if mk.ajuste_dueno and (mk.ajuste_dueno.fidelidad or mk.ajuste_dueno.renueva) %} Efecto en la marca: fidelidad {{ '%+d' | format(mk.ajuste_dueno.fidelidad) }}, probabilidad de renovar {{ '%+d' | format(mk.ajuste_dueno.renueva) }} puntos.{% endif %}</div>
             {% endif %}
+            {% if mk.relaciones and (mk.relaciones.rivales or mk.relaciones.aliados) %}
+            <h6 class="fw-bold text-white mt-3 mb-1 small">Rivales y aliadas</h6>
+            {% for x in mk.relaciones.rivales %}<div class="small">⚔️ <strong class="text-white">{{ x.nombre }}</strong> <span class="text-muted">· {{ x.motivos | join(', ') }}</span></div>{% endfor %}
+            {% for x in mk.relaciones.aliados %}<div class="small">🤝 <strong class="text-white">{{ x.nombre }}</strong> <span class="text-muted">· {{ x.motivos | join(', ') }}</span></div>{% endfor %}
+            <div class="fs-8 text-muted mt-1">Si una marca entra en crisis, sus aliadas se salpican y sus rivales ganan espacio para acercarse.</div>
+            {% endif %}
             <h6 class="fw-bold text-white mt-3 mb-1 small">Patrocina en tu universo</h6>
             {% for x in mk.patrocina %}<div class="small">{{ x.nombre }} <span class="text-muted">· {{ x.sigla }}</span></div>
             {% else %}<div class="small text-muted">A nadie por ahora.</div>{% endfor %}

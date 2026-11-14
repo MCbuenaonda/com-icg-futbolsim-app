@@ -364,7 +364,7 @@ def restart_mundial():
     fantasy_teams.delete_many({})
     reward_transactions.delete_many({})
     city_ownerships.delete_many({})
-    for _c in ("sedes_naming", "sedes_naming_movimientos", "sedes_naming_rondas", "declaraciones", "polemicas", "escandalos", "escandalos_rondas"):
+    for _c in ("sedes_naming", "sedes_naming_movimientos", "sedes_naming_rondas", "declaraciones", "polemicas", "escandalos", "escandalos_rondas", "premios_mundial"):
         db[_c].delete_many({})
     fantasy_points_history.delete_many({})
     historial_aficionados.delete_many({})
@@ -539,6 +539,13 @@ def update_data_mundial(db, mundial_id) -> bool:
 
     # actualizar datos en el registro de la coleccion 'mundiales'
     mundial_coll.update_one({"_id": ObjectId(mundial_id)}, {"$set": data})
+
+    # Premios del Mundial (services/premios_service.py): el jurado de periodistas vota con los números de la Copa. Idempotente, nunca lanza.
+    try:
+        from services.premios_service import asegurar_premios
+        asegurar_premios(mundial_id)
+    except Exception as e:
+        print(f"No se pudieron otorgar los premios del Mundial: {e}")
     return True
             
 # funcion para obtener las estadisticas del dashboard

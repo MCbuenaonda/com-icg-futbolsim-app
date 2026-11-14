@@ -1,0 +1,49 @@
+{# Premios del Mundial (services/premios_service.py). Variable: premios = vista_palmares() → {carrera, otorgados}. Requiere `m` (macros). #}
+{% import "partials/macros.html" as m %}
+{% if premios and (premios.carrera or premios.otorgados) %}
+<section class="mb-4" id="premios">
+  {% if premios.carrera %}
+  <div class="card card-seccion mb-3">
+    <div class="card-body p-3 p-md-4">
+      <h2 class="vivo-titulo"><i class="bi bi-award-fill text-warning"></i>La carrera por los premios <small class="text-muted fw-normal ms-1">· mérito hasta hoy; un jurado de periodistas vota al terminar el Mundial</small></h2>
+      <div class="row g-3">
+        {% for f in premios.carrera %}
+        <div class="col-12 col-md-6 col-xl-4">
+          <div class="premio-carrera" style="--premio: {{ f.color }};">
+            <div class="premio-carrera__titulo"><i class="bi {{ f.icono }}"></i>{{ f.nombre }}</div>
+            {% for c in f.candidatos %}
+            <div class="premio-carrera__fila {{ 'premio-carrera__fila--lider' if loop.first }}">
+              <span class="premio-carrera__pos">{{ loop.index }}</span>
+              <span class="min-w-0"><strong class="text-white">{% if c.bandera %}{{ m.bandera(c.bandera, pais_id=c.pais_id) }} {% endif %}{{ c.nombre }}</strong><small class="d-block text-muted">{{ c.detalle }}</small></span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% for ed in premios.otorgados %}
+  <div class="card card-seccion mb-3">
+    <div class="card-body p-3 p-md-4">
+      <h2 class="vivo-titulo"><i class="bi bi-trophy-fill text-warning"></i>Premios del Mundial {{ ed.anio }}</h2>
+      <div class="row g-3">
+        {% for p in ed.premios %}
+        <div class="col-12 col-md-6 col-xl-4">
+          <div class="premio-carrera" style="--premio: {{ p.color }};">
+            <div class="premio-carrera__titulo"><i class="bi {{ p.icono }}"></i>{{ p.nombre }}</div>
+            <div class="premio-carrera__fila premio-carrera__fila--lider"><span class="premio-carrera__pos">🏆</span>
+              <span class="min-w-0"><strong class="text-white">{% if p.ganador.bandera %}{{ m.bandera(p.ganador.bandera, pais_id=p.ganador.pais_id) }} {% endif %}{{ p.ganador.nombre }}</strong>
+                <small class="d-block text-muted">{{ p.ganador.puntos }} pts · {{ p.ganador.primeros }} de {{ p.votantes }} medios lo pusieron primero</small></span></div>
+            {% for f in p.finalistas %}<div class="premio-carrera__fila"><span class="premio-carrera__pos">{{ loop.index + 1 }}</span><span class="min-w-0"><span class="text-body-emphasis">{{ f.nombre }}</span> <small class="text-muted">· {{ f.puntos }} pts</small></span></div>{% endfor %}
+            {% for c in p.curiosidades %}<small class="d-block text-muted mt-1">{{ c }}</small>{% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}

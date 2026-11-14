@@ -50,7 +50,13 @@ def cuadro(request: Request):
 
 @route_palmares.get("/", response_class=HTMLResponse, name="palmares")
 def palmares(request: Request):
-    return templates.TemplateResponse(request=request, name="palmares.html", context={"palmares": obtener_palmares()})
+    from services.premios_service import vista_palmares
+    try:
+        premios = vista_palmares()
+    except Exception as e:
+        print(f"Premios del Mundial: {e}")
+        premios = None
+    return templates.TemplateResponse(request=request, name="palmares.html", context={"palmares": obtener_palmares(), "premios": premios})
 
 
 @route_arbitros.get("/", response_class=HTMLResponse, name="arbitros")

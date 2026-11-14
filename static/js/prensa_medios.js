@@ -45,6 +45,9 @@
               </div>
               <h6 class="fw-bold text-white mt-3 mb-1 small">Quién lo dirige</h6>
               <div class="tv-equipo"><div class="tv-persona tv-persona--dueno" title="${esc(m.director.rasgo_texto)}">${cara(m.director)}<span><strong>${esc(m.director.nombre)}</strong><small>director · línea ${esc(m.director.rasgo_nombre)}</small></span></div></div>
+              ${(m.relaciones && (m.relaciones.rivales.length || m.relaciones.aliados.length)) ? `<h6 class="fw-bold text-white mt-3 mb-1 small">Rivales y aliados</h6>`
+                + m.relaciones.rivales.map(x => `<div class="small">⚔️ <strong class="text-white">${esc(x.nombre)}</strong> <span class="text-muted">· ${esc(x.motivos.join(', '))}</span></div>`).join('')
+                + m.relaciones.aliados.map(x => `<div class="small">🤝 <strong class="text-white">${esc(x.nombre)}</strong> <span class="text-muted">· ${esc(x.motivos.join(', '))}</span></div>`).join('') : ''}
               <h6 class="fw-bold text-white mt-3 mb-1 small">Sus periodistas</h6><div class="tv-equipo">${pers}</div>
               <h6 class="fw-bold text-white mt-3 mb-1 small">Lo último que publicó</h6><div class="prensa-lista">${notas}</div>
               <h6 class="fw-bold text-white mt-3 mb-1 small">Sus pronósticos</h6>${pron}

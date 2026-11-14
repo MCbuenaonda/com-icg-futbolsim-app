@@ -1010,7 +1010,12 @@ def vista_marcas(user_id) -> Optional[dict]:
         patrocinados.setdefault(p["marca_id"], []).append({"nombre": _nombre(p["tipo"], p["ref_id"]), "sigla": p["sigla"], "tipo": p["tipo"],
                                                            "ref_id": p["ref_id"]})
     from config.marcas import ALCANCES, CONFEDERACIONES, RUBROS
-    catalogo_l = sorted(({**marca_vista(m), "patrocina": patrocinados.get(m["id"], []),
+    try:   # rivales y aliadas de cada marca (services/relaciones_service.py)
+        from services.relaciones_service import todas as relaciones_todas
+        rels = relaciones_todas("marca")
+    except Exception:
+        rels = {}
+    catalogo_l = sorted(({**marca_vista(m), "patrocina": patrocinados.get(m["id"], []), "relaciones": rels.get(m["id"], {"rivales": [], "aliados": []}),
                           "cupos": C.MARCA_CUPOS_NIVEL.get(m.get("nivel", 2), 1), "usados": ocup["por_marca"].get(m["id"], 0)}
                          for m in cat.values()), key=lambda x: (-x["nivel"], x["nombre"]))
     _, ronda, faltan = _ronda_usuario(user_id)

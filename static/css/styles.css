@@ -5322,17 +5322,16 @@ button.tv-logo:hover { transform: scale(1.04); }
 .ag-avatar { width: 3.2rem; height: 3.2rem; border-radius: 50%; background: #1b2740; object-fit: cover; flex: 0 0 3.2rem; }
 .ag-avatar--lg { width: 4.4rem; height: 4.4rem; flex-basis: 4.4rem; }
 .ag-lista { display: grid; gap: 0.75rem; }
-.ag-contrato { display: flex; align-items: center; gap: 0.9rem; padding: 0.8rem 1rem; border-radius: 0.9rem; border: 1px solid rgba(167, 139, 250, 0.25);
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.08), rgba(17, 28, 46, 0.6)); flex-wrap: wrap; }
+.card.ag-contrato { border-radius: 0.9rem; border: 1px solid rgba(167, 139, 250, 0.25); background: linear-gradient(135deg, rgba(167, 139, 250, 0.08), var(--bg-card, #111c2e)); }
 .ag-numeros { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin-top: 0.35rem; font-size: 0.82rem; }
 .ag-numeros i { margin-right: 0.25rem; }
 .ag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 0.75rem; }
-.ag-card { display: flex; gap: 0.8rem; padding: 0.8rem; border-radius: 0.9rem; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(17, 28, 46, 0.7);
+.card.ag-card { border-radius: 0.9rem; border: 1px solid rgba(255, 255, 255, 0.08); background: var(--bg-card, #111c2e);
   transition: transform 0.15s ease, border-color 0.15s ease; }
-.ag-card:hover { transform: translateY(-2px); border-color: rgba(167, 139, 250, 0.45); }
+.card.ag-card:hover { transform: translateY(-2px); border-color: rgba(167, 139, 250, 0.45); }
 .ag-prestigio { height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 .ag-prestigio i { display: block; height: 100%; background: linear-gradient(90deg, #7c3aed, #c4b5fd); }
 .ag-cotiza { display: grid; gap: 0.35rem; }
 .ag-cotiza > div { display: flex; justify-content: space-between; padding: 0.3rem 0.6rem; border-radius: 0.5rem; background: rgba(255, 255, 255, 0.05); }
 .ag-cotiza span { color: #94a3b8; }
-@media (prefers-reduced-motion: reduce) { .ag-card { transition: none; } .ag-card:hover { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .card.ag-card { transition: none; } .card.ag-card:hover { transform: none; } }

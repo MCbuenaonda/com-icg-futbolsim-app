@@ -19,3 +19,15 @@ ENCAJE_RIVAL = {1: 4, 2: 8, 3: 12}
 RESPALDO_CICLOS = 1.0
 RESPALDO_RESIDUO = 0.5
 MAX_NOTAS = 3
+
+# --- Cadenas de TV y medios (services/escandalos_medios_service.py): crisis de imagen de las cadenas de televisión y de los medios de prensa ---
+# Cada ronda, hasta MAX_TV_POR_RONDA cadenas y MAX_MEDIOS_POR_RONDA medios (ficticios) entran en crisis con la misma duración y severidades que las marcas.
+# Una cadena en crisis paga menos por partido y por anuncios (TV_REBAJA) a todos los universos y sus cadenas rivales de país pagan algo más (TV_BONO_RIVAL);
+# un medio en crisis pierde credibilidad (MEDIO_CREDIBILIDAD, resta a `credibilidad_actual`): sus notas pesan menos en la reputación mediática.
+MAX_TV_POR_RONDA = 1
+MAX_MEDIOS_POR_RONDA = 1
+PROB_TV = 0.50
+PROB_MEDIO = 0.50
+TV_REBAJA = {1: 0.10, 2: 0.20, 3: 0.30}
+TV_BONO_RIVAL = {1: 0.03, 2: 0.05, 3: 0.08}
+MEDIO_CREDIBILIDAD = {1: 0.05, 2: 0.10, 3: 0.18}

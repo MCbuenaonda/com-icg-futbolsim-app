@@ -83,6 +83,7 @@
               <div class="fw-semibold text-white">{{ m.bandera(c.bandera) }} {{ c.pais }} <span class="text-muted fw-normal">· {{ c.tele.nombre }}</span></div>
               {% if c.estado == 'FIRMADA' %}<span class="badge text-bg-info">Firmado: empieza al terminar el actual</span>
               {% elif c.aviso %}<span class="badge text-bg-warning"><i class="bi bi-bell-fill"></i> Renovación abierta</span>{% endif %}
+              {% if c.crisis %}<span class="badge text-bg-danger" title="{{ c.crisis.titular }}"><i class="bi bi-exclamation-octagon-fill"></i> En crisis: paga {{ c.crisis.rebaja_pct }}% menos ({{ c.crisis.partidos_restantes }} partidos)</span>{% endif %}
             </div>
             {% if c.estado == 'ACTIVO' %}
             <div class="tv-avance my-1" title="{{ c.jugados }} de {{ c.partidos }} partidos"><span style="width: {{ (c.jugados * 100 / c.partidos) | round | int }}%"></span></div>

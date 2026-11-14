@@ -50,7 +50,9 @@ def evaluar_ronda(juego: Optional[dict] = None, forzar_ronda: Optional[int] = No
             db[RONDAS].insert_one({"_id": ronda})
         except DuplicateKeyError:
             return {"hecho": False}
-        return {"hecho": True, "ronda": ronda, "nuevos": _generar(ronda, juego)}
+        nuevos = _generar(ronda, juego)
+        from services.escandalos_medios_service import evaluar_ronda as evaluar_tv_y_medios   # cadenas de TV y medios de prensa
+        return {"hecho": True, "ronda": ronda, "nuevos": nuevos, "nuevos_tv_medios": evaluar_tv_y_medios(ronda, juego)}
     except Exception as e:
         logger.error(f"Escándalos: {e}")
         return {"hecho": False, "error": str(e)}

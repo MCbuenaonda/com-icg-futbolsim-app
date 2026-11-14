@@ -60,21 +60,21 @@ def _pendientes(usuario: dict) -> List[dict]:
         universo = db["corp_universos"].find_one({"_id": uid}, {"cargo": 1, "estado": 1}) or {}
         sigla = (universo.get("cargo") or {}).get("sigla")
         filtro = {"universo_id": uid}
-        partes = [("empleo", "Oferta de trabajo", db["corp_ofertas_empleo"].count_documents({**filtro, "estado": "PENDIENTE"}), "/corporativo/#cpDecisiones")]
+        partes = [("empleo", "Oferta de trabajo|Ofertas de trabajo", db["corp_ofertas_empleo"].count_documents({**filtro, "estado": "PENDIENTE"}), "/corporativo/#cpDecisiones")]
         if sigla and universo.get("estado") == "EN_CARGO":
             from services.corporativo_service import TIPOS_PROPUESTA
             partes += [
-                ("tv", "Oferta de televisora", db["corp_tv_contratos"].count_documents({**filtro, "sigla": sigla, "estado": "OFERTA"}), "/corporativo/televisoras"),
-                ("marcas", "Oferta de marca", db["corp_patrocinios"].count_documents({**filtro, "sigla": sigla, "estado": "OFERTA"}), "/corporativo/marcas"),
-                ("propuestas", "Propuesta del mercado", db["corp_ofertas"].count_documents({**filtro, "estado": "PENDIENTE", "tipo": {"$in": list(TIPOS_PROPUESTA)}}), "/corporativo/#cpDecisiones"),
-                ("entrevistas", "Entrevista pendiente", db["corp_entrevistas"].count_documents({**filtro, "estado": "PENDIENTE"}), "/corporativo/#cpDecisiones"),
+                ("tv", "Oferta de televisora|Ofertas de televisora", db["corp_tv_contratos"].count_documents({**filtro, "sigla": sigla, "estado": "OFERTA"}), "/corporativo/televisoras"),
+                ("marcas", "Oferta de marca|Ofertas de marca", db["corp_patrocinios"].count_documents({**filtro, "sigla": sigla, "estado": "OFERTA"}), "/corporativo/marcas"),
+                ("propuestas", "Propuesta del mercado|Propuestas del mercado", db["corp_ofertas"].count_documents({**filtro, "estado": "PENDIENTE", "tipo": {"$in": list(TIPOS_PROPUESTA)}}), "/corporativo/#cpDecisiones"),
+                ("entrevistas", "Entrevista pendiente|Entrevistas pendientes", db["corp_entrevistas"].count_documents({**filtro, "estado": "PENDIENTE"}), "/corporativo/#cpDecisiones"),
             ]
         if sigla and universo.get("estado") == "EN_CARGO":
             from services.escandalos_service import contar_pendientes as crisis_pendientes
-            partes.append(("crisis", "Marca en crisis", crisis_pendientes(uid, sigla), "/corporativo/marcas"))
+            partes.append(("crisis", "Marca en crisis|Marcas en crisis", crisis_pendientes(uid, sigla), "/corporativo/marcas"))
         total = sum(p[2] for p in partes)
         if total:
-            detalle = ", ".join(f"{p[2]} {p[1].lower()}{'s' if p[2] != 1 else ''}" for p in partes if p[2])
+            detalle = ", ".join(f"{p[2]} {p[1].split('|')[0 if p[2] == 1 else 1].lower()}" for p in partes if p[2])
             items.append(_item("corporativos", "corporativos", f"Corporativo: {detalle}", total, "/corporativo/", "bi-buildings-fill"))
     return items
 

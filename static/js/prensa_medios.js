@@ -37,6 +37,7 @@
                   <div class="text-muted small">${m.pais_id ? UI.bandera('', { id: m.pais_id }) + ' ' : ''}${esc(m.pais)}${m.confederacion ? ' · ' + esc(m.confederacion) : ''} · ${esc(m.papel_nombre)} · ${esc(m.nivel_nombre)}</div></div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
               </div>
+              ${m.crisis ? `<div class="alert alert-danger small py-2 mt-3 mb-0"><i class="bi bi-exclamation-octagon-fill me-1"></i><strong>En crisis de imagen:</strong> ${esc(m.crisis.titular)} Su credibilidad está más baja ${m.crisis.partidos_restantes} partidos más.</div>` : ''}
               <div class="mk-ficha__datos mt-3">
                 <span style="color:${esc(m.color)}"><i class="bi bi-vector-pen"></i>Línea ${esc(m.linea_nombre.toLowerCase())}: ${esc(m.linea_texto)}</span>
                 <span><i class="bi bi-shield-check"></i>Credibilidad ${m.credibilidad}/100${m.credibilidad !== m.credibilidad_base ? ' (base ' + m.credibilidad_base + ')' : ''}: es lo que pesa lo que dice en la reputación de jugadores, técnicos y selecciones.</span>

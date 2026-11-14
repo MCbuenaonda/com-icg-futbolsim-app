@@ -27,7 +27,7 @@
       <div class="d-flex gap-2 flex-wrap">
         <div class="fixture-kpi"><span>Patrocinios</span><strong>{{ r.activos }}</strong></div>
         <div class="fixture-kpi"><span>Por ciclo</span><strong class="text-info">+{{ '{:,}'.format(r.pago_ciclo) }}</strong></div>
-        <div class="fixture-kpi"><span>Tu comisión</span><strong class="text-success">+{{ '{:,}'.format(r.comision_ciclo) }}</strong></div>
+        <div class="fixture-kpi"><span>Tu comisión</span><strong class="text-success">+{{ '{:,.2f}'.format(r.comision_ciclo) }}</strong></div>
         <div class="fixture-kpi"><span>En riesgo</span><strong class="{{ 'text-danger' if r.en_riesgo else '' }}">{{ r.en_riesgo }}</strong></div>
         <div class="fixture-kpi"><span>Promociones</span><strong>{{ promociones_restantes }}</strong></div>
       </div>
@@ -130,7 +130,7 @@
           <div class="min-w-0 flex-grow-1">
             <div class="fw-semibold text-white">{{ p.marca.nombre }} <i class="bi bi-arrow-right-short text-muted"></i> {{ m.bandera(p.bandera) }} {{ p.nombre }}</div>
             <div class="small text-muted">
-              {% if p.estado == 'ACTIVO' %}{{ '{:,}'.format(p.pago_ciclo) }} por ciclo · hasta el ciclo {{ p.hasta_ciclo }} ({{ [p.hasta_ciclo - ciclo + 1, 0] | max }} ciclo{{ 's' if p.hasta_ciclo - ciclo + 1 != 1 }}) · cobrado {{ '{:,}'.format(p.cobrado or 0) }}{% if p.comision %} (tu comisión {{ '{:,}'.format(p.comision) }}){% endif %}
+              {% if p.estado == 'ACTIVO' %}{{ '{:,}'.format(p.pago_ciclo) }} por ciclo · hasta el ciclo {{ p.hasta_ciclo }} ({{ [p.hasta_ciclo - ciclo + 1, 0] | max }} ciclo{{ 's' if p.hasta_ciclo - ciclo + 1 != 1 }}) · cobrado {{ '{:,}'.format(p.cobrado or 0) }}{% if p.comision %} (tu comisión {{ '{:,.2f}'.format(p.comision) }}){% endif %}
               {% elif p.estado == 'PROMOCION' %}Promoción enviada: la marca responde en {{ ronda_en }} partido{{ 's' if ronda_en != 1 }} · encaje {{ p.encaje }}/100
               {% else %}Oferta pendiente de tu respuesta{% endif %}
             </div>

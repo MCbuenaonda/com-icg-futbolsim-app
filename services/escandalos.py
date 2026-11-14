@@ -51,3 +51,43 @@ def ajustar_pago(pago: int, efecto_crisis: Optional[dict], respaldado: bool) -> 
 def pesos_marcas(marcas: List[dict], activos_por_marca: Dict[int, int], en_crisis: set) -> List[float]:
     """Más patrocinios activos = más probabilidad de crisis (para que el efecto se sienta); las que ya están en crisis, no."""
     return [0.0 if m["id"] in en_crisis else 1.0 + 2.0 * activos_por_marca.get(m["id"], 0) for m in marcas]
+
+
+# --- Cadenas de TV y medios ---------------------------------------------------------------------------------------------------
+TITULARES_TV = {
+    1: ["{t} recibe críticas por el tono de su última transmisión.", "Polémica menor en {t}: el público no quedó conforme con su cobertura."],
+    2: ["{t} pide disculpas tras un error al aire durante una transmisión.", "Fallas técnicas y quejas: mala semana para {t}."],
+    3: ["Crisis en {t}: las palabras de {d}, su dueño, desatan una polémica.", "{d}, dueño de {t}, queda en el centro de la crítica y las anunciantes dudan."],
+}
+TITULARES_MEDIO = {
+    1: ["{m} corrige una nota y recibe críticas por el error.", "Cuestionan un titular de {m}: dicen que fue exagerado."],
+    2: ["{m} retira una nota tras los reclamos de varios protagonistas.", "Mala semana para {m}: rectificaciones y críticas de los lectores."],
+    3: ["Cuestionan la credibilidad de {m} tras una nota que debió retirar.", "Crisis en {m}: {d}, su director, pide disculpas públicas."],
+}
+
+
+def titular_tv(severidad: int, tele: dict, rng: random.Random) -> str:
+    dueno = ((tele.get("equipo") or {}).get("dueno") or {}).get("nombre") or "su dueño"
+    return rng.choice(TITULARES_TV[severidad]).format(t=tele["nombre"], d=dueno)
+
+
+def titular_medio(severidad: int, medio: dict, rng: random.Random) -> str:
+    director = ((medio.get("equipo") or {}).get("director") or {}).get("nombre") or "su director"
+    return rng.choice(TITULARES_MEDIO[severidad]).format(m=medio["nombre"], d=director)
+
+
+def nota_otros(severidad: int, titular_texto: str, nombre: str, medio: dict, periodista: dict, rng: random.Random) -> dict:
+    tono = P.tono(-(0.25 + 0.12 * severidad), medio, periodista, False)
+    cierre = rng.choice(CIERRE.get(medio.get("linea"), CIERRE["analitica"])).format(m=nombre)
+    return {"tono": tono, "categoria_tono": P.categoria_tono(tono), "titular": titular_texto, "texto": f"{titular_texto} {cierre}"}
+
+
+def tv_efecto(severidad: int, rival: bool = False) -> dict:
+    return {"rebaja": 0.0, "bono": CE.TV_BONO_RIVAL[severidad]} if rival else {"rebaja": CE.TV_REBAJA[severidad], "bono": 0.0}
+
+
+def ajustar_tv(monto: int, efecto_tv: Optional[dict]) -> int:
+    """Pago de una cadena con su rebaja (si está en crisis) o su bono (si es rival de una en crisis)."""
+    if not efecto_tv:
+        return monto
+    return max(1, int(round(monto * (1.0 - efecto_tv["rebaja"] + efecto_tv["bono"]))))

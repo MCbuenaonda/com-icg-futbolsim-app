@@ -203,6 +203,30 @@ def calcular_publicidad(doc: dict, tele: dict, juego_id: str, uid, seq: int) -> 
     return {**PB.cobro(elegidas, R.tv_esperado(doc["tarifa"]), aud), "audiencia": aud}
 
 
+def _con_crisis(estado, corp: dict, doc: dict, tele: dict, monto: int, ciclo: int, seq: int, avisar: bool = True) -> int:
+    """Paga lo que corresponde si la cadena está en crisis (rebaja) o una rival de su país lo está (bono); ver services/escandalos_medios_service.py.
+    La rebaja cuenta como pérdida asegurable. Nunca rompe el partido."""
+    try:
+        from services import escandalos_medios_service as EM
+        from services import escandalos as ESC
+        ef = EM.efecto_tv(tele.get("id"), seq)
+        if not ef:
+            return monto
+        nuevo = ESC.ajustar_tv(monto, ef)
+        if nuevo < monto:
+            ca = corp.get("ciclo_actual") or {}
+            ca["asegurable"] = ca.get("asegurable", 0) + (monto - nuevo)
+            ca["perdida_clima"] = ca.get("perdida_clima", 0) + (monto - nuevo)
+        if avisar and ef["propia"] and corp.get("es_del_usuario"):
+            U.avisar(estado.uid, ciclo, "TV", f"{tele.get('nombre', 'Tu televisora')} está en crisis",
+                     f"{ef['titular']} Mientras dure, la cadena paga {int(ef['rebaja'] * 100)}% menos por partido y por publicidad.", "bi-tv-fill",
+                     clave=f"tv-crisis:{doc['_id']}:{ef['crisis_id']}")
+        return nuevo
+    except Exception as e:
+        print(f"[corporativos] crisis de televisora: {e}")
+        return monto
+
+
 def _publicidad(estado, doc: dict, c: Optional[dict], ciclo: int, seq: int, juego_id: str, pais_id: int, tele: dict) -> None:
     """La cadena vende los espacios del partido y el corporativo cobra su participación (con el clima del ciclo). Nunca rompe el partido."""
     try:
@@ -214,6 +238,7 @@ def _publicidad(estado, doc: dict, c: Optional[dict], ciclo: int, seq: int, jueg
             return
         from services import clima_economico as CLIMA
         cut = CLIMA.aplicar(corp, p["participacion"], ciclo)   # el mercado publicitario sube en auge y baja en recesión (y cuenta para el seguro)
+        cut = _con_crisis(estado, corp, doc, tele, cut, ciclo, seq, avisar=False)
         corp["capital"] += cut
         corp["ciclo_actual"]["extra"] += cut
         corp["ciclo_actual"]["tv_publicidad"] = corp["ciclo_actual"].get("tv_publicidad", 0) + cut
@@ -254,6 +279,7 @@ def procesar_partido(estado, aporte: dict, ciclo: int, juego_id: str, seq: int) 
             from services import clima_economico as CLIMA   # el clima del ciclo mueve lo que pagan las televisoras
             monto = CLIMA.aplicar(estado.corps[c["sigla"]], monto, ciclo)
             t = catalogo().get(doc["televisora_id"], {})
+            monto = _con_crisis(estado, estado.corps[c["sigla"]], doc, t, monto, ciclo, seq)   # crisis de la cadena (o de una rival)
             nombre = valores()["info_paises"].get(pais_id, {}).get("nombre", "?")
             _cobrar(estado, doc, c, monto, ciclo, f"{t.get('nombre', 'TV')}: {nombre} ({resultado})", juego_id)
             _publicidad(estado, doc, c, ciclo, seq, juego_id, pais_id, t)
@@ -454,6 +480,19 @@ def _oid(x):
 
 
 # --- Para las vistas ------------------------------------------------------------------------------------------------
+def _crisis_cadena(tele_id: int, estado: str) -> Optional[dict]:
+    """Crisis de imagen vigente de la cadena (rebaja de lo que paga) para las vistas de contratos activos; nunca rompe la vista."""
+    if estado != "ACTIVO":
+        return None
+    try:
+        from config import escandalos as CE
+        from services.escandalos_medios_service import crisis_de
+        c = crisis_de("tv", tele_id)
+        return {**c, "rebaja_pct": int(CE.TV_REBAJA[c["severidad"]] * 100)} if c else None
+    except Exception:
+        return None
+
+
 def _fila(d: dict) -> Optional[dict]:
     t = catalogo().get(d["televisora_id"])
     if not t:
@@ -468,7 +507,7 @@ def _fila(d: dict) -> Optional[dict]:
             "exigencia": int(round(d.get("exigencia", 0.55) * 100)), "pct": int(round(pct * 100)) if pct is not None else None,
             "bono_en_camino": pct is not None and pct >= d.get("exigencia", 0.55), "cobrado": d.get("cobrado", 0),
             "bono_cobrado": d.get("bono_cobrado", 0), "publicidad": d.get("publicidad", 0), "ultimo_anuncio": d.get("ultimo_anuncio"), "forma": d.get("forma", 1.0), "sigue_a": d.get("sigue_a"),
-            "aviso": d["estado"] == "ACTIVO" and faltan <= C.TV_AVISO_PARTIDOS, "motivo": d.get("motivo"),
+            "aviso": d["estado"] == "ACTIVO" and faltan <= C.TV_AVISO_PARTIDOS, "motivo": d.get("motivo"), "crisis": _crisis_cadena(d["televisora_id"], d["estado"]),
             "vence_ciclo": d.get("vence_ciclo"), "ciclo": d.get("ciclo"), "terminado_ciclo": d.get("terminado_ciclo")}
 
 

@@ -369,12 +369,13 @@ def _stats_medios() -> Dict[int, dict]:
 
 def credibilidad_actual(medio: dict) -> float:
     """La credibilidad base del medio, movida hasta ±0,3 por su acierto (acertar la mitad no la cambia)."""
+    from services.escandalos_medios_service import baja_credibilidad   # crisis de imagen vigente del medio (import diferido: ese módulo importa este)
     r = _stats_medios().get(medio["id"])
     base = medio.get("credibilidad", 0.6)
-    if not r:
-        return base
-    peso = r["total"] / (r["total"] + K_CREDIBILIDAD)   # con pocos pronósticos casi no se mueve
-    return round(max(0.2, min(0.95, base + (r["aciertos"] / r["total"] - 0.5) * 0.6 * peso)), 3)
+    if r:
+        peso = r["total"] / (r["total"] + K_CREDIBILIDAD)   # con pocos pronósticos casi no se mueve
+        base = base + (r["aciertos"] / r["total"] - 0.5) * 0.6 * peso
+    return round(max(0.2, min(0.95, base - baja_credibilidad(medio["id"]))), 3)
 
 
 def generar_pronosticos() -> int:
@@ -483,7 +484,16 @@ def _medio_vista(m: dict, stats: Optional[dict] = None) -> dict:
             "confederacion": CONFEDERACIONES.get(m.get("confederacion_id"), ""), "linea": m["linea"], "linea_nombre": m["linea_nombre"],
             "linea_texto": m["linea_texto"], "color": LINEA_COLOR.get(m["linea"], "#94a3b8"), "credibilidad_base": round(m.get("credibilidad", 0.6) * 100),
             "credibilidad": round(credibilidad_actual(m) * 100), "pronosticos": r["total"], "aciertos": r["aciertos"], "exactos": r["exactos"],
-            "pct": round(100 * r["aciertos"] / r["total"]) if r["total"] else None}
+            "pct": round(100 * r["aciertos"] / r["total"]) if r["total"] else None, "crisis": _crisis_medio(m["id"])}
+
+
+def _crisis_medio(medio_id: int) -> Optional[dict]:
+    """Su crisis de imagen vigente (services/escandalos_medios_service.py) o None; nunca rompe la vista."""
+    try:
+        from services.escandalos_medios_service import crisis_de
+        return crisis_de("medio", medio_id)
+    except Exception:
+        return None
 
 
 def directorio() -> List[dict]:

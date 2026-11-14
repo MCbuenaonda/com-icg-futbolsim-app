@@ -34,20 +34,23 @@
     </div>
     {% endfor %}
 </section>
-{% elif h.tipo == 'marcas' or h.tipo.startswith(('tv-', 'prensa-')) %}
+{% elif h.tipo == 'marcas' or h.tipo in ('agentes', 'federaciones', 'penas') or h.tipo.startswith(('tv-', 'prensa-')) %}
 {# Páginas especiales de TELEVISIÓN (por confederación de la cadena) y MARCAS (por rubro): logos, dueños y comentaristas #}
 {% set es_tv = h.tipo.startswith(('tv-', 'prensa-')) %}
 {% set es_prensa = h.tipo.startswith('prensa-') %}
-{% set color = '#fb923c' if es_prensa else ('#38bdf8' if es_tv else '#f59e0b') %}
+{% set especial = {'agentes': ('#a78bfa', 'bi-briefcase', 'Los representantes y sus contratos', 'Los agentes de los representados: cada uno es una estampa Dorada, con una pestaña por confederación.'),
+                   'federaciones': ('#60a5fa', 'bi-bank2', 'Las federaciones y sus presidentes', 'El presidente de la federación de cada selección: una estampa Dorada por país, con una pestaña por confederación.'),
+                   'penas': ('#f472b6', 'bi-emoji-sunglasses', 'Las peñas y sus líderes', 'El líder de la afición de cada selección: una estampa Dorada por país, con una pestaña por confederación.')}.get(h.tipo) %}
+{% set color = especial[0] if especial else ('#fb923c' if es_prensa else ('#38bdf8' if es_tv else '#f59e0b')) %}
 <section class="album-pagina album-hoja" style="--logo-color: {{ color }};"
          data-pagina="{{ h.numero }}" data-nombre="{{ h.nombre }}" data-total="{{ album.total_paginas }}"
          data-anterior="{{ h.anterior or '' }}" data-siguiente="{{ h.siguiente or '' }}">
-    <i class="bi {{ 'bi-newspaper' if es_prensa else ('bi-tv' if es_tv else 'bi-megaphone') }} album-pagina__escudo album-hoja__marca" aria-hidden="true"></i>
+    <i class="bi {{ especial[1] if especial else ('bi-newspaper' if es_prensa else ('bi-tv' if es_tv else 'bi-megaphone')) }} album-pagina__escudo album-hoja__marca" aria-hidden="true"></i>
     <span class="album-hoja__folio">{{ h.numero }}</span>
     <header class="album-pagina__cabecera">
         <div class="min-w-0">
-            <span class="album-hoja__edicion">{{ 'Los medios y sus plumas' if es_prensa else ('Las cadenas y sus voces' if es_tv else 'Las marcas y sus dueños') }} · estampas especiales</span>
-            <h2 class="h4 fw-bold text-white mb-0">{{ h.nombre if es_tv else 'Marcas patrocinadoras' }}</h2>
+            <span class="album-hoja__edicion">{{ especial[2] if especial else ('Los medios y sus plumas' if es_prensa else ('Las cadenas y sus voces' if es_tv else 'Las marcas y sus dueños')) }} · estampas especiales</span>
+            <h2 class="h4 fw-bold text-white mb-0">{{ h.nombre if (es_tv or especial) else 'Marcas patrocinadoras' }}</h2>
         </div>
         <div class="album-pagina__progreso">
             <span><strong>{{ h.obtenidas }}</strong>/{{ h.total }}</span>
@@ -55,7 +58,7 @@
             {% if h.obtenidas == h.total %}<span class="album-hoja__completa"><i class="bi bi-patch-check-fill"></i> Completa</span>{% endif %}
         </div>
     </header>
-    <p class="text-muted small mb-3">{{ 'Los medios de la confederación: el logo (Especial), el director (Dorada) y los periodistas (Normal) de cada uno, por país.' if es_prensa else 'Las cadenas de la confederación: el logo (Especial), el dueño (Dorada) y los dos comentaristas (Normal) de cada una, por país.' if es_tv else 'El logo de cada marca (Especial) y su dueño (Dorada), por rubro.' }}
+    <p class="text-muted small mb-3">{% if especial %}{{ especial[3] }}{% else %}{{ 'Los medios de la confederación: el logo (Especial), el director (Dorada) y los periodistas (Normal) de cada uno, por país.' if es_prensa else 'Las cadenas de la confederación: el logo (Especial), el dueño (Dorada) y los dos comentaristas (Normal) de cada una, por país.' if es_tv else 'El logo de cada marca (Especial) y su dueño (Dorada), por rubro.' }}{% endif %}
         Todas salen en los sobres; las repetidas se canjean o se venden como las demás.</p>
     {% if es_tv %}
     {% for g in h.subgrupos %}

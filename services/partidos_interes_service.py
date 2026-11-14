@@ -276,6 +276,17 @@ def motivos_partidos(juegos: List[dict], detalle: bool = False, en_vivo: bool = 
             puntaje += PESOS["rivalidad"] + (1 if rel["clasico"] else 0)
             det["rivalidad"] = rel
 
+        # 1c) homenaje previsto a una leyenda (services/homenajes_service.py)
+        try:
+            from services.homenajes_service import leyenda_de_honor
+            hon = leyenda_de_honor(j)
+        except Exception:
+            hon = None
+        if hon:
+            chips.append({"tipo": "homenaje", "icono": "bi-award-fill", "texto": f"Homenaje a {hon['nombre']}, leyenda de {hon['pais']}"})
+            puntaje += 1
+            det["homenaje"] = hon
+
         # 2) DT en la cuerda floja o debutando
         det["dts"] = {}
         for pid in (loc.get("id"), vis.get("id")):
@@ -318,7 +329,7 @@ def motivos_partidos(juegos: List[dict], detalle: bool = False, en_vivo: bool = 
                 puntaje += PESOS["top_jugador"] if figura["posicion"] <= PODIO else 0
 
         nivel = next(({"codigo": c, "texto": tx, "icono": ic} for umbral, c, tx, ic in NIVELES if puntaje >= umbral), None)
-        orden = {"decisivo": 0, "mata_mata": 0, "rivalidad": 1, "serie": 1, "dt_riesgo": 2, "dt_debut": 3, "top_jugador": 4, "top_seleccion": 5}
+        orden = {"decisivo": 0, "mata_mata": 0, "rivalidad": 1, "homenaje": 2, "serie": 1, "dt_riesgo": 2, "dt_debut": 3, "top_jugador": 4, "top_seleccion": 5}
         chips.sort(key=lambda c: orden.get(c["tipo"], 9))
         salida[jid] = {"puntaje": puntaje, "nivel": nivel, "chips": chips, **({"detalle": det} if detalle else {})}
     return salida

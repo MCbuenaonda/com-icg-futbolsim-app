@@ -222,6 +222,11 @@ def crear_indices():
     db['escandalos'].create_index([("hasta_seq", 1)], name="hasta_seq")
     print("✅ Índices creados en 'escandalos'")
 
+    homenajes = db['homenajes']
+    homenajes.create_index([("mundial_id", 1), ("pais_id", 1)], name="mundial_pais")
+    homenajes.create_index([("jugador_id", 1)], name="jugador")
+    print("✅ Índices creados en 'homenajes'")
+
     city_revenue_history = db['city_revenue_history']
     city_revenue_history.create_index("user_id", name="user_id")
     city_revenue_history.create_index("ciudad_id", name="ciudad_id")

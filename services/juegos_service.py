@@ -936,6 +936,13 @@ def aplicar_efectos_secundarios(
     except Exception as e:
         print(f"No se pudieron evaluar los escándalos: {e}")
 
+    # Homenaje a una leyenda en los partidos importantes (services/homenajes_service.py): suma aficionados a su selección. Nunca lanza.
+    try:
+        from services.homenajes_service import registrar_partido as registrar_homenaje
+        registrar_homenaje(db["juegos"].find_one({"_id": ObjectId(juego_id)}))
+    except Exception as e:
+        print(f"No se pudo registrar el homenaje: {e}")
+
     # Rivalidades (services/relaciones_service.py): se recalcula la de las dos selecciones con este partido. Nunca lanza.
     try:
         from services.relaciones_service import registrar_partido as registrar_rivalidad

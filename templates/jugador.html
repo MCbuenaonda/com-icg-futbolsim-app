@@ -154,6 +154,7 @@
         </div>
     </div>
 
+    {% if jugador.leyenda %}{% set n_hom = homenajes_de(jugador.id) %}{% if n_hom %}<div class="mb-3"><span class="badge bg-info text-dark"><i class="bi bi-award-fill me-1"></i>Homenajeada en {{ n_hom }} partido{{ 's' if n_hom != 1 }}</span></div>{% endif %}{% endif %}
     {% set premios_j = premios_de("jugador", jugador.id) %}
     {% if premios_j %}<div class="d-flex flex-wrap gap-2 mb-3">{% for pr in premios_j %}<span class="badge bg-warning text-dark"><i class="bi {{ pr.icono }} me-1"></i>{{ pr.nombre }} · Mundial {{ pr.anio }}</span>{% endfor %}</div>{% endif %}
 

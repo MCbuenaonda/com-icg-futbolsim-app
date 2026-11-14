@@ -29,6 +29,8 @@ import time
 from datetime import datetime
 from typing import Dict, List, Optional
 
+from bson import ObjectId
+
 from config import corporativos as C
 from config import televisoras as T
 from services import corporativo_reglas as R
@@ -158,6 +160,76 @@ def _cobrar(estado, doc: dict, c: Optional[dict], monto: int, ciclo: int, detall
                  {"ref_id": doc["pais_id"], "tipo_ref": "seleccion", **({"juego_id": juego_id} if juego_id else {})})
 
 
+_cache_partido: Dict[str, dict] = {}
+_cache_confed: Dict[int, Optional[int]] = {}
+
+
+def _info_partido(juego_id: str) -> dict:
+    """Fase, equipos y aficionados del partido (para la audiencia), con caché en memoria: un partido terminado no cambia."""
+    d = _cache_partido.get(juego_id)
+    if d is None:
+        j = db["juegos"].find_one({"_id": ObjectId(juego_id)}, {"fase_id": 1, "equipo_local.id": 1, "equipo_visitante.id": 1}) or {}
+        a, b = (j.get("equipo_local") or {}).get("id"), (j.get("equipo_visitante") or {}).get("id")
+        af = {p["id"]: p.get("aficionados") or 100_000 for p in db["paises"].find({"id": {"$in": [a, b]}}, {"id": 1, "aficionados": 1})}
+        try:
+            from services.relaciones_service import de_partido
+            rel = de_partido(a, b)
+        except Exception:
+            rel = None
+        d = {"fase_id": j.get("fase_id"), "af_a": af.get(a, 100_000), "af_b": af.get(b, 100_000), "clasico": bool(rel and rel["clasico"])}
+        if len(_cache_partido) > 400:
+            _cache_partido.clear()
+        _cache_partido[juego_id] = d
+    return d
+
+
+def _confederacion(pais_id: int) -> Optional[int]:
+    if pais_id not in _cache_confed:
+        _cache_confed[pais_id] = (db["paises"].find_one({"id": pais_id}, {"confederacion_id": 1}) or {}).get("confederacion_id")
+    return _cache_confed[pais_id]
+
+
+def calcular_publicidad(doc: dict, tele: dict, juego_id: str, uid, seq: int) -> dict:
+    """Los espacios del partido: {anunciantes, total, participacion (lo que se queda el corporativo), audiencia}. Sin escribir nada."""
+    from services import publicidad as PB
+    from services.corporativo_marcas_service import catalogo as catalogo_marcas
+    from services import escandalos_service as EC
+    info = _info_partido(juego_id)
+    aud = PB.audiencia(info["fase_id"], info["clasico"], info["af_a"], info["af_b"])
+    marcas = PB.elegibles(list(catalogo_marcas().values()), tele.get("pais_id"), _confederacion(tele.get("pais_id")))
+    en_crisis = {m["id"] for m in marcas if (EC.efecto_para(m["id"], seq) or {}).get("propia")}
+    rivales = {m["id"] for m in marcas if EC.bonus_encaje(m["id"], seq) > 0}
+    elegidas = PB.elegir_anunciantes(marcas, en_crisis, rivales, R.semilla(uid, "tv-pub", juego_id, tele["id"]))
+    return {**PB.cobro(elegidas, R.tv_esperado(doc["tarifa"]), aud), "audiencia": aud}
+
+
+def _publicidad(estado, doc: dict, c: Optional[dict], ciclo: int, seq: int, juego_id: str, pais_id: int, tele: dict) -> None:
+    """La cadena vende los espacios del partido y el corporativo cobra su participación (con el clima del ciclo). Nunca rompe el partido."""
+    try:
+        corp = estado.corps.get(doc["sigla"])
+        if not corp:
+            return
+        p = calcular_publicidad(doc, tele, juego_id, estado.uid, seq)
+        if not p["anunciantes"] or p["participacion"] <= 0:
+            return
+        from services import clima_economico as CLIMA
+        cut = CLIMA.aplicar(corp, p["participacion"], ciclo)   # el mercado publicitario sube en auge y baja en recesión (y cuenta para el seguro)
+        corp["capital"] += cut
+        corp["ciclo_actual"]["extra"] += cut
+        corp["ciclo_actual"]["tv_publicidad"] = corp["ciclo_actual"].get("tv_publicidad", 0) + cut
+        if c:
+            c["renta_total"] = c.get("renta_total", 0) + cut
+            c["renta_ciclo"] = c.get("renta_ciclo", 0) + cut
+            estado.tocar(c)
+        nombres = ", ".join(a["nombre"] for a in p["anunciantes"])
+        estado.mover(doc["sigla"], ciclo, "TV_PUBLICIDAD", cut, f"Publicidad en la transmisión ({tele.get('nombre', 'TV')}): {nombres}",
+                     {"ref_id": pais_id, "tipo_ref": "seleccion", "juego_id": juego_id})
+        _upd(estado, doc, {"publicidad": doc.get("publicidad", 0) + cut,
+                           "ultimo_anuncio": {"juego_id": juego_id, "anunciantes": p["anunciantes"], "audiencia": p["audiencia"], "cobrado": cut}})
+    except Exception as e:
+        print(f"[corporativos] publicidad del partido {juego_id}: {e}")
+
+
 def _representacion(estado, doc: dict) -> Optional[dict]:
     c = estado.por_seleccion.get(doc["pais_id"])
     return c if c and str(c["_id"]) == doc["contrato_id"] and c.get("activo", True) else None
@@ -184,6 +256,7 @@ def procesar_partido(estado, aporte: dict, ciclo: int, juego_id: str, seq: int) 
             t = catalogo().get(doc["televisora_id"], {})
             nombre = valores()["info_paises"].get(pais_id, {}).get("nombre", "?")
             _cobrar(estado, doc, c, monto, ciclo, f"{t.get('nombre', 'TV')}: {nombre} ({resultado})", juego_id)
+            _publicidad(estado, doc, c, ciclo, seq, juego_id, pais_id, t)
             _upd(estado, doc, {"jugados": doc["jugados"] + 1, "resultados": doc["resultados"] + [resultado],
                                "cobrado": doc["cobrado"] + monto})
             faltan = doc["partidos"] - doc["jugados"]
@@ -394,7 +467,7 @@ def _fila(d: dict) -> Optional[dict]:
             "tarifa": d["tarifa"], "esperado": R.tv_esperado(d["tarifa"]), "bono_total": d["tarifa"]["bono"] * d["partidos"],
             "exigencia": int(round(d.get("exigencia", 0.55) * 100)), "pct": int(round(pct * 100)) if pct is not None else None,
             "bono_en_camino": pct is not None and pct >= d.get("exigencia", 0.55), "cobrado": d.get("cobrado", 0),
-            "bono_cobrado": d.get("bono_cobrado", 0), "forma": d.get("forma", 1.0), "sigue_a": d.get("sigue_a"),
+            "bono_cobrado": d.get("bono_cobrado", 0), "publicidad": d.get("publicidad", 0), "ultimo_anuncio": d.get("ultimo_anuncio"), "forma": d.get("forma", 1.0), "sigue_a": d.get("sigue_a"),
             "aviso": d["estado"] == "ACTIVO" and faltan <= C.TV_AVISO_PARTIDOS, "motivo": d.get("motivo"),
             "vence_ciclo": d.get("vence_ciclo"), "ciclo": d.get("ciclo"), "terminado_ciclo": d.get("terminado_ciclo")}
 
@@ -493,7 +566,7 @@ def detalle_contrato(user_id, tv_id: str) -> Optional[dict]:
             "puntos_faltan": max(0, necesarios - puntos), "puntos_posibles": faltan * 3, "alcanzable": necesarios - puntos <= faltan * 3,
             "proximo": proximo, "firmado_ciclo": d.get("firmado_ciclo"), "desde_seq": d.get("desde_seq"), "pago_victoria": tarifa["victoria"],
             "pago_empate": tarifa["empate"], "pago_derrota": tarifa["derrota"], "bono_partido": tarifa["bono"],
-            "ganado": d.get("cobrado", 0) + d.get("bono_cobrado", 0), "relacionadas": [r for r in relacionadas if r],
+            "ganado": d.get("cobrado", 0) + d.get("bono_cobrado", 0) + d.get("publicidad", 0), "relacionadas": [r for r in relacionadas if r],
             "invitados": invitados, "hermanas": [tele_vista(x) for x in del_pais(d["pais_id"]) if x["id"] != t["id"]],
             "previos": len([p for p in previos if p.get("pais_id") == d["pais_id"]]),
             "cadena_contratos": (con_cadena[0]["contratos"] if con_cadena else 0), "cadena_cobrado": (con_cadena[0]["cobrado"] if con_cadena else 0),

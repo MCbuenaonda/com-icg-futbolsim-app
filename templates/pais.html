@@ -289,6 +289,8 @@
     </div>
 
     {# RIVALES de la selección (services/relaciones_service.py): clásicos y rivalidades que salen de lo jugado #}
+    {% set simbolo = leyenda_simbolo(pais.id) %}
+    {% if simbolo %}<div class="d-flex align-items-center gap-2 mb-3 small"><i class="bi bi-award-fill text-warning"></i><span class="text-body-secondary">Leyenda símbolo:</span> <a class="text-decoration-none text-white fw-semibold" href="/jugadores/{{ simbolo.id }}">{{ simbolo.nombre }}</a>{% if simbolo.homenajes %}<span class="badge bg-warning text-dark">Homenajeada en {{ simbolo.homenajes }} partido{{ 's' if simbolo.homenajes != 1 }}</span>{% endif %}</div>{% endif %}
     {% set rel = relaciones_de('seleccion', pais.id) %}{% set rel_titulo = "Rivales de " ~ pais.nombre %}{% include "partials/rivales.html" %}
 
     {# MARCAS (corporativo_marcas_service.patrocinios_de_pais): quién patrocina a la selección y a sus jugadores en tu universo #}

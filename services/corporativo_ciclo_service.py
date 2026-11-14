@@ -124,7 +124,7 @@ def ciclo_vacio() -> dict:
     'gastos_extra' = costos de las giras; 'comision_ceo' = comisión de las marcas que cobra el CEO con el sueldo."""
     return {"renta": 0, "honorarios": 0, "amortizacion": 0, "sueldo": 0, "impago": False, "fichajes": 0,
             "patrocinio": 0, "extra": 0, "gastos_extra": 0, "fama": {}, "comision_ceo": 0, "marcas_bruto": 0, "tv": 0, "tv_invitados": 0,
-            "asegurable": 0, "perdida_clima": 0, "seguro_prima": 0, "seguro_pago": 0}
+            "asegurable": 0, "perdida_clima": 0, "seguro_prima": 0, "seguro_pago": 0, "tv_publicidad": 0}
 
 
 # --- Partido -------------------------------------------------------------------------------------

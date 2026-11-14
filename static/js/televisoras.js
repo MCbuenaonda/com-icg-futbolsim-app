@@ -126,9 +126,11 @@
                 <div><i class="bi bi-cash-coin text-success"></i><strong>${fmt(c.ganado)}</strong><small>ganado en total</small></div>
                 <div><i class="bi bi-tv text-info"></i><strong>${fmt(c.cobrado)}</strong><small>por partidos</small></div>
                 <div><i class="bi bi-gift-fill text-warning"></i><strong>${fmt(c.bono_cobrado)}</strong><small>bono cobrado</small></div>
+                <div><i class="bi bi-megaphone-fill text-danger"></i><strong>${fmt(c.publicidad || 0)}</strong><small>publicidad</small></div>
                 <div><i class="bi bi-graph-up text-primary"></i><strong>${fmt(c.esperado)}</strong><small>esperado / partido</small></div>
               </div>
 
+              ${c.ultimo_anuncio && c.ultimo_anuncio.anunciantes && c.ultimo_anuncio.anunciantes.length ? `<div class="small text-body-secondary mt-2"><i class="bi bi-megaphone-fill text-danger me-1"></i>Último partido: anunciaron <strong class="text-white">${c.ultimo_anuncio.anunciantes.map(a => esc(a.nombre)).join(', ')}</strong> (audiencia ×${c.ultimo_anuncio.audiencia}); tu parte: <strong class="text-white">${fmt(c.ultimo_anuncio.cobrado)}</strong>.</div>` : ''}
               <h6 class="fw-bold text-white mt-3 mb-1 small">Lo que paga por partido</h6>
               <div class="tv-ficha__tarifa">
                 <div><i class="bi bi-trophy-fill text-success"></i><strong>${fmt(c.pago_victoria)}</strong><small>victoria</small></div>

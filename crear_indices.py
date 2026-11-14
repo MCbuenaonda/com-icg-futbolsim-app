@@ -209,6 +209,11 @@ def crear_indices():
     db['prensa'].create_index([("declaracion_id", 1)], name="declaracion", sparse=True)
     print("✅ Índices creados en 'declaraciones'")
 
+    sanciones = db['sanciones_historial']
+    sanciones.create_index([("juego_id", 1)], name="juego")
+    sanciones.create_index([("jugador_id", 1), ("registrada_en", -1)], name="jugador_fecha")
+    print("✅ Índices creados en 'sanciones_historial'")
+
     city_revenue_history = db['city_revenue_history']
     city_revenue_history.create_index("user_id", name="user_id")
     city_revenue_history.create_index("ciudad_id", name="ciudad_id")

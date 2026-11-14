@@ -530,7 +530,7 @@ def registrar_resultado_juego(db: Database, juego_id: str, partido: dict, stats_
         objeto_resultado["calificaciones"] = partido["calificaciones"]
     # Lesiones del partido, bajas por lesión con que llegó cada selección (services/lesiones.py; las bajas siguientes las
     # aplica lesiones_service al terminar) y curva de energía de cada jugador (desgaste en la transmisión en vivo)
-    for campo in ("lesiones", "bajas_lesion", "energia", "espejo_extremos", "recorrido"):
+    for campo in ("lesiones", "bajas_lesion", "bajas_suspension", "energia", "espejo_extremos", "recorrido"):
         if partido.get(campo) is not None:
             objeto_resultado[campo] = partido[campo]
 
@@ -888,6 +888,14 @@ def aplicar_efectos_secundarios(
     from services.lesiones_service import registrar_partido as registrar_partido_lesiones
     registrar_partido_lesiones(db["juegos"].find_one({"_id": ObjectId(juego_id)}))
 
+    # Disciplina (services/disciplina_service.py): los suspendidos cumplen un partido y las tarjetas de este partido suman o sancionan.
+    # Diferido en vivo, idempotente, nunca lanza.
+    try:
+        from services.disciplina_service import registrar_partido as registrar_partido_disciplina
+        registrar_partido_disciplina(db["juegos"].find_one({"_id": ObjectId(juego_id)}))
+    except Exception as e:
+        print(f"No se pudo registrar la disciplina: {e}")
+
     # Crónica del partido (services/cronica_service.py): se escribe al terminar, con la cronología completa.
     # Nunca lanza; si el partido sigue en transmisión no hace nada y se escribe al abrir su resumen.
     try:
@@ -905,6 +913,14 @@ def aplicar_efectos_secundarios(
         generar_pronosticos()         # y se pronostican los próximos partidos
     except Exception as e:
         print(f"No se pudo generar la prensa: {e}")
+
+    # Polémicas arbitrales (services/polemicas_service.py): notas de la prensa sobre el árbitro de una jugada discutida. Antes de las declaraciones
+    # (el DT perjudicado reclama más). Nunca lanza.
+    try:
+        from services.polemicas_service import asegurar_polemicas
+        asegurar_polemicas(db["juegos"].find_one({"_id": ObjectId(juego_id)}))
+    except Exception as e:
+        print(f"No se pudieron generar las polémicas: {e}")
 
     # Declaraciones tras el partido (services/declaraciones_service.py): el DT o la figura hablan y la prensa reacciona. Nunca lanza.
     try:

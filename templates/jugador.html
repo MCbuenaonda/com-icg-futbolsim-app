@@ -154,6 +154,9 @@
         </div>
     </div>
 
+    <!-- Disciplina (services/disciplina_service.py): suspensión vigente y sanciones del torneo -->
+    {% set disc = sanciones_de(jugador.id, jugador) %}{% include "partials/disciplina_jugador.html" %}
+
     <!-- Parte médico (services/lesiones_service.py): la lesión vigente (no juega hasta cumplir sus partidos de baja) y las
          anteriores; las lesiones las decide el motor durante el partido (services/lesiones.py) -->
     {% set pm = parte_medico %}

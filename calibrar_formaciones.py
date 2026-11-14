@@ -64,7 +64,7 @@ _arbitros = []
 _real_cuarteta = S.obtener_cuarteta_arbitral
 
 
-def _cuarteta(excluir=()):
+def _cuarteta(excluir=(), *a, **k):
     if len(_arbitros) < 40:
         _arbitros.append(_real_cuarteta(excluir))
     return random.choice(_arbitros)

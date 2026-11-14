@@ -212,12 +212,21 @@ def asignar_arbitros(eventos: List[dict], arbitros: dict) -> None:
                 e["var_decision"] = "confirma" if tipo == "🖥️ VAR - CONFIRMADO" else "revierte"
 
 
-def elegir_cuerpo_arbitral(por_puesto: Dict[str, List[dict]], excluir_paises=(), rng=random) -> Dict[str, dict]:
-    """Un árbitro por puesto, de un país distinto a los dos equipos (si hay de dónde elegir)."""
+def elegir_cuerpo_arbitral(por_puesto: Dict[str, List[dict]], excluir_paises=(), rng=random, puntajes_central=None) -> Dict[str, dict]:
+    """Un árbitro por puesto, de un país distinto a los dos equipos (si hay de dónde elegir).
+    `puntajes_central` ({arbitro_id: reputación}) solo se pasa en la eliminación directa (services/polemicas.py): el central se sortea con
+    peso según su reputación y el de reputación pésima queda apartado si hay alternativas."""
     elegidos = {}
     for rol, puesto in PUESTOS.items():
         candidatos = por_puesto.get(puesto) or []
         neutrales = [a for a in candidatos if a.get("pais_id") not in excluir_paises]
+        if rol == "central" and puntajes_central is not None and (neutrales or candidatos):
+            from services import polemicas as PO
+            pool = neutrales or candidatos
+            sin_apartados = [a for a in pool if not PO.apartado(puntajes_central.get(a.get("id")))]
+            pool = sin_apartados or pool
+            elegidos[rol] = rng.choices(pool, weights=[PO.peso_designacion(puntajes_central.get(a.get("id"))) for a in pool])[0]
+            continue
         elegidos[rol] = rng.choice(neutrales or candidatos) if (neutrales or candidatos) else {"nombre": None}
     # la personalidad del VAR viaja con el partido (no se persiste en el resultado: es permanente en 'arbitros')
     return elegidos

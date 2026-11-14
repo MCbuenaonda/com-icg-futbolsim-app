@@ -1,0 +1,17 @@
+{# Polémica arbitral del partido (services/polemicas_service.py). Variable: pol = polemica_partido(juego_id). #}
+{% if pol and pol.items %}
+<div class="card card-seccion mb-4">
+  <div class="card-body p-3">
+    <h2 class="vivo-titulo"><i class="bi bi-exclamation-triangle-fill" style="color:#fbbf24;"></i>Jugadas polémicas</h2>
+    <ul class="lesion-parte__lista list-unstyled mb-0">
+      {% for i in pol['items'] %}
+      <li>
+        <span class="lesion-parte__punto lesion-parte__punto--{{ 'grave' if i.peso >= 1 else 'moderada' }}" aria-hidden="true"></span>
+        {{ i.titular }}
+        <a class="small text-decoration-none ms-1" href="/arbitros/perfil?nombre={{ i.arbitro | urlencode }}">Ver al árbitro</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}

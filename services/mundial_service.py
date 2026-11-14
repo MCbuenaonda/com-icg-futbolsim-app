@@ -149,6 +149,13 @@ def crear_nuevo_mundial() -> Dict[str, Any]:
     except Exception as e:
         print(f"No se pudieron limpiar las lesiones: {e}")
 
+    # 5e. Disciplina: cada Mundial empieza sin suspendidos ni amarillas (services/disciplina_service.py)
+    try:
+        from services.disciplina_service import limpiar_disciplina
+        limpiar_disciplina()
+    except Exception as e:
+        print(f"No se pudo limpiar la disciplina: {e}")
+
     # 6. Poblar la colección 'internacional' con los países participantes
     poblar_paises_internacional(db, 1, nuevo_mundial_doc["_id"])
     
@@ -350,7 +357,7 @@ def restart_mundial():
     fantasy_teams.delete_many({})
     reward_transactions.delete_many({})
     city_ownerships.delete_many({})
-    for _c in ("sedes_naming", "sedes_naming_movimientos", "sedes_naming_rondas", "declaraciones"):
+    for _c in ("sedes_naming", "sedes_naming_movimientos", "sedes_naming_rondas", "declaraciones", "polemicas"):
         db[_c].delete_many({})
     fantasy_points_history.delete_many({})
     historial_aficionados.delete_many({})

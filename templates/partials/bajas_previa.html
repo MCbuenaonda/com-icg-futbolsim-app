@@ -1,0 +1,21 @@
+{# Bajas de la previa: suspendidos y lesionados que NO podrían jugar. Variables: bajas (disciplina_service.bajas_previa) y nombre_local / nombre_visita / id_local / id_visita. #}
+{% set _l = bajas.get(id_local) or [] %}{% set _v = bajas.get(id_visita) or [] %}
+{% if _l or _v %}
+<div class="card card-seccion mb-4">
+  <div class="card-body p-3">
+    <h2 class="vivo-titulo"><i class="bi bi-person-x-fill" style="color:#f97316;"></i>Bajas para este partido</h2>
+    <div class="row g-3">
+      {% for titulo, lista in ((nombre_local, _l), (nombre_visita, _v)) %}
+      <div class="col-12 col-md-6">
+        <strong class="text-white d-block mb-1">{{ titulo }}</strong>
+        {% if lista %}
+        <ul class="list-unstyled mb-0 small">
+          {% for b in lista %}<li>{{ '🟥' if b.tipo == 'suspension' else '🚑' }} <a class="text-decoration-none text-body-emphasis" href="/jugadores/{{ b.jugador_id }}">{{ b.nombre }}</a> <span class="text-muted">· {{ b.motivo }} · {{ b.restantes }} partido{{ 's' if b.restantes != 1 }}</span></li>{% endfor %}
+        </ul>
+        {% else %}<span class="text-muted small">Sin bajas.</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}

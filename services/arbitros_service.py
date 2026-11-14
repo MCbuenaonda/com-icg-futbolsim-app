@@ -76,7 +76,7 @@ _cache: Dict[str, Any] = {"clave": None, "stats": None}
 
 
 def _datos_arbitros() -> List[dict]:
-    return list(db["arbitros"].find({}, {"_id": 0, "nombre": 1, "pais": 1, "pais_id": 1, "puesto": 1, "rigor": 1, "rigor_etiqueta": 1,
+    return list(db["arbitros"].find({}, {"_id": 0, "id": 1, "nombre": 1, "pais": 1, "pais_id": 1, "puesto": 1, "rigor": 1, "rigor_etiqueta": 1,
                                          "var_intervencion": 1, "var_severidad": 1, "var_intervencion_etiqueta": 1, "var_severidad_etiqueta": 1}))
 
 
@@ -138,11 +138,28 @@ def _estadisticas() -> Dict[tuple, Counter]:
     return stats
 
 
+def _reputacion(arbitro_id) -> Optional[dict]:
+    """Imagen en prensa del árbitro (services/polemicas_service.py: se recupera con el tiempo); None si nunca fue noticia."""
+    p = _puntajes().get(arbitro_id)
+    if p is None:
+        return None
+    from services import prensa as P
+    return {"puntaje": round(p), "etiqueta": P.etiqueta_reputacion(p), "color": "#4ade80" if p >= 8 else ("#f87171" if p <= -8 else "#94a3b8")}
+
+
+def _puntajes() -> Dict[int, float]:
+    try:
+        from services.polemicas_service import puntajes_centrales
+        return puntajes_centrales()
+    except Exception:
+        return {}
+
+
 def _fila(a: dict, rol: str, c: Counter) -> dict:
     n = c.get("partidos", 0)
     prom = lambda v: round(v / n, 1) if n else 0
     fila = {"nombre": a["nombre"], "pais": a.get("pais", ""), "pais_id": a.get("pais_id"), "puesto": a.get("puesto", ""),
-            "rol": rol, "rol_nombre": NOMBRE_ROL[rol], "partidos": n}
+            "rol": rol, "rol_nombre": NOMBRE_ROL[rol], "partidos": n, "id": a.get("id"), "reputacion": _reputacion(a.get("id"))}
     if rol == "central":
         fila.update(faltas=c["faltas"], tarjetas=c["tarjetas"], expulsiones=c["expulsiones"], penales=c["penales"],
                     faltas_prom=prom(c["faltas"]), tarjetas_prom=prom(c["tarjetas"]),

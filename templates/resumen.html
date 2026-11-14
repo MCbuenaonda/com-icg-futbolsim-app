@@ -109,6 +109,7 @@
 
     {% set tx_juego_id, tx_jugado = partido._id | string, True %}{% include "partials/transmision.html" %}
     {% set tx_juego_id, tx_jugado = partido._id | string, True %}{% include "partials/pronosticos.html" %}
+    {% set pol = polemica_partido(partido._id | string) %}{% include "partials/polemica.html" %}
     {% set rueda_items = declaraciones_de_partido(partido._id | string) %}{% set rueda_titulo = "Rueda de prensa" %}{% include "partials/rueda_prensa.html" %}
     {% set prensa_items = prensa_de_partido(partido._id | string) %}{% set prensa_titulo = "Lo que dice la prensa" %}{% include "partials/prensa_lista.html" %}
 
@@ -139,6 +140,9 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- SANCIONES: suspensiones que dejó el partido y suspendidos que no lo jugaron (services/disciplina_service.py) -->
+    {% set sanc = sanciones_partido(partido) %}{% include "partials/sanciones.html" %}
 
     <!-- CESE DE DT: la federación cambió de técnico tras este partido (tecnicos_service.ceses_del_partido) -->
     {% for c in ceses_dt %}

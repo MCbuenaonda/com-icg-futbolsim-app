@@ -80,7 +80,7 @@ REACCION = {   # {h} = quien habló, {accion} = lo que hizo
 # --- Qué dice cada uno --------------------------------------------------------------------------------------------------
 def noticioso(c: dict) -> bool:
     """¿El partido (visto desde un lado) fue lo bastante noticioso como para que su DT hable siempre?"""
-    return bool(c.get("eliminacion") or abs(c.get("dif", 0)) >= 3 or c.get("dt_expulsado") or c.get("historia") in HISTORIAS_NOTICIOSAS or c.get("sorpresa"))
+    return bool(c.get("polemica_contra") or c.get("eliminacion") or abs(c.get("dif", 0)) >= 3 or c.get("dt_expulsado") or c.get("historia") in HISTORIAS_NOTICIOSAS or c.get("sorpresa"))
 
 
 def tipo_dt(c: dict, rng: random.Random) -> str:
@@ -95,13 +95,15 @@ def tipo_dt(c: dict, rng: random.Random) -> str:
             pesos["con_diez"] = 5
     elif c["res"] == "E":
         pesos = {"respeta_rival": 2, "pide_calma": 2, "mira_adelante": 2, "autocritica": 1}
+        if c.get("polemica_contra"):
+            pesos["reclama_arbitro"] = 3 * temp
         if c.get("roja_propia"):
             pesos["con_diez"] = 4
     else:
         pesos = {"pide_calma": 3, "asume": 2.5 / temp, "mira_adelante": 1.5, "autocritica": 1.5}
         if temp >= 1.1:
             pesos["critica_equipo"] = 1.2 * temp
-        pesos["reclama_arbitro"] = (4 if (c.get("roja_propia") or c.get("penal_contra")) else 0.5) * temp
+        pesos["reclama_arbitro"] = (6 if c.get("polemica_contra") else 4 if (c.get("roja_propia") or c.get("penal_contra")) else 0.5) * temp
     return rng.choices(list(pesos), list(pesos.values()))[0]
 
 

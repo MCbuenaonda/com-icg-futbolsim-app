@@ -59,6 +59,11 @@ def _contexto_lados(j: dict) -> tuple:
     candidatos = [x["id"] for x in ids_exp.values()] + [ctx[k]["figura"]["id"] for k in ("local", "visita") if ctx[k].get("figura")]
     leyendas = {d["id"] for d in db["jugadores"].find({"id": {"$in": candidatos}, "leyenda": True}, {"id": 1})} if candidatos else set()
     ids_exp = {k: v for k, v in ids_exp.items() if v["id"] not in leyendas}
+    # Una jugada discutida del árbitro que lo perjudicó (services/polemicas_service.py): su DT reclama con más probabilidad
+    pol = db["polemicas"].find_one({"_id": str(j.get("_id"))}, {"items.lado": 1, "total": 1})
+    contra = {"local": False, "visita": False}
+    for it in (pol or {}).get("items") or []:
+        contra["local" if it["lado"] == "L" else "visita"] = True
     lados = {}
     for lado in ("local", "visita"):
         otro = "visita" if lado == "local" else "local"
@@ -67,7 +72,7 @@ def _contexto_lados(j: dict) -> tuple:
         lados[lado] = {"eq": s["nombre"], "rival": r["nombre"], "gl": s["goles"], "gv": r["goles"], "dif": s["goles"] - r["goles"], "res": res,
                        "eliminacion": ctx["eliminacion"], "historia": ctx.get("historia"), "sorpresa": ctx.get("sorpresa") and ctx["ganador"] == lado,
                        "dt": s.get("dt"), "dt_id": s.get("dt_id"), "temperamento": temperamentos.get(s.get("dt_id")),
-                       "roja_propia": roja[lado], "dt_expulsado": dt_exp[lado], "penal_contra": penal_contra[lado],
+                       "roja_propia": roja[lado], "dt_expulsado": dt_exp[lado], "penal_contra": penal_contra[lado], "polemica_contra": contra[lado],
                        "expulsado": ids_exp.get(lado),
                        "figura": None if (s.get("figura") or {}).get("id") in leyendas else s.get("figura")}
     return ctx, lados

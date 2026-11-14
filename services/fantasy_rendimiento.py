@@ -156,7 +156,7 @@ def ficha(jugador_id: int, usuario_id: Optional[str] = None) -> Optional[dict]:
     """Ficha del jugador para la ventana del Once Ideal: datos, forma, próximo partido, historial y lo que te pagó."""
     j = db["jugadores"].find_one({"id": jugador_id}, {"_id": 0, "id": 1, "nombre": 1, "edad": 1, "overall": 1, "posicion_id": 1,
                                                       "pais_id": 1, "numero": 1, "leyenda": 1, "rendimiento": 1, "pie_habil": 1,
-                                                      "estado_animo": 1, "especialidades": 1})
+                                                      "estado_animo": 1, "especialidades": 1, "lesion": 1, "suspension": 1})
     if not j:
         return None
     pais = db["paises"].find_one({"id": j.get("pais_id")}, {"nombre": 1, "bandera": 1}) or {}
@@ -184,7 +184,7 @@ def ficha(jugador_id: int, usuario_id: Optional[str] = None) -> Optional[dict]:
         "pais_id": j.get("pais_id"), "pais": pais.get("nombre"), "bandera": pais.get("bandera") or "",
         "posicion": pos.get("nombre"), "siglas": pos.get("siglas"), "linea": CFF.LINEA_DE_POSICION.get(j.get("posicion_id")),
         "eliminado": eliminados.get(j.get("pais_id")),
-        "lesion": FS._lesion_vista(j.get("lesion")),
+        "lesion": FS._lesion_vista(j.get("lesion")), "suspension": FS._suspension_vista(j.get("suspension")),
         "nivel": nivel_de(jugador_id, d), "proximo": _proximo(j.get("pais_id"), _calendario()),
         "partidos": [{k: v for k, v in p.items() if k != "orden"} for p in historial[-20:]],
         "totales": {**totales, "partidos": len(historial)},
@@ -230,7 +230,7 @@ def _sugerir(uid: ObjectId, posicion_id: int, nivel: str, escuadra: int) -> List
     cal = _calendario()
 
     candidatos = []
-    for j in db["jugadores"].find({"posicion_id": posicion_id, "lesion.restantes": {"$not": {"$gt": 0}}},   # sin lesionados
+    for j in db["jugadores"].find({"posicion_id": posicion_id, "lesion.restantes": {"$not": {"$gt": 0}}, "suspension.restantes": {"$not": {"$gt": 0}}},   # sin lesionados ni suspendidos
                                   {"id": 1, "pais_id": 1, "leyenda": 1}):
         jid = j["id"]
         p = d["percentil"].get(jid)

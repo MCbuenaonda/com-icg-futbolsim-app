@@ -200,5 +200,6 @@
         </div>
     </div>
 </div>
+{% if n.id %}{% set prensa_items = prensa_sobre("arbitro", n.id) %}{% set prensa_rep = reputacion_arbitro(n.id) %}{% set prensa_titulo = "Lo que dice la prensa de " ~ arbitro.nombre %}{% include "partials/prensa_lista.html" %}{% endif %}
 {% endif %}
 {% endblock %}

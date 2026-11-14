@@ -524,8 +524,17 @@ def _enriquecer_jugadores(jugadores: List[dict]) -> List[dict]:
             "leyenda": bool(j.get("leyenda")),
             # De baja por lesión (services/lesiones_service.py): no juega, así que no cobra hasta cumplir sus partidos
             "lesion": _lesion_vista(j.get("lesion")),
+            # Suspendido por tarjetas (services/disciplina_service.py): tampoco juega ni cobra hasta cumplirla
+            "suspension": _suspension_vista(j.get("suspension")),
         })
     return resultado
+
+
+def _suspension_vista(s) -> Optional[dict]:
+    restantes = int((s or {}).get("restantes") or 0)
+    if restantes <= 0:
+        return None
+    return {"motivo": s.get("motivo"), "restantes": restantes}
 
 
 def _lesion_vista(lesion) -> Optional[dict]:
@@ -554,7 +563,7 @@ def buscar_jugadores(texto: str = "", pais_id: Optional[int] = None, posicion_id
 
     jugadores = list(db['jugadores'].find(
         filtro,
-        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1, "leyenda": 1, "lesion": 1}
+        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1, "leyenda": 1, "lesion": 1, "suspension": 1}
     ).limit(limite))
 
     return _enriquecer_jugadores(jugadores)
@@ -566,7 +575,7 @@ def obtener_detalle_jugadores(ids: List[int]) -> List[dict]:
         return []
     jugadores = list(db['jugadores'].find(
         {"id": {"$in": ids}},
-        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1, "leyenda": 1, "lesion": 1}
+        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1, "leyenda": 1, "lesion": 1, "suspension": 1}
     ))
     return _enriquecer_jugadores(jugadores)
 

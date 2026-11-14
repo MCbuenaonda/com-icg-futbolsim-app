@@ -368,6 +368,58 @@ def _declaraciones_de(tipo, ref):
     return de_hablante(tipo, ref)
 
 
+def _suspendidos_pais(pais_id):
+    """Jinja: {jugador_id: suspensión vigente} de los suspendidos de una selección (services/disciplina_service.py)."""
+    try:
+        from services.disciplina_service import suspendidos_de_pais
+        return suspendidos_de_pais(int(pais_id))
+    except Exception:
+        return {}
+
+
+def _sanciones_partido(juego):
+    from services.disciplina_service import sanciones_del_partido
+    try:
+        return sanciones_del_partido(juego)
+    except Exception:
+        return {"nuevas": [], "bajas": []}
+
+
+def _sanciones_de(jugador_id, jugador=None):
+    """Jinja: {actual, historial} de las suspensiones de un jugador (ficha)."""
+    try:
+        from services.disciplina_service import suspension_de, historial_de
+        return {"actual": suspension_de(jugador or {}), "historial": historial_de(jugador_id)}
+    except Exception:
+        return {"actual": {}, "historial": []}
+
+
+def _bajas_previa(ids_paises):
+    """Jinja: {pais_id: [bajas por suspensión o lesión]} para la previa de un partido."""
+    try:
+        from services.disciplina_service import bajas_previa
+        return bajas_previa([int(i) for i in ids_paises if i is not None])
+    except Exception:
+        return {}
+
+
+def _polemica_partido(juego_id):
+    """Jinja: las jugadas polémicas del árbitro en un partido (services/polemicas_service.py) o None."""
+    try:
+        from services.polemicas_service import de_partido
+        return de_partido(juego_id)
+    except Exception:
+        return None
+
+
+def _reputacion_arbitro(arbitro_id):
+    try:
+        from services.polemicas_service import reputacion_vista
+        return reputacion_vista(arbitro_id)
+    except Exception:
+        return None
+
+
 def _estadio_nombre(ciudad_id, original=None):
     """Nombre comercial del estadio si una marca tiene los derechos de nombre (services/naming_sedes_service.py)."""
     from services.naming_sedes_service import nombre_estadio
@@ -375,7 +427,7 @@ def _estadio_nombre(ciudad_id, original=None):
 
 
 GLOBALES_JINJA = {
-    "estadio_nombre": _estadio_nombre, "declaraciones_de_partido": _declaraciones_de_partido, "declaraciones_de": _declaraciones_de,
+    "estadio_nombre": _estadio_nombre, "polemica_partido": _polemica_partido, "reputacion_arbitro": _reputacion_arbitro, "suspendidos_pais": _suspendidos_pais, "sanciones_partido": _sanciones_partido, "sanciones_de": _sanciones_de, "bajas_previa": _bajas_previa, "declaraciones_de_partido": _declaraciones_de_partido, "declaraciones_de": _declaraciones_de,
     "prensa_de_partido": _prensa_de_partido, "pronosticos_partido": _pronosticos_partido, "prensa_sobre": _prensa_sobre, "prensa_reputacion": _prensa_reputacion,
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,

@@ -1,0 +1,31 @@
+{# Sanciones del partido (resumen /juegos/{id}): las que dejó este partido y los suspendidos que no pudieron jugarlo.
+   Variable: sanc = disciplina_service.sanciones_del_partido(partido). #}
+{% if sanc and (sanc.nuevas or sanc.bajas) %}
+<div class="card card-seccion mb-4">
+  <div class="card-body p-3">
+    <h2 class="vivo-titulo"><i class="bi bi-flag-fill" style="color:#f97316;"></i>Sanciones</h2>
+    {% if sanc.nuevas %}
+    <span class="historial-grupo">Dejó este partido</span>
+    <ul class="lesion-parte__lista list-unstyled mb-2">
+      {% for s in sanc.nuevas %}
+      <li>
+        <span class="lesion-parte__punto lesion-parte__punto--{{ 'grave' if s.codigo == 'roja_directa' else 'moderada' }}" aria-hidden="true"></span>
+        <strong class="text-white"><a class="text-decoration-none text-white" href="/jugadores/{{ s.jugador_id }}">{{ s.jugador }}</a></strong>
+        <span class="text-muted">({{ s.equipo }}{% if s.minuto is not none %} · {{ s.minuto }}'{% endif %})</span> —
+        {{ s.motivo }}: <strong>{{ s.partidos }} partido{{ 's' if s.partidos != 1 }}</strong> de suspensión.
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if sanc.bajas %}
+    <span class="historial-grupo">No pudieron jugarlo por suspensión</span>
+    <ul class="lesion-parte__lista list-unstyled mb-0">
+      {% for b in sanc.bajas %}
+      <li><span class="lesion-parte__punto lesion-parte__punto--leve" aria-hidden="true"></span>
+        <a class="text-decoration-none text-white fw-semibold" href="/jugadores/{{ b.jugador_id }}">{{ b.nombre }}</a> <span class="text-muted">· {{ b.motivo }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

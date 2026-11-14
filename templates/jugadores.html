@@ -18,6 +18,7 @@
 {% set con_marca = (pp.jugadores | length) if pp else 0 %}
 {% set esp_ganadas = especialidades_ganadas_pais(pais_id) if pais_id else {} %}
 {% set lesionados = lesionados_pais(pais_id) if pais_id else {} %}
+{% set suspendidos = suspendidos_pais(pais_id) if pais_id else {} %}
 <div class="container-fluid py-2">
 
     <!-- Encabezado de la selección -->
@@ -111,6 +112,8 @@
                             {% if j.edad %}<span class="ficha-jugador__edad">{{ j.edad }} años</span>{% endif %}
                             {% set lj = lesionados.get(j.id) %}
                             {% if lj %}<span class="ficha-jugador__lesion" title="{{ lj.nombre | capitalize }} ({{ lj.gravedad_nombre | lower }}): {{ lj.baja_texto }}">🚑 Baja · {{ lj.restantes }}</span>{% endif %}
+                            {% set sj = suspendidos.get(j.id) %}
+                            {% if sj %}<span class="ficha-jugador__lesion" title="Suspendido por {{ sj.motivo }}: no juega ni cobra hasta cumplir {{ sj.restantes }} partido{{ 's' if sj.restantes != 1 }}">🟥 Suspendido · {{ sj.restantes }}</span>{% endif %}
                         </div>
                         {% set esps = especialidades_de(j.especialidades) %}
                         {% set gj = esp_ganadas.get(j.id) or [] %}

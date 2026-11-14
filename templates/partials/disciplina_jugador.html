@@ -1,0 +1,20 @@
+{# Disciplina en la ficha del jugador. Variable: disc = sanciones_de(jugador.id, jugador); amarillas = jugador.disciplina.amarillas. #}
+{% if disc and (disc.actual.restantes or disc.historial) %}
+<div class="card card-seccion mb-4 {{ 'lesion-parte--activa' if disc.actual.restantes }}">
+  <div class="card-body p-3">
+    <h3 class="h6 fw-bold mb-2"><i class="bi bi-flag-fill text-warning me-1"></i>Disciplina</h3>
+    {% if disc.actual.restantes %}
+    <p class="mb-2"><span class="badge bg-danger">🟥 Suspendido</span> por {{ disc.actual.motivo }}: no juega ni suma hasta cumplir {{ disc.actual.restantes }} partido{{ 's' if disc.actual.restantes != 1 }}.</p>
+    {% endif %}
+    {% if disc.historial %}
+    <span class="historial-grupo">Sanciones en el torneo</span>
+    <ul class="lesion-parte__lista list-unstyled mb-0">
+      {% for h in disc.historial %}
+      <li><span class="lesion-parte__punto lesion-parte__punto--{{ 'grave' if h.codigo == 'roja_directa' else 'moderada' }}" aria-hidden="true"></span>
+        {{ h.motivo | capitalize }} — {{ h.partidos }} partido{{ 's' if h.partidos != 1 }}{% if h.rival %} · vs {{ h.rival }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

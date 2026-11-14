@@ -291,6 +291,7 @@
     {% if not stats_jugadores and planteo %}{% set nombre_local, nombre_visita = partido.local, partido.visitante %}{% include "partials/planteo_probable.html" %}{% endif %}
 
     <!-- ENFRENTAMIENTOS ANTERIORES (mismo bloque que el Scouter) -->
+    {% if not stats_jugadores %}{% set bajas = bajas_previa([partido.id_local, partido.id_visita]) %}{% set id_local, id_visita = partido.id_local, partido.id_visita %}{% set nombre_local, nombre_visita = partido.local, partido.visitante %}{% include "partials/bajas_previa.html" %}{% endif %}
     {% include "partials/enfrentamientos.html" %}
 
     {% if partido.stats_local and partido.stats_visita %}

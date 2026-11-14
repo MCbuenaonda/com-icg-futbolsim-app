@@ -691,7 +691,7 @@ def obtener_dt_en_funciones(pais: dict):
 
 
 # funcion para obtener cuarteta arbitral
-def obtener_cuarteta_arbitral(excluir_paises=()):
+def obtener_cuarteta_arbitral(excluir_paises=(), fase_id=None):
     """
     Cuerpo arbitral del partido: central, dos jueces de línea, 4to árbitro y VAR (5to), de países distintos a los
     dos equipos. Devuelve ({rol: nombre}, rigor del central, personalidad del VAR {intervencion, severidad}) -- en el
@@ -699,9 +699,18 @@ def obtener_cuarteta_arbitral(excluir_paises=()):
     """
     arbitros_por_puesto = defaultdict(list)
     for arbitro in db['arbitros'].find({"puesto": {"$in": list(arbitraje.PUESTOS.values())}},
-                                       {"nombre": 1, "puesto": 1, "pais_id": 1, "rigor": 1, "var_intervencion": 1, "var_severidad": 1}):
+                                       {"id": 1, "nombre": 1, "puesto": 1, "pais_id": 1, "rigor": 1, "var_intervencion": 1, "var_severidad": 1}):
         arbitros_por_puesto[arbitro["puesto"]].append(arbitro)
-    elegidos = arbitraje.elegir_cuerpo_arbitral(arbitros_por_puesto, set(excluir_paises))
+    # En la eliminación directa el central se sortea según su reputación (services/polemicas.py): los de mejor imagen reciben los partidos grandes
+    puntajes = None
+    try:
+        from config import polemicas as CP
+        if fase_id is not None and fase_id >= CP.FASE_DESIGNACION:
+            from services.polemicas_service import puntajes_centrales
+            puntajes = puntajes_centrales()
+    except Exception:
+        puntajes = None
+    elegidos = arbitraje.elegir_cuerpo_arbitral(arbitros_por_puesto, set(excluir_paises), puntajes_central=puntajes)
     cuerpo_arbitral = {rol: a.get("nombre") for rol, a in elegidos.items()}
     var = elegidos.get("var") or {}
     perfil_var = {"intervencion": float(var.get("var_intervencion") or 1.0), "severidad": float(var.get("var_severidad") or 1.0)}
@@ -1152,7 +1161,14 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     pais_visitante = collection_paises.find_one({"id": id_visitante})
 
     # Cargar Árbitros
-    arbitros, rigor_central, perfil_var = obtener_cuarteta_arbitral((id_local, id_visitante))
+    fase_partido = None
+    if juego_id:   # la fase decide si el central se sortea por reputación (eliminación directa)
+        try:
+            from bson import ObjectId as _OID
+            fase_partido = (db['juegos'].find_one({"_id": _OID(str(juego_id))}, {"fase_id": 1}) or {}).get("fase_id")
+        except Exception:
+            fase_partido = None
+    arbitros, rigor_central, perfil_var = obtener_cuarteta_arbitral((id_local, id_visitante), fase_partido)
     var_revisa, var_revierte = perfil_var["intervencion"], perfil_var["severidad"]
     rigor = rigor_central * AJUSTE_TARJETAS_DESCUENTO   # lo que multiplica las tarjetas
 
@@ -1160,10 +1176,15 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
     plantilla_visitante_temp = list(collection.find({"pais_id": id_visitante}))
     # Los lesionados con partidos de baja (services/lesiones_service.py) no juegan: ni titulares ni en el banco
     def _de_baja(j):
-        return int((j.get("lesion") or {}).get("restantes") or 0) > 0
+        return int((j.get("lesion") or {}).get("restantes") or 0) > 0 or int((j.get("suspension") or {}).get("restantes") or 0) > 0
     bajas_lesion = [{"jugador_id": j["id"], "nombre": j["nombre"], "pais_id": j.get("pais_id"),
                      "lesion": (j.get("lesion") or {}).get("nombre"), "restantes": j["lesion"]["restantes"]}
-                    for j in plantilla_local_temp + plantilla_visitante_temp if _de_baja(j)]
+                    for j in plantilla_local_temp + plantilla_visitante_temp if int((j.get("lesion") or {}).get("restantes") or 0) > 0]
+    # Los suspendidos por tarjetas (services/disciplina_service.py) tampoco juegan; el resumen los lista aparte
+    bajas_suspension = [{"jugador_id": j["id"], "nombre": j["nombre"], "pais_id": j.get("pais_id"),
+                         "motivo": (j.get("suspension") or {}).get("motivo"), "restantes": j["suspension"]["restantes"]}
+                        for j in plantilla_local_temp + plantilla_visitante_temp
+                        if int((j.get("suspension") or {}).get("restantes") or 0) > 0 and int((j.get("lesion") or {}).get("restantes") or 0) <= 0]
     plantilla_local_temp = [j for j in plantilla_local_temp if not _de_baja(j)]
     plantilla_visitante_temp = [j for j in plantilla_visitante_temp if not _de_baja(j)]
     if tiempo_extra:   # eliminación directa o serie: rige la especialidad «Partidos grandes» (services/especialidades.py)
@@ -2395,6 +2416,7 @@ def simular_partido_realista(id_local: int, id_visitante: int, tiempo_extra: boo
         # Qué extremo jugó de segundo delantero en cada lado (la cancha en vivo dibuja las líneas con esto)
         "espejo_extremos": {"local": espejo_local, "visita": espejo_visita},
         "bajas_lesion": bajas_lesion,
+        "bajas_suspension": bajas_suspension,
         "energia": curva_energia,
         # Recorrido del balón de cada evento (services/balon.py), alineado por índice con 'eventos' (None en los avisos).
         # Va aparte para no engordar a quienes leen 'resultado.eventos' (Estadísticas lee los de todo el Mundial)

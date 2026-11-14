@@ -161,7 +161,7 @@ def redactar(tipo: str, tono_v: float, medio: dict, periodista: dict, c: dict, r
 # media de su tipo, porque en promedio la prensa elogia un poco) para no mover el equilibrio general.
 REP_DECAY = 0.85
 REP_K = 25.0
-REP_MEDIA = {"pais": 9.9, "jugador": 12.8, "dt": 3.0, "arbitro": 0.0}   # promedio observado de cada tipo (reconstruir_reputacion; «pais» recalculado con las reacciones a presidentes y líderes, 1.133 partidos)
+REP_MEDIA = {"pais": 9.9, "jugador": 10.8, "dt": 22.7, "arbitro": 0.0}   # promedio observado de cada tipo (reconstruir_reputacion, 1.133 partidos); `python calibrar_reputacion.py` lo compara con la realidad
 EFECTO_RIESGO_MARCA = 0.10      # puntos de riesgo por punto de reputación centrada (±10 en los extremos)
 EFECTO_ENCAJE_MARCA = 0.08      # puntos de encaje (±8)
 EFECTO_PRESION_DT = 0.12        # presión por partido de un DT con -100 de reputación (+0,12)

@@ -174,6 +174,17 @@ def publicaciones(usuario: Optional[dict], q: str = "", filtro: str = "todo", an
     except Exception as e:
         print(f"[red social] declaraciones de los partidos: {e}")
 
+    # Lo que dijeron el presidente de la federación o el líder de la afición (services/directiva_service.py), con la primera reacción de la prensa
+    try:
+        from services.directiva_service import para_partidos as directiva_partidos
+        ids_partidos = [p["match_id"] for p in pagina if p["clase"] == "partido"]
+        por_dir = directiva_partidos(ids_partidos) if ids_partidos else {}
+        for p in pagina:
+            if p["clase"] == "partido" and por_dir.get(p["match_id"]):
+                p["directiva"] = por_dir[p["match_id"]]
+    except Exception as e:
+        print(f"[red social] directiva de los partidos: {e}")
+
     # Respuestas de las marcas en el hilo de cada partido
     if uid:
         por_juego = {p["match_id"]: p for p in pagina if p["clase"] == "partido"}

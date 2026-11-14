@@ -22,7 +22,9 @@
     <h3 class="fs-7 text-uppercase text-muted fw-bold mt-3 mb-2">Lo último que dijeron</h3>
     {% for v in dv.voces %}
     <blockquote class="dv-cita"><strong class="text-white">{{ v.hablante.nombre }}</strong> <span class="text-muted">· {{ 'presidente' if v.hablante.tipo == 'presidente' else 'líder de la barra' }} · {{ v.fecha_corta }}</span>
-      <span class="dv-chip dv-chip--tipo">{{ v.titulo }}</span><div>«{{ v.cita }}»</div><a class="fs-8 text-decoration-none" href="/juegos/{{ v.juego_id }}">Ver el partido</a></blockquote>
+      <span class="dv-chip dv-chip--tipo">{{ v.titulo }}</span><div>«{{ v.cita }}»</div>
+      {% for r in v.reacciones[:1] %}<div class="fs-8 text-body-secondary mt-1"><span class="medio-tono medio-tono--{{ r.categoria_tono }}"><i class="bi {{ r.tono_icono }}"></i></span> <strong class="text-body-emphasis">{{ r.medio.nombre }}</strong>: {{ r.titular }}</div>{% endfor %}
+      <a class="fs-8 text-decoration-none" href="/juegos/{{ v.juego_id }}">Ver el partido</a></blockquote>
     {% endfor %}
     {% endif %}
   </div>

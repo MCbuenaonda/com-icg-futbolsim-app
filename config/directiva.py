@@ -42,3 +42,7 @@ ESTILOS_LIDER = {
 # Qué tan seguido hablan tras un partido (siempre en eliminación directa, goleada o cese del DT)
 PROB_PRESIDENTE_NORMAL = 0.25
 PROB_LIDER = 0.60
+# Reacción de la prensa a sus citas: notas `REACCION` de hasta REACCIONES_POR_VOZ medios por cita (el del país o uno interesado) que suman a la reputación
+# mediática DE LA SELECCIÓN (el valor de la nota del líder cuenta la mitad: es la voz de la tribuna, no la de la federación)
+REACCIONES_POR_VOZ = 1
+PESO_REPUTACION_LIDER = 0.5

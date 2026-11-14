@@ -312,9 +312,11 @@ def reconstruir_reputacion() -> dict:
             e = estado.setdefault(k, {"tipo": g["tipo"], "id": g["id"], "nombre": g["nombre"], "puntaje": 0.0, "notas": 0})
             e["puntaje"] = P.nuevo_puntaje(e["puntaje"], g["notas"])
             e["notas"] += len(g["notas"])
+    # `terminados_ref` (cuándo fue la última nota de un árbitro, para su recuperación con el tiempo: polemicas_service) no se deriva de las notas: se conserva
+    refs = {d["_id"]: d["terminados_ref"] for d in db[COL_REP].find({"terminados_ref": {"$exists": True}}, {"terminados_ref": 1})}
     db[COL_REP].delete_many({})
     if estado:
-        db[COL_REP].insert_many([{"_id": k, **v} for k, v in estado.items()], ordered=False)
+        db[COL_REP].insert_many([{"_id": k, **v, **({"terminados_ref": refs[k]} if k in refs else {})} for k, v in estado.items()], ordered=False)
     _cache_rep["hasta"] = 0.0
     medias: Dict[str, list] = {}
     for e in estado.values():

@@ -15,6 +15,8 @@ from pymongo import UpdateOne
 
 from config import directiva as CD
 from services import directiva as D
+from services import prensa as P
+from services import prensa_service as PS
 from services.prensa_service import db
 
 logger = logging.getLogger(__name__)
@@ -80,13 +82,14 @@ def _lados(j: dict) -> Dict[str, dict]:
         resultado = "V" if gano else ("E" if gf == gc and ganador_id is None else "D")
         cese = bool(db["dt_cargos"].find_one({"pais_id": eq["id"], "hasta_juego": jid}, {"_id": 1}))
         dt = ((res.get("dt") or {}).get(lado) or {}).get("nombre")
-        out[lado] = {"pais_id": eq["id"], "eq": eq["nombre"], "dt": dt, "res": resultado, "dif": gf - gc, "eliminacion": eliminacion,
+        out[lado] = {"pais_id": eq["id"], "eq": eq["nombre"], "dt": dt, "res": resultado, "dif": gf - gc, "eliminacion": eliminacion, "gl": gf, "gv": gc,
                      "eliminado": bool(eliminacion and resultado == "D"), "cese": cese}
     return out
 
 
-def asegurar_voces(j: Optional[dict]) -> int:
-    """Escribe las voces del partido si faltan. Idempotente; nunca lanza."""
+def asegurar_voces(j: Optional[dict], reputacion: bool = True) -> int:
+    """Escribe las voces del partido y las reacciones de la prensa si faltan. Idempotente; nunca lanza. `reputacion=False` no toca la reputación (el relleno de
+    partidos viejos la reconstruye al final con PS.reconstruir_reputacion, porque aplicar partidos viejos de golpe la desgastaría)."""
     try:
         if not j or j.get("estado") != "finalizado" or (j.get("transmision") or {}).get("estado") == "in_progress":
             return 0
@@ -103,13 +106,60 @@ def asegurar_voces(j: Optional[dict]) -> int:
                  "pais_id": lados[v["lado"]]["pais_id"], "equipo": lados[v["lado"]]["eq"], "hablante": v["hablante"], "tipo": v["tipo"], "titulo": v["titulo"],
                  "cita": v["cita"], "creado_en": ahora} for v in voces]
         db[COL].bulk_write([UpdateOne({"_id": d["_id"]}, {"$setOnInsert": d}, upsert=True) for d in docs], ordered=False)
+        _reacciones(j, docs, lados, reputacion)
         return len(docs)
     except Exception as e:
         print(f"[directiva] no se pudieron generar las voces: {e}")
         return 0
 
 
+def _reacciones(j: dict, docs: List[dict], lados: Dict[str, dict], reputacion: bool = True) -> int:
+    """Hasta CD.REACCIONES_POR_VOZ medios reaccionan a cada cita (notas `REACCION` con `voz_id`) y suman a la reputación de la SELECCIÓN. Idempotente; nunca lanza."""
+    try:
+        medios = PS.medios()
+        if not medios:
+            return 0
+        jid = str(j["_id"])
+        ctx = PS.contexto(j)
+        elegidos = P.elegir_medios(ctx, medios, P.semilla("directiva-medios", jid))
+        ahora, notas, usados = datetime.utcnow(), [], set()
+        for d in docs:
+            c, pais_id = lados[d["lado"]], d["pais_id"]
+            candidatos = [(m, rol) for m, rol in elegidos if m["id"] not in usados and rol in (d["lado"], "interesado")]
+            for medio, rol in candidatos[:CD.REACCIONES_POR_VOZ]:
+                usados.add(medio["id"])
+                m = dict(medio, credibilidad=PS.credibilidad_actual(medio))
+                rng = P.semilla("directiva-reaccion", d["_id"], medio["id"])
+                per = rng.choice(medio["equipo"]["periodistas"])
+                r = D.reaccion({"tipo": d["tipo"], "hablante": d["hablante"]}, c, m, per, medio.get("pais_id") == pais_id, rng)
+                escala = CD.PESO_REPUTACION_LIDER if d["hablante"]["tipo"] == "lider" else 1.0
+                notas.append({"_id": f"{d['_id']}:{medio['id']}", "juego_id": jid, "voz_id": d["_id"], "fecha": d["fecha"], "hora": d["hora"], "medio_id": medio["id"],
+                              "medio": {"nombre": medio["nombre"], "slug": medio["slug"], "papel": medio["papel"], "linea": medio["linea"], "pais_id": medio.get("pais_id")},
+                              "periodista": {"nombre": per["nombre"], "rol": per["rol"], "estilo": per["estilo"], "sesgo": per["sesgo"]},
+                              "tipo": "REACCION", **r, "valoraciones": [{"tipo": "pais", "id": pais_id, "nombre": d["equipo"], "valor": round(r["tono"] * escala, 3)}],
+                              "peso": P.peso_medio(m), "rol_cobertura": rol, "creado_en": ahora})
+        if not notas:
+            return 0
+        res = db[PS.COL].bulk_write([UpdateOne({"_id": x["_id"]}, {"$setOnInsert": x}, upsert=True) for x in notas], ordered=False)
+        ids_nuevos = set(res.upserted_ids.values())
+        nuevas = [x for x in notas if x["_id"] in ids_nuevos]
+        if nuevas and reputacion:   # solo lo recién escrito suma a la reputación (repetir la llamada no la infla)
+            PS.actualizar_reputacion(nuevas)
+        return len(nuevas)
+    except Exception as e:
+        print(f"[directiva] reacciones de la prensa: {e}")
+        return 0
+
+
 # --- Vistas ---------------------------------------------------------------------------------------------------------------
+def _reacciones_de(ids: List[str]) -> Dict[str, List[dict]]:
+    por: Dict[str, List[dict]] = {}
+    if ids:
+        for n in db[PS.COL].find({"voz_id": {"$in": ids}}):
+            por.setdefault(n["voz_id"], []).append(PS.vista(n))
+    return por
+
+
 def _persona(x: Optional[dict], tipo: str) -> Optional[dict]:
     if not x:
         return None
@@ -119,9 +169,11 @@ def _persona(x: Optional[dict], tipo: str) -> Optional[dict]:
             "rasgo_texto": x["rasgo_texto"], "estilo_nombre": x.get("estilo_nombre"), "federacion": x.get("federacion"), "avatar": url_imagen_medios(x.get("avatar"))}
 
 
-def _voz_vista(d: dict) -> dict:
+def _voz_vista(d: dict, reacciones: Optional[List[dict]] = None) -> dict:
     from services.tecnicos_service import fecha_corta
-    return {"juego_id": d["juego_id"], "fecha_corta": fecha_corta(d.get("fecha")) or d.get("fecha"), "tipo": d["tipo"], "titulo": d["titulo"], "cita": d["cita"],
+    cat = _catalogo()
+    persona = _persona((cat["presidentes"] if d["hablante"]["tipo"] == "presidente" else cat["lideres"]).get(d["pais_id"]), d["hablante"]["tipo"])
+    return {"id": d["_id"], "reacciones": reacciones or [], "persona": persona, "juego_id": d["juego_id"], "fecha_corta": fecha_corta(d.get("fecha")) or d.get("fecha"), "tipo": d["tipo"], "titulo": d["titulo"], "cita": d["cita"],
             "hablante": d["hablante"], "equipo": d.get("equipo"), "pais_id": d.get("pais_id")}
 
 
@@ -129,8 +181,10 @@ def de_partido(juego_id: str) -> List[dict]:
     try:
         cat = _catalogo()
         salida = []
-        for d in db[COL].find({"juego_id": str(juego_id)}).sort([("lado", 1), ("hablante.tipo", 1)]):
-            v = _voz_vista(d)
+        docs = list(db[COL].find({"juego_id": str(juego_id)}).sort([("lado", 1), ("hablante.tipo", 1)]))
+        reacciones = _reacciones_de([d["_id"] for d in docs])
+        for d in docs:
+            v = _voz_vista(d, reacciones.get(d["_id"]))
             v["persona"] = _persona((cat["presidentes"] if d["hablante"]["tipo"] == "presidente" else cat["lideres"]).get(d["pais_id"]), d["hablante"]["tipo"])
             salida.append(v)
         return salida
@@ -145,11 +199,29 @@ def de_pais(pais_id: int, limite: int = 4) -> Optional[dict]:
         p, l = _persona(presidente(pais_id), "presidente"), _persona(lider(pais_id), "lider")
         if not p and not l:
             return None
-        voces = [_voz_vista(d) for d in db[COL].find({"pais_id": pais_id}).sort([("fecha", -1), ("hora", -1)]).limit(limite)]
-        return {"presidente": p, "lider": l, "voces": voces}
+        docs = list(db[COL].find({"pais_id": pais_id}).sort([("fecha", -1), ("hora", -1)]).limit(limite))
+        reacciones = _reacciones_de([d["_id"] for d in docs])
+        return {"presidente": p, "lider": l, "voces": [_voz_vista(d, reacciones.get(d["_id"])) for d in docs]}
     except Exception as e:
         print(f"[directiva] de_pais: {e}")
         return None
+
+
+def para_partidos(ids: List[str]) -> Dict[str, List[dict]]:
+    """{juego_id: [la cita del presidente y/o del líder con su primera reacción]} en UNA consulta (el hilo de cada partido en la red social)."""
+    salida: Dict[str, List[dict]] = {}
+    try:
+        docs = list(db[COL].find({"juego_id": {"$in": ids}}))
+        por_juego: Dict[str, List[dict]] = {}
+        for d in docs:
+            por_juego.setdefault(d["juego_id"], []).append(d)
+        elegidas = [d for lista in por_juego.values() for d in sorted(lista, key=lambda x: (x["hablante"]["tipo"] != "presidente", x["lado"]))[:1]]   # la del presidente primero
+        reacciones = _reacciones_de([d["_id"] for d in elegidas])
+        for d in elegidas:
+            salida.setdefault(d["juego_id"], []).append(_voz_vista(d, reacciones.get(d["_id"])[:1] if reacciones.get(d["_id"]) else []))
+    except Exception as e:
+        print(f"[directiva] para_partidos: {e}")
+    return salida
 
 
 def limpiar() -> None:

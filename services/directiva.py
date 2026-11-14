@@ -3,6 +3,7 @@ import random
 from typing import Dict, Optional
 
 from config import directiva as CD
+from services import prensa as P
 
 
 def factor_paciencia(rasgo: Optional[str]) -> float:
@@ -62,6 +63,31 @@ REMATE_LIDER = {
     "ultra": ["¡Hasta la muerte con los colores!", "Aquí no se rinde nadie."], "humilde": ["Gracias por dejarnos estar.", "Con humildad y a seguir."],
     "carismatico": ["Que se sume más gente, hay lugar para todos.", "Súmate a la barra, ¡hay sitio para ti!"],
 }
+
+
+# --- Cómo reacciona la prensa ----------------------------------------------------------------------------------------------
+VALOR_VOZ = {"felicita": 0.45, "respalda": 0.25, "calma": 0.15, "exige": -0.25, "cese": -0.15, "eliminado": 0.10,
+             "fiesta": 0.40, "orgullo": 0.50, "aguante": 0.20, "reclamo": -0.20, "furia": -0.40}
+ACCION_VOZ = {"felicita": "celebró el triunfo de {eq}", "respalda": "respaldó al cuerpo técnico", "calma": "pidió calma tras el tropiezo",
+              "exige": "exigió explicaciones tras la derrota", "cese": "anunció el cambio de técnico", "eliminado": "asumió la eliminación de {eq}",
+              "fiesta": "encendió la fiesta en la tribuna", "orgullo": "se mostró orgulloso de {eq}", "aguante": "pidió aguante a la afición",
+              "reclamo": "reclamó desde la tribuna", "furia": "estalló contra jugadores y técnico"}
+REACCION_VOZ = {   # {h} = quien habló (con su cargo), {accion} = lo que hizo
+    "elogio": ["{h} {accion} y se llevó el aplauso.", "Gran gesto: {h} {accion}.", "{h} {accion}, con el ánimo que pide el momento."],
+    "neutral": ["{h} {accion} tras el {gl}-{gv}.", "Después del partido, {h} {accion}.", "Se escuchó a {h}: {accion}."],
+    "critica": ["{h} {accion} y las dudas siguen.", "No convenció: {h} {accion}.", "Mucho ruido: {h} {accion}."],
+}
+CARGO = {"presidente": "El presidente de la federación", "lider": "El líder de la barra"}
+
+
+def reaccion(voz: dict, c: dict, medio: dict, periodista: dict, es_propio: bool, rng: random.Random) -> dict:
+    """{tono, categoria_tono, titular, texto}: la nota de un medio sobre lo que dijo `voz` (c = contexto del lado)."""
+    tono = P.tono(VALOR_VOZ[voz["tipo"]], medio, periodista, es_propio)
+    cat = P.categoria_tono(tono)
+    h = f"{CARGO[voz['hablante']['tipo']]} {voz['hablante']['nombre']}"
+    titular = rng.choice(REACCION_VOZ[cat]).format(h=h, accion=ACCION_VOZ[voz["tipo"]].format(eq=c["eq"]), gl=c["gl"], gv=c["gv"])
+    cierre = rng.choice(P.CIERRE.get(medio.get("linea"), P.CIERRE["analitica"]))
+    return {"tono": tono, "categoria_tono": cat, "titular": titular, "texto": f"{titular} {cierre}"}
 
 
 def _tipo_presidente(lado: dict, cese: bool) -> Optional[str]:

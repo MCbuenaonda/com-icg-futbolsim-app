@@ -15,6 +15,16 @@
           <span class="rueda-decl__tipo">{{ v.titulo }}</span>
         </div>
         <blockquote class="rueda-decl__cita">«{{ v.cita }}»</blockquote>
+        {% for r in v.reacciones %}
+        <div class="prensa-nota" style="--medio: {{ r.medio.color }};">
+          <span class="medio-avatar medio-avatar--sm" title="{{ r.medio.nombre }}">{{ r.medio.nombre[:1] }}</span>
+          <div class="min-w-0">
+            <div class="small"><strong class="text-white">{{ r.medio.nombre }}</strong> <span class="text-muted">· <strong class="prensa-periodista">{{ r.periodista.nombre }}</strong></span>
+              <span class="medio-tono medio-tono--{{ r.categoria_tono }} ms-1"><i class="bi {{ r.tono_icono }}"></i>{{ r.tono_nombre }}</span></div>
+            <div class="text-body-secondary fs-8">{{ r.texto }}</div>
+          </div>
+        </div>
+        {% endfor %}
       </div>
       {% endfor %}
     </div>

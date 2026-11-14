@@ -75,7 +75,7 @@
 
         <!-- Comentarios de jugadores y, en ocasiones, de la cuenta oficial de
              alguna selección, como hilo de respuestas del post -->
-        {% if partido.comentarios_jugadores or partido.reacciones or partido.tv or partido.prensa or partido.declaraciones %}
+        {% if partido.comentarios_jugadores or partido.reacciones or partido.tv or partido.prensa or partido.declaraciones or partido.directiva %}
         <div class="x-post-replies mt-3">
             {% for dc in partido.declaraciones or [] %}
             <div class="x-respuesta d-flex align-items-start gap-2">
@@ -83,6 +83,14 @@
                 <div class="flex-grow-1 min-w-0 text-secondary fs-8"><span class="fw-semibold text-body-emphasis">{{ dc.hablante.nombre }}</span>
                     <i class="bi bi-mic-fill text-info"></i> <em>«{{ dc.cita }}»</em>
                     {% for r in dc.reacciones %}<div class="mt-1"><span class="medio-tono medio-tono--{{ r.categoria_tono }}"><i class="bi {{ r.tono_icono }}"></i></span> <span class="text-body-emphasis">{{ r.medio.nombre }}</span>: {{ r.titular }}</div>{% endfor %}</div>
+            </div>
+            {% endfor %}
+            {% for dv in partido.directiva or [] %}
+            <div class="x-respuesta d-flex align-items-start gap-2">
+                {% if dv.persona %}<img class="dv-avatar dv-avatar--sm" src="{{ dv.persona.avatar }}" alt="" loading="lazy">{% endif %}
+                <div class="flex-grow-1 min-w-0 text-secondary fs-8"><span class="fw-semibold text-body-emphasis">{{ dv.hablante.nombre }}</span>
+                    <i class="bi {{ 'bi-bank2 text-info' if dv.hablante.tipo == 'presidente' else 'bi-emoji-sunglasses-fill text-warning' }}"></i> <em>«{{ dv.cita }}»</em>
+                    {% for r in dv.reacciones %}<div class="mt-1"><span class="medio-tono medio-tono--{{ r.categoria_tono }}"><i class="bi {{ r.tono_icono }}"></i></span> <span class="text-body-emphasis">{{ r.medio.nombre }}</span>: {{ r.titular }}</div>{% endfor %}</div>
             </div>
             {% endfor %}
             {% for pr in partido.prensa or [] %}

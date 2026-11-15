@@ -135,28 +135,77 @@ document.addEventListener('DOMContentLoaded', function () {
         return n && n.codigo ? `Forma: ${n.etiqueta}` : '';
     }
 
+    // --- Casilleros: cada jugador conserva el suyo (j.slot) aunque otro salga --------------------------------------
+    // El orden en que se guarda el equipo (línea y casillero) es el que se recupera al volver a abrir la página.
+    const ORDEN_GUARDADO = ['PORTERO', 'DEFENSA', 'MEDIO', 'DELANTERO'];
+    function reacomodar(lista, c) {
+        // Deja a cada jugador en un casillero válido (0..cupo-1, sin repetir): conserva los que ya lo tienen y da el primero libre a los demás.
+        // Devuelve los que no caben (la formación tiene menos casilleros en esa línea).
+        const sobran = [];
+        for (const linea of LINEAS) {
+            const jug = lista.filter(j => lineaDe(j) === linea).sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
+            const usados = new Set();
+            const sinLugar = [];
+            for (const j of jug) {
+                if (Number.isInteger(j.slot) && j.slot >= 0 && j.slot < c[linea] && !usados.has(j.slot)) usados.add(j.slot); else sinLugar.push(j);
+            }
+            for (const j of sinLugar) {
+                let libre = 0;
+                while (libre < c[linea] && usados.has(libre)) libre++;
+                if (libre < c[linea]) { j.slot = libre; usados.add(libre); } else sobran.push(j);
+            }
+        }
+        return sobran;
+    }
+    function slotLibre(linea) {
+        const usados = new Set(eq().jugadores.filter(j => lineaDe(j) === linea).map(j => j.slot));
+        let i = 0;
+        while (usados.has(i)) i++;
+        return i;
+    }
+    const lineupOrdenado = () => ORDEN_GUARDADO.flatMap(l => eq().jugadores.filter(j => lineaDe(j) === l).sort((a, b) => a.slot - b.slot).map(j => j.id));
+
+    // --- Tarjeta del jugador (estilo carta de fútbol) -----------------------------------------------------------------
+    function claseTarjeta(j) {
+        if (j.leyenda) return 'fut-card--leyenda';
+        const codigo = niveles[j.id] && niveles[j.id].codigo;
+        return { racha: 'fut-card--racha', bajo: 'fut-card--bronce', regular: 'fut-card--plata', medio: 'fut-card--plata' }[codigo] || 'fut-card--oro';
+    }
+    function tarjetaJugador(j) {
+        const aviso = j.eliminado ? `<span class="fut-card__aviso"><i class="bi bi-person-x-fill"></i> ${E(j.motivo_eliminado || 'Eliminado')}</span>`
+            : j.lesion ? `<span class="fut-card__aviso" title="${E(`${j.lesion.nombre}: no juega ni cobra hasta cumplir ${j.lesion.restantes} partido(s) de baja`)}">🚑 Baja · ${E(j.lesion.restantes)}</span>`
+            : j.suspension ? `<span class="fut-card__aviso" title="${E(`Suspendido (${j.suspension.motivo}): no juega ni cobra hasta cumplir ${j.suspension.restantes} partido(s)`)}">🟥 Suspendido · ${E(j.suspension.restantes)}</span>` : '';
+        const n = niveles[j.id];
+        const stats = (j.stats || []).map(x => `<span><b>${E(x.v)}</b>${E(x.c)}</span>`).join('');
+        const foto = UI.urlAvatar(j.id);
+        return `<div class="fut-card ${claseTarjeta(j)} ${j.eliminado ? 'fut-card--eliminada' : ''}">
+            <span class="fut-card__marco" aria-hidden="true"></span>
+            ${aviso}
+            <button type="button" class="fut-card__abrir" data-ficha="${j.id}" title="Ver la ficha de ${E(j.nombre)}${j.leyenda ? ' · Leyenda: parte del once histórico de su selección' : ''}${n && n.codigo ? ' · Forma: ' + E(n.etiqueta) : ''}" aria-label="Ver la ficha de ${E(j.nombre)}">
+                <span class="fut-card__ovr"><b>${Math.round(j.overall)}</b><i>${E(j.posicion_siglas)}</i></span>
+                <span class="fut-card__bandera">${UI.bandera('', { id: j.pais_id })}</span>
+                ${foto ? `<img class="fut-card__foto" src="${foto}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}
+                <span class="fut-card__nombre">${E(j.nombre)}</span>
+                <span class="fut-card__stats">${stats}</span>
+                ${n && n.codigo ? `<span class="fut-card__forma ${claseNivel(j.id)}" title="${E(tituloNivel(j.id))}"></span>` : ''}
+            </button>
+            <button type="button" class="fut-card__quitar" data-quitar="${j.id}" aria-label="Quitar a ${E(j.nombre)}" title="Quitar"><i class="bi bi-x"></i></button>
+        </div>`;
+    }
+
     function renderCancha() {
         const c = cupos();
+        reacomodar(eq().jugadores, c);   // por si alguno llega sin casillero (equipo guardado antes de esto)
         for (const linea of LINEAS) {
-            const jug = eq().jugadores.filter(j => lineaDe(j) === linea);
-            let html = `<div class="once-linea__titulo">${NOMBRE_LINEA[linea]} <span>${jug.length}/${c[linea]}</span></div><div class="once-linea__fichas">`;
-            jug.forEach(j => {
-                html += `<div class="once-ficha ${j.eliminado ? 'once-ficha--eliminada' : ''}">
-                    ${j.eliminado ? `<span class="once-ficha__eliminado"><i class="bi bi-person-x-fill"></i> ${E(j.motivo_eliminado || 'Eliminado')}</span>` : ''}
-                    ${!j.eliminado && j.lesion ? `<span class="once-ficha__eliminado once-ficha__lesion" title="${E(`${j.lesion.nombre}: no juega ni cobra hasta cumplir ${j.lesion.restantes} partido(s) de baja`)}">🚑 Baja · ${E(j.lesion.restantes)}</span>` : ''}
-                    ${!j.eliminado && !j.lesion && j.suspension ? `<span class="once-ficha__eliminado once-ficha__lesion" title="${E(`Suspendido (${j.suspension.motivo}): no juega ni cobra hasta cumplir ${j.suspension.restantes} partido(s)`)}">🟥 Suspendido · ${E(j.suspension.restantes)}</span>` : ''}
-                    <button type="button" class="once-ficha__foto once-ficha__abrir" data-ficha="${j.id}" title="Ver la ficha de ${E(j.nombre)}" aria-label="Ver la ficha de ${E(j.nombre)}">
-                        ${UI.avatar(j.id, j.pais_id)}<span class="avatar-dorsal">${E(j.numero ?? '')}</span>
-                        <span class="once-ficha__estado ${claseNivel(j.id)}" title="${E(tituloNivel(j.id))}"></span></button>
-                    <button type="button" class="once-ficha__quitar" data-quitar="${j.id}" aria-label="Quitar a ${E(j.nombre)}" title="Quitar"><i class="bi bi-x"></i></button>
-                    <span class="once-ficha__nombre">${j.leyenda ? INSIGNIA_LEYENDA + ' ' : ''}${E(j.nombre)}</span>
-                    <span class="once-ficha__meta">${j.eliminado ? '<b class="text-danger">cambio gratis</b>' : `${E(j.posicion_siglas)} · ${E(j.overall)}${niveles[j.id] && niveles[j.id].codigo ? ` · <b>${E(niveles[j.id].etiqueta)}</b>` : ''}`}</span>
-                </div>`;
-            });
-            for (let i = jug.length; i < c[linea]; i++) {
-                html += `<button type="button" class="once-ficha once-ficha--vacia" data-linea="${linea}" title="Buscar ${NOMBRE_LINEA_UNO[linea]}">
-                    <span class="once-ficha__hueco"><i class="bi bi-plus-lg"></i></span>
-                    <span class="once-ficha__nombre">${NOMBRE_LINEA_UNO[linea]}</span></button>`;
+            const porSlot = {};
+            eq().jugadores.filter(j => lineaDe(j) === linea).forEach(j => { porSlot[j.slot] = j; });
+            const llenos = Object.keys(porSlot).length;
+            let html = `<div class="once-linea__titulo">${NOMBRE_LINEA[linea]} <span>${llenos}/${c[linea]}</span></div><div class="once-linea__fichas">`;
+            for (let i = 0; i < c[linea]; i++) {
+                html += porSlot[i] ? tarjetaJugador(porSlot[i])
+                    : `<button type="button" class="fut-card fut-card--vacia" data-linea="${linea}" title="Buscar ${NOMBRE_LINEA_UNO[linea]}">
+                        <span class="fut-card__marco" aria-hidden="true"></span>
+                        <span class="fut-card__hueco"><i class="bi bi-plus-lg"></i><small>${NOMBRE_LINEA_UNO[linea]}</small></span></button>`;
             }
             html += '</div>';
             $(`bloque${linea.charAt(0)}${linea.slice(1).toLowerCase()}`).innerHTML = html;
@@ -167,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (window.innerWidth < 992) $('resultadosBusqueda').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }));
         document.querySelectorAll('.once-cancha [data-quitar]').forEach(b => b.addEventListener('click', () => {
-            eq().jugadores = eq().jugadores.filter(j => j.id !== Number(b.dataset.quitar));
+            eq().jugadores = eq().jugadores.filter(j => j.id !== Number(b.dataset.quitar));   // los demás conservan su casillero
             renderTodo();
         }));
         const total = eq().jugadores.length;
@@ -184,13 +233,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     $('selectFormacion').addEventListener('change', async function () {
         const nueva = this.value, c = formaciones[nueva].cupos;
-        const sobran = LINEAS.flatMap(l => eq().jugadores.filter(j => lineaDe(j) === l).slice(c[l]));
+        const copia = eq().jugadores.map(j => ({ ...j }));
+        const sobran = reacomodar(copia, c);   // los que ya tenían casillero válido se quedan donde están
         if (sobran.length && !await UI.confirmar({ titulo: `Cambiar a ${nueva}`, textoConfirmar: 'Cambiar',
                 mensaje: `En el ${nueva} no caben: ${sobran.map(j => j.nombre).join(', ')}. Salen del equipo y puedes poner a otros.` })) {
             this.value = eq().formacion; return;
         }
         eq().formacion = nueva;
-        eq().jugadores = eq().jugadores.filter(j => !sobran.includes(j));
+        eq().jugadores = copia.filter(j => !sobran.includes(j));
         renderTodo();
     });
 
@@ -216,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (eq().jugadores.filter(x => x.pais_id === j.pais_id).length >= C.reglas.maxPorPais) {
             alerta(`Ya tienes ${C.reglas.maxPorPais} jugadores de ${j.pais_nombre} en este equipo.`, 'warning'); return false;
         }
-        eq().jugadores.push(j);
+        eq().jugadores.push({ ...j, slot: slotLibre(linea) });   // toma el primer casillero libre de su línea
         $('alertaFantasy').classList.add('d-none');
         renderTodo();
         cargarNiveles([j.id]);
@@ -283,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Guardar ---------------------------------------------------------------------------------------------------
     $('btnGuardarAlineacion').addEventListener('click', async function () {
         const e = eq();
-        const lineup = e.jugadores.map(j => j.id);
+        const lineup = lineupOrdenado();   // por línea y casillero: así se recupera cada jugador en su lugar
         if (e.existe) {
             // Mismo desglose que services/fantasy_service.calcular_cambios
             const salientes = e.original.filter(id => !lineup.includes(id));

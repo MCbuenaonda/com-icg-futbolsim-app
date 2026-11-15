@@ -46,6 +46,7 @@ class JugadorBusquedaOut(BaseModel):
     eliminado: bool = False
     motivo_eliminado: Optional[str] = None
     leyenda: bool = False
+    stats: List[dict] = []     # las seis cifras de la tarjeta: [{"c": "VEL", "v": 61}, ...]
 
 
 class DesgloseConceptoOut(BaseModel):

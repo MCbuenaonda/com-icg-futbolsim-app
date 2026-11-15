@@ -5346,3 +5346,54 @@ button.tv-logo:hover { transform: scale(1.04); }
 .dv-chip--estilo { color: #fbcfe8; border-color: rgba(244, 114, 182, 0.4); background: rgba(244, 114, 182, 0.1); }
 .dv-chip--tipo { color: #7dd3fc; border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.1); margin-left: 0.4rem; }
 .dv-cita { margin: 0 0 0.75rem; padding: 0.5rem 0.9rem; border-left: 3px solid rgba(167, 139, 250, 0.6); font-size: 0.9rem; }
+
+/* ===== Once Ideal: tarjeta del jugador (estilo carta de fútbol) y casilleros fijos (static/js/fantasy.js) ===== */
+.once-cancha { min-height: 700px; }
+.once-linea__fichas { gap: 0.7rem 0.6rem; }
+.fut-card { --f1: #f8eaa8; --f2: #d9ae3f; --f3: #8e6a17; --tinta: #3b2a06; --brillo: rgba(255, 255, 255, 0.38);
+  position: relative; display: block; flex: 0 0 auto; width: 10em; height: 15em; padding: 0; border: 0; background: none; color: var(--tinta); text-align: center;
+  font-size: 9.5px; font-family: inherit; line-height: 1; filter: drop-shadow(0 6px 9px rgba(0, 0, 0, 0.5)); transition: transform 0.15s ease; }
+.fut-card:hover { transform: translateY(-3px) scale(1.04); z-index: 2; }
+.fut-card__marco, .fut-card__marco::after { position: absolute; inset: 0; pointer-events: none;
+  clip-path: polygon(7% 0, 93% 0, 100% 4.5%, 100% 86%, 50% 100%, 0 86%, 0 4.5%); }
+.fut-card__marco { background: linear-gradient(150deg, var(--f1), var(--f2) 52%, var(--f3)); }
+.fut-card__marco::after { content: ""; inset: 0.4em; background: linear-gradient(160deg, var(--brillo), transparent 45%), radial-gradient(circle at 70% 25%, rgba(255, 255, 255, 0.25), transparent 55%), linear-gradient(180deg, var(--f1), var(--f2)); opacity: 0.9; }
+.fut-card__abrir { position: absolute; inset: 0; z-index: 1; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+.fut-card__ovr { position: absolute; left: 1.2em; top: 1.5em; display: flex; flex-direction: column; align-items: center; gap: 0.25em; }
+.fut-card__ovr b { font-size: 2.3em; font-weight: 900; letter-spacing: -0.03em; }
+.fut-card__ovr i { font-style: normal; font-size: 1em; font-weight: 800; text-transform: uppercase; }
+.fut-card__bandera { position: absolute; left: 1.45em; top: 6.2em; width: 2em; display: block; }
+.fut-card__bandera .img-pais { display: block; width: 2em; height: auto; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4)); }
+.fut-card__foto { position: absolute; right: 0.4em; top: 0.9em; width: 6.4em; height: 6.4em; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.3)); }
+.fut-card__nombre { position: absolute; left: 0.82em; right: 0.82em; top: 6.85em; padding-bottom: 0.27em; border-bottom: 1px solid var(--tinta); font-size: 1.1em; font-weight: 900; letter-spacing: 0.02em;
+  text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fut-card__stats { position: absolute; left: 1.7em; right: 1.5em; top: 10.95em; display: grid; grid-template-columns: 1fr 1fr; gap: 0.3em 0.4em; font-size: 0.85em; font-weight: 700; text-align: left; }
+.fut-card__stats span { display: flex; gap: 0.35em; align-items: baseline; }
+.fut-card__stats b { font-weight: 900; font-size: 1.15em; min-width: 1.3em; text-align: right; }
+.fut-card__forma { position: absolute; right: 1.2em; top: 7.35em; width: 1.1em; height: 1.1em; border-radius: 50%; border: 0.15em solid var(--tinta); background: #94a3b8; }
+.fut-card__quitar { position: absolute; top: 0.2em; right: 0.2em; z-index: 3; width: 2.3em; height: 2.3em; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(15, 23, 42, 0.85); color: #fff; font-size: 1.3em; opacity: 0; transition: opacity 0.15s; }
+.fut-card:hover .fut-card__quitar, .fut-card__quitar:focus-visible { opacity: 1; }
+@media (hover: none) { .fut-card__quitar { opacity: 1; } }
+.fut-card__aviso { position: absolute; left: 50%; top: -0.63em; translate: -50% 0; z-index: 4; padding: 0.35em 0.8em; border-radius: 999px; white-space: nowrap; font-size: 0.95em; font-weight: 800;
+  background: #7f1d1d; color: #fecaca; border: 1px solid rgba(254, 202, 202, 0.5); }
+/* variantes por forma reciente */
+.fut-card--plata { --f1: #f3f6fa; --f2: #b4bfcc; --f3: #6c7a8c; --tinta: #1f2937; }
+.fut-card--bronce { --f1: #ecc9a6; --f2: #b57a42; --f3: #6b4423; --tinta: #3a2410; }
+.fut-card--racha { --f1: #34343e; --f2: #17171d; --f3: #07070a; --tinta: #f5d36b; --brillo: rgba(245, 211, 107, 0.22); }
+.fut-card--racha .fut-card__foto { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6)); }
+.fut-card--leyenda { --f1: #fdf6dc; --f2: #e2c66e; --f3: #5d72b5; --tinta: #1d2a52; --brillo: rgba(255, 255, 255, 0.55); }
+.fut-card--eliminada { filter: grayscale(1) brightness(0.7) drop-shadow(0 6px 9px rgba(0, 0, 0, 0.5)); }
+.fut-card--eliminada .fut-card__nombre { text-decoration: line-through; }
+.fut-card--eliminada .fut-card__aviso { filter: none; }
+/* casillero vacío */
+.fut-card--vacia { cursor: pointer; filter: none; }
+.fut-card--vacia .fut-card__marco { background: rgba(255, 255, 255, 0.18); }
+.fut-card--vacia .fut-card__marco::after { inset: 0.25em; background: rgba(2, 6, 23, 0.5); opacity: 1; }
+.fut-card__hueco { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6em; color: rgba(255, 255, 255, 0.85); }
+.fut-card__hueco i { font-size: 2.6em; }
+.fut-card__hueco small { font-size: 1.05em; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+.fut-card--vacia:hover .fut-card__hueco { color: #facc15; }
+@media (max-width: 991.98px) { .fut-card { font-size: 8.5px; } .once-cancha { min-height: 0; } }
+@media (max-width: 575.98px) { .fut-card { font-size: 6.3px; } .once-linea__fichas { gap: 0.5rem 0.25rem; } .fut-card__stats { font-size: 0.9em; } }
+@media (prefers-reduced-motion: reduce) { .fut-card { transition: none; } .fut-card:hover { transform: none; } }

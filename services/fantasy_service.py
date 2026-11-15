@@ -495,6 +495,27 @@ def obtener_alineacion(usuario_id: str, fase_id: Optional[int] = None) -> Option
     return _serializar_equipo(equipo) if equipo else None
 
 
+# Atributos que la tarjeta de cada jugador necesita (el Once Ideal los pide en sus proyecciones)
+CAMPOS_TARJETA = {"agilidad": 1, "anticipacion": 1, "agresividad": 1, "concentracion": 1, "control_balon": 1, "fuerza_disparo": 1, "fuerza_fisica": 1, "juego_aereo": 1,
+                  "precision_pase": 1, "precision_tiro": 1, "regate": 1, "resistencia": 1, "velocidad": 1, "vision_juego": 1}
+
+
+def _media(j: dict, *claves: str) -> int:
+    valores = [j[c] for c in claves if isinstance(j.get(c), (int, float))]
+    return int(round(sum(valores) / len(valores))) if valores else 0
+
+
+def estadisticas_tarjeta(j: dict, es_portero: bool) -> List[dict]:
+    """Las seis cifras de la tarjeta (estilo carta de fútbol): [{c: 'VEL', v: 61}, ...]. Portero: reflejos, anticipación, juego aéreo, pase, concentración y físico."""
+    if es_portero:
+        pares = [("REF", _media(j, "agilidad")), ("ANT", _media(j, "anticipacion")), ("AÉR", _media(j, "juego_aereo")),
+                 ("PAS", _media(j, "precision_pase")), ("CON", _media(j, "concentracion")), ("FÍS", _media(j, "fuerza_fisica"))]
+    else:
+        pares = [("VEL", _media(j, "velocidad", "agilidad")), ("TIR", _media(j, "precision_tiro", "fuerza_disparo")), ("PAS", _media(j, "precision_pase", "vision_juego")),
+                 ("REG", _media(j, "regate", "control_balon")), ("DEF", _media(j, "anticipacion", "agresividad")), ("FÍS", _media(j, "fuerza_fisica", "resistencia"))]
+    return [{"c": c, "v": v} for c, v in pares]
+
+
 def _enriquecer_jugadores(jugadores: List[dict]) -> List[dict]:
     ids_paises = list({j["pais_id"] for j in jugadores})
     nombres_paises = {p["id"]: p["nombre"] for p in db['paises'].find({"id": {"$in": ids_paises}}, {"id": 1, "nombre": 1})}
@@ -522,6 +543,7 @@ def _enriquecer_jugadores(jugadores: List[dict]) -> List[dict]:
             "eliminado": j.get("pais_id") in eliminados,
             "motivo_eliminado": eliminados.get(j.get("pais_id")),
             "leyenda": bool(j.get("leyenda")),
+            "stats": estadisticas_tarjeta(j, sector == "portero" or j.get("posicion_id") == 1),
             # De baja por lesión (services/lesiones_service.py): no juega, así que no cobra hasta cumplir sus partidos
             "lesion": _lesion_vista(j.get("lesion")),
             # Suspendido por tarjetas (services/disciplina_service.py): tampoco juega ni cobra hasta cumplirla
@@ -563,7 +585,7 @@ def buscar_jugadores(texto: str = "", pais_id: Optional[int] = None, posicion_id
 
     jugadores = list(db['jugadores'].find(
         filtro,
-        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1, "leyenda": 1, "lesion": 1, "suspension": 1}
+        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1, "leyenda": 1, "lesion": 1, "suspension": 1, **CAMPOS_TARJETA}
     ).limit(limite))
 
     return _enriquecer_jugadores(jugadores)
@@ -575,7 +597,7 @@ def obtener_detalle_jugadores(ids: List[int]) -> List[dict]:
         return []
     jugadores = list(db['jugadores'].find(
         {"id": {"$in": ids}},
-        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1, "leyenda": 1, "lesion": 1, "suspension": 1}
+        {"id": 1, "nombre": 1, "posicion_id": 1, "pais_id": 1, "overall": 1, "numero": 1, "leyenda": 1, "lesion": 1, "suspension": 1, **CAMPOS_TARJETA}
     ))
     return _enriquecer_jugadores(jugadores)
 

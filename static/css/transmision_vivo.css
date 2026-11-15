@@ -74,30 +74,38 @@
 }
 .tv-asiento { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; width: 22%; transition: transform 0.3s ease, filter 0.3s ease, opacity 0.3s ease; filter: saturate(0.82) brightness(0.86); }
 .tv-asiento--narrador { width: 25%; order: 2; } .tv-asiento--analista { order: 1; } .tv-asiento--invitado { order: 3; }
-.tv-asiento__cuerpo { /* hombros y chamarra */
-    position: absolute; left: 50%; bottom: -46%; width: 92%; height: 78%; transform: translateX(-50%); border-radius: 50% 50% 8% 8% / 62% 62% 0 0;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--tv) 82%, #fff 6%), color-mix(in srgb, var(--tv2) 90%, #000 10%));
-    box-shadow: inset 0 0.4cqw 0 rgba(255, 255, 255, 0.28);
-}
-.tv-asiento--invitado .tv-asiento__cuerpo { background: linear-gradient(180deg, #475569, #1e293b); }
+.tv-asiento__cuerpo { display: none; }
+/* sin círculo ni fondo: el personaje se ve completo (cabeza, cuello y hombros) sentado detrás del escritorio */
 .tv-asiento__rostro {
-    position: relative; z-index: 1; display: block; width: 14.5cqw; height: 14.5cqw; min-width: 34px; min-height: 34px; overflow: hidden; border-radius: 50%;
-    background: radial-gradient(circle at 50% 35%, #8fa3c4 0%, #5d7096 55%, #3c4c6d 100%); border: 0.5cqw solid rgba(255, 255, 255, 0.32);
-    box-shadow: 0 1cqw 2cqw rgba(0, 0, 0, 0.45); display: grid; place-items: center; color: #cbd5e1;
+    position: relative; z-index: 1; display: block; width: 21cqw; height: 21cqw; min-width: 48px; min-height: 48px; overflow: visible; margin-bottom: -3.2cqw;
+    background: none; border: 0; box-shadow: none; border-radius: 0; color: #cbd5e1; transform-origin: 50% 100%;
+    filter: drop-shadow(0 1cqw 1.2cqw rgba(0, 0, 0, 0.5));
 }
-.tv-asiento--narrador .tv-asiento__rostro { width: 16.5cqw; height: 16.5cqw; }
-.tv-asiento__rostro img { width: 138%; height: 138%; max-width: none; margin-top: -4%; object-fit: cover; }
-.tv-asiento__rostro .avatar-jugador { width: 100%; height: 100%; border: 0; border-radius: 0; background-color: transparent; }
-.tv-asiento__rostro .avatar-jugador img { width: 138%; height: 138%; max-width: none; margin-top: -10%; }
+.tv-asiento--narrador .tv-asiento__rostro { width: 24cqw; height: 24cqw; }
+.tv-asiento__rostro img { display: block; width: 100%; height: 100%; max-width: none; object-fit: contain; }
+.tv-asiento__rostro > i { font-size: 12cqw; }
+.tv-asiento__rostro .avatar-jugador { width: 100%; height: 100%; border: 0; border-radius: 0; background: none !important; background-image: none !important; box-shadow: none; overflow: visible; }
+.tv-asiento__rostro .avatar-jugador::before, .tv-asiento__rostro .avatar-jugador::after { display: none; }
+.tv-asiento__rostro .avatar-jugador img { width: 100%; height: 100%; max-width: none; margin: 0; object-fit: contain; }
 .tv-set__placas { position: absolute; z-index: 4; left: 0; right: 0; bottom: 27%; display: flex; justify-content: center; align-items: flex-start; gap: 3.5cqw; padding: 0 6cqw; pointer-events: none; }
 .tv-placa { display: flex; flex-direction: column; align-items: center; width: 22%; line-height: 1.1; padding: 0.3em 0.4em; border-radius: 0.5cqw; background: rgba(6, 10, 20, 0.66); border: 1px solid rgba(255, 255, 255, 0.1); transition: background 0.3s, border-color 0.3s; overflow: hidden; }
 .tv-placa--narrador { width: 25%; order: 2; } .tv-placa--analista { order: 1; } .tv-placa--invitado { order: 3; }
 .tv-placa b { max-width: 100%; font-size: 0.8em; color: #f1f5f9; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tv-placa small { font-size: 0.6em; color: color-mix(in srgb, var(--tv) 40%, #e2e8f0); text-transform: uppercase; letter-spacing: 0.08em; }
 .tv-placa.habla { background: color-mix(in srgb, var(--tv) 70%, #000 30%); border-color: color-mix(in srgb, var(--tv) 60%, #fff 30%); }
-.tv-asiento.habla { filter: none; transform: translateY(-1.2cqw) scale(1.06); }
-.tv-asiento.habla .tv-asiento__rostro { border-color: var(--tv); box-shadow: 0 0 0 0.5cqw color-mix(in srgb, var(--tv) 55%, transparent), 0 0 3cqw color-mix(in srgb, var(--tv) 80%, transparent); animation: tv-habla 0.5s ease-in-out infinite alternate; }
-@keyframes tv-habla { from { transform: translateY(0); } to { transform: translateY(-0.7cqw); } }
+.tv-asiento.habla { filter: none; }
+/* al comentar: cabeceo y cuerpo que se mece al ritmo de la voz, con resplandor del color de la cadena */
+.tv-asiento.habla .tv-asiento__rostro { animation: tv-habla 0.62s ease-in-out infinite; filter: drop-shadow(0 0 2.4cqw color-mix(in srgb, var(--tv) 85%, transparent)) drop-shadow(0 1cqw 1.2cqw rgba(0, 0, 0, 0.5)); }
+@keyframes tv-habla {
+    0%   { transform: translateY(0) rotate(-1.2deg) scale(1.0); }
+    25%  { transform: translateY(-0.9cqw) rotate(0.8deg) scale(1.025, 0.99); }
+    50%  { transform: translateY(-0.2cqw) rotate(1.4deg) scale(1.0, 1.02); }
+    75%  { transform: translateY(-0.8cqw) rotate(-0.6deg) scale(1.025, 0.995); }
+    100% { transform: translateY(0) rotate(-1.2deg) scale(1.0); }
+}
+/* en reposo respira apenas */
+.tv-asiento:not(.habla) .tv-asiento__rostro { animation: tv-respira 4.2s ease-in-out infinite; }
+@keyframes tv-respira { 50% { transform: translateY(-0.25cqw) scale(1.006); } }
 
 /* rótulo con lo que se dice (tercio inferior) */
 .tv-set__rotulo {
@@ -187,7 +195,7 @@
 /* ============================================================ accesibilidad y botón */
 @media (prefers-reduced-motion: reduce) {
     .tv-asiento, .tv-set__rotulo, .radio-set__globo { transition: none; }
-    .tv-asiento.habla, .tv-asiento.habla .tv-asiento__rostro, .radio-set__locutor.habla .radio-set__rostro { animation: none; transform: none; }
+    .tv-asiento.habla, .tv-asiento .tv-asiento__rostro, .radio-set__locutor.habla .radio-set__rostro { animation: none !important; transform: none; }
     .radio-set__locutor.habla::after, .radio-set__locutor.habla::before, .radio-set.esta-hablando .radio-set__eq i, .radio-set__aguja, .tv-set__envivo i { animation: none; }
     .tv-set__flash.is-activo, .tv-set__flash.is-activo strong { animation: none; opacity: 1; }
     .tv-set__flash:not(.is-activo) { opacity: 0; }

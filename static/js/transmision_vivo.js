@@ -367,11 +367,11 @@
     // (con el logo del medio si es periodista) y «#TAG comentario» abajo
     function htmlPlecaComentario(i, d) {
         const t = est.tele[i] || {}, v = d.voz;
-        const rostro = v.jugador_id && window.UI ? UI.avatar(v.jugador_id, v.pais_id, '')
-            : (v.avatar_url ? `<img class="tv-pleca__rostro" src="${e(v.avatar_url)}" alt="" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>');
+        const url = v.jugador_id && window.UI && UI.urlAvatar ? UI.urlAvatar(v.jugador_id) : v.avatar_url;
+        const rostro = url ? `<img class="tv-pleca__rostro" src="${e(url)}" alt="" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>';
         const colores = t.color ? `--tv:${e(t.color)};--tv2:${e(t.color2)};` : '';
         return `<div class="tv-pleca tv-pleca--comenta" style="${colores}">
-            <span class="tv-pleca__aro"><span class="tv-pleca__logo tv-pleca__logo--rostro">${rostro}</span></span>
+            <span class="tv-pleca__persona">${rostro}</span>
             <div class="tv-pleca__barra">
                 <div class="tv-pleca__sup"><span><b>${e(v.nombre)}</b> · ${e(v.cargo)}</span>${v.medio_logo ? `<img class="tv-pleca__medio" src="${e(v.medio_logo)}" alt="${e(v.medio || '')}" onerror="this.remove()">` : ''}</div>
                 <div class="tv-pleca__inf"><span><b class="tv-pleca__tag">${e(d.tag)}</b> ${e(d.texto)}</span></div>
@@ -403,7 +403,7 @@
         if (!d.voz) d.marca = d.marca || marcaDePleca(i);
         m.pleca = true; m.ultimaPleca = Date.now();
         cont.innerHTML = d.voz ? htmlPlecaComentario(i, d) : htmlPleca(i, d);
-        cont.className = 'tv-set__pleca is-activo';
+        cont.className = 'tv-set__pleca is-activo' + (d.voz ? ' tv-set__pleca--comenta' : '');
         clearTimeout(m.plecaTimer);
         m.plecaTimer = setTimeout(() => {
             cont.classList.add('is-saliendo');

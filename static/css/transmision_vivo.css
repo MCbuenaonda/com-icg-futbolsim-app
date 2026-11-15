@@ -498,12 +498,12 @@
 .tv-set__pleca { position: absolute; z-index: 6; left: 0; right: 0; bottom: 3.5%; height: 25%; pointer-events: none; overflow: hidden; }
 .tv-set__pleca:not(.is-activo) { display: none; }
 .tv-pleca { position: absolute; inset: 0; --c1: var(--tv, #0ea5e9); --c2: var(--tv2, #0369a1); }
-.tv-pleca__aro { box-sizing: border-box; position: absolute; z-index: 3; left: 3.2%; top: 5%; height: 90%; aspect-ratio: 1; border-radius: 50%; padding: 3%;
+.tv-pleca__aro { box-sizing: border-box; position: absolute; z-index: 3; left: 3.2%; top: 5%; height: 90%; aspect-ratio: 1; border-radius: 50%; padding: 1.6%;
     background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.85) 0, rgba(255, 255, 255, 0) 38%), linear-gradient(150deg, color-mix(in srgb, var(--c1) 80%, #fff 20%), var(--c1) 45%, var(--c2));
     box-shadow: inset 0 0 0 0.35cqw rgba(255, 255, 255, 0.55), 0 0.8cqw 2.2cqw rgba(0, 0, 0, 0.55); }
 .tv-pleca__aro::after { content: ""; position: absolute; left: 14%; top: 7%; width: 56%; height: 34%; border-radius: 50%; background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0)); pointer-events: none; }
 .tv-pleca__logo { position: relative; display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 35%, #1e293b, #0b1220); color: #fff; font-weight: 900; font-size: 1.1em; }
-.tv-pleca__logo img { max-width: 94%; max-height: 94%; object-fit: contain; }
+.tv-pleca__logo img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain; padding: 4%; box-sizing: border-box; }
 .tv-pleca__sup, .tv-pleca__inf { position: absolute; display: flex; align-items: center; overflow: hidden; white-space: nowrap; filter: none; transform-origin: left center; }
 .tv-pleca__barra { position: absolute; inset: 0; filter: drop-shadow(0 0.7cqw 1.2cqw rgba(0, 0, 0, 0.5)); }
 .tv-pleca__sup { z-index: 1; left: 14%; right: 3%; top: 12%; height: 40%; padding: 0 5% 0 9%; color: #fff; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em;
@@ -531,15 +531,20 @@
 @keyframes pleca-recoge { from { transform: none; opacity: 1; } to { transform: scaleX(0); opacity: 0.4; } }
 @keyframes pleca-texto { from { transform: translateY(70%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes pleca-brillo { from { left: -30%; opacity: 1; } to { left: 130%; opacity: 0; } }
-/* pleca de comentario (de la televisora): rostro grande en el círculo, más alto el renglón del comentario */
-.tv-pleca__logo--rostro { background: radial-gradient(circle at 50% 30%, #3b4a6b, #1b2438); }
-.tv-pleca__logo--rostro img.tv-pleca__rostro { width: 124%; height: 124%; max-width: none; max-height: none; margin-top: 12%; object-fit: cover; }
-.tv-pleca__logo--rostro .avatar-jugador { width: 100%; height: 100%; border: 0; border-radius: 0; box-shadow: none; }
-.tv-pleca__logo--rostro .avatar-jugador img { width: 120%; height: 120%; max-width: none; margin-top: 6%; }
-.tv-pleca--comenta .tv-pleca__sup { height: 34%; top: 8%; justify-content: space-between; gap: 0.6em; font-size: 0.74em; }
+/* pleca de comentario (de la televisora): la persona se ve completa (cabeza, cuello y hombros), sin círculo, asomando sobre las barras */
+.tv-set__pleca--comenta { height: 42%; bottom: 3%; overflow: hidden; }
+.tv-pleca--comenta .tv-pleca__barra { top: 40%; bottom: 0; }
+.tv-pleca--comenta .tv-pleca__sup { left: 16%; top: 4%; height: 40%; justify-content: space-between; gap: 0.6em; font-size: 0.74em; }
 .tv-pleca--comenta .tv-pleca__sup span { min-width: 0; }
-.tv-pleca--comenta .tv-pleca__inf { top: 42%; height: 50%; font-size: 0.9em; line-height: 1.15; white-space: normal; }
+.tv-pleca--comenta .tv-pleca__inf { left: 21%; top: 46%; height: 54%; font-size: 0.9em; line-height: 1.15; white-space: normal; }
 .tv-pleca--comenta .tv-pleca__inf span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tv-pleca__persona { position: absolute; z-index: 3; left: 0.5%; bottom: 0; height: 100%; aspect-ratio: 1; display: grid; place-items: end center; font-size: 4em; color: #cbd5e1;
+    filter: drop-shadow(0 0.8cqw 1.2cqw rgba(0, 0, 0, 0.55)) drop-shadow(0 0 1.6cqw color-mix(in srgb, var(--tv) 60%, transparent)); transform-origin: 50% 100%; }
+.tv-pleca__persona img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
+.tv-set__pleca--comenta.is-activo .tv-pleca__persona { animation: pleca-persona 0.65s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+.tv-set__pleca--comenta.is-saliendo .tv-pleca__persona { animation: pleca-persona-sale 0.4s 0.35s ease-in both; }
+@keyframes pleca-persona { from { transform: translateY(60%) scale(0.85); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pleca-persona-sale { to { transform: translateY(60%); opacity: 0; } }
 .tv-pleca__tag { color: color-mix(in srgb, var(--c1) 85%, #000); font-weight: 900; }
 .tv-pleca__medio { flex: 0 0 auto; height: 1.5em; max-width: 28%; width: auto; object-fit: contain; padding: 0.1em 0.4em; background: rgba(255, 255, 255, 0.92); border-radius: 0.3em; }
 @container (max-width: 430px) { .tv-pleca__sup { font-size: 0.6em; } .tv-pleca__inf { font-size: 0.8em; } }

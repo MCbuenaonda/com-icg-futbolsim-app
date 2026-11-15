@@ -120,6 +120,18 @@ VOCES_JUGADORES_POR_PAIS = 2   # jugadores de cada país del grupo (leyendas inc
 VOCES_MEDIOS_INTERNACIONALES = 2
 
 
+def obtener_jugador_torneo(jugador_id: int) -> Optional[Dict[str, Any]]:
+    """
+    Los números del torneo de un jugador (para la pantalla LED al caer un gol): los contadores de `jugadores` NO incluyen el partido
+    en transmisión (sus efectos están diferidos), así que el cliente suma lo que ya se reveló. None si no existe.
+    """
+    j = db["jugadores"].find_one({"id": int(jugador_id)}, {"_id": 0, "id": 1, "nombre": 1, "goles": 1, "asistencias": 1, "juegos_jugados": 1, "amarilla": 1, "roja": 1, "leyenda": 1})
+    if not j:
+        return None
+    return {"id": j["id"], "nombre": j["nombre"], "goles": int(j.get("goles") or 0), "asistencias": int(j.get("asistencias") or 0),
+            "partidos": int(j.get("juegos_jugados") or 0), "amarillas": int(j.get("amarilla") or 0), "rojas": int(j.get("roja") or 0), "leyenda": bool(j.get("leyenda"))}
+
+
 def _voces_del_partido(juego: dict) -> List[Dict[str, Any]]:
     """
     Quién puede comentar el partido en la pleca de la transmisión (iguales para todos, solo catálogo): el líder de la afición y el

@@ -89,11 +89,50 @@
         const firma = goles.map(g => g.jugadores[0] + g.minuto).join('|');
         if (firma === est.firmaGoles) return;
         est.firmaGoles = firma;
-        const html = goles.slice(-4).map(g => {
+        const html = goles.slice(-3).map(g => {
             const m = Math.floor(g.minuto) + (g.adicional ? '+' + g.adicional : '');
             return `<li><b>${e(g.jugadores[0])}</b><small>${e(g.equipo)} · ${m}'</small></li>`;
         }).join('');
         est.mesas.forEach(mesa => { const ul = mesa.raiz && mesa.raiz.querySelector('[data-slot="goles"]'); if (ul) ul.innerHTML = html; });
+    }
+    // ---------------------------------------------------------------- goleador en la pantalla LED
+    // Ficha del goleador (busto del avatar sobre su bandera, con su número y lo que lleva en el torneo) que reemplaza un momento al estadio.
+    // Los contadores de la base no incluyen este partido (sus efectos están diferidos): se suman los goles ya revelados.
+    async function numerosTorneo(jugadorId) {
+        est.torneo = est.torneo || {};
+        if (est.torneo[jugadorId] === undefined) {
+            try { const r = await fetch(`/matches/live/jugador-torneo/${jugadorId}`); est.torneo[jugadorId] = r.ok ? await r.json() : null; }
+            catch (err) { est.torneo[jugadorId] = null; }
+        }
+        return est.torneo[jugadorId];
+    }
+    async function mostrarGolEnLed(g) {
+        if (!est || est.modo !== 'tv' || !g.jugador) return;
+        const id = plantillas.ids[g.jugador], matchId = est.matchId;
+        const num = id != null ? await numerosTorneo(id) : null;
+        if (!est || est.matchId !== matchId) return;
+        const paisId = equipoId(g.equipo), bandera = imagenPais(paisId, 'plana');
+        const goles = (num ? num.goles : 0) + (g.nGol || 1), partidos = (num ? num.partidos : 0) + 1;
+        const lineas = [`<li><b>${goles}</b> ${goles === 1 ? 'gol' : 'goles'} en el torneo</li>`];
+        if (num && num.asistencias) lineas.push(`<li><b>${num.asistencias}</b> ${num.asistencias === 1 ? 'asistencia' : 'asistencias'}</li>`);
+        lineas.push(`<li><b>${partidos}</b> ${partidos === 1 ? 'partido' : 'partidos'}</li>`);
+        const dorsal = plantillas.dorsales[g.jugador], pos = window.Narracion.POSICIONES[plantillas.posiciones[g.jugador]] || '';
+        const html = `<div class="tv-led__gol-fondo" ${bandera ? `style="background-image:url('${e(bandera)}')"` : ''}></div>
+            ${id != null && window.UI && UI.urlAvatar ? `<img class="tv-led__gol-foto" src="${e(UI.urlAvatar(id))}" alt="" onerror="this.remove()">` : ''}
+            <div class="tv-led__gol-info"><small>⚽ GOL${g.minuto != null ? ' · ' + Math.floor(g.minuto) + "'" : ''}</small><strong>${e(g.jugador)}</strong>
+                <em>${[dorsal != null ? '#' + e(dorsal) : '', e(pos), e(g.equipo || '')].filter(Boolean).join(' · ')}</em></div>
+            <ul class="tv-led__gol-stats">${lineas.join('')}</ul>`;
+        est.mesas.forEach(m => {
+            const led = m.raiz && m.raiz.querySelector('[data-slot="gol-led"]');
+            if (!led || m.cerrada) return;
+            clearTimeout(m.ledTimer);
+            led.innerHTML = html;
+            led.classList.remove('is-saliendo'); led.classList.add('is-activo');
+            m.ledTimer = setTimeout(() => {
+                led.classList.add('is-saliendo');
+                m.ledTimer = setTimeout(() => { led.classList.remove('is-activo', 'is-saliendo'); led.innerHTML = ''; }, reducido ? 0 : 600);
+            }, reducido ? 5000 : 9000);
+        });
     }
     function dibujarRadio() {
         return `<div class="radio-set" data-mesa="0">
@@ -713,6 +752,8 @@
                 const mesasG = (g.accion === 'arbitro' || g.accion === 'tanda') ? est.mesas.map((_, n) => n) : [its.length ? its[0].mesa : mesaDelEquipo(g.equipo)];
                 mesasG.forEach(mesaG => setTimeout(() => { if (est && est.matchId === data.match_id) mostrarGrafico(mesaG, tipoG, g); }, Math.max(0, (k - est.cursor) * 600) + 150));
                 // al arrancar y en el descanso, después del árbitro sale el comercial del marcador
+                // al caer un gol, después de su animación la pantalla LED de la izquierda muestra al goleador un momento
+                if (g.accion === 'gol') setTimeout(() => { if (est && est.matchId === data.match_id) mostrarGolEnLed(g); }, Math.max(0, (k - est.cursor) * 600) + 150 + GRAFICO_MS.jugador + 400);
                 const claseG = window.Narracion.clasificar(eventos[k]);
                 if (g.accion === 'arbitro' && (claseG === 'inicio' || claseG === 'descanso')) setTimeout(() => quizaMarcador(claseG), 8200);
                 if (g.accion === 'arbitro' && claseG === 'inicio') est.mesas.forEach((_, n) => setTimeout(() => mostrarFormacion(n), 17500 + n * 1500));

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from schemas.live_match_schema import StartAutoSimulationResponse, StartedMatchOut, LiveMatchOut, TablaGrupoOut, PlantillasLiveOut, TransmisionLiveOut, ProximoPartidoOut
-from services.live_match_service import iniciar_simulacion_automatica, obtener_estado_live, obtener_tabla_grupo_partido_en_vivo, obtener_posiciones_plantillas_en_vivo, obtener_destacados_estadisticas_en_vivo, obtener_mesa_transmision, obtener_proximo_partido
+from schemas.live_match_schema import StartAutoSimulationResponse, StartedMatchOut, LiveMatchOut, TablaGrupoOut, PlantillasLiveOut, TransmisionLiveOut, ProximoPartidoOut, JugadorTorneoOut
+from services.live_match_service import iniciar_simulacion_automatica, obtener_estado_live, obtener_tabla_grupo_partido_en_vivo, obtener_posiciones_plantillas_en_vivo, obtener_destacados_estadisticas_en_vivo, obtener_mesa_transmision, obtener_proximo_partido, obtener_jugador_torneo
 from services.auth_service import obtener_usuario_actual, context_usuario_actual, requiere_permiso
 from services.imagenes_pais_service import GLOBALES_JINJA
 import logging
@@ -142,6 +142,15 @@ def get_live_plantillas():
         raise HTTPException(status_code=404, detail="No hay ningún partido en transmisión en este momento.")
 
     return PlantillasLiveOut(**plantillas)
+
+
+@route.get("/live/jugador-torneo/{jugador_id}", response_model=JugadorTorneoOut, name="matches_live_jugador_torneo")
+def get_live_jugador_torneo(jugador_id: int):
+    """Los números del torneo de un jugador (sin el partido en transmisión): la pantalla LED de la TV los muestra al caer un gol."""
+    j = obtener_jugador_torneo(jugador_id)
+    if not j:
+        raise HTTPException(status_code=404, detail="Jugador no encontrado.")
+    return JugadorTorneoOut(**j)
 
 
 @route.get("/live/transmision", response_model=TransmisionLiveOut, name="matches_live_transmision")

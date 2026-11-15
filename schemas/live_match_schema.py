@@ -300,3 +300,15 @@ class ProximoPartidoOut(BaseModel):
     clima: Optional[ClimaPreviaOut] = None
     aforo: Optional[AforoPreviaOut] = None
     transmision: Optional[TransmisionPreviaOut] = None
+
+
+class JugadorTorneoOut(BaseModel):
+    """Números del torneo de un jugador, SIN el partido en transmisión (lista cerrada)."""
+    id: int
+    nombre: str
+    goles: int = 0
+    asistencias: int = 0
+    partidos: int = 0
+    amarillas: int = 0
+    rojas: int = 0
+    leyenda: bool = False

@@ -567,3 +567,25 @@
 .tv-led__goles b { display: block; font-size: 0.74em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0.1em 0.3em rgba(0, 0, 0, 0.6); }
 .tv-led__goles b::before { content: "⚽ "; }
 .tv-led__goles small { display: block; font-size: 0.58em; letter-spacing: 0.04em; color: color-mix(in srgb, var(--primary-color) 40%, #fde68a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* pantalla LED izquierda: el estadio se mueve despacio y, tras un gol, la ficha del goleador lo reemplaza un momento */
+.tv-led__estadio { transform-origin: 50% 60%; animation: led-estadio 22s ease-in-out infinite alternate; }
+@keyframes led-estadio { 0% { transform: scale(1.04) translate(-1.5%, 0); } 100% { transform: scale(1.22) translate(2.5%, -2%); } }
+.tv-led__gol { position: absolute; inset: 0; z-index: 3; opacity: 0; pointer-events: none; display: none; overflow: hidden;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--primary-color) 55%, #000), color-mix(in srgb, var(--accent-color) 85%, #000)); }
+.tv-led__gol.is-activo { display: block; animation: led-gol-in 0.6s ease-out both; }
+.tv-led__gol.is-saliendo { animation: led-gol-out 0.6s ease-in both; }
+@keyframes led-gol-in { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
+@keyframes led-gol-out { from { opacity: 1; } to { opacity: 0; } }
+.tv-led__gol-fondo { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0.2; filter: saturate(1.1); }
+.tv-led__gol-foto { position: absolute; left: -2%; bottom: 0; height: 66%; width: auto; max-width: 46%; object-fit: contain; object-position: bottom; filter: drop-shadow(0 0.8cqw 1.2cqw rgba(0, 0, 0, 0.6)); animation: led-foto-in 0.7s 0.15s cubic-bezier(0.2, 1.1, 0.4, 1) both; }
+@keyframes led-foto-in { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+/* la cabeza del analista tapa el borde derecho de la pantalla: el nombre va arriba y los números a un lado de la foto */
+.tv-led__gol-info { position: absolute; left: 5%; right: 5%; top: 6%; display: flex; flex-direction: column; gap: 0.1em; color: #fff; min-width: 0; animation: gfx-texto-in 0.5s 0.4s ease-out both; }
+.tv-led__gol-info small { font-size: 0.62em; font-weight: 900; letter-spacing: 0.12em; color: #fde047; }
+.tv-led__gol-info strong { font-size: 0.86em; line-height: 1.05; text-shadow: 0 0.1em 0.3em rgba(0, 0, 0, 0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-led__gol-info em { font-style: normal; font-size: 0.55em; letter-spacing: 0.04em; color: color-mix(in srgb, var(--primary-color) 40%, #e2e8f0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-led__gol-stats { position: absolute; left: 44%; right: 27%; top: 46%; bottom: 5%; margin: 0; padding: 0.3em 0.4em; list-style: none; display: flex; flex-direction: column; justify-content: center; gap: 0.15em;
+    font-size: 0.56em; line-height: 1.2; color: #e2e8f0; border-radius: 0.4cqw; background: rgba(0, 0, 0, 0.38); animation: gfx-texto-in 0.5s 0.6s ease-out both; }
+.tv-led__gol-stats b { color: #fff; font-size: 1.2em; }
+@media (prefers-reduced-motion: reduce) { .tv-led__estadio, .tv-led__gol-foto, .tv-led__gol-info, .tv-led__gol-stats { animation: none !important; } }

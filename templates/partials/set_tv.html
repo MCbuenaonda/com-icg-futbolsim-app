@@ -53,6 +53,7 @@
         {{ estadio_svg() }}
         <div class="tv-set__led tv-set__led--izq" aria-hidden="true">
           <img class="tv-led__estadio" data-slot="estadio" src="{{ u.estadio_img or '' }}" alt="">
+          <div class="tv-led__gol" data-slot="gol-led" aria-hidden="true"></div>
         </div>
         <div class="tv-set__led tv-set__led--der" aria-hidden="true">
           <div class="tv-led__marcador" data-hud>

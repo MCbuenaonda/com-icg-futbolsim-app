@@ -420,7 +420,14 @@ def _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre) -> 
         crisis = EC.efecto_para(p["marca_id"], seq)
         respaldada = bool(crisis and p.get("crisis_respaldo") == crisis["crisis_id"])
         extra_riesgo = crisis["riesgo_extra"] if (crisis and not respaldada) else 0
-        riesgo = min(100, max(0, riesgo + extra_riesgo + AG.riesgo_extra(c)))   # + lo que mueve su agente (si tiene)
+        # Crisis de imagen del JUGADOR (services/escandalos_deportivos_service.py): sus marcas se asustan un poco mientras dure
+        from services import escandalos_deportivos_service as EDEP
+        dep = EDEP.efecto_jugador(p["ref_id"], seq) if p["tipo"] == "jugador" else None
+        riesgo = min(100, max(0, riesgo + extra_riesgo + AG.riesgo_extra(c) + (dep["riesgo_extra"] if dep else 0)))   # + lo que mueve su agente (si tiene)
+        if dep and es_usuario:
+            U.avisar(uid, ciclo, "MARCA", f"{marca['nombre']} sigue de cerca la crisis de imagen de {nombre}",
+                     f"{dep['titular']} Sus patrocinadoras están atentas: una entrevista bien llevada y que juegue bien ayudan.", "bi-eye-fill",
+                     clave=f"jugador-crisis:{p['_id']}:{dep['crisis_id']}")
         if crisis and es_usuario:
             U.avisar(uid, ciclo, "MARCA", f"{marca['nombre']} " + ("está en crisis" if crisis["propia"] else "se ve salpicada por la crisis de una marca aliada"),
                      f"{crisis['titular']} Mientras dure paga menos por el patrocinio de {nombre} y cuida su imagen. Puedes respaldarla o tomar distancia en Marcas y patrocinios.",
@@ -450,7 +457,7 @@ def _procesar_activos(estado, ciclo, seq, cat, ctx, ocup, contratos, cierre) -> 
         pago = AG.ajustar(estado, corp, c, pago, ciclo, f"el patrocinio de {marca['nombre']}")   # bono y comisión de su agente
         cobro = _cobrar(estado, corp, c, p, pago, ciclo, f"{marca['nombre']}: patrocinio de {nombre}" + (" (+ por su aparición en TV)" if en_tv else ""))
         cambios = {"$inc": {"pagos": 1, "cobrado": cobro["cobrado"], "comision": cobro["comision"]}, "$set": {}}
-        if ev or cierre or extra_riesgo or p.get("crisis_marca"):   # sin hechos en la ronda, el semáforo queda como estaba
+        if ev or cierre or extra_riesgo or p.get("crisis_marca") or dep:   # sin hechos en la ronda, el semáforo queda como estaba
             cambios["$set"]["crisis_marca"] = crisis["crisis_id"] if crisis else None
             aviso = seq if riesgo >= C.MARCA_RIESGO_AVISO else None
             cambios["$set"].update(riesgo=riesgo, aviso_seq=aviso, aviso_ciclo=ciclo if aviso else None)
@@ -596,6 +603,10 @@ def _candidatos(marca: dict, ctx: dict, ocup: dict, contratos: dict, reps: dict)
             e = min(100, e + C.TV_INVITADO_ENCAJE)
         if e:
             e = min(100, e + AG.encaje_extra(c))   # su agente le abre puertas
+            if k[0] == "jugador":   # una crisis de imagen del jugador enfría el interés de marcas nuevas (services/escandalos_deportivos_service.py)
+                from services.escandalos_deportivos_service import efecto_jugador
+                dep_j = efecto_jugador(k[1], getattr(_hilo, "ancla_seq", None) or 0)
+                e = max(0, e - (dep_j["encaje_menos"] if dep_j else 0))
         if e:   # la crisis de una marca rival la deja con espacio para acercarse (services/escandalos_service.py)
             from services.escandalos_service import bonus_encaje
             e = min(100, e + bonus_encaje(marca["id"], getattr(_hilo, "ancla_seq", None) or 0))

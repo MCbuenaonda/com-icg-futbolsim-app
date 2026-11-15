@@ -52,7 +52,8 @@ def evaluar_ronda(juego: Optional[dict] = None, forzar_ronda: Optional[int] = No
             return {"hecho": False}
         nuevos = _generar(ronda, juego)
         from services.escandalos_medios_service import evaluar_ronda as evaluar_tv_y_medios   # cadenas de TV y medios de prensa
-        return {"hecho": True, "ronda": ronda, "nuevos": nuevos, "nuevos_tv_medios": evaluar_tv_y_medios(ronda, juego)}
+        from services.escandalos_deportivos_service import evaluar_ronda as evaluar_deportivos   # jugadores, DTs y árbitros (por hechos de los últimos partidos)
+        return {"hecho": True, "ronda": ronda, "nuevos": nuevos, "nuevos_tv_medios": evaluar_tv_y_medios(ronda, juego), "nuevos_deportivos": evaluar_deportivos(ronda, juego)}
     except Exception as e:
         logger.error(f"Escándalos: {e}")
         return {"hecho": False, "error": str(e)}

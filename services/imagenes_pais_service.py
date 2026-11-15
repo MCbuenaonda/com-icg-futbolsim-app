@@ -358,6 +358,11 @@ def _prensa_sobre(tipo, ref):
     return sobre(tipo, ref)
 
 
+def _escandalo_deportivo_de(tipo, ref_id):
+    from services.escandalos_deportivos_service import crisis_de
+    return crisis_de(tipo, ref_id)
+
+
 def _directiva_de_partido(juego_id):
     from services.directiva_service import de_partido
     return de_partido(juego_id)
@@ -477,7 +482,7 @@ def _estadio_nombre(ciudad_id, original=None):
 
 
 GLOBALES_JINJA = {
-    "estadio_nombre": _estadio_nombre, "homenaje_partido": _homenaje_partido, "leyenda_simbolo": _leyenda_simbolo, "homenajes_de": _homenajes_de, "premios_de": _premios_de, "rivalidad_partido": _rivalidad_partido, "relaciones_de": _relaciones_de, "polemica_partido": _polemica_partido, "reputacion_arbitro": _reputacion_arbitro, "suspendidos_pais": _suspendidos_pais, "sanciones_partido": _sanciones_partido, "sanciones_de": _sanciones_de, "bajas_previa": _bajas_previa, "declaraciones_de_partido": _declaraciones_de_partido, "directiva_de_partido": _directiva_de_partido, "directiva_de_pais": _directiva_de_pais, "declaraciones_de": _declaraciones_de,
+    "estadio_nombre": _estadio_nombre, "homenaje_partido": _homenaje_partido, "leyenda_simbolo": _leyenda_simbolo, "homenajes_de": _homenajes_de, "premios_de": _premios_de, "rivalidad_partido": _rivalidad_partido, "relaciones_de": _relaciones_de, "polemica_partido": _polemica_partido, "reputacion_arbitro": _reputacion_arbitro, "suspendidos_pais": _suspendidos_pais, "sanciones_partido": _sanciones_partido, "sanciones_de": _sanciones_de, "bajas_previa": _bajas_previa, "declaraciones_de_partido": _declaraciones_de_partido, "directiva_de_partido": _directiva_de_partido, "escandalo_deportivo_de": _escandalo_deportivo_de, "directiva_de_pais": _directiva_de_pais, "declaraciones_de": _declaraciones_de,
     "prensa_de_partido": _prensa_de_partido, "pronosticos_partido": _pronosticos_partido, "prensa_sobre": _prensa_sobre, "prensa_reputacion": _prensa_reputacion,
     "img_pais": url_imagen_pais, "pais_id_por_bandera": pais_id_por_bandera,
     "mapa_banderas_json": mapa_banderas_json, "logo_confederacion": logo_confederacion,

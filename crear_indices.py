@@ -237,6 +237,8 @@ def crear_indices():
     db['lideres'].create_index("id", unique=True)
     db['escandalos_otros'].create_index([("hasta_seq", 1)], name="hasta_seq")
     db['escandalos_otros'].create_index([("tipo", 1), ("ref_id", 1)], name="tipo_ref")
+    db['escandalos_deportivos'].create_index([("hasta_seq", 1)], name="hasta_seq")
+    db['escandalos_deportivos'].create_index([("tipo", 1), ("ref_id", 1)], name="tipo_ref")
 
     city_revenue_history = db['city_revenue_history']
     city_revenue_history.create_index("user_id", name="user_id")

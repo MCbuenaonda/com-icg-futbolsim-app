@@ -222,7 +222,9 @@ def registrar_partido(juego: Optional[dict]) -> None:
             except Exception:
                 prensa = 0.0
             from services.directiva_service import presion_lider   # ánimo de la barra: aprieta o alivia al DT (config/directiva.py)
-            sumar_partido(cargo, gf, gc, puntos_esperados(afic.get(pais_id), afic.get(rival_id)), bool(dt_partido.get("expulsado")), jid, prensa, presion_lider(pais_id, gf, gc))
+            from services.escandalos_deportivos_service import presion_dt   # su crisis de imagen vigente suma presión (config/escandalos.py)
+            sumar_partido(cargo, gf, gc, puntos_esperados(afic.get(pais_id), afic.get(rival_id)), bool(dt_partido.get("expulsado")), jid, prensa,
+                          presion_lider(pais_id, gf, gc) + presion_dt(cargo.get("dt_id")))
             campos = {k: cargo[k] for k in ("partidos", "ganados", "empatados", "perdidos", "gf", "gc", "puntos", "esperados", "presion")}
             ok = db["dt_cargos"].update_one({"_id": cargo["_id"], "juegos": {"$ne": jid}}, {"$set": campos, "$push": {"juegos": jid}})
             if not ok.modified_count:

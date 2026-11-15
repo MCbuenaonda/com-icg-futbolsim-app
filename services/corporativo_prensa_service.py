@@ -50,16 +50,19 @@ def solicitar(estado, seq: int, ciclo: int) -> None:
         if not juegos or not (jugadores or selecciones):
             return
         medios = {m["id"]: m for m in PS.medios()}
+        abiertas_por = {(d["tipo"], d["ref_id"]) for d in db[COL].find({"universo_id": uid, "estado": "PENDIENTE"}, {"tipo": 1, "ref_id": 1})}   # una abierta por representado
         for pub in db[PS.COL].find({"juego_id": {"$in": juegos}}).sort("fecha", -1):
             if abiertas >= CM.ENTREVISTA_MAX_PENDIENTES:
                 break
+            if not pub.get("valoraciones"):   # las notas de escándalos de marcas, cadenas y medios no valoran a nadie: antes rompían TODA la búsqueda
+                continue
             v = pub["valoraciones"][0]
             tipo = "jugador" if v["tipo"] == "jugador" and v["id"] in jugadores else \
                    ("seleccion" if v["tipo"] == "pais" and v["id"] in selecciones and abs(pub["tono"]) >= CM.ENTREVISTA_TONO_SELECCION else None)
             if not tipo:
                 continue
             eid = f"ent:{uid}:{pub['_id']}"
-            if db[COL].find_one({"_id": eid}, {"_id": 1}):
+            if (tipo, v["id"]) in abiertas_por or db[COL].find_one({"_id": eid}, {"_id": 1}):   # varias notas sobre lo mismo (p. ej. un escándalo) abren UNA sola entrevista
                 continue
             prob = CM.ENTREVISTA_PROB_JUGADOR if tipo == "jugador" else CM.ENTREVISTA_PROB_SELECCION
             if R.semilla(uid, "entrevista", pub["_id"]).random() >= prob:
@@ -74,6 +77,7 @@ def solicitar(estado, seq: int, ciclo: int) -> None:
                    "juego_id": pub["juego_id"], "tono_nota": pub["tono"], "tema": _tema(tipo, pub["tono"], v["nombre"]), "estado": "PENDIENTE",
                    "creado_seq": seq, "vence_seq": seq + CM.ENTREVISTA_VENCE_PARTIDOS, "ciclo": ciclo, "creado_en": datetime.utcnow()}
             db[COL].insert_one(doc)
+            abiertas_por.add((tipo, v["id"]))
             abiertas += 1
             U.avisar(uid, ciclo, "PRENSA", f"{medio['nombre']} pide una entrevista con {v['nombre']}", f"{doc['tema']} Respóndela en Decisiones: tu postura decide si le sube o le baja la imagen.",
                      "bi-mic-fill", clave=f"entrevista:{eid}")

@@ -91,3 +91,35 @@ def ajustar_tv(monto: int, efecto_tv: Optional[dict]) -> int:
     if not efecto_tv:
         return monto
     return max(1, int(round(monto * (1.0 - efecto_tv["rebaja"] + efecto_tv["bono"]))))
+
+
+# --- Crisis de imagen deportivas (jugadores, DTs y árbitros) ----------------------------------------------------------------
+TITULARES_JUGADOR = {
+    "roja": ["{j} ve la roja y {eq} paga caro la expulsión.", "Expulsión de {j}: {eq} se queda con diez y la jugada divide opiniones.",
+             "{j} pide disculpas tras su expulsión ante {rival}."],
+    "doble": ["Doble amarilla para {j}: {eq} se queda con diez.", "{j} se va expulsado por acumulación de amonestaciones y {eq} lo lamenta.",
+              "{eq} lamenta la expulsión de {j} ante {rival}."],
+    "frustrado": ["{j} no esconde su frustración tras la derrota de {eq}: las redes se dividen.", "Gesto de fastidio de {j} tras el partido ante {rival} genera debate.",
+                  "{j} genera discusión por sus palabras después de caer ante {rival}."],
+}
+TITULARES_DT = {
+    "goleada": ["Dudas en torno a {j}: la goleada ante {rival} reabre el debate en {eq}.", "{j} se enfrenta a la prensa tras la derrota ante {rival}.",
+                "Críticas a {j} después del {gf}-{gc} de {eq}."],
+    "presion": ["{j}, bajo presión: la afición de {eq} ya pide cambios.", "Se agota la paciencia con {j} en {eq}.", "Aprietan a {j}: {eq} necesita reaccionar."],
+}
+TITULARES_ARBITRO = {"reincidente": ["{j}, bajo la lupa: otra polémica y ya son {n} en el torneo.", "Cuestionan a {j} por su manejo de los partidos: {n} polémicas en el torneo.",
+                                     "Vuelve la polémica con {j}: los equipos piden más cuidado."]}
+TONO_DEPORTIVO_BASE = 0.35   # tono de una nota de escándalo deportivo: -(base + paso x severidad)
+TONO_DEPORTIVO_PASO = 0.15
+
+
+def titular_deportivo(tipo: str, motivo: str, c: dict, rng: random.Random) -> str:
+    banco = {"jugador": TITULARES_JUGADOR, "dt": TITULARES_DT, "arbitro": TITULARES_ARBITRO}[tipo][motivo]
+    ctx = c.get("ctx") or {}
+    return rng.choice(banco).format(j=c["nombre"], eq=ctx.get("eq", ""), rival=ctx.get("rival", ""), gf=ctx.get("gf", ""), gc=ctx.get("gc", ""), n=ctx.get("n", ""))
+
+
+def nota_deportiva(severidad: int, titular_texto: str, nombre: str, medio: dict, periodista: dict, es_propio: bool, rng: random.Random) -> dict:
+    tono = P.tono(-(TONO_DEPORTIVO_BASE + TONO_DEPORTIVO_PASO * severidad), medio, periodista, es_propio)
+    cierre = rng.choice(CIERRE.get(medio.get("linea"), CIERRE["analitica"])).format(m=nombre)
+    return {"tono": tono, "categoria_tono": P.categoria_tono(tono), "titular": titular_texto, "texto": f"{titular_texto} {cierre}"}

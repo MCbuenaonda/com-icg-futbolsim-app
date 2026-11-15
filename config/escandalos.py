@@ -35,3 +35,16 @@ MEDIO_CREDIBILIDAD = {1: 0.05, 2: 0.10, 3: 0.18}
 TV_RESPALDO_PARTIDOS = 1        # respaldar cuesta el pago esperado de UN partido de esa selección con la cadena
 TV_RESPALDO_RESIDUO = 0.5       # la rebaja baja a la mitad mientras dure la crisis
 TV_RESPALDO_RENUEVA = 0.10      # la cadena agradecida renueva con +10 puntos de probabilidad al terminar el contrato
+
+# --- Crisis de imagen DEPORTIVAS de jugadores, DTs y árbitros (services/escandalos_deportivos_service.py): se disparan por HECHOS de los últimos PARTIDOS_RONDA
+# partidos (una expulsión, una goleada en contra, un DT con mucha presión, un árbitro con polémicas repetidas), no al azar puro. Solo «crisis de imagen» en tono
+# suave: sin acusaciones, sin vida privada, sin leyendas. Efectos: notas de prensa negativas que bajan su reputación mediática (con ella, el riesgo de corte y el
+# encaje de las marcas de un jugador, la presión de un DT y la designación de un árbitro), más lo que se indica abajo. Si el jugador es de tu cartera, esas notas
+# abren una ENTREVISTA con las posturas de siempre (corporativo_prensa_service.solicitar).
+PROB_DEPORTIVO = {"jugador": 0.60, "dt": 0.50, "arbitro": 0.50}     # por ronda (uno de cada tipo como máximo)
+RIESGO_EXTRA_JUGADOR = {1: 6, 2: 12, 3: 18}     # puntos de riesgo de corte de los patrocinios de ese jugador mientras dure (por sí solo no llega al aviso, 30)
+ENCAJE_MENOS_JUGADOR = {1: 3, 2: 6, 3: 9}       # puntos de encaje que pierde ante marcas nuevas
+PRESION_DT = {1: 0.02, 2: 0.04, 3: 0.06}        # presión por partido sobre ese DT
+PRESION_DT_ALTA = 0.8                           # un DT con esta presión acumulada es candidato aunque no haya goleada
+VENTANA_ARBITRO = 40                            # partidos que se miran para contar las polémicas repetidas de un árbitro
+MIN_POLEMICAS_ARBITRO = 2

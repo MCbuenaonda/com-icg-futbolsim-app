@@ -1,0 +1,7 @@
+{# Crisis de imagen vigente de un jugador, DT o árbitro (services/escandalos_deportivos_service.py). Variable: esc_dep = escandalo_deportivo_de(tipo, id). #}
+{% if esc_dep %}
+<div class="alert alert-danger d-flex align-items-start gap-2 mb-3 py-2 small">
+  <i class="bi bi-exclamation-octagon-fill fs-5"></i>
+  <div><strong>En crisis de imagen:</strong> {{ esc_dep.titular }} Su reputación en la prensa está más baja {{ esc_dep.partidos_restantes }} partidos más.</div>
+</div>
+{% endif %}

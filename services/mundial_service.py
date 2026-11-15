@@ -364,7 +364,7 @@ def restart_mundial():
     fantasy_teams.delete_many({})
     reward_transactions.delete_many({})
     city_ownerships.delete_many({})
-    for _c in ("sedes_naming", "sedes_naming_movimientos", "sedes_naming_rondas", "declaraciones", "polemicas", "escandalos", "escandalos_rondas", "escandalos_otros", "directiva_voces", "premios_mundial", "homenajes"):
+    for _c in ("sedes_naming", "sedes_naming_movimientos", "sedes_naming_rondas", "declaraciones", "polemicas", "escandalos", "escandalos_rondas", "escandalos_otros", "escandalos_deportivos", "directiva_voces", "premios_mundial", "homenajes"):
         db[_c].delete_many({})
     fantasy_points_history.delete_many({})
     historial_aficionados.delete_many({})

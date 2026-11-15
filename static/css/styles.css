@@ -5348,8 +5348,8 @@ button.tv-logo:hover { transform: scale(1.04); }
 .dv-cita { margin: 0 0 0.75rem; padding: 0.5rem 0.9rem; border-left: 3px solid rgba(167, 139, 250, 0.6); font-size: 0.9rem; }
 
 /* ===== Once Ideal: tarjeta del jugador (estilo carta de fútbol) y casilleros fijos (static/js/fantasy.js) ===== */
-.once-cancha { min-height: 700px; }
-.once-linea__fichas { gap: 0.7rem 0.6rem; }
+.once-cancha { min-height: 760px; }
+.once-linea__fichas { gap: 1.25rem 1.2rem; }
 .fut-card { --f1: #f8eaa8; --f2: #d9ae3f; --f3: #8e6a17; --tinta: #3b2a06; --brillo: rgba(255, 255, 255, 0.38);
   position: relative; display: block; flex: 0 0 auto; width: 10em; height: 15em; padding: 0; border: 0; background: none; color: var(--tinta); text-align: center;
   font-size: 9.5px; font-family: inherit; line-height: 1; filter: drop-shadow(0 6px 9px rgba(0, 0, 0, 0.5)); transition: transform 0.15s ease; }
@@ -5394,6 +5394,7 @@ button.tv-logo:hover { transform: scale(1.04); }
 .fut-card__hueco i { font-size: 2.6em; }
 .fut-card__hueco small { font-size: 1.05em; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
 .fut-card--vacia:hover .fut-card__hueco { color: #facc15; }
+@media (min-width: 992px) and (max-width: 1199.98px) { .fut-card { font-size: 8px; } .once-linea__fichas { gap: 1.1rem 0.65rem; } }   /* la columna es angosta: 5 defensas caben en una fila */
 @media (max-width: 991.98px) { .fut-card { font-size: 8.5px; } .once-cancha { min-height: 0; } }
-@media (max-width: 575.98px) { .fut-card { font-size: 6.3px; } .once-linea__fichas { gap: 0.5rem 0.25rem; } .fut-card__stats { font-size: 0.9em; } }
+@media (max-width: 575.98px) { .fut-card { font-size: 6.3px; } .once-linea__fichas { gap: 0.8rem 0.3rem; } .fut-card__stats { font-size: 0.9em; } }
 @media (prefers-reduced-motion: reduce) { .fut-card { transition: none; } .fut-card:hover { transform: none; } }

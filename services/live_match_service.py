@@ -98,6 +98,7 @@ def obtener_mesa_transmision(usuario: Optional[dict]) -> Optional[Dict[str, Any]
                     "comentaristas": [{"nombre": c.get("nombre"), "avatar_url": c.get("avatar_url"),
                                        "rol": "narrador" if i == 0 else "analista"} for i, c in enumerate(coms[:2])],
                     "invitado": {"jugador_id": inv["jugador_id"], "nombre": inv["nombre"], "pais_id": inv.get("pais_id")} if inv else None,
+                    "convenios": _convenios_de_cadena(t["id"]),
                 })
     except Exception as e:
         logging.getLogger(__name__).warning(f"Mesa de transmisión: {e}")
@@ -111,6 +112,19 @@ def _marca_para_pantalla(m: dict) -> dict:
     d = m.get("dueno") or {}
     return {"id": m["id"], "nombre": m["nombre"], "logo": m.get("logo"), "color": m["color"], "color2": m["color2"], "lema": m.get("lema"),
             "dueno": {"nombre": d.get("nombre"), "avatar_url": d.get("avatar_url")} if d.get("nombre") else None}
+
+
+def _convenios_de_cadena(tele_id: int) -> List[Dict[str, Any]]:
+    """Marcas con convenio de presentación de la cadena (iguales para todos los universos, sin dinero). Nunca lanza."""
+    try:
+        from services.corporativo_marcas_service import catalogo, marca_vista
+        from services.corporativo_universo_service import leer_reloj
+        from services.tv_convenios import ids_convenio
+        cat = catalogo()
+        return [_marca_para_pantalla(marca_vista(cat[i])) for i in ids_convenio(tele_id, int(leer_reloj().get("seq") or 0), cat)]
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Convenios de la cadena {tele_id}: {e}")
+        return []
 
 
 def _patrocinadores_del_partido(usuario: Optional[dict], juego: dict) -> Dict[str, Any]:

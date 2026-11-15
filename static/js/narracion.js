@@ -936,9 +936,66 @@
         const pool = frescos.length ? frescos : candidatos;
         return pool[Math.floor((azarFn || Math.random)() * pool.length)];
     }
+
+    // ---------------------------------------------------------------- tableros de estadísticas por equipo (plecas patrocinadas)
+    // Todo sale de las jugadas YA reveladas. La «posesión» es la parte de las jugadas de ataque y progresión que llevó cada equipo.
+    function conteos(eventos, local) {
+        const nuevo = () => ({ jugadas: 0, remates: 0, apuerta: 0, corners: 0, faltas: 0, amarillas: 0, rojas: 0, fueras: 0, regates: 0, recup: 0, atajadas: 0 });
+        const c = { l: nuevo(), v: nuevo() };
+        (eventos || []).forEach(ev => {
+            const t = ev.tipo || '';
+            if (ev.periodo === 5 || t.includes('TANDA') || t.includes('GOL DE PENAL')) return;
+            const propio = ev.equipo === local ? c.l : c.v, rival = ev.equipo === local ? c.v : c.l;
+            if (t.includes('TRANSICIÓN') || t.includes('PREPARACIÓN') || t.includes('REGATE DESTACADO') || t.includes('DISPARO') || t.includes('⚽ GOL')) propio.jugadas++;
+            if (t.includes('REGATE DESTACADO')) propio.regates++;
+            if (t.includes('DISPARO DESVIADO')) propio.remates++;
+            if (t.includes('⚽ GOL')) { propio.remates++; propio.apuerta++; }
+            if (t.includes('ATAJADA') && !t.includes('TIRO LIBRE BLOQUEADO')) { propio.atajadas++; rival.remates++; rival.apuerta++; }
+            if (t.includes('DESVÍO A CÓRNER')) rival.corners++;
+            if (t.includes('🛑') && t.includes('FALTA')) propio.faltas++;
+            if (t.includes('FUERA DE LUGAR')) propio.fueras++;
+            if (t.includes('TARJETA AMARILLA')) propio.amarillas++;
+            if (t.includes('DOBLE AMARILLA')) { propio.amarillas += 2; propio.rojas++; } else if (t.includes('TARJETA ROJA')) propio.rojas++;
+            if (t.includes('ROBO DE BALÓN') || t.includes('PRESIÓN DEFENSIVA')) propio.recup++;
+        });
+        return c;
+    }
+    const TABLEROS = [
+        { clave: 'dominio', titulo: 'Dominio del partido', etiqueta: 'ESTADÍSTICAS', minimo: 8, filas: [
+            { nombre: 'Posesión', campo: 'jugadas', pct: true }, { nombre: 'Remates', campo: 'remates' }, { nombre: 'Tiros a puerta', campo: 'apuerta' }, { nombre: 'Córners', campo: 'corners' }] },
+        { clave: 'duelos', titulo: 'Duelos y recuperaciones', etiqueta: 'RENDIMIENTO', minimo: 6, filas: [
+            { nombre: 'Regates ganados', campo: 'regates' }, { nombre: 'Recuperaciones', campo: 'recup' }, { nombre: 'Atajadas', campo: 'atajadas' }, { nombre: 'Fueras de lugar', campo: 'fueras' }] },
+        { clave: 'disciplina', titulo: 'Juego y disciplina', etiqueta: 'DISCIPLINA', minimo: 4, filas: [
+            { nombre: 'Faltas', campo: 'faltas' }, { nombre: 'Amarillas', campo: 'amarillas' }, { nombre: 'Rojas', campo: 'rojas' }] },
+    ];
+    /** Un tablero con las cifras de cada equipo: `usados` = claves recientes (no repite hasta agotar), null si todavía no hay nada que mostrar. */
+    function elegirTablero(eventos, partido, usados, azarFn) {
+        if (!partido) return null;
+        const c = conteos(eventos, partido.local);
+        const listos = TABLEROS.map(t => {
+            const filas = t.filas.map(f => {
+                const l = c.l[f.campo], v = c.v[f.campo], tot = l + v;
+                return { nombre: f.nombre, l: f.pct ? Math.round(tot ? 100 * l / tot : 50) : l, v: f.pct ? 100 - Math.round(tot ? 100 * l / tot : 50) : v,
+                         pct: !!f.pct, frac: tot ? l / tot : 0.5, tot };
+            });
+            const total = filas.reduce((a, f) => a + (f.pct ? 0 : f.tot), 0) + (filas[0].pct ? filas[0].tot : 0);
+            return { clave: t.clave, titulo: t.titulo, etiqueta: t.etiqueta, filas, total, minimo: t.minimo };
+        }).filter(t => t.total >= t.minimo);
+        if (!listos.length) return null;
+        const frescos = listos.filter(t => !(usados || []).includes(t.clave));
+        const pool = frescos.length ? frescos : listos;
+        return pool[Math.floor((azarFn || Math.random)() * pool.length)];
+    }
+    /** El planteamiento de cada equipo al arrancar (esquema y estilo), en el formato del tablero. */
+    function tableroFormacion(planteamiento, partido) {
+        const pl = (planteamiento && planteamiento.local) || null, pv = (planteamiento && planteamiento.visita) || null;
+        if (!pl || !pv || !partido) return null;
+        return { clave: 'formacion', titulo: 'Así salen a la cancha', etiqueta: 'ALINEACIONES', formacion: true,
+                 filas: [{ nombre: 'Formación', l: pl.esquema, v: pv.esquema, texto: true }, { nombre: 'Estilo', l: pl.etiqueta || '', v: pv.etiqueta || '', texto: true }] };
+    }
     const PRESENTA = ['{quien} presenta', '{quien} les trae', 'Un dato de {quien}'];
 
-    const api = { crear, clasificar, grafico, estadoTanda, resumen, estadisticas, elegirDato, PRESENTA, POSICIONES, tocaMarcador, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };
+    const api = { crear, clasificar, grafico, estadoTanda, resumen, estadisticas, elegirDato, elegirTablero, tableroFormacion, conteos, PRESENTA, POSICIONES, tocaMarcador, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.Narracion = api;
 })(typeof window !== 'undefined' ? window : globalThis);

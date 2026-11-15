@@ -159,12 +159,6 @@ class MesaInvitadoOut(BaseModel):
     pais_id: Optional[int] = None
 
 
-class MesaOut(BaseModel):
-    tele: MesaTeleOut
-    comentaristas: List[MesaComentaristaOut] = []
-    invitado: Optional[MesaInvitadoOut] = None
-
-
 class MarcaDuenoOut(BaseModel):
     nombre: Optional[str] = None
     avatar_url: Optional[str] = None
@@ -179,6 +173,13 @@ class MarcaPatrocinadoraOut(BaseModel):
     color2: str
     lema: Optional[str] = None
     dueno: Optional[MarcaDuenoOut] = None
+
+
+class MesaOut(BaseModel):
+    tele: MesaTeleOut
+    comentaristas: List[MesaComentaristaOut] = []
+    invitado: Optional[MesaInvitadoOut] = None
+    convenios: List[MarcaPatrocinadoraOut] = []   # marcas con convenio de presentación de la cadena
 
 
 class PatrocinadoresOut(BaseModel):

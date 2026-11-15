@@ -493,3 +493,35 @@
     .tv-gfx__tiro { width: 1.15em; height: 1.15em; } .tv-gfx__tanda-pie { font-size: 0.74em; }
 }
 @media (prefers-reduced-motion: reduce) { .tv-gfx__tiro.es-ultimo { animation: none; } }
+
+/* tablero de estadísticas patrocinado (pleca con la marca + cifras de cada equipo con barras que crecen) */
+.tv-gfx--tablero { --acento: var(--tv); }
+.tv-tab__pleca { position: absolute; z-index: 2; left: 2.4%; top: 10%; bottom: 10%; width: 27%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6em; text-align: center; }
+.tv-tab__logo { display: grid; place-items: center; width: 72%; aspect-ratio: 1.3; padding: 0.5cqw; border-radius: 1.2cqw; background: rgba(6, 10, 20, 0.7); border: 0.35cqw solid var(--tv); box-shadow: 0 0 2.4cqw color-mix(in srgb, var(--tv) 55%, transparent); overflow: hidden; color: #fff; font-size: 0.9em; }
+.tv-tab__logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.tv-tab__presenta { display: flex; flex-direction: column; line-height: 1.15; }
+.tv-tab__presenta small { font-size: 0.62em; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6); }
+.tv-tab__presenta b { font-size: 1em; color: #fff; }
+.tv-tab__presenta em { font-style: normal; font-size: 0.62em; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--tv) 45%, #e2e8f0); }
+.tv-tab__cuerpo { position: absolute; z-index: 1; left: 32%; right: 3%; top: 8%; bottom: 8%; display: flex; flex-direction: column; justify-content: center; gap: 0.25em; }
+.tv-tab__equipos { display: flex; justify-content: space-between; font-weight: 800; font-size: 0.8em; color: #f1f5f9; letter-spacing: 0.06em; }
+.tv-tab__equipos span { display: inline-flex; align-items: center; gap: 0.4em; } .tv-tab__equipos img { height: 1.5em; width: auto; }
+.tv-tab__filas { display: flex; flex-direction: column; gap: 0.35em; }
+.tv-tab__fila { position: relative; display: grid; grid-template-columns: 3.2em 1fr 3.2em; align-items: center; column-gap: 0.5em; font-size: 0.82em; }
+.tv-tab__fila > b { font-weight: 900; font-variant-numeric: tabular-nums; color: #fff; } .tv-tab__fila > b:last-of-type { text-align: right; }
+.tv-tab__fila > span { grid-column: 1 / -1; grid-row: 2; text-align: center; font-size: 0.7em; letter-spacing: 0.14em; text-transform: uppercase; color: color-mix(in srgb, var(--tv) 40%, #cbd5e1); margin-top: -0.15em; }
+.tv-tab__fila--texto { grid-template-columns: 1fr 1fr; } .tv-tab__fila--texto > b { font-size: 1.15em; } .tv-tab__fila--texto > span { grid-column: 1 / -1; }
+.tv-tab__barras { display: flex; gap: 0.25cqw; height: 0.9em; }
+.tv-tab__b { display: block; height: 100%; border-radius: 0.3em; min-width: 2px; }
+.tv-tab__b--l { flex: 0 0 auto; width: var(--w); max-width: 48%; margin-left: auto; background: linear-gradient(90deg, color-mix(in srgb, var(--tv) 70%, #000), color-mix(in srgb, var(--tv) 80%, #fff 15%)); }
+.tv-tab__b--v { flex: 0 0 auto; width: var(--w); max-width: 48%; margin-right: auto; background: linear-gradient(90deg, #e2e8f0, #94a3b8); }
+.tv-tab__barras { justify-content: center; }
+.tv-set__grafico--tablero.is-activo .tv-gfx__dato-fondo { animation: cierre-entra 0.6s ease-out both; }
+.tv-set__grafico--tablero.is-activo .tv-tab__pleca { animation: gfx-desde-izq 0.7s 0.25s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+.tv-set__grafico--tablero.is-activo .tv-tab__cuerpo > small, .tv-set__grafico--tablero.is-activo .tv-tab__cuerpo > strong, .tv-set__grafico--tablero.is-activo .tv-tab__equipos { animation: gfx-texto-in 0.5s 0.8s ease-out both; }
+.tv-set__grafico--tablero.is-activo .tv-tab__fila { animation: gfx-texto-in 0.45s ease-out both; animation-delay: calc(1.2s + var(--n) * 0.35s); }
+.tv-set__grafico--tablero.is-activo .tv-tab__b { transform-origin: center; animation: tab-barra 0.9s cubic-bezier(0.2, 0.9, 0.3, 1) both; animation-delay: calc(1.4s + var(--n, 0) * 0.35s); }
+.tv-set__grafico--tablero.is-activo .tv-tab__b--l { transform-origin: right center; } .tv-set__grafico--tablero.is-activo .tv-tab__b--v { transform-origin: left center; }
+@keyframes tab-barra { from { transform: scaleX(0); opacity: 0.2; } to { transform: scaleX(1); opacity: 1; } }
+@container (max-width: 430px) { .tv-tab__equipos, .tv-tab__presenta small, .tv-tab__presenta em, .tv-tab__fila > span { display: none; } .tv-tab__fila { font-size: 0.7em; } }
+@media (prefers-reduced-motion: reduce) { .tv-set__grafico--tablero.is-activo * { animation: none !important; } }

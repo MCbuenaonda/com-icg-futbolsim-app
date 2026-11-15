@@ -284,3 +284,9 @@ AJUSTE_DUENO = {
     "mecenas": (0.08, -0.05), "visionario": (0.03, -0.02), "estrella": (0.0, -0.03), "tiburon": (-0.05, 0.05),
     "impaciente": (-0.08, 0.05), "ahorrador": (-0.03, 0.03), "tradicional": (0.08, 0.0),
 }
+
+
+# --- Convenios de presentación con marcas (sin dinero): las marcas que presentan los datos en la transmisión de cada cadena ---
+CONVENIO_MAX_MARCAS = 3          # tope de marcas con convenio por cadena
+CONVENIO_PARTIDOS = 60           # cada convenio dura (hasta cambiar) esta cantidad de partidos del torneo; los tres cambian desfasados
+CONVENIO_PROB_PRESENTA = 0.55    # probabilidad de que el dato lo presente una marca con convenio de la cadena (si no, patrocinadores del partido)

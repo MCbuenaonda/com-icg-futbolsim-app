@@ -1004,9 +1004,172 @@
         if (!pl || !pv || !partido) return null;
         return { clave: 'formacion', tema: 'las formaciones con las que salen a la cancha', texto: `${partido.siglaLocal || partido.local} ${pl.esquema}  ·  ${pv.esquema} ${partido.siglaVisita || partido.visitante}` };
     }
+
+    // ---------------------------------------------------------------- comentarios de la pleca: líderes de la afición, presidentes, periodistas y jugadores
+    // Solo con lo ya revelado (marcador, minuto, rojas). Subjetivos o objetivos según quién habla: la afición y los jugadores de otro país del
+    // grupo opinan con el corazón o con la tabla en la mano; el presidente cuida las formas; el periodista, según su sesgo, analiza o se
+    // inclina. Las leyendas no hablan.
+    // Situaciones de quien habla por una de las selecciones que juegan: cero, empate, gana, gana_mucho, pierde, pierde_mucho, roja_propia, roja_rival.
+    const C_PROPIO = {
+        aficion: {
+            efusivo: {
+                cero: ['Todavía sin goles, pero la tribuna no para de cantar. ¡Vamos {eq}!', 'Se siente que el gol de {eq} está por llegar. ¡Aguanten!'],
+                empate: ['{marc} y la fiesta sigue. ¡{eq} va por más!', 'Empatan, pero {eq} se siente más grande. ¡A ganarlo!'],
+                gana: ['¡Qué alegría ver ganando a {eq}! ¡Que no pare la fiesta!', '¡{marc} y la gente feliz! ¡Vamos {eq}, vamos!'],
+                gana_mucho: ['¡Esto es una fiesta! {eq} lo está goleando, ¡qué orgullo!', '¡Cómo gozamos! {marc}, ¡que lo recuerden!'],
+                pierde: ['Duele, pero la afición no se va: ¡{eq} lo da vuelta!', 'Vamos abajo, pero con {eq} hasta el final. ¡Arriba ese ánimo!'],
+                pierde_mucho: ['Está difícil, pero aquí nadie se rinde. ¡Gracias por el esfuerzo, {eq}!', '{marc}... aun así vamos a cantar hasta el último minuto.'],
+                roja_propia: ['Con uno menos, {eq} necesita más aliento que nunca. ¡Fuerza!', 'La roja duele, pero ¡con diez también se puede, {eq}!'],
+                roja_rival: ['¡Con uno más! Es el momento de {eq}, ¡a aprovecharlo!', 'Se quedaron con diez: ¡vamos a por ellos, {eq}!']},
+            exigente: {
+                cero: ['Sin goles y sin ideas. {eq} tiene que hacer más que esto.', 'Esperamos otra cosa de {eq}: más intensidad, ya.'],
+                empate: ['{marc} no nos alcanza. {eq} tiene que ir a ganarlo, no a mirar.', 'Con este empate no me conformo. Se le pide más a {eq}.'],
+                gana: ['Vamos ganando, sí, pero {eq} todavía no convence del todo.', '{marc}. Que no se relajen: aún falta mucho.'],
+                gana_mucho: ['Así sí. Que {eq} mantenga esta intensidad todo el torneo.', '{marc} y bien merecido. Pero que no se duerman.'],
+                pierde: ['Inaceptable ir perdiendo. {eq} debe reaccionar ya.', 'Así no, {eq}. La afición merece más.'],
+                pierde_mucho: ['Esto es una vergüenza. Habrá que pedir cuentas a todos.', '{marc}: la afición no merece esto de {eq}.'],
+                roja_propia: ['Una expulsión absurda. {eq} no puede darse esos lujos.', 'Dejar a {eq} con diez es una irresponsabilidad.'],
+                roja_rival: ['Con uno más no hay excusas: {eq} tiene que ganarlo.', 'Ventaja numérica, ahora {eq} está obligado a aprovecharla.']},
+            humilde: {
+                cero: ['Todavía 0-0. Con paciencia, {eq} va a encontrar su momento.', 'Lo importante es que {eq} lo intente. Aquí estamos.'],
+                empate: ['{marc}. Un partido muy parejo; todo puede pasar.', 'Respeto al rival: está jugando bien. Pero {eq} puede.'],
+                gana: ['Qué bonito ver ganando a {eq}, pero con los pies en la tierra.', 'Contento con el marcador, aunque falta todo el partido.'],
+                gana_mucho: ['Estamos felices, pero sin olvidar que el rival es digno. ¡Gracias, {eq}!', '{marc}: lo disfrutamos mucho, con respeto al rival.'],
+                pierde: ['Vamos perdiendo, pero {eq} deja todo. Eso se agradece.', 'Se puede perder, lo importante es dar la cara. ¡Ánimo, {eq}!'],
+                pierde_mucho: ['Hoy no se dio, pero aquí seguimos con {eq}, pase lo que pase.', 'Aplausos para {eq}, a pesar del marcador.'],
+                roja_propia: ['Una expulsión que complica, pero {eq} es valiente. Ánimo.', 'Con diez cuesta; la afición está con ustedes.'],
+                roja_rival: ['Se quedaron con diez; ojalá {eq} sepa aprovecharlo sin confiarse.', 'Una expulsión es mala para cualquiera; ahora a jugar bien.']}
+        },
+        presidente: {
+            sobrio: {
+                cero: ['Partido cerrado entre dos selecciones serias. Confiamos en {eq}.', 'Hay que esperar, el planteamiento de {eq} es el correcto.'],
+                empate: ['{marc}: un resultado parejo. El cuerpo técnico de {eq} sabrá ajustar.', 'Respetamos al rival; {eq} está haciendo su trabajo.'],
+                gana: ['Satisfechos con la actuación de {eq}; hay que mantener la calma.', '{marc}. Un buen momento para el proyecto de {eq}.'],
+                gana_mucho: ['Un resultado contundente para {eq}; felicito a jugadores y cuerpo técnico.', '{marc}: orgullo para toda la federación.'],
+                pierde: ['Momento complicado para {eq}, pero hay que confiar en el proceso.', 'Vamos abajo; esperamos la reacción de {eq}.'],
+                pierde_mucho: ['Un resultado difícil de explicar hoy. Después del partido, evaluaremos con serenidad.', '{marc}. Debemos analizar con calma qué pasó con {eq}.'],
+                roja_propia: ['La expulsión complica el plan de {eq}; confío en el carácter del equipo.', 'Con diez hay que defender con orden. Confianza en {eq}.'],
+                roja_rival: ['Superioridad numérica para {eq}; hay que manejarla con inteligencia.', 'La expulsión cambia el partido, y {eq} debe aprovecharlo.']},
+            presion: {
+                cero: ['Se pide más de {eq}: sin goles no se ganan los partidos.', 'El pueblo quiere ver a {eq} atacar. Hay que arriesgar.'],
+                empate: ['{marc} no basta; se exige un {eq} más ambicioso.', 'Un empate así no nos sirve. {eq} debe ganar.'],
+                gana: ['Bien por {eq}, pero esperamos que cierre el partido.', '{marc}: justo lo que pedíamos. Que no baje el ritmo.'],
+                gana_mucho: ['¡Contundente! Así quiere ver la gente a {eq}.', '{marc}: un resultado a la altura de nuestras ambiciones.'],
+                pierde: ['Perder así no está en el plan. {eq} debe reaccionar o habrá consecuencias.', 'Se requiere una reacción inmediata de {eq}.'],
+                pierde_mucho: ['Este resultado es inaceptable; en cuanto termine, habrá decisiones.', '{marc}: hay que revisar todo en {eq}.'],
+                roja_propia: ['Una expulsión que no puede repetirse. Se exige disciplina a {eq}.', 'Con diez, {eq} se juega el partido; exigimos carácter.'],
+                roja_rival: ['Es la oportunidad: {eq} debe golpear ahora.', 'Con un jugador más, no hay excusas para {eq}.']}
+        },
+        periodista: {
+            patriota: {
+                cero: ['Los nuestros mandan y el gol merece llegar: {eq} está jugando mejor.', 'Falta puntería, pero {eq} es superior. Solo es cuestión de tiempo.'],
+                empate: ['{marc}: el rival está a punto de arrepentirse, {eq} tiene más para dar.', 'Empate injusto; {eq} merece más.'],
+                gana: ['{marc} y justo premio para {eq}, que lo merecía desde el inicio.', '¡Qué bien juega {eq}! Es el favorito moral del partido.'],
+                gana_mucho: ['¡Exhibición de {eq}! Sin discusión, una tarde histórica.', '{marc}: {eq} le da una lección de fútbol al rival.'],
+                pierde: ['Injusto ir perdiendo: {eq} es mejor y la pelota no quiere entrar.', 'El marcador miente. {eq} va a remontar.'],
+                pierde_mucho: ['Un resultado que no refleja lo que vimos, aunque el golpe es duro para {eq}.', '{marc}: un mal día no define a {eq}.'],
+                roja_propia: ['Expulsión muy rigurosa para {eq}; el árbitro se pasó.', 'Se la jugaron al borde y {eq} paga caro.'],
+                roja_rival: ['Era roja clara: ahora {eq} puede imponer su juego.', 'Ventaja numérica merecida para {eq}.']},
+            critico: {
+                cero: ['Sin goles porque {eq} sigue sin tener ideas claras.', 'Mucho toque y pocas ideas: así no se rompe un partido.'],
+                empate: ['{marc} y para ser sinceros, {eq} no ha merecido más.', 'Tras el empate, la pregunta es qué quiere {eq}.'],
+                gana: ['{marc}, aunque el funcionamiento de {eq} sigue sin convencer.', 'Gana {eq}, pero con muchos problemas que corregir.'],
+                gana_mucho: ['Gran resultado, pero el rival puso poco; no engañemos con el marcador.', 'Gana {eq} con claridad; ahora vienen rivales de verdad.'],
+                pierde: ['Pierde {eq} y no sorprende: faltan ideas y carácter.', 'El rival lo hace mejor, con menos recursos que {eq}.'],
+                pierde_mucho: ['Derrota sin atenuantes: {eq} fue superado en todo.', '{marc}: la autocrítica debe empezar ya.'],
+                roja_propia: ['Expulsión por imprudencia: {eq} se lo busca y lo paga.', 'Un error evitable que condiciona al equipo.'],
+                roja_rival: ['{eq} tiene superioridad; ahora no hay pretextos.', 'El rival se quedó con diez y {eq} debe responder.']},
+            neutral: {
+                cero: ['Partido muy táctico con pocas ocasiones; el 0-0 refleja el equilibrio.', 'Dos equipos que se respetan; el gol puede llegar de cualquier jugada.'],
+                empate: ['{marc}: un partido parejo y de ida y vuelta.', 'Reparto de méritos; ambos tuvieron ocasiones claras.'],
+                gana: ['{marc}: {eq} es más efectivo en las áreas.', 'Una ventaja corta para {eq}; el partido sigue abierto.'],
+                gana_mucho: ['{marc}: {eq} marcó diferencias claras en el partido.', 'Dominio y contundencia de {eq}.'],
+                pierde: ['{eq} se adelanta en el marcador {rival}; ahora debe reaccionar.', 'Ventaja para el rival; {eq} necesita cambiar el ritmo.'],
+                pierde_mucho: ['{marc}: el partido se ha ido para {eq} por falta de contundencia.', 'Una diferencia importante que {eq} difícilmente revertirá.'],
+                roja_propia: ['Con la expulsión, {eq} cambia su planteamiento y defiende con diez.', 'La roja condiciona el partido: {eq} deberá jugar con orden.'],
+                roja_rival: ['Expulsión que cambia el partido a favor de {eq}.', 'Un hombre más para {eq}: el partido gira.']}
+        }
+    };
+    // Quien no es de ninguno de los dos equipos (otros países del grupo, periodistas internacionales): situaciones g_cero, g_empate,
+    // g_ventaja ({gan} adelante, {per} abajo), g_goleada, g_roja.
+    const C_GRUPO = {
+        aficion: {
+            g_cero: ['Un 0-0 en nuestro grupo, atentos a cómo afecta la tabla.', 'Nadie anota aún; desde {pais} seguimos el partido con ojos de lince.'],
+            g_empate: ['{marc} en el grupo: un empate que nos viene bien a {pais}.', 'Empate, y desde {pais} hacemos cuentas.'],
+            g_ventaja: ['Gana {gan}; desde {pais} tomamos nota para la tabla del grupo.', '{gan} se adelanta. Nos toca vigilar de cerca desde {pais}.'],
+            g_goleada: ['¡{marc}! Para {pais}, ese gol de diferencia puede pesar al final del grupo.', 'Ojo con {gan}: así se pone difícil el grupo para {pais}.'],
+            g_roja: ['Una roja en el grupo; para {pais} es una noticia a tomar en cuenta.', 'Se queda con diez: ¡{pais} está atenta!']
+        },
+        presidente: {
+            g_cero: ['Seguimos con atención este partido del grupo; {pais} sabe que cada punto cuenta.', 'Un partido cerrado; analizamos cómo queda el grupo.'],
+            g_empate: ['El empate redefine el grupo; desde {pais} lo analizamos con calma.', '{marc}: un resultado que abre posibilidades para {pais}.'],
+            g_ventaja: ['{gan} marcha adelante; en {pais} hacemos cuentas con prudencia.', 'La ventaja de {gan} cambia el panorama del grupo.'],
+            g_goleada: ['{marc}: un resultado así condiciona la diferencia de gol del grupo.', 'El resultado de {gan} nos obliga a replantear objetivos en {pais}.'],
+            g_roja: ['Una expulsión que puede cambiar la tabla del grupo; en {pais} lo seguimos de cerca.', 'Un partido que se enreda; en {pais} lo vemos con atención.']
+        },
+        periodista: {
+            g_cero: ['Partido sin goles hasta ahora; el grupo sigue a la espera.', 'Poco fútbol y mucho cálculo: el grupo está en juego.'],
+            g_empate: ['{marc}: un empate que reordena el grupo.', 'El reparto de puntos mantiene todo abierto en el grupo.'],
+            g_ventaja: ['{gan} se adelanta: la tabla del grupo empieza a moverse.', 'Con la ventaja de {gan}, el grupo cambia de panorama.'],
+            g_goleada: ['{marc}: ventaja clara de {gan} y un golpe a la diferencia de goles en el grupo.', 'Una goleada que pesa en la clasificación del grupo.'],
+            g_roja: ['Una expulsión que puede decidir el grupo.', 'El partido se tensa con la roja y el grupo lo siente.']
+        },
+        jugador: {
+            g_cero: ['Desde afuera se ve un partido cerrado; en el grupo cada punto es oro.', 'Nos toca mirar con atención: un 0-0 también cuenta.'],
+            g_empate: ['{marc}: un empate que mantiene todo abierto para nosotros en {pais}.', 'Un empate así deja todo para los últimos partidos.'],
+            g_ventaja: ['{gan} va ganando; en {pais} sabemos lo que eso significa para el grupo.', 'Cuidado con {gan}: va a ser un rival duro.'],
+            g_goleada: ['{marc}: así se ganan los grupos; nosotros en {pais} tomamos nota.', 'Esa diferencia de goles va a pesar en la tabla.'],
+            g_roja: ['Una expulsión así cambia todo; un respiro para los demás del grupo.', 'Jugar con diez es muy difícil; ojalá no nos toque a nosotros.']
+        }
+    };
+    const GRUPO_CONFIG = { aficion: 'aficion', presidente: 'presidente', periodista: 'periodista', jugador: 'jugador' };
+    const VARIANTE_AFICION = { festivo: 'efusivo', ultra: 'efusivo', carismatico: 'efusivo', exigente: 'exigente', humilde: 'humilde' };
+    const VARIANTE_PRESIDENTE = { institucional: 'sobrio', austero: 'sobrio', reformista: 'sobrio', ambicioso: 'presion', populista: 'presion' };
+    function situacionComentario(lado, partido, c) {
+        const gl = partido.golesLocal, gv = partido.golesVisita, min = partido.minuto || 0;
+        const rl = c.l.rojas, rv = c.v.rojas;
+        if (lado === 'local' || lado === 'visita') {
+            const gp = lado === 'local' ? gl : gv, gr = lado === 'local' ? gv : gl, rp = lado === 'local' ? rl : rv, rr = lado === 'local' ? rv : rl;
+            if (rp > rr) return 'roja_propia';
+            if (rr > rp) return 'roja_rival';
+            const d = gp - gr;
+            if (d === 0) return gp === 0 ? (min >= 10 ? 'cero' : null) : 'empate';
+            return d >= 2 ? 'gana_mucho' : d === 1 ? 'gana' : d === -1 ? 'pierde' : 'pierde_mucho';
+        }
+        if (rl !== rv) return 'g_roja';
+        const d = gl - gv;
+        if (d === 0) return gl === 0 ? (min >= 10 ? 'g_cero' : null) : 'g_empate';
+        return Math.abs(d) >= 3 ? 'g_goleada' : 'g_ventaja';
+    }
+    /**
+     * Lo que dice `voz` (de GET /matches/live/transmision) ahora: {texto, tag}. `partido` = {local, visitante, siglaLocal, siglaVisita, golesLocal,
+     * golesVisita, minuto}; azarFn() → [0, 1). null si no hay nada que decir en este momento.
+     */
+    function comentario(voz, partido, eventos, azarFn) {
+        const az = azarFn || Math.random;
+        const c = conteos(eventos, partido.local);
+        const sit = situacionComentario(voz.lado, partido, c);
+        if (!sit) return null;
+        const tag = `#${partido.siglaLocal || partido.local}${partido.siglaVisita || partido.visitante}`.replace(/\s+/g, '');
+        let pool;
+        const propio = voz.lado === 'local' || voz.lado === 'visita';
+        if (propio) {
+            const tipo = voz.tipo;
+            const vari = tipo === 'aficion' ? VARIANTE_AFICION[voz.rasgo] || 'efusivo' : tipo === 'presidente' ? VARIANTE_PRESIDENTE[voz.rasgo] || 'sobrio'
+                : (voz.sesgo === 'patriota' || voz.sesgo === 'critico') ? voz.sesgo : 'neutral';
+            pool = ((C_PROPIO[tipo] || {})[vari] || {})[sit];
+        } else pool = ((C_GRUPO[voz.tipo] || {})[sit]);
+        if (!pool || !pool.length) return null;
+        const eq = voz.lado === 'visita' ? partido.visitante : partido.local, rival = voz.lado === 'visita' ? partido.local : partido.visitante;
+        const gan = partido.golesLocal >= partido.golesVisita ? partido.local : partido.visitante, per = gan === partido.local ? partido.visitante : partido.local;
+        const marc = `${partido.golesLocal}-${partido.golesVisita}`;
+        const frase = pool[Math.floor(az() * pool.length)]
+            .replace(/\{eq\}/g, eq).replace(/\{rival\}/g, rival).replace(/\{gan\}/g, gan).replace(/\{per\}/g, per).replace(/\{marc\}/g, marc).replace(/\{pais\}/g, voz.pais || '');
+        return { tag, texto: frase, situacion: sit };
+    }
     const PRESENTA = ['{quien} presenta', '{quien} les trae', 'Un dato de {quien}'];
 
-    const api = { crear, clasificar, grafico, estadoTanda, resumen, estadisticas, elegirDato, elegirPleca, plecaFormacion, conteos, PRESENTA, POSICIONES, tocaMarcador, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };
+    const api = { crear, clasificar, grafico, estadoTanda, resumen, estadisticas, elegirDato, elegirPleca, plecaFormacion, conteos, comentario, PRESENTA, POSICIONES, tocaMarcador, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.Narracion = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -130,6 +130,8 @@
             estadio: data.estadio, fase: data.fase_id, paisDe: nombre => plantillas.paises[nombre], modo, mesas: modo === 'tv' ? mesas : [],
         });
         est.tele = modo === 'tv' ? mesas.map(m => m.tele || {}) : [];
+        est.voces = modo === 'tv' ? (info.voces || []) : [];
+        est.vocesUsadas = [];
         est.convenios = modo === 'tv' ? mesas.map(m => m.convenios || []) : [];
         est.patro = modo === 'tv' ? Object.assign({ paises: {}, jugadores: {} }, info.patrocinadores || {}) : { paises: {}, jugadores: {} };
         est.mesas = mesas.map((_, i) => ({
@@ -361,6 +363,20 @@
     // ---------------------------------------------------------------- pleca patrocinada (lower third)
     // Un dato a la vez, debajo de los comentaristas: círculo con el logo del patrocinador, barra de color con «<marca> presenta …» y
     // barra blanca con el dato. Va en su propia capa: no corta la narración ni las tarjetas (una tarjeta importante la retira).
+    // pleca de COMENTARIO: es de la televisora (sus colores, sin marca): el rostro de quien habla en el círculo, «nombre · cargo» arriba
+    // (con el logo del medio si es periodista) y «#TAG comentario» abajo
+    function htmlPlecaComentario(i, d) {
+        const t = est.tele[i] || {}, v = d.voz;
+        const rostro = v.jugador_id && window.UI ? UI.avatar(v.jugador_id, v.pais_id, '')
+            : (v.avatar_url ? `<img class="tv-pleca__rostro" src="${e(v.avatar_url)}" alt="" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>');
+        const colores = t.color ? `--tv:${e(t.color)};--tv2:${e(t.color2)};` : '';
+        return `<div class="tv-pleca tv-pleca--comenta" style="${colores}">
+            <span class="tv-pleca__aro"><span class="tv-pleca__logo tv-pleca__logo--rostro">${rostro}</span></span>
+            <div class="tv-pleca__barra">
+                <div class="tv-pleca__sup"><span><b>${e(v.nombre)}</b> · ${e(v.cargo)}</span>${v.medio_logo ? `<img class="tv-pleca__medio" src="${e(v.medio_logo)}" alt="${e(v.medio || '')}" onerror="this.remove()">` : ''}</div>
+                <div class="tv-pleca__inf"><span><b class="tv-pleca__tag">${e(d.tag)}</b> ${e(d.texto)}</span></div>
+            </div></div>`;
+    }
     function htmlPleca(i, d) {
         const t = est.tele[i] || {}, marca = d.marca;
         const nombre = marca ? marca.nombre : (t.nombre || 'La transmisión');
@@ -384,16 +400,31 @@
         const m = est.mesas[i], cont = m && m.raiz.querySelector('.tv-set__pleca');
         if (!cont || m.cerrada || m.pleca) return false;
         if (m.grafico && m.graficoPrio >= 3) return false;
-        d.marca = d.marca || marcaDePleca(i);
+        if (!d.voz) d.marca = d.marca || marcaDePleca(i);
         m.pleca = true; m.ultimaPleca = Date.now();
-        cont.innerHTML = htmlPleca(i, d);
+        cont.innerHTML = d.voz ? htmlPlecaComentario(i, d) : htmlPleca(i, d);
         cont.className = 'tv-set__pleca is-activo';
         clearTimeout(m.plecaTimer);
         m.plecaTimer = setTimeout(() => {
             cont.classList.add('is-saliendo');
             m.plecaTimer = setTimeout(() => { cont.className = 'tv-set__pleca'; cont.innerHTML = ''; m.pleca = false; }, reducido ? 0 : 900);
-        }, reducido ? 4500 : 7200);
+        }, reducido ? 5000 : (d.voz ? 9500 : 7200));
         return true;
+    }
+    // un comentario de alguien que opina del partido (más peso a los de las dos selecciones que a los del grupo), sin repetir a los últimos 5
+    function elegirComentario(u) {
+        const voces = (est.voces || []).filter(v => !est.vocesUsadas.includes(v.nombre));
+        if (!voces.length) return null;
+        const p = datosPartido();
+        p.golesLocal = u.goles_local; p.golesVisita = u.goles_visitante; p.minuto = u.minuto_actual;
+        const peso = v => (v.lado === 'local' || v.lado === 'visita') ? 3 : 1;
+        for (let n = 0; n < 6; n++) {
+            let r = Math.random() * voces.reduce((a, v) => a + peso(v), 0), voz = voces[0];
+            for (const v of voces) { r -= peso(v); if (r <= 0) { voz = v; break; } }
+            const c = window.Narracion.comentario(voz, p, u.eventos, Math.random);
+            if (c) return { voz, tag: c.tag, texto: c.texto, clave: 'c-' + voz.nombre };
+        }
+        return null;
     }
     // cada cierto tiempo (más a menudo que los datos de pantalla completa) sale una pleca con UN dato al azar
     function quizaPleca() {
@@ -402,9 +433,12 @@
         if (u.minuto_actual < 5) return;
         est.mesas.forEach((m, i) => {
             if (m.cerrada || m.pleca || (m.grafico && m.grafico !== 'marcador') || ahora - (m.ultimaPleca || 0) < 55000 + i * 20000 || Math.random() > 0.45) return;
-            const d = window.Narracion.elegirPleca(u.eventos, datosPartido(), est.plecasUsadas, Math.random);
+            const d = (Math.random() < 0.4 && elegirComentario(u)) || window.Narracion.elegirPleca(u.eventos, datosPartido(), est.plecasUsadas, Math.random);
             if (!d) return;
-            if (mostrarPleca(i, d)) { est.plecasUsadas.push(d.clave); if (est.plecasUsadas.length > 6) est.plecasUsadas.shift(); }
+            if (mostrarPleca(i, d)) {
+                if (d.voz) { est.vocesUsadas.push(d.voz.nombre); if (est.vocesUsadas.length > 5) est.vocesUsadas.shift(); }
+                else { est.plecasUsadas.push(d.clave); if (est.plecasUsadas.length > 6) est.plecasUsadas.shift(); }
+            }
         });
     }
     function htmlMarcador(i) {

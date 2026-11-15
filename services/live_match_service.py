@@ -104,7 +104,8 @@ def obtener_mesa_transmision(usuario: Optional[dict]) -> Optional[Dict[str, Any]
         logging.getLogger(__name__).warning(f"Mesa de transmisión: {e}")
         mesas = []
     return {"match_id": str(juego["_id"]), "modo": "tv" if mesas else "radio", "mesas": mesas,
-            "patrocinadores": _patrocinadores_del_partido(usuario, juego) if mesas else {"paises": {}, "jugadores": {}}}
+            "patrocinadores": _patrocinadores_del_partido(usuario, juego) if mesas else {"paises": {}, "jugadores": {}},
+            "voces": _voces_del_partido(juego) if mesas else []}
 
 
 def _marca_para_pantalla(m: dict) -> dict:
@@ -112,6 +113,65 @@ def _marca_para_pantalla(m: dict) -> dict:
     d = m.get("dueno") or {}
     return {"id": m["id"], "nombre": m["nombre"], "logo": m.get("logo"), "color": m["color"], "color2": m["color2"], "lema": m.get("lema"),
             "dueno": {"nombre": d.get("nombre"), "avatar_url": d.get("avatar_url")} if d.get("nombre") else None}
+
+
+_CARGO_PERIODISTA = {"columnista": "Columnista", "reportero": "Reportero", "entrevistador": "Entrevistador"}
+VOCES_JUGADORES_POR_PAIS = 2   # jugadores de cada país del grupo (leyendas incluidas) que pueden opinar desde afuera
+VOCES_MEDIOS_INTERNACIONALES = 2
+
+
+def _voces_del_partido(juego: dict) -> List[Dict[str, Any]]:
+    """
+    Quién puede comentar el partido en la pleca de la transmisión (iguales para todos, solo catálogo): el líder de la afición y el
+    presidente de la federación de las dos selecciones y de los demás países del grupo, periodistas de los medios de los dos países
+    (más algunos internacionales) y jugadores (y leyendas) de los demás países del grupo. Nunca lanza.
+    """
+    import random
+    voces: List[Dict[str, Any]] = []
+    try:
+        from services.directiva_service import _persona
+        from services.imagenes_pais_service import url_imagen_medios
+        rng = random.Random(f"voces:{juego['_id']}")
+        local, visita = juego["equipo_local"], juego["equipo_visitante"]
+        ids = [local["id"], visita["id"]]
+        lado = {local["id"]: "local", visita["id"]: "visita"}
+        otros: List[int] = []
+        if juego.get("grupo") and juego.get("fase_id") is not None:
+            for g in db["juegos"].find({"fase_id": juego["fase_id"], "grupo": juego["grupo"]}, {"equipo_local.id": 1, "equipo_visitante.id": 1}):
+                for lg in ("equipo_local", "equipo_visitante"):
+                    pid = (g.get(lg) or {}).get("id")
+                    if pid is not None and pid not in ids and pid not in otros:
+                        otros.append(pid)
+        nombres = {p["id"]: p["nombre"] for p in db["paises"].find({"id": {"$in": ids + otros}}, {"id": 1, "nombre": 1})}
+        for pid in ids + otros:
+            for coleccion, tipo, texto in (("lideres", "aficion", "Líder de la afición"), ("presidentes", "presidente", "Presidente de la federación")):
+                x = db[coleccion].find_one({"id": pid}, {"_id": 0})
+                if not x:
+                    continue
+                pers = _persona(x, "lider" if tipo == "aficion" else "presidente")
+                voces.append({"tipo": tipo, "nombre": x["nombre"], "cargo": f"{texto} de {nombres.get(pid, '')}", "avatar_url": pers["avatar"], "jugador_id": None,
+                              "pais_id": pid, "pais": nombres.get(pid), "lado": lado.get(pid, "grupo"), "rasgo": x.get("rasgo"), "sesgo": None, "medio": None, "medio_logo": None})
+        medios = list(db["medios"].find({"pais_id": {"$in": ids}}, {"_id": 0, "id": 1, "nombre": 1, "logo": 1, "pais_id": 1, "equipo.periodistas": 1}))
+        inter = list(db["medios"].find({"id": {"$gte": 9001}}, {"_id": 0, "id": 1, "nombre": 1, "logo": 1, "pais_id": 1, "equipo.periodistas": 1}))
+        rng.shuffle(inter)
+        for m in medios + inter[:VOCES_MEDIOS_INTERNACIONALES]:
+            pers = (m.get("equipo") or {}).get("periodistas") or []
+            if not pers:
+                continue
+            per = rng.choice(pers)
+            propio = m.get("pais_id") in lado
+            voces.append({"tipo": "periodista", "nombre": per["nombre"], "cargo": f"{_CARGO_PERIODISTA.get(per.get('rol'), 'Periodista')} de {m['nombre']}",
+                          "avatar_url": url_imagen_medios(per.get("avatar")), "jugador_id": None, "pais_id": m.get("pais_id") if propio else None,
+                          "pais": nombres.get(m.get("pais_id")) if propio else None, "lado": lado.get(m.get("pais_id"), "neutral"), "rasgo": None,
+                          "sesgo": per.get("sesgo") if propio else "neutral", "medio": m["nombre"], "medio_logo": url_imagen_medios(m.get("logo"))})
+        for pid in otros:
+            cand = list(db["jugadores"].find({"pais_id": pid}, {"_id": 0, "id": 1, "nombre": 1, "leyenda": 1}))
+            for j in rng.sample(cand, min(VOCES_JUGADORES_POR_PAIS, len(cand))):
+                voces.append({"tipo": "jugador", "nombre": j["nombre"], "cargo": f"{'Leyenda' if j.get('leyenda') else 'Jugador'} de {nombres.get(pid, '')}", "avatar_url": None, "jugador_id": j["id"],
+                              "pais_id": pid, "pais": nombres.get(pid), "lado": "grupo", "rasgo": None, "sesgo": None, "medio": None, "medio_logo": None})
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Voces de la transmisión: {e}")
+    return voces
 
 
 def _convenios_de_cadena(tele_id: int) -> List[Dict[str, Any]]:

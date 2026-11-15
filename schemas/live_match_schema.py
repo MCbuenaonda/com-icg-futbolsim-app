@@ -187,12 +187,29 @@ class PatrocinadoresOut(BaseModel):
     jugadores: Dict[str, List[MarcaPatrocinadoraOut]] = {}  # jugador_id -> marcas del jugador
 
 
+class VozOut(BaseModel):
+    """Quien puede comentar el partido en la pleca (líder de la afición, presidente, periodista o jugador de otro país del grupo)."""
+    tipo: str  # aficion | presidente | periodista | jugador
+    nombre: str
+    cargo: str
+    avatar_url: Optional[str] = None
+    jugador_id: Optional[int] = None
+    pais_id: Optional[int] = None
+    pais: Optional[str] = None
+    lado: str  # local | visita | grupo | neutral
+    rasgo: Optional[str] = None
+    sesgo: Optional[str] = None
+    medio: Optional[str] = None
+    medio_logo: Optional[str] = None
+
+
 class TransmisionLiveOut(BaseModel):
     """Quién narra el partido en transmisión PARA EL USUARIO de la sesión (lista cerrada: nada de pagos ni aficionados)."""
     match_id: str
     modo: str  # tv | radio
     mesas: List[MesaOut] = []
     patrocinadores: PatrocinadoresOut = PatrocinadoresOut()
+    voces: List[VozOut] = []
 
 
 class PlantillasLiveOut(BaseModel):

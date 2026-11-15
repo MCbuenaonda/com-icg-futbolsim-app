@@ -76,6 +76,7 @@
                     <div class="tv-set__rotulo" aria-live="polite"><span class="tv-set__quien"></span><p class="tv-set__texto"></p></div>
                     <div class="tv-set__flash" aria-hidden="true"></div>
                     <div class="tv-set__grafico" aria-hidden="true"></div>
+                    <div class="tv-set__pleca" aria-hidden="true"></div>
                 </div>
                 <div class="tv-set__bisel"><span class="tv-set__led"></span><small>${e(t.nombre)}${t.lema ? ' · ' + e(t.lema) : ''}</small></div>
             </div><div class="tv-set__pie"></div></div>`;
@@ -116,7 +117,7 @@
         const matchId = data.match_id;
         detener();
         est = { matchId, listo: false, cursor: null, mesas: [], colas: [], ultimo: data, narrador: null, tele: [], ultimoMarcador: Date.now(),
-                patro: { paises: {}, jugadores: {} }, datosUsados: [], tablerosUsados: [], ultimoDato: Date.now() };
+                patro: { paises: {}, jugadores: {} }, datosUsados: [], plecasUsadas: [], ultimoDato: Date.now() };
         const info = await cargarMesa();
         if (!est || est.matchId !== matchId) return;   // cambió el partido mientras cargaba
         const modo = info.modo === 'tv' && (info.mesas || []).length ? 'tv' : 'radio';
@@ -156,7 +157,7 @@
     // Tarjeta de jugador (gol, amonestado, expulsado, portero que ataja un penal) y el «comercial» del marcador con el estadio
     // de fondo y, al final, el logo de la cadena. Solo en la televisión: la radio no tiene pantalla.
     let plantillas = { ids: {}, dorsales: {}, posiciones: {}, paises: {}, arbitros: {}, planteamiento: {} };   // las completa live_match.js (GET /matches/live/plantillas)
-    const GRAFICO_MS = { jugador: 6800, marcador: 6200, dato: 9600, tablero: 9200, penal: 5000, cambio: 4600, arbitro: 6800, tanda: 4600 };   // la tarjeta de jugador y el dato terminan con el logo
+    const GRAFICO_MS = { jugador: 6800, marcador: 6200, dato: 9600, penal: 5000, cambio: 4600, arbitro: 6800, tanda: 4600 };   // la tarjeta de jugador y el dato terminan con el logo
     const ACCION_TXT = { gol: 'GOL', amarilla: 'TARJETA AMARILLA', roja: 'TARJETA ROJA', atajo: 'PENAL ATAJADO', lesion: 'LESIÓN' };
     const ROL_ARBITRO = { central: 'Árbitro central', linea1: 'Juez de línea', linea2: 'Juez de línea', cuarto: 'Cuarto árbitro', var: 'Árbitro VAR' };
 
@@ -338,7 +339,7 @@
             </div>${cierre}</div>`;
     }
     // marca que patrocina un tablero: una aliada de la cadena (la mayoría de las veces) o cualquiera de las del partido
-    function marcaDelTablero(i) {
+    function marcaDePleca(i) {
         const conDueno = lista => (lista || []).filter(m => m.dueno && m.dueno.nombre);
         const conv = conDueno((est.convenios || [])[i]);
         const p = est.patro || { paises: {}, jugadores: {} };
@@ -346,38 +347,65 @@
         const pool = conv.length && (!partido.length || Math.random() < 0.7) ? conv.map(m => ({ ...m, convenio: true })) : partido;
         return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
     }
-    function htmlTablero(i, d) {
-        const t = est.tele[i] || {}, u = est.ultimo || {}, marca = d.marca;
-        const escL = imagenPais(u.id_local, 'escudo'), escV = imagenPais(u.id_visita, 'escudo');
-        const colores = marca ? `--tv:${e(marca.color)};--tv2:${e(marca.color2)};` : '';
-        const logo = marca ? (marca.logo ? `<img src="${e(marca.logo)}" alt="${e(marca.nombre)}" onerror="this.remove()">` : `<b>${e(marca.nombre)}</b>`)
-                           : (t.logo ? `<img src="${e(t.logo)}" alt="${e(t.nombre)}" onerror="this.remove()">` : `<b>${e(t.nombre || '')}</b>`);
-        const pie = marca ? (marca.convenio ? `Marca aliada de ${e(t.nombre || 'la cadena')}` : 'Patrocinador oficial') : e(t.lema || '');
-        const filas = d.filas.map((f, n) => {
-            const tope = Math.max(f.l, f.v, 1), pl = f.pct ? f.l : 100 * f.l / tope, pv = f.pct ? f.v : 100 * f.v / tope;
-            const cifra = x => f.pct ? x + '%' : x;
-            return f.texto
-                ? `<div class="tv-tab__fila tv-tab__fila--texto" style="--n:${n}"><b>${e(f.l)}</b><span>${e(f.nombre)}</span><b>${e(f.v)}</b></div>`
-                : `<div class="tv-tab__fila" style="--n:${n}"><b>${cifra(f.l)}</b><div class="tv-tab__barras"><i class="tv-tab__b tv-tab__b--l" style="--w:${pl.toFixed(1)}%"></i><i class="tv-tab__b tv-tab__b--v" style="--w:${pv.toFixed(1)}%"></i></div><b>${cifra(f.v)}</b><span>${e(f.nombre)}</span></div>`;
-        }).join('');
-        return `<div class="tv-gfx tv-gfx--tablero" style="${colores}">
-            <div class="tv-gfx__dato-fondo"></div>
-            <div class="tv-tab__pleca"><span class="tv-tab__logo">${logo}</span><span class="tv-tab__presenta"><small>${marca ? 'Presenta' : 'En la transmisión'}</small><b>${e(marca ? marca.nombre : (t.nombre || ''))}</b><em>${pie}</em></span></div>
-            <div class="tv-tab__cuerpo">
-                <small class="tv-gfx__tag">${e(d.etiqueta)}</small>
-                <strong class="tv-gfx__titulo">${e(d.titulo)}</strong>
-                <div class="tv-tab__equipos"><span>${escL ? `<img src="${e(escL)}" alt="" onerror="this.remove()">` : ''}${e(u.siglas_local || u.local || '')}</span><span>${e(u.siglas_visitante || u.visitante || '')}${escV ? `<img src="${e(escV)}" alt="" onerror="this.remove()">` : ''}</span></div>
-                <div class="tv-tab__filas">${filas}</div>
-            </div></div>`;
-    }
     // al arrancar, el planteamiento de los dos equipos presentado por una marca (después del árbitro y del comercial del marcador)
     function mostrarFormacion(i) {
         if (!est || est.modo !== 'tv' || !est.mesas[i] || est.mesas[i].cerrada) return;
+        const pl = window.Narracion.plecaFormacion(plantillas.planteamiento, datosPartido());
+        if (pl) mostrarPleca(i, pl);
+    }
+    function datosPartido() {
         const u = est.ultimo || {};
-        const tb = window.Narracion.tableroFormacion(plantillas.planteamiento, { local: u.local, visitante: u.visitante });
-        if (!tb) return;
-        tb.marca = marcaDelTablero(i);
-        mostrarGrafico(i, 'tablero', tb);
+        return { local: u.local, visitante: u.visitante, siglaLocal: u.siglas_local || u.local, siglaVisita: u.siglas_visitante || u.visitante };
+    }
+
+    // ---------------------------------------------------------------- pleca patrocinada (lower third)
+    // Un dato a la vez, debajo de los comentaristas: círculo con el logo del patrocinador, barra de color con «<marca> presenta …» y
+    // barra blanca con el dato. Va en su propia capa: no corta la narración ni las tarjetas (una tarjeta importante la retira).
+    function htmlPleca(i, d) {
+        const t = est.tele[i] || {}, marca = d.marca;
+        const nombre = marca ? marca.nombre : (t.nombre || 'La transmisión');
+        const logo = marca ? (marca.logo ? `<img src="${e(marca.logo)}" alt="" onerror="this.remove()">` : `<b>${e(marca.nombre.slice(0, 2))}</b>`)
+                           : (t.logo ? `<img src="${e(t.logo)}" alt="" onerror="this.remove()">` : '<i class="bi bi-broadcast"></i>');
+        const colores = marca ? `--tv:${e(marca.color)};--tv2:${e(marca.color2)};` : '';
+        return `<div class="tv-pleca" style="${colores}">
+            <span class="tv-pleca__aro"><span class="tv-pleca__logo">${logo}</span></span>
+            <div class="tv-pleca__barra">
+                <div class="tv-pleca__sup"><span><b>${e(nombre)}</b> presenta ${e(d.tema)}</span></div>
+                <div class="tv-pleca__inf"><span>${e(d.texto)}</span></div>
+            </div></div>`;
+    }
+    function retirarPleca(m) {
+        const cont = m.raiz.querySelector('.tv-set__pleca');
+        clearTimeout(m.plecaTimer); m.pleca = false;
+        if (cont) { cont.className = 'tv-set__pleca'; cont.innerHTML = ''; }
+    }
+    function mostrarPleca(i, d) {
+        if (!est || est.modo !== 'tv') return false;
+        const m = est.mesas[i], cont = m && m.raiz.querySelector('.tv-set__pleca');
+        if (!cont || m.cerrada || m.pleca) return false;
+        if (m.grafico && m.graficoPrio >= 3) return false;
+        d.marca = d.marca || marcaDePleca(i);
+        m.pleca = true; m.ultimaPleca = Date.now();
+        cont.innerHTML = htmlPleca(i, d);
+        cont.className = 'tv-set__pleca is-activo';
+        clearTimeout(m.plecaTimer);
+        m.plecaTimer = setTimeout(() => {
+            cont.classList.add('is-saliendo');
+            m.plecaTimer = setTimeout(() => { cont.className = 'tv-set__pleca'; cont.innerHTML = ''; m.pleca = false; }, reducido ? 0 : 900);
+        }, reducido ? 4500 : 7200);
+        return true;
+    }
+    // cada cierto tiempo (más a menudo que los datos de pantalla completa) sale una pleca con UN dato al azar
+    function quizaPleca() {
+        if (!est || est.modo !== 'tv' || !window.Narracion.elegirPleca || !est.ultimo || est.ultimo.finalizado) return;
+        const u = est.ultimo, ahora = Date.now();
+        if (u.minuto_actual < 5) return;
+        est.mesas.forEach((m, i) => {
+            if (m.cerrada || m.pleca || (m.grafico && m.grafico !== 'marcador') || ahora - (m.ultimaPleca || 0) < 55000 + i * 20000 || Math.random() > 0.45) return;
+            const d = window.Narracion.elegirPleca(u.eventos, datosPartido(), est.plecasUsadas, Math.random);
+            if (!d) return;
+            if (mostrarPleca(i, d)) { est.plecasUsadas.push(d.clave); if (est.plecasUsadas.length > 6) est.plecasUsadas.shift(); }
+        });
     }
     function htmlMarcador(i) {
         const d = est.ultimo || {}, t = est.tele[i] || {};
@@ -406,9 +434,10 @@
         if (!cont || m.cerrada) return false;
         const prio = (datos && datos.prio) || 1;
         if (m.grafico && prio < 3 && prio <= m.graficoPrio) return false;
+        if (prio >= 3 && m.pleca) retirarPleca(m);
         clearTimeout(m.graficoTimer);
         m.grafico = tipo; m.graficoPrio = prio;
-        const html = { jugador: () => htmlJugador(datos, i), arbitro: () => htmlArbitro(datos, i), tanda: () => htmlTanda(datos, i), penal: () => htmlPenal(datos, i), cambio: () => htmlCambio(datos, i), dato: () => htmlDato(i, datos), tablero: () => htmlTablero(i, datos), marcador: () => htmlMarcador(i) };
+        const html = { jugador: () => htmlJugador(datos, i), arbitro: () => htmlArbitro(datos, i), tanda: () => htmlTanda(datos, i), penal: () => htmlPenal(datos, i), cambio: () => htmlCambio(datos, i), dato: () => htmlDato(i, datos), marcador: () => htmlMarcador(i) };
         cont.innerHTML = html[tipo]();
         cont.className = `tv-set__grafico tv-set__grafico--${tipo === 'arbitro' ? 'jugador' : tipo} is-activo`;   // el árbitro usa la misma animación que la tarjeta de jugador
         m.raiz.classList.add('con-grafico');
@@ -429,16 +458,6 @@
         const m = est.mesas[i], ahora = Date.now();
         if (m.cerrada || m.grafico || (est.ultimo && est.ultimo.minuto_actual < 8)) return false;
         if (ahora - est.ultimoDato < 70000 || ahora - m.ultimoMarcador < 25000 || Math.random() > 0.5) return false;
-        if (window.Narracion.elegirTablero && Math.random() < 0.5) {
-            const tb = window.Narracion.elegirTablero(est.ultimo.eventos, { local: est.ultimo.local, visitante: est.ultimo.visitante }, est.tablerosUsados, Math.random);
-            if (tb) {
-                tb.marca = marcaDelTablero(i);
-                if (!mostrarGrafico(i, 'tablero', tb)) return false;
-                est.ultimoDato = ahora;
-                est.tablerosUsados.push(tb.clave); if (est.tablerosUsados.length > 2) est.tablerosUsados.shift();
-                return true;
-            }
-        }
         const d = window.Narracion.elegirDato(est.ultimo.eventos, est.datosUsados, Math.random);
         if (!d) return false;
         d.marca = marcaDelDato(d, i);
@@ -626,6 +645,7 @@
         est.ultimo = data;
         if (!est.listo) return;
         actualizarHud(data);
+        try { quizaPleca(); } catch (err) { console.error('Pleca:', err); }
         const eventos = data.eventos || [];
         if (eventos.length <= est.cursor) { if (data.finalizado && !est.despedida) despedir(data); return; }
         const llegada = Date.now(), ctx = contexto(data);
@@ -695,7 +715,7 @@
         marcarHablante(m, null, false);
         if (est.modo === 'tv') {
             const pantalla = m.raiz.querySelector('.tv-set__pantalla');
-            const g = m.raiz.querySelector('.tv-set__grafico'); if (g) { g.className = 'tv-set__grafico'; g.innerHTML = ''; }
+            const g = m.raiz.querySelector('.tv-set__grafico'); if (g) { g.className = 'tv-set__grafico'; g.innerHTML = ''; } retirarPleca(m);
             if (pantalla && !pantalla.querySelector('.tv-set__cierre')) pantalla.insertAdjacentHTML('beforeend', htmlCierre(i));
             m.raiz.classList.remove('con-grafico'); m.raiz.classList.add('tv-set--fuera');
         } else {

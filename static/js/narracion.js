@@ -920,10 +920,10 @@
      * El dato a presentar en una pausa: elige entre los que ya valen la pena (hay un líder claro) y no se hayan mostrado
      * (`usados` = claves recientes; si ya salieron todos se vuelve a empezar). azarFn() → [0, 1). Devuelve null si todavía no hay nada.
      */
-    function elegirDato(eventos, usados, azarFn) {
+    function candidatosDato(eventos) {
         const jugadores = estadisticas(eventos);
-        if (!jugadores.length) return null;
         const candidatos = [];
+        if (!jugadores.length) return candidatos;
         DATOS.forEach(d => {
             const ordenados = jugadores.filter(p => d.valor(p) >= d.minimo).sort((a, b) => d.valor(b) - d.valor(a));
             if (!ordenados.length) return;
@@ -931,13 +931,17 @@
             if (ordenados[1] && d.valor(ordenados[1]) === d.valor(lider) && d.clave !== 'figura') return;   // empate en el primer puesto: no hay líder
             candidatos.push({ clave: d.clave, titulo: d.titulo, etiqueta: d.etiqueta, jugador: lider.nombre, equipo: lider.equipo, cifra: d.cifra(lider) });
         });
+        return candidatos;
+    }
+    function elegirDato(eventos, usados, azarFn) {
+        const candidatos = candidatosDato(eventos);
         if (!candidatos.length) return null;
         const frescos = candidatos.filter(c => !(usados || []).includes(c.clave));
         const pool = frescos.length ? frescos : candidatos;
         return pool[Math.floor((azarFn || Math.random)() * pool.length)];
     }
 
-    // ---------------------------------------------------------------- tableros de estadísticas por equipo (plecas patrocinadas)
+    // ---------------------------------------------------------------- estadísticas por equipo para las plecas patrocinadas
     // Todo sale de las jugadas YA reveladas. La «posesión» es la parte de las jugadas de ataque y progresión que llevó cada equipo.
     function conteos(eventos, local) {
         const nuevo = () => ({ jugadas: 0, remates: 0, apuerta: 0, corners: 0, faltas: 0, amarillas: 0, rojas: 0, fueras: 0, regates: 0, recup: 0, atajadas: 0 });
@@ -960,42 +964,49 @@
         });
         return c;
     }
-    const TABLEROS = [
-        { clave: 'dominio', titulo: 'Dominio del partido', etiqueta: 'ESTADÍSTICAS', minimo: 8, filas: [
-            { nombre: 'Posesión', campo: 'jugadas', pct: true }, { nombre: 'Remates', campo: 'remates' }, { nombre: 'Tiros a puerta', campo: 'apuerta' }, { nombre: 'Córners', campo: 'corners' }] },
-        { clave: 'duelos', titulo: 'Duelos y recuperaciones', etiqueta: 'RENDIMIENTO', minimo: 6, filas: [
-            { nombre: 'Regates ganados', campo: 'regates' }, { nombre: 'Recuperaciones', campo: 'recup' }, { nombre: 'Atajadas', campo: 'atajadas' }, { nombre: 'Fueras de lugar', campo: 'fueras' }] },
-        { clave: 'disciplina', titulo: 'Juego y disciplina', etiqueta: 'DISCIPLINA', minimo: 4, filas: [
-            { nombre: 'Faltas', campo: 'faltas' }, { nombre: 'Amarillas', campo: 'amarillas' }, { nombre: 'Rojas', campo: 'rojas' }] },
+    // ---------------------------------------------------------------- plecas patrocinadas: UN dato a la vez, al azar entre todos
+    const PLECAS = [
+        { clave: 'posesion', tema: 'la posesión del balón', campo: 'jugadas', pct: true, minimo: 8 },
+        { clave: 'remates', tema: 'los remates', campo: 'remates', minimo: 2 },
+        { clave: 'apuerta', tema: 'los tiros a puerta', campo: 'apuerta', minimo: 2 },
+        { clave: 'corners', tema: 'los tiros de esquina', campo: 'corners', minimo: 2 },
+        { clave: 'regates', tema: 'los regates ganados', campo: 'regates', minimo: 3 },
+        { clave: 'recup', tema: 'las recuperaciones de balón', campo: 'recup', minimo: 4 },
+        { clave: 'atajadas', tema: 'las atajadas de los porteros', campo: 'atajadas', minimo: 2 },
+        { clave: 'fueras', tema: 'los fueras de lugar', campo: 'fueras', minimo: 2 },
+        { clave: 'faltas', tema: 'las faltas cometidas', campo: 'faltas', minimo: 3 },
+        { clave: 'amarillas', tema: 'las tarjetas amarillas', campo: 'amarillas', minimo: 1 },
+        { clave: 'rojas', tema: 'las expulsiones', campo: 'rojas', minimo: 1 },
     ];
-    /** Un tablero con las cifras de cada equipo: `usados` = claves recientes (no repite hasta agotar), null si todavía no hay nada que mostrar. */
-    function elegirTablero(eventos, partido, usados, azarFn) {
+    /**
+     * Una pleca: {clave, tema (lo que presenta la marca), etiqueta, texto (el dato)}. Mezcla los datos de equipo con los de jugador
+     * (`elegirDato`'s candidatos) y toma UNO al azar entre los que valen la pena y no se mostraron hace poco. null si no hay nada.
+     */
+    function elegirPleca(eventos, partido, usados, azarFn) {
         if (!partido) return null;
-        const c = conteos(eventos, partido.local);
-        const listos = TABLEROS.map(t => {
-            const filas = t.filas.map(f => {
-                const l = c.l[f.campo], v = c.v[f.campo], tot = l + v;
-                return { nombre: f.nombre, l: f.pct ? Math.round(tot ? 100 * l / tot : 50) : l, v: f.pct ? 100 - Math.round(tot ? 100 * l / tot : 50) : v,
-                         pct: !!f.pct, frac: tot ? l / tot : 0.5, tot };
-            });
-            const total = filas.reduce((a, f) => a + (f.pct ? 0 : f.tot), 0) + (filas[0].pct ? filas[0].tot : 0);
-            return { clave: t.clave, titulo: t.titulo, etiqueta: t.etiqueta, filas, total, minimo: t.minimo };
-        }).filter(t => t.total >= t.minimo);
-        if (!listos.length) return null;
-        const frescos = listos.filter(t => !(usados || []).includes(t.clave));
-        const pool = frescos.length ? frescos : listos;
+        const c = conteos(eventos, partido.local), sl = partido.siglaLocal || partido.local, sv = partido.siglaVisita || partido.visitante;
+        const cand = [];
+        PLECAS.forEach(d => {
+            const l = c.l[d.campo], v = c.v[d.campo], tot = l + v;
+            if (tot < d.minimo) return;
+            if (d.pct) { const pl = Math.round(100 * l / tot); cand.push({ clave: d.clave, tema: d.tema, texto: `${sl} ${pl}%  ·  ${100 - pl}% ${sv}` }); }
+            else cand.push({ clave: d.clave, tema: d.tema, texto: `${sl} ${l}  ·  ${v} ${sv}` });
+        });
+        candidatosDato(eventos).forEach(d => cand.push({ clave: 'j-' + d.clave, tema: d.titulo.charAt(0).toLowerCase() + d.titulo.slice(1), texto: `${d.jugador} (${d.equipo})  ·  ${d.cifra}` }));
+        if (!cand.length) return null;
+        const frescos = cand.filter(x => !(usados || []).includes(x.clave));
+        const pool = frescos.length ? frescos : cand;
         return pool[Math.floor((azarFn || Math.random)() * pool.length)];
     }
-    /** El planteamiento de cada equipo al arrancar (esquema y estilo), en el formato del tablero. */
-    function tableroFormacion(planteamiento, partido) {
-        const pl = (planteamiento && planteamiento.local) || null, pv = (planteamiento && planteamiento.visita) || null;
+    /** Las formaciones al arrancar, en el formato de la pleca. */
+    function plecaFormacion(planteamiento, partido) {
+        const pl = planteamiento && planteamiento.local, pv = planteamiento && planteamiento.visita;
         if (!pl || !pv || !partido) return null;
-        return { clave: 'formacion', titulo: 'Así salen a la cancha', etiqueta: 'ALINEACIONES', formacion: true,
-                 filas: [{ nombre: 'Formación', l: pl.esquema, v: pv.esquema, texto: true }, { nombre: 'Estilo', l: pl.etiqueta || '', v: pv.etiqueta || '', texto: true }] };
+        return { clave: 'formacion', tema: 'las formaciones con las que salen a la cancha', texto: `${partido.siglaLocal || partido.local} ${pl.esquema}  ·  ${pv.esquema} ${partido.siglaVisita || partido.visitante}` };
     }
     const PRESENTA = ['{quien} presenta', '{quien} les trae', 'Un dato de {quien}'];
 
-    const api = { crear, clasificar, grafico, estadoTanda, resumen, estadisticas, elegirDato, elegirTablero, tableroFormacion, conteos, PRESENTA, POSICIONES, tocaMarcador, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };
+    const api = { crear, clasificar, grafico, estadoTanda, resumen, estadisticas, elegirDato, elegirPleca, plecaFormacion, conteos, PRESENTA, POSICIONES, tocaMarcador, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     root.Narracion = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -11,7 +11,7 @@
 @media (max-width: 767.98px) { .tv-vivo__mesas--2 { grid-template-columns: 1fr; } }
 
 /* ============================================================ televisor */
-.tv-set { --tv: #3b82f6; --tv2: #1e3a8a; container-type: inline-size; position: relative; }
+.tv-set { --primary-color: #3b82f6; --accent-color: #1e3a8a; --text-color: #f1f5f9; --logo-url: none; --tv: var(--primary-color); --tv2: var(--accent-color); container-type: inline-size; position: relative; }
 .tv-set__marco {
     padding: 2.6cqw 2.6cqw 0; border-radius: 3.4cqw 3.4cqw 2cqw 2cqw;
     background: linear-gradient(150deg, #353d52 0%, #1a2030 45%, #0e121b 100%);
@@ -29,25 +29,32 @@
 }
 .tv-set__bisel { display: flex; align-items: center; justify-content: space-between; gap: 2cqw; padding: 1.5cqw 1.2cqw 1.8cqw; color: #8b97b2; }
 .tv-set__bisel small { font-size: clamp(0.55rem, 1.9cqw, 0.74rem); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tv-set__led { width: 1.1cqw; height: 1.1cqw; min-width: 6px; min-height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px #22c55e; flex: 0 0 auto; }
+.tv-set__led-verde { width: 1.1cqw; height: 1.1cqw; min-width: 6px; min-height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px #22c55e; flex: 0 0 auto; }
 .tv-set__pie { height: 1.2cqw; margin: 0 auto; width: 34%; background: linear-gradient(#232a3a, #0d1119); border-radius: 0 0 1cqw 1cqw; }
 
-/* estudio: fondo con los colores de la cadena y paneles de «video wall» */
-.tv-set__estudio {
-    position: absolute; inset: 0; z-index: 0;
-    background:
-        radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--tv) 70%, #ffffff 8%) 0%, transparent 62%),
-        linear-gradient(180deg, color-mix(in srgb, var(--tv2) 85%, #000 15%) 0%, #0a1020 78%);
-}
-.tv-set__estudio::before { /* piso con reflejo */
-    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 34%;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(5, 8, 16, 0.85) 100%);
-}
-.tv-set__panel { position: absolute; top: 12%; bottom: 40%; width: 24%; border-radius: 0.8cqw; border: 0.25cqw solid color-mix(in srgb, var(--tv) 60%, #fff 25%);
-    background: linear-gradient(135deg, color-mix(in srgb, var(--tv) 38%, transparent), rgba(255, 255, 255, 0.04)); opacity: 0.55; }
-.tv-set__panel--a { left: 4%; transform: perspective(60cqw) rotateY(18deg); }
-.tv-set__panel--b { right: 4%; transform: perspective(60cqw) rotateY(-18deg); }
-.tv-set__marca { position: absolute; left: 50%; top: 14%; width: 34%; height: 34%; object-fit: contain; transform: translateX(-50%); opacity: 0.13; filter: grayscale(0.2) drop-shadow(0 0 1cqw rgba(255, 255, 255, 0.25)); }
+/* estudio: fondo de estadio en SVG (partials/set_tv.html) con los colores de la cadena y dos pantallas LED integradas */
+.tv-set__estudio { position: absolute; inset: 0; z-index: 0; background: #0a1020; overflow: hidden; }
+.tv-set__decor { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tv-set__decor * { vector-effect: non-scaling-stroke; }
+.tv-decor__vigas path { fill: none; stroke: color-mix(in srgb, var(--primary-color) 45%, #fff 30%); stroke-width: 1px; opacity: 0.22; }
+.tv-decor__neon path { fill: none; stroke: color-mix(in srgb, var(--primary-color) 55%, #fff 45%); stroke-width: 2.2px; opacity: 0.95; }
+.tv-decor__neon path:nth-child(2) { stroke-width: 1.3px; opacity: 0.55; } .tv-decor__neon path:nth-child(3) { stroke-width: 1.6px; opacity: 0.7; }
+.tv-decor__cesped { fill: #14532d; opacity: 0.5; }
+/* pantallas LED laterales (en perspectiva): izquierda con la bandera y un mapa de puntos, derecha con el marcador */
+.tv-set__led { position: absolute; top: 20%; width: 21%; height: 37%; overflow: hidden; border-radius: 0.7cqw; background: linear-gradient(160deg, color-mix(in srgb, var(--primary-color) 60%, #000), color-mix(in srgb, var(--accent-color) 80%, #000));
+    border: 0.35cqw solid color-mix(in srgb, var(--primary-color) 55%, #fff 35%); box-shadow: 0 0 2.6cqw color-mix(in srgb, var(--primary-color) 60%, transparent), inset 0 0 2cqw rgba(0, 0, 0, 0.5); }
+.tv-set__led--izq { left: 3%; transform: perspective(70cqw) rotateY(22deg); }
+.tv-set__led--der { right: 3%; width: 29%; transform: perspective(70cqw) rotateY(-22deg); }
+.tv-set__led::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px), linear-gradient(115deg, rgba(255, 255, 255, 0.18), transparent 40%); }
+.tv-led__estadio { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.tv-set__led--izq::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.45)); }
+.tv-led__marcador { position: absolute; inset: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; align-content: flex-start; gap: 0.2em 0.4em; padding: 6% 32% 0 5%; color: #fff; }
+.tv-led__marcador img { height: 1.9em; width: auto; max-width: 26%; object-fit: contain; filter: drop-shadow(0 0.3em 0.6em rgba(0, 0, 0, 0.5)); }
+.tv-led__marcador i { font-style: normal; white-space: nowrap; font-size: 1.6em; font-weight: 900; letter-spacing: 0.04em; text-shadow: 0 0.1em 0.4em rgba(0, 0, 0, 0.6); }
+.tv-led__marcador em { flex: 0 0 100%; text-align: center; font-style: normal; font-size: 0.8em; letter-spacing: 0.16em; color: color-mix(in srgb, var(--primary-color) 40%, #fde68a); }
+/* placa luminosa con el logo (--logo-url), arriba al centro */
+.tv-set__placa-logo { position: absolute; left: 50%; top: 3%; width: 20%; height: 12%; transform: translateX(-50%); background: var(--logo-url) center / contain no-repeat; opacity: 0.32;
+    filter: grayscale(0.2) drop-shadow(0 0 1cqw rgba(255, 255, 255, 0.3)); pointer-events: none; }
 
 /* HUD: marcador y «en vivo» */
 .tv-set__hud { position: absolute; z-index: 4; top: 2.4%; left: 2.4%; right: 2.4%; display: flex; justify-content: space-between; align-items: flex-start; gap: 1cqw; }
@@ -67,11 +74,14 @@
 
 /* mesa: escritorio y asientos */
 .tv-set__mesa { position: absolute; z-index: auto; left: 0; right: 0; bottom: 41%; height: 40%; display: flex; justify-content: center; align-items: flex-end; gap: 3.5cqw; padding: 0 6cqw; }
-.tv-set__escritorio {
-    position: absolute; z-index: 3; left: 5%; right: 5%; bottom: 18%; height: 21%; border-radius: 1.6cqw 1.6cqw 0 0;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--tv) 55%, #1b2335) 0%, #101726 38%, #090d17 100%);
-    box-shadow: 0 -0.5cqw 2cqw rgba(0, 0, 0, 0.5), inset 0 0.4cqw 0 rgba(255, 255, 255, 0.28), inset 0 0 0 0.2cqw rgba(255, 255, 255, 0.06);
-}
+.tv-set__escritorio { position: absolute; z-index: 3; left: 4%; right: 4%; bottom: 16%; height: 29%; filter: drop-shadow(0 -0.6cqw 2cqw rgba(0, 0, 0, 0.55)); }
+.tv-set__escritorio svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.tv-set__escritorio * { vector-effect: non-scaling-stroke; }
+.tv-mesa__ala, .tv-mesa__centro { stroke: color-mix(in srgb, var(--primary-color) 55%, #fff 35%); stroke-width: 1px; stroke-opacity: 0.55; }
+.tv-mesa__tapa { fill: color-mix(in srgb, var(--primary-color) 30%, var(--accent-color)); opacity: 0.9; }
+.tv-mesa__neon { fill: none; stroke: color-mix(in srgb, var(--primary-color) 40%, #fff 60%); stroke-width: 2.2px; filter: drop-shadow(0 0 0.5cqw var(--primary-color)); }
+.tv-mesa__neon--baja { stroke-width: 1.8px; opacity: 0.85; }
+.tv-set__escritorio-logo { position: absolute; left: 50%; bottom: 8%; width: 30%; height: 26%; transform: translateX(-50%); background: var(--logo-url) center / contain no-repeat; filter: drop-shadow(0 0 0.8cqw color-mix(in srgb, var(--primary-color) 70%, transparent)); }
 .tv-asiento { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; width: 22%; transition: transform 0.3s ease, filter 0.3s ease, opacity 0.3s ease; filter: saturate(0.82) brightness(0.86); }
 .tv-asiento--narrador { width: 25%; order: 2; } .tv-asiento--analista { order: 1; } .tv-asiento--invitado { order: 3; }
 .tv-asiento__cuerpo { display: none; }
@@ -87,10 +97,10 @@
 .tv-asiento__rostro .avatar-jugador { width: 100%; height: 100%; border: 0; border-radius: 0; background: none !important; background-image: none !important; box-shadow: none; overflow: visible; }
 .tv-asiento__rostro .avatar-jugador::before, .tv-asiento__rostro .avatar-jugador::after { display: none; }
 .tv-asiento__rostro .avatar-jugador img { width: 100%; height: 100%; max-width: none; margin: 0; object-fit: contain; }
-.tv-set__placas { position: absolute; z-index: 4; left: 0; right: 0; bottom: 27%; display: flex; justify-content: center; align-items: flex-start; gap: 3.5cqw; padding: 0 6cqw; pointer-events: none; }
-.tv-placa { display: flex; flex-direction: column; align-items: center; width: 22%; line-height: 1.1; padding: 0.3em 0.4em; border-radius: 0.5cqw; background: rgba(6, 10, 20, 0.66); border: 1px solid rgba(255, 255, 255, 0.1); transition: background 0.3s, border-color 0.3s; overflow: hidden; }
+.tv-set__placas { position: absolute; z-index: 4; left: 0; right: 0; bottom: 29%; display: flex; justify-content: center; align-items: flex-start; gap: 3.5cqw; padding: 0 6cqw; pointer-events: none; }
+.tv-placa { display: flex; flex-direction: column; align-items: center; width: 22%; line-height: 1.1; padding: 0.3em 0.4em; border-radius: 0.5cqw; background: rgba(8, 6, 18, 0.78); border: 1px solid color-mix(in srgb, var(--primary-color) 45%, rgba(255, 255, 255, 0.15)); box-shadow: 0 0 1.2cqw color-mix(in srgb, var(--primary-color) 28%, transparent); transition: background 0.3s, border-color 0.3s; overflow: hidden; }
 .tv-placa--narrador { width: 25%; order: 2; } .tv-placa--analista { order: 1; } .tv-placa--invitado { order: 3; }
-.tv-placa b { max-width: 100%; font-size: 0.8em; color: #f1f5f9; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-placa b { max-width: 100%; font-size: 0.8em; color: var(--text-color); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tv-placa small { font-size: 0.6em; color: color-mix(in srgb, var(--tv) 40%, #e2e8f0); text-transform: uppercase; letter-spacing: 0.08em; }
 .tv-placa.habla { background: color-mix(in srgb, var(--tv) 70%, #000 30%); border-color: color-mix(in srgb, var(--tv) 60%, #fff 30%); }
 .tv-asiento.habla { filter: none; }
@@ -324,7 +334,7 @@
 .tv-set__cierre-gracias { font-size: 0.8em; letter-spacing: 0.08em; color: #94a3b8; }
 @keyframes cierre-entra { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
 @keyframes cierre-late { from { opacity: 0.55; transform: translate(-50%, -50%) scale(0.94); } to { opacity: 1; transform: translate(-50%, -50%) scale(1.06); } }
-.tv-set--fuera .tv-set__led { background: #475569; box-shadow: none; }
+.tv-set--fuera .tv-set__led-verde { background: #475569; box-shadow: none; }
 .tv-set--fuera .tv-set__bisel small::after { content: " · fuera del aire"; }
 /* la radio, apagada */
 .radio-set--fuera .radio-set__aire { background: #3f3f46; box-shadow: none; }
@@ -549,3 +559,11 @@
 .tv-pleca__medio { flex: 0 0 auto; height: 1.5em; max-width: 28%; width: auto; object-fit: contain; padding: 0.1em 0.4em; background: rgba(255, 255, 255, 0.92); border-radius: 0.3em; }
 @container (max-width: 430px) { .tv-pleca__sup { font-size: 0.6em; } .tv-pleca__inf { font-size: 0.8em; } }
 @media (prefers-reduced-motion: reduce) { .tv-set__pleca.is-activo *, .tv-set__pleca.is-saliendo * { animation: none !important; } }
+
+/* goleadores en la pantalla LED de la derecha (pegados al borde derecho, debajo del logo de la cadena) */
+.tv-led__goles { position: absolute; right: 3%; top: 50%; bottom: 5%; width: 47%; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; justify-content: flex-start; gap: 0.25em; overflow: hidden; text-align: right; z-index: 2; }
+.tv-led__goles:empty { display: none; }
+.tv-led__goles li { line-height: 1.05; }
+.tv-led__goles b { display: block; font-size: 0.74em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0.1em 0.3em rgba(0, 0, 0, 0.6); }
+.tv-led__goles b::before { content: "⚽ "; }
+.tv-led__goles small { display: block; font-size: 0.58em; letter-spacing: 0.04em; color: color-mix(in srgb, var(--primary-color) 40%, #fde68a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

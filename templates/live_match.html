@@ -164,6 +164,8 @@
                             <i class="bi bi-list-columns-reverse me-1"></i>Ver cronología completa</button>
                     </div>
                     <!-- Mesa de narradores (static/js/transmision_vivo.js): televisor con cadenas de tu universo o radio -->
+                    <!-- El set de TV modular (partials/set_tv.html): transmision_vivo.js lo clona y lo completa con la cadena y los comentaristas -->
+                    <template id="tplSetTV">{% from "partials/set_tv.html" import set_tv %}{{ set_tv() }}</template>
                     <div id="transmisionVivo" class="tv-vivo" aria-label="Narración del partido en vivo">
                         <div class="text-muted text-center py-4"><i class="bi bi-broadcast me-1"></i>Sintonizando la transmisión...</div>
                     </div>
@@ -385,7 +387,7 @@
 </div>
 
 <link rel="stylesheet" href="{{ url_for('static', path='/css/live_match.css') }}?v=20261108h">
-<link rel="stylesheet" href="{{ url_for('static', path='/css/transmision_vivo.css') }}?v=20261114j">
+<link rel="stylesheet" href="{{ url_for('static', path='/css/transmision_vivo.css') }}?v=20261115k">
 
 <script>
     // Configuración que depende del usuario (permisos); el resto de la lógica vive en static/js/live_match.js
@@ -395,8 +397,8 @@
     };
 </script>
 <script src="{{ url_for('static', path='/js/cancha_jugada.js') }}?v=20261029a"></script>
-<script src="{{ url_for('static', path='/js/narracion.js') }}?v=20261114j"></script>
-<script src="{{ url_for('static', path='/js/transmision_vivo.js') }}?v=20261114j"></script>
-<script src="{{ url_for('static', path='/js/live_match.js') }}?v=20261114j"></script>
+<script src="{{ url_for('static', path='/js/narracion.js') }}?v=20261115d"></script>
+<script src="{{ url_for('static', path='/js/transmision_vivo.js') }}?v=20261115j"></script>
+<script src="{{ url_for('static', path='/js/live_match.js') }}?v=20261115d"></script>
 {% endblock %}
 

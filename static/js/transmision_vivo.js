@@ -39,47 +39,61 @@
     }
 
     // ---------------------------------------------------------------- dibujo
-    function rostroComentarista(c, rol) {
-        const img = c && c.avatar_url ? `<img src="${e(c.avatar_url)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>';
-        return `<span class="tv-asiento__rostro">${img}</span>`;
+    // El set es el <template id="tplSetTV"> de live_match.html (partials/set_tv.html): se clona y se completan los `data-slot` con la cadena,
+    // el partido, los comentaristas y el invitado. Los colores y el logo viajan en variables CSS del contenedor (--primary-color,
+    // --accent-color, --text-color, --logo-url): para otra televisora solo cambian esas cuatro.
+    function slot(raiz, nombre) { return raiz.querySelector(`[data-slot="${nombre}"]`); }
+    function ponerImg(raiz, nombre, url) {
+        const img = slot(raiz, nombre);
+        if (!img) return;
+        if (url) { img.src = url; img.hidden = false; img.onerror = () => { img.hidden = true; }; } else img.hidden = true;
     }
-    function asiento(rol, nombre, rostro) {
-        return `<div class="tv-asiento tv-asiento--${rol}" data-rol="${rol}"><span class="tv-asiento__cuerpo"></span>${rostro}</div>`;
-    }
-    // las placas con los nombres van aparte de los asientos (el escritorio tapa a los asientos y las placas deben verse encima)
-    function placa(rol, nombre) {
-        return `<span class="tv-placa tv-placa--${rol}" data-rol="${rol}"><b>${e(nombre || ROLES[rol])}</b><small>${ROLES[rol]}</small></span>`;
-    }
+    function rostroImg(url) { return url ? `<img src="${e(url)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>'; }
     function dibujarTV(mesa, i) {
-        const t = mesa.tele, com = mesa.comentaristas || [];
+        const plantilla = document.getElementById('tplSetTV');
+        if (!plantilla) return '';
+        const t = mesa.tele, com = mesa.comentaristas || [], d = est.ultimo || {};
         const narr = com.find(c => c.rol === 'narrador') || com[0], anal = com.find(c => c.rol === 'analista') || com[1];
         const inv = mesa.invitado;
-        const rostroInv = inv ? `<span class="tv-asiento__rostro">${window.UI ? UI.avatar(inv.jugador_id, inv.pais_id, '') : ''}</span>` : '';
-        return `<div class="tv-set" data-mesa="${i}" style="--tv:${e(t.color)};--tv2:${e(t.color2)};">
-            <div class="tv-set__marco">
-                <div class="tv-set__pantalla">
-                    <div class="tv-set__estudio"><span class="tv-set__panel tv-set__panel--a"></span><span class="tv-set__panel tv-set__panel--b"></span>
-                        ${t.logo ? `<img class="tv-set__marca" src="${e(t.logo)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</div>
-                    <div class="tv-set__hud">
-                        <span class="tv-set__marcador" data-hud><b data-hud-local></b><i data-hud-goles>0 - 0</i><b data-hud-visita></b><em data-hud-min></em></span>
-                        <span class="tv-set__envivo"><i></i>EN VIVO</span>
-                    </div>
-                    <div class="tv-set__mosca">${t.logo ? `<img src="${e(t.logo)}" alt="${e(t.nombre)}" onerror="this.remove()">` : e(t.nombre)}</div>
-                    ${t.pais ? `<div class="tv-set__origen" title="Televisora de ${e(t.pais)}">${imagenPais(t.pais_id, 'icono') ? `<img src="${e(imagenPais(t.pais_id, 'icono'))}" alt="" onerror="this.remove()">` : ''}<span>${e(t.pais)}</span></div>` : ''}
-                    <div class="tv-set__mesa">
-                        ${asiento('analista', anal && anal.nombre, rostroComentarista(anal))}
-                        ${asiento('narrador', narr && narr.nombre, rostroComentarista(narr))}
-                        ${inv ? asiento('invitado', inv.nombre, rostroInv) : ''}
-                    </div>
-                    <span class="tv-set__escritorio"></span>
-                    <div class="tv-set__placas">${placa('analista', anal && anal.nombre)}${placa('narrador', narr && narr.nombre)}${inv ? placa('invitado', inv.nombre) : ''}</div>
-                    <div class="tv-set__rotulo" aria-live="polite"><span class="tv-set__quien"></span><p class="tv-set__texto"></p></div>
-                    <div class="tv-set__flash" aria-hidden="true"></div>
-                    <div class="tv-set__grafico" aria-hidden="true"></div>
-                    <div class="tv-set__pleca" aria-hidden="true"></div>
-                </div>
-                <div class="tv-set__bisel"><span class="tv-set__led"></span><small>${e(t.nombre)}${t.lema ? ' · ' + e(t.lema) : ''}</small></div>
-            </div><div class="tv-set__pie"></div></div>`;
+        const nodo = plantilla.content.firstElementChild.cloneNode(true);
+        nodo.dataset.mesa = i;
+        nodo.style.setProperty('--primary-color', t.color);
+        nodo.style.setProperty('--accent-color', t.color2);
+        nodo.style.setProperty('--logo-url', t.logo ? `url("${t.logo}")` : 'none');
+        const mosca = slot(nodo, 'mosca');
+        if (mosca) mosca.innerHTML = t.logo ? `<img src="${e(t.logo)}" alt="${e(t.nombre)}" onerror="this.remove()">` : e(t.nombre);
+        const origen = slot(nodo, 'origen');
+        if (origen) {
+            if (t.pais) { slot(nodo, 'origen-nombre').textContent = t.pais; ponerImg(nodo, 'origen-icono', imagenPais(t.pais_id, 'icono')); origen.hidden = false; origen.title = 'Televisora de ' + t.pais; }
+            else origen.remove();
+        }
+        slot(nodo, 'bisel').textContent = t.nombre + (t.lema ? ' · ' + t.lema : '');
+        ponerImg(nodo, 'estadio', d.estadio_img);
+        ponerImg(nodo, 'escudo-local', imagenPais(d.id_local, 'escudo'));
+        ponerImg(nodo, 'escudo-visita', imagenPais(d.id_visita, 'escudo'));
+        [['analista', anal], ['narrador', narr]].forEach(([rol, c]) => {
+            slot(nodo, rol + '-rostro').innerHTML = rostroImg(c && c.avatar_url);
+            slot(nodo, rol + '-nombre').textContent = (c && c.nombre) || ROLES[rol];
+        });
+        if (inv) {
+            slot(nodo, 'invitado-rostro').innerHTML = window.UI ? UI.avatar(inv.jugador_id, inv.pais_id, '') : '';
+            slot(nodo, 'invitado-nombre').textContent = inv.nombre;
+        } else nodo.querySelectorAll('.tv-asiento--invitado, .tv-placa--invitado').forEach(n => n.remove());
+        return nodo.outerHTML;
+    }
+    // goleadores del partido en la pantalla LED de la derecha: solo los goles ya revelados (sin tanda), con su país y minuto
+    function pintarGoles(data) {
+        if (!est || est.modo !== 'tv' || !window.Narracion) return;
+        const eventos = data.eventos || [];
+        const goles = eventos.filter(ev => window.Narracion.clasificar(ev) === 'gol' && ev.periodo !== 5 && !(ev.tipo || '').includes('TANDA') && !(ev.tipo || '').includes('GOL DE PENAL') && (ev.jugadores || [])[0]);
+        const firma = goles.map(g => g.jugadores[0] + g.minuto).join('|');
+        if (firma === est.firmaGoles) return;
+        est.firmaGoles = firma;
+        const html = goles.slice(-4).map(g => {
+            const m = Math.floor(g.minuto) + (g.adicional ? '+' + g.adicional : '');
+            return `<li><b>${e(g.jugadores[0])}</b><small>${e(g.equipo)} · ${m}'</small></li>`;
+        }).join('');
+        est.mesas.forEach(mesa => { const ul = mesa.raiz && mesa.raiz.querySelector('[data-slot="goles"]'); if (ul) ul.innerHTML = html; });
     }
     function dibujarRadio() {
         return `<div class="radio-set" data-mesa="0">
@@ -680,6 +694,7 @@
         if (!est.listo) return;
         actualizarHud(data);
         try { quizaPleca(); } catch (err) { console.error('Pleca:', err); }
+        try { pintarGoles(data); } catch (err) { console.error('Goleadores:', err); }
         const eventos = data.eventos || [];
         if (eventos.length <= est.cursor) { if (data.finalizado && !est.despedida) despedir(data); return; }
         const llegada = Date.now(), ctx = contexto(data);

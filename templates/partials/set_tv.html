@@ -1,0 +1,106 @@
+{#
+  Set de transmisión de TV, modular (CSS/SVG puros, sin imágenes de mapa de bits propias).
+
+  Se usa de dos formas con el MISMO marcado:
+    · Servidor: {% from "partials/set_tv.html" import set_tv %} {{ set_tv(t, u, mesa) }}
+    · /en-vivo: live_match.html lo deja en un <template id="tplSetTV"> con los valores por omisión y static/js/transmision_vivo.js
+      lo clona y completa cada `data-slot` con la cadena, los comentaristas, el invitado y los equipos del partido.
+
+  Parámetros (todos opcionales):
+    t     = {color, color2, texto, logo, nombre, lema, pais, pais_id}  → la televisora
+    u     = {local, visitante, siglas_local, siglas_visitante, estadio_img, escudo_local, escudo_visita}  → el partido
+    mesa  = {analista: {nombre, avatar}, narrador: {nombre, avatar}, invitado: {nombre, avatar} | None}
+
+  Para cambiar de televisora solo cambian estas variables CSS del contenedor `.tv-set` (el resto sale de ellas):
+    --primary-color  color principal de la cadena      --accent-color  color secundario (sombras, degradados)
+    --text-color     color de los textos de las placas --logo-url      url('…svg') del logo (fondo de la placa, los monitores y la mesa)
+#}
+{% macro estadio_svg() %}
+<svg class="tv-set__decor" viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="tvFondo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color: var(--accent-color)"/><stop offset="0.7" style="stop-color: #0a1020"/></linearGradient>
+    <linearGradient id="tvGrada" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color: var(--primary-color); stop-opacity: 0.55"/><stop offset="1" style="stop-color: var(--accent-color); stop-opacity: 0.25"/></linearGradient>
+    <pattern id="tvAsientos" width="2.2" height="1.6" patternUnits="userSpaceOnUse"><rect width="1.5" height="0.9" rx="0.3" fill="#fff" opacity="0.18"/></pattern>
+    <filter id="tvNeon" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="0.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="160" height="90" fill="url(#tvFondo)"/>
+  <g class="tv-decor__vigas">{% for x in range(-20, 181, 20) %}<path d="M80 -30L{{ x }} 42"/>{% endfor %}</g>
+  <path class="tv-decor__grada tv-decor__grada--alta" d="M-4 44Q80 14 164 44L164 58Q80 30 -4 58Z" fill="url(#tvGrada)"/>
+  <path d="M-4 44Q80 14 164 44L164 58Q80 30 -4 58Z" fill="url(#tvAsientos)"/>
+  <path class="tv-decor__grada tv-decor__grada--baja" d="M-4 58Q80 32 164 58L164 66Q80 42 -4 66Z" fill="url(#tvGrada)" opacity="0.7"/>
+  <rect class="tv-decor__cesped" x="0" y="64" width="160" height="9"/>
+  <g class="tv-decor__neon" filter="url(#tvNeon)">
+    <path d="M-6 26C20 -4 140 -4 166 26"/><path d="M2 36C30 8 130 8 158 36"/><path d="M-4 66C30 54 130 54 164 66"/>
+  </g>
+</svg>
+{% endmacro %}
+
+{% macro silla(rol, rotulo, nombre='', avatar=None) %}
+<div class="tv-asiento tv-asiento--{{ rol }}" data-rol="{{ rol }}"><span class="tv-asiento__rostro" data-slot="{{ rol }}-rostro">{% if avatar %}<img src="{{ avatar }}" alt="">{% else %}<i class="bi bi-person-fill"></i>{% endif %}</span></div>
+{% endmacro %}
+
+{% macro placa(rol, rotulo, nombre='') %}
+<span class="tv-placa tv-placa--{{ rol }}" data-rol="{{ rol }}"><b data-slot="{{ rol }}-nombre">{{ nombre or rotulo }}</b><small>{{ rotulo }}</small></span>
+{% endmacro %}
+
+{% macro set_tv(t=None, u=None, mesa=None, indice=0) %}
+{% set t = t or {} %}{% set u = u or {} %}{% set mesa = mesa or {} %}
+{% set an = mesa.analista or {} %}{% set na = mesa.narrador or {} %}{% set inv = mesa.invitado %}
+<div class="tv-set" data-mesa="{{ indice }}" style="--primary-color: {{ t.color or '#3b82f6' }}; --accent-color: {{ t.color2 or '#1e3a8a' }}; --text-color: {{ t.texto or '#f1f5f9' }}; --logo-url: {% if t.logo %}url('{{ t.logo }}'){% else %}none{% endif %};">
+  <div class="tv-set__marco">
+    <div class="tv-set__pantalla">
+      <div class="tv-set__estudio">
+        {{ estadio_svg() }}
+        <div class="tv-set__led tv-set__led--izq" aria-hidden="true">
+          <img class="tv-led__estadio" data-slot="estadio" src="{{ u.estadio_img or '' }}" alt="">
+        </div>
+        <div class="tv-set__led tv-set__led--der" aria-hidden="true">
+          <div class="tv-led__marcador" data-hud>
+            <img data-slot="escudo-local" src="{{ u.escudo_local or '' }}" alt="">
+            <i data-hud-goles>0 - 0</i>
+            <img data-slot="escudo-visita" src="{{ u.escudo_visita or '' }}" alt="">
+            <b data-hud-local hidden>{{ u.siglas_local }}</b><b data-hud-visita hidden>{{ u.siglas_visitante }}</b>
+            <em data-hud-min></em>
+          </div>
+          <ul class="tv-led__goles" data-slot="goles"></ul>
+        </div>
+        <span class="tv-set__placa-logo"></span>
+      </div>
+      <div class="tv-set__hud">
+        <span class="tv-set__marcador" data-hud><b data-hud-local>{{ u.siglas_local }}</b><i data-hud-goles>0 - 0</i><b data-hud-visita>{{ u.siglas_visitante }}</b><em data-hud-min></em></span>
+        <span class="tv-set__envivo"><i></i>EN VIVO</span>
+      </div>
+      <div class="tv-set__mosca" data-slot="mosca">{% if t.logo %}<img src="{{ t.logo }}" alt="{{ t.nombre }}">{% else %}{{ t.nombre }}{% endif %}</div>
+      <div class="tv-set__origen" data-slot="origen" {% if not t.pais %}hidden{% endif %}><img data-slot="origen-icono" src="" alt=""><span data-slot="origen-nombre">{{ t.pais }}</span></div>
+      <div class="tv-set__mesa">
+        {{ silla('analista', 'Analista', an.nombre, an.avatar) }}
+        {{ silla('narrador', 'Narrador', na.nombre, na.avatar) }}
+        {{ silla('invitado', 'Invitado', inv.nombre if inv else '', inv.avatar if inv else None) }}
+      </div>
+      <div class="tv-set__escritorio" aria-hidden="true">
+        <svg viewBox="0 0 160 40" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="tvMesa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color: color-mix(in srgb, var(--accent-color) 62%, var(--primary-color))"/><stop offset="1" style="stop-color: color-mix(in srgb, var(--accent-color) 85%, #000)"/></linearGradient>
+            <linearGradient id="tvMesaOscura" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color: var(--accent-color)"/><stop offset="1" style="stop-color: #070a12"/></linearGradient>
+          </defs>
+          <polygon class="tv-mesa__ala" points="2,12 54,12 58,40 2,40" fill="url(#tvMesaOscura)"/>
+          <polygon class="tv-mesa__ala" points="158,12 106,12 102,40 158,40" fill="url(#tvMesaOscura)"/>
+          <polygon class="tv-mesa__centro" points="54,2 106,2 110,40 50,40" fill="url(#tvMesa)"/>
+          <polygon class="tv-mesa__tapa" points="54,2 106,2 104,7 56,7"/>
+          <path class="tv-mesa__neon" d="M2 12H54M158 12H106"/>
+          <path class="tv-mesa__neon tv-mesa__neon--baja" d="M2 31H30L38 36H56M158 31H130L122 36H104"/>
+        </svg>
+        <span class="tv-set__escritorio-logo"></span>
+      </div>
+      <div class="tv-set__placas">
+        {{ placa('analista', 'Analista', an.nombre) }}{{ placa('narrador', 'Narrador', na.nombre) }}{{ placa('invitado', 'Invitado', inv.nombre if inv else '') }}
+      </div>
+      <div class="tv-set__rotulo" aria-live="polite"><span class="tv-set__quien"></span><p class="tv-set__texto"></p></div>
+      <div class="tv-set__flash" aria-hidden="true"></div>
+      <div class="tv-set__grafico" aria-hidden="true"></div>
+      <div class="tv-set__pleca" aria-hidden="true"></div>
+    </div>
+    <div class="tv-set__bisel"><span class="tv-set__led-verde"></span><small data-slot="bisel">{{ t.nombre }}{% if t.lema %} · {{ t.lema }}{% endif %}</small></div>
+  </div><div class="tv-set__pie"></div>
+</div>
+{% endmacro %}

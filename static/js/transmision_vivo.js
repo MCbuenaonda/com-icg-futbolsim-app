@@ -180,7 +180,7 @@
         est.modo = modo;
         est.narrador = window.Narracion.crear({
             matchId, local: data.local, visitante: data.visitante, idLocal: data.id_local, idVisita: data.id_visita,
-            estadio: data.estadio, fase: data.fase_id, paisDe: nombre => plantillas.paises[nombre], modo, mesas: modo === 'tv' ? mesas : [],
+            estadio: data.estadio, fase: data.fase_id, jornada: (info.contexto || {}).jornada, jornadasTotal: (info.contexto || {}).jornadas_total, paisDe: nombre => plantillas.paises[nombre], modo, mesas: modo === 'tv' ? mesas : [],
         });
         est.tele = modo === 'tv' ? mesas.map(m => m.tele || {}) : [];
         est.voces = modo === 'tv' ? (info.voces || []) : [];

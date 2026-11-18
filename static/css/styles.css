@@ -5398,3 +5398,8 @@ button.tv-logo:hover { transform: scale(1.04); }
 @media (max-width: 991.98px) { .fut-card { font-size: 8.5px; } .once-cancha { min-height: 0; } }
 @media (max-width: 575.98px) { .fut-card { font-size: 6.3px; } .once-linea__fichas { gap: 0.8rem 0.3rem; } .fut-card__stats { font-size: 0.9em; } }
 @media (prefers-reduced-motion: reduce) { .fut-card { transition: none; } .fut-card:hover { transform: none; } }
+
+/* Marcas en crisis: cómo va cada una (fase, avance y cómo se maneja) */
+.mk-fase { font-weight: 700; } .mk-fase--peor { color: #f87171; } .mk-fase--aflojando { color: #fbbf24; } .mk-fase--cierre { color: #4ade80; }
+.mk-crisis-estado .progress { background: rgba(255, 255, 255, 0.08); }
+.mk-barra-crisis--peor { background: linear-gradient(90deg, #991b1b, #ef4444); } .mk-barra-crisis--aflojando { background: linear-gradient(90deg, #b45309, #fbbf24); } .mk-barra-crisis--cierre { background: linear-gradient(90deg, #15803d, #4ade80); }

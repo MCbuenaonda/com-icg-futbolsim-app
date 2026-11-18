@@ -580,6 +580,72 @@
             if (!f) return null;
             return f >= 8 ? 'knockout' : (f === 7 ? 'grupos' : 'clasif');
         }
+        // ---- comentarios por tiempo × marcador × fase (tablas CTX_* de arriba)
+        function faseClave() {
+            const f = Number(o.fase);
+            if (!f) return null;
+            const j = Number(o.jornada) || 0, jt = Number(o.jornadasTotal) || 0, ultima = jt > 1 && j === jt;
+            if (f === 7) return ultima ? 'grupos_ultima' : (j === 1 ? 'grupos_1' : 'grupos_2');
+            if (f <= 5) return ultima ? 'clasif_ultima' : 'clasif';
+            return { 6: 'repechaje', 8: '16vos', 9: '8vos', 10: '4tos', 11: 'semis', 12: 'tercer', 13: 'final' }[f] || null;
+        }
+        // a quién apoya quien habla: el analista, al país de la cadena; el invitado, al suyo si juega (si no, mira al de la cadena)
+        function perspectiva(mesaIdx, codigo) {
+            const inv = mesas[mesaIdx] && mesas[mesaIdx].invitado;
+            if (codigo === 'I' && inv && inv.pais_id != null) {
+                if (inv.pais_id === o.idLocal) return { lado: 'local', nombre: o.local, contra: o.visitante };
+                if (inv.pais_id === o.idVisita) return { lado: 'visita', nombre: o.visitante, contra: o.local };
+            }
+            return propio(mesaIdx);
+        }
+        /**
+         * Un comentario que depende del momento: cuánto se lleva jugado, cómo va el marcador y en qué fase del torneo se juega. Devuelve
+         * {texto, clave} o null. `cfg.prio` decide con qué frecuencia entra en lugar de la frase de la jugada (más en las importantes).
+         */
+        function lineaContexto(codigo, mesaIdx, ctx, rng, datos, cfg) {
+            if (o.modo !== 'tv' || (codigo !== 'A' && codigo !== 'I')) return null;
+            const prob = cfg.prio >= 3 ? 0.8 : (cfg.prio === 2 ? 0.55 : (cfg.prio === 1 ? 0.35 : 0.2));
+            if (!cfg.forzar && rng() > prob) return null;
+            const minuto = parseInt(ctx.minuto, 10);
+            if (isNaN(minuto) || typeof ctx.golesLocal !== 'number' || typeof ctx.golesVisita !== 'number') return null;
+            const T = minuto > 90 ? 'alargue' : (minuto > 70 ? 'final' : (minuto > 45 ? 'segundo' : (minuto >= 20 ? 'primer' : 'inicio')));
+            const ps = perspectiva(mesaIdx, codigo);
+            const faseK = faseClave();
+            const d = Object.assign({}, datos, { min: minuto });
+            const pieza = (pool, clave) => (pool && pool.length ? elegirPlantilla(pool, clave, rng, d) : null);
+            const dentro = t => t && t.length <= 200;
+            if (!ps) {   // nadie a quien apoyar: lectura neutral (sin tono de hincha)
+                const dif = Math.abs(ctx.golesLocal - ctx.golesVisita);
+                const M = dif === 0 ? (ctx.golesLocal === 0 ? 'cero' : 'empate') : (dif >= 3 ? 'goleada' : 'ventaja');
+                const t = pieza((CTX_NEUTRO[codigo] || {})[M], `ctxn:${codigo}:${M}`);
+                return t ? { texto: t, clave: `ctx:neutro:${codigo}:${M}` } : null;
+            }
+            const g = ps.lado === 'local' ? { a: ctx.golesLocal, b: ctx.golesVisita } : { a: ctx.golesVisita, b: ctx.golesLocal };
+            const dif = g.a - g.b;
+            const M = dif === 0 ? (g.a === 0 ? 'cero' : 'empate') : (dif > 0 ? (dif >= 2 ? 'gana2' : 'gana1') : (dif <= -2 ? 'pierde2' : 'pierde1'));
+            d.eq = ps.nombre; d.rival = ps.contra;
+            // buenos o malos según considere: el hincha tiende al optimismo si va ganando; el invitado opina más libre
+            const pOpt = codigo === 'A' ? (M.startsWith('gana') ? 0.72 : (M.startsWith('pierde') ? 0.45 : 0.6)) : 0.5;
+            const tono = rng() < pOpt ? 'opt' : 'pes';
+            const bespoke = CTX_MOMENTO[codigo] || {};
+            const claveMomento = bespoke[`${T}_${M}`] ? `${T}_${M}` : (bespoke[`${T}_${M.replace(/\d/, '')}`] ? `${T}_${M.replace(/\d/, '')}` : null);
+            let texto = null, clave = '';
+            if (claveMomento && rng() < 0.55) { texto = pieza(bespoke[claveMomento], `ctxm:${codigo}:${claveMomento}`); clave = `momento:${claveMomento}`; }
+            if (!texto) {
+                const marcador = pieza(((CTX_MARCADOR[codigo] || {})[tono] || {})[M], `ctxk:${codigo}:${tono}:${M}`);
+                if (!marcador) return null;
+                const tiempo = rng() < 0.3 ? pieza(CTX_TIEMPO[T], `ctxt:${T}`) : null;
+                texto = tiempo ? `${tiempo} ${marcador}` : marcador;
+                clave = `marcador:${tono}:${M}`;
+            }
+            // la fase del torneo, a veces como segunda frase (más en las jugadas importantes)
+            if (faseK && CTX_FASE[faseK] && rng() < (cfg.prio >= 3 ? 0.55 : 0.3)) {
+                const f = pieza(CTX_FASE[faseK][codigo], `ctxf:${codigo}:${faseK}`);
+                if (f && dentro(`${texto} ${f}`)) texto = `${texto} ${f}`;
+                else if (f && !texto) texto = f;
+            }
+            return { texto, clave: `ctx:${codigo}:${clave}` };
+        }
         // sufijo de la situación: en un gol, qué hizo (pone adelante, iguala, amplía, descuenta); en lo demás, cómo va el país de la cadena
         function sufijoSituacion(clase, evento, p, ctx) {
             if (clase === 'gol') {
@@ -637,8 +703,10 @@
         function evitarRepetir(mesaIdx, rol, rng) {
             const hist = ultimos[mesaIdx] || (ultimos[mesaIdx] = []);
             if (o.modo === 'tv' && hist.length >= 2 && hist[hist.length - 1] === rol && hist[hist.length - 2] === rol) {
-                const alternos = ['narrador', 'analista'].concat(mesas[mesaIdx] && mesas[mesaIdx].invitado ? ['invitado'] : []).filter(r => r !== rol);
-                return alternos[Math.floor(rng() * alternos.length)];
+                // las opiniones (analista e invitado) nunca las dice el narrador: se alternan entre ellos y, si no hay otro, repite quien habla
+                const todos = ['narrador', 'analista'].concat(mesas[mesaIdx] && mesas[mesaIdx].invitado ? ['invitado'] : []);
+                const alternos = todos.filter(r => r !== rol && (rol === 'narrador' || r !== 'narrador'));
+                return alternos.length ? alternos[Math.floor(rng() * alternos.length)] : rol;
             }
             return rol;
         }
@@ -687,8 +755,14 @@
                 if (prob && rng() > parseFloat(prob)) return;
                 let pool = (FRASES[claseF] || {})[codigo] || [];
                 let clavePool = `${claseF}:${codigo}`;
+                // primero, lo que dicen el tiempo, el marcador y la fase del torneo (analista e invitado)
+                let porContexto = false;
+                if (codigo === 'A' || (codigo === 'I' && mesas[mesaIdx].invitado)) {
+                    const lc = lineaContexto(codigo, mesaIdx, ctx, rng, datos, cfg);
+                    if (lc) { pool = [lc.texto]; clavePool = `subj:${lc.clave}`; porContexto = true; }
+                }
                 // con opinión: el analista (del país de la cadena) con pasión y el invitado con una mirada objetiva
-                if (pro && lado && (codigo === 'A' || (codigo === 'I' && mesas[mesaIdx].invitado)) && rng() < (codigo === 'A' ? 0.85 : 0.7)) {
+                if (!porContexto && pro && lado && (codigo === 'A' || (codigo === 'I' && mesas[mesaIdx].invitado)) && rng() < (codigo === 'A' ? 0.85 : 0.7)) {
                     const fuentes = [];
                     const etapa = etapaDelPartido();
                     if (cfg.prio >= 3 && etapa && rng() < 0.3 && ETAPA[etapa][codigo][lado]) fuentes.push([ETAPA[etapa][codigo][lado], `etapa:${etapa}:${codigo}:${lado}`]);
@@ -748,7 +822,13 @@
             else if (!isNaN(minuto) && minuto < 15 && rng() < 0.4) pool = CHARLA.T;
             else if (!isNaN(minuto) && minuto > 75 && rng() < 0.4) pool = CHARLA.L;
             else if (o.modo === 'radio' && rng() < 0.4) pool = RADIO_CHARLA;
-            const texto = elegirPlantilla(pool, `charla:${codigo}`, rng, datos);
+            // casi siempre, lo que toca decir por el momento: tiempo, marcador y fase del torneo
+            let texto = null;
+            if ((codigo === 'A' || codigo === 'I') && rng() < 0.65) {
+                const lc = lineaContexto(codigo, mesaIdx, ctx, rng, datos, { prio: 3, forzar: true });
+                if (lc) texto = lc.texto;
+            }
+            if (!texto) texto = elegirPlantilla(pool, `charla:${codigo}`, rng, datos);
             if (!texto) return null;
             const rol = evitarRepetir(mesaIdx, hablante(mesaIdx, codigo), rng);
             registrar(mesaIdx, rol);
@@ -1202,6 +1282,136 @@
             .replace(/\{eq\}/g, eq).replace(/\{rival\}/g, rival).replace(/\{gan\}/g, gan).replace(/\{per\}/g, per).replace(/\{marc\}/g, marc).replace(/\{pais\}/g, voz.pais || '');
         return { tag, texto: frase, situacion: sit };
     }
+
+    // ---------------------------------------------------------------- comentarios según el TIEMPO, el MARCADOR y la FASE
+    // Contexto: tiempo T (inicio <20', primer 20-45', segundo 46-70', final 71-90', alargue >90') × marcador M visto desde el país que
+    // apoya quien habla (cero, empate, gana1, gana2, pierde1, pierde2) × fase (grupos por jornada, eliminatoria, repechaje, 16vos…final).
+    // El ANALISTA es hincha del país de la cadena; el INVITADO es más reflexivo y puede ser optimista o pesimista, y apoya a SU país si juega.
+    // Marcadores: {eq} el país de quien habla, {rival}, {marc}, {min}, {local} {visita}.
+    const CTX_TIEMPO = {
+        inicio: ['Todavía es temprano.', 'Apenas va el minuto {min}.', 'Falta muchísimo partido.'],
+        primer: ['Estamos en el primer tiempo.', 'Va el minuto {min}.', 'El primer tiempo avanza.'],
+        segundo: ['Segundo tiempo en marcha.', 'Ya pasó el descanso.', 'Se juega el segundo tiempo.'],
+        final: ['Entramos en los minutos finales.', 'Ya quedan pocos minutos.', 'El reloj empieza a pesar.'],
+        alargue: ['Estamos en el tiempo extra.', 'Alargue: todo puede pasar.', 'Con 30 minutos más por jugar.'],
+    };
+    const CTX_MARCADOR = {
+        A: {
+            opt: {
+                cero: ['Tranquilos, que {eq} va a encontrar su gol.', 'Sin goles todavía, pero {eq} merece mucho más.'],
+                empate: ['{marc} y {eq} se siente superior; el gol está por llegar.', 'Empatado, sí, pero {eq} tiene con qué ganarlo.'],
+                gana1: ['¡Vamos ganando! {eq} está haciendo las cosas bien.', '{marc} y la afición de {eq} ya sueña con más.'],
+                gana2: ['¡Qué manera de jugar de {eq}! Esto ya es una fiesta.', '{marc}: {eq} está dominando y se nota.'],
+                pierde1: ['Un gol abajo, pero {eq} tiene calidad para darlo vuelta.', 'Perdemos {marc}, pero yo confío en {eq}.'],
+                pierde2: ['Está duro, pero con {eq} nunca se sabe: ¡hay que creer!', '{marc}... aun así {eq} no se puede rendir.'],
+            },
+            pes: {
+                cero: ['Sin goles y {eq} sin ideas... así no se gana.', 'Esto no me gusta: {eq} juega con demasiado miedo.'],
+                empate: ['{marc} y siento que {eq} se está conformando.', 'Empate que sabe a poco; {eq} tiene que atreverse.'],
+                gana1: ['Vamos ganando, pero {eq} me preocupa: así se puede escapar.', '{marc} es muy corto para tanta tensión.'],
+                gana2: ['Ganamos, sí, pero cuidado con relajarse, {eq}.', '{marc} y aun así veo detalles que corregir en {eq}.'],
+                pierde1: ['Perdiendo {marc}... {eq} no está a la altura, y lo digo con dolor.', 'Algo no funciona en {eq} y se nota.'],
+                pierde2: ['Esto ya es una pesadilla para {eq}.', '{marc}: así no se puede, {eq} tiene que replantearlo todo.'],
+            },
+        },
+        I: {
+            opt: {
+                cero: ['Partido cerrado; con paciencia {eq} puede abrirlo.', 'Los 0-0 se rompen con una jugada y {eq} está cerca.'],
+                empate: ['Partido parejo, y {eq} tiene argumentos para inclinarlo.', '{marc}: nada está dicho y {eq} va creciendo.'],
+                gana1: ['Una ventaja corta, pero bien ganada por {eq}.', '{marc}: lo importante es que {eq} mantenga la cabeza fría.'],
+                gana2: ['{eq} juega con mucha confianza; así es difícil frenarlo.', 'Con {marc}, {eq} puede administrar y jugar tranquilo.'],
+                pierde1: ['Un gol no es nada: {eq} sigue en el partido.', '{marc} pero {eq} sigue generando; la reacción se huele.'],
+                pierde2: ['Complicado, pero ya hemos visto remontadas peores.', 'Con {marc}, {eq} juega sin presión: no tiene nada que perder.'],
+            },
+            pes: {
+                cero: ['Mucha tensión y poca claridad en {eq}.', 'El 0-0 empieza a pesar en {eq}: faltan ideas.'],
+                empate: ['{marc}: {eq} no termina de imponer condiciones.', 'El empate no es mal resultado, pero {eq} debería pedir más.'],
+                gana1: ['Cuidado con {eq}: una ventaja corta es peligrosa.', '{marc} y una sola jugada de {rival} lo cambia todo.'],
+                gana2: ['Va ganando {eq}, pero he visto remontadas con menos.', '{marc}: {eq} debe cuidar la ventaja, {rival} no se va a rendir.'],
+                pierde1: ['{eq} deja pasar el tiempo y eso se paga.', 'Un gol abajo y {eq} sin reacción... me preocupa.'],
+                pierde2: ['Con {marc} se ve difícil: {eq} pagó caro sus errores.', 'Tarde para reaccionar: {rival} manejó mejor el partido.'],
+            },
+        },
+    };
+    // frases propias de ciertos momentos (tiempo_marcador; si no hay con el marcador exacto se prueba sin el número: final_gana, alargue_pierde…)
+    const CTX_MOMENTO = {
+        A: {
+            final_empate: ['¡Queda poco y está {marc}! ¡Vamos {eq}, a buscarlo!', 'Los minutos se acaban con el {marc}: {eq} tiene que ir por todo.'],
+            final_gana1: ['¡Aguanten, {eq}! Solo hay que cuidar este golecito.', 'Falta poco y {eq} gana: ¡que se acabe ya!'],
+            final_gana2: ['{marc} y a gozar los minutos finales, ¡qué orgullo de {eq}!', 'Ya casi está: {eq} lo tiene en el bolsillo.'],
+            final_pierde1: ['Se acaba el tiempo y {eq} tiene que arriesgar todo.', '¡Ahora o nunca, {eq}! Un gol y se salva.'],
+            final_pierde2: ['Casi sin tiempo y {marc}: qué triste, {eq}.', 'Ya no alcanza el tiempo; {eq} se va con dolor.'],
+            final_cero: ['Sin goles y casi sin tiempo: {eq} tiene que sacar algo ya.', 'Faltan minutos y {eq} sigue sin pegarle: ¡hay que arriesgar!'],
+            alargue_empate: ['Tiempo extra y {marc}: aquí gana el que tenga más corazón, ¡vamos {eq}!', 'Alargue: {eq} tiene que sacar fuerzas de donde sea.'],
+            alargue_gana: ['En el alargue y arriba: ¡que {eq} no se descuide ahora!', 'Un gol arriba en tiempo extra... ¡qué nervios, {eq}!'],
+            alargue_pierde: ['Tiempo extra y {eq} abajo: se juega todo en estos minutos.', 'Alargue en contra: {eq} no puede bajar los brazos.'],
+            inicio_gana1: ['Gol tempranero de {eq}: ¡así se empieza!', 'Apenas arranca y {eq} ya golpeó primero.'],
+            inicio_gana2: ['¡Y apenas empieza! {eq} ya lo tiene {marc}.', 'Qué arranque de {eq}: {marc} en pocos minutos.'],
+            inicio_pierde1: ['Un gol temprano en contra... {eq} tiene todo el partido para reaccionar.', 'Mal arranque de {eq}, pero es largo el camino.'],
+            inicio_pierde2: ['Apenas empezó y ya estamos {marc}... ¡esto no puede ser!', 'Un arranque de pesadilla para {eq}.'],
+            segundo_empate: ['Segundo tiempo y {marc}: se define en estos minutos, {eq}.', 'Con el {marc} la segunda parte es de {eq} si se anima.'],
+            segundo_pierde1: ['Segundo tiempo y {eq} abajo: toca mover las piezas.', '{eq} tiene que reaccionar ya, que el reloj corre.'],
+            segundo_gana1: ['Segundo tiempo con {eq} arriba: ¡ahora a cerrarlo!', 'Con la ventaja, {eq} debe controlar y ya.'],
+            primer_cero: ['Seguimos sin goles: {eq} tiene que soltarse un poco.', 'Va el primer tiempo y no pasa nada: {eq} puede más.'],
+        },
+        I: {
+            final_empate: ['Con {marc} y poco tiempo, el que se atreva puede llevarse el partido.', 'A estas alturas los nervios pesan más que la técnica.'],
+            final_gana1: ['Ahora lo difícil es administrar; {eq} tiene que cuidar la pelota.', 'Una ventaja de un gol en los minutos finales: son los más largos.'],
+            final_gana2: ['Ya está resuelto; ahora es cuidar piernas y evitar lesiones.', '{marc} y a cerrar el partido con calma.'],
+            final_pierde1: ['Toca arriesgar: {eq} no tiene nada que perder.', 'En estos minutos se ve el carácter de {eq}.'],
+            final_pierde2: ['Es difícil: {eq} ya casi no tiene tiempo para una remontada.', 'Con {marc} y los minutos contados, {eq} se despide.'],
+            final_cero: ['Un 0-0 en el final: cualquier descuido define el partido.', 'Con este marcador el que se equivoca, pierde.'],
+            alargue_empate: ['En el alargue las piernas pesan: gana el que tenga la cabeza más fría.', 'Treinta minutos más: es un partido nuevo.'],
+            alargue_gana: ['Arriba en el alargue: ahora a defender con orden.', 'Una ventaja en el tiempo extra pesa el doble.'],
+            alargue_pierde: ['Abajo en el alargue hay que arriesgar sin perder la cabeza.', 'En el tiempo extra cada error es una sentencia.'],
+            inicio_gana1: ['Un gol temprano cambia el plan de los dos.', '{eq} golpeó primero: ahora {rival} tiene que salir.'],
+            inicio_gana2: ['Con {marc} tan pronto, el rival tiene que replantearlo todo.', 'Dos goles en pocos minutos cambian cualquier guion.'],
+            inicio_pierde1: ['Es temprano: un gol en contra no define nada.', 'Hay que respirar: falta muchísimo partido.'],
+            inicio_pierde2: ['Un arranque así es difícil de levantar, pero hay tiempo.', 'Con {marc} tan pronto, a {eq} no le queda más que reorganizarse.'],
+            segundo_empate: ['El segundo tiempo es de los que mejor se cuidan físicamente.', 'Con {marc}, los cambios van a ser clave en esta parte.'],
+            segundo_pierde1: ['Un gol abajo y toda la segunda parte por delante: hay margen.', 'Los cambios y el orden pueden cambiar este partido.'],
+            segundo_gana1: ['La ventaja es corta: hay que cuidarla con la pelota.', 'Con un gol arriba, el segundo tiempo se juega con cabeza.'],
+            primer_cero: ['Los dos se estudian; el primer gol va a marcar el partido.', 'Partido de ajedrez en este primer tiempo.'],
+        },
+    };
+    // por la fase del torneo (perspectiva del país que apoya quien habla)
+    const CTX_FASE = {
+        grupos_1: { A: ['Primer partido del grupo: arrancar bien es clave para {eq}.', 'Estos puntos de arranque valen oro para {eq}.'],
+                    I: ['En la primera jornada nadie quiere perder: se juega con prudencia.', 'Un debut en el Mundial siempre pesa; hay que ganarse la confianza.'] },
+        grupos_2: { A: ['Segunda jornada: aquí se empieza a definir el grupo de {eq}.', 'Con este partido {eq} se acerca o se aleja de los octavos.'],
+                    I: ['La segunda jornada suele definir quién depende de sí mismo.', 'Un resultado hoy y el grupo cambia por completo.'] },
+        grupos_ultima: { A: ['Última jornada: {eq} se juega el pase, ¡no hay margen!', 'Todo se define hoy: {eq} no puede fallar.'],
+                         I: ['En la última jornada los cálculos pesan tanto como el juego.', 'Con el pase en juego, cada gol puede cambiar la tabla.'] },
+        clasif: { A: ['Cada partido de la eliminatoria cuenta: {eq} no puede regalar puntos.', 'La clasificación se gana jornada a jornada, {eq}.'],
+                  I: ['Las eliminatorias son largas, pero cada punto se paga caro.', 'Aquí no hay partidos menores: todo suma.'] },
+        clasif_ultima: { A: ['Último partido de la eliminatoria: {eq} se juega el sueño mundialista.', 'Hoy se define si {eq} sigue en la pelea.'],
+                         I: ['Es la última oportunidad: todo se decide ahora.', 'Al final de una eliminatoria cada detalle pesa el doble.'] },
+        repechaje: { A: ['Repechaje: una final por un boleto, ¡vamos {eq}!', 'Un partido por un lugar en el Mundial: {eq} lo tiene que dar todo.'],
+                     I: ['Un repechaje es de los partidos más nerviosos: se juega con el corazón.', 'Aquí no importa el historial, importa el día.'] },
+        '16vos': { A: ['16vos de final: aquí o te quedas o sigues, ¡vamos {eq}!', 'Eliminación directa: {eq} no puede dejar nada atrás.'],
+                   I: ['Desde 16vos un error y te vas a casa.', 'En eliminación directa el que arriesga más no siempre gana.'] },
+        '8vos': { A: ['Octavos de final: {eq} está a un paso de los cuartos.', 'Cada jugada vale una vida, {eq}.'],
+                  I: ['En octavos ya no hay partidos fáciles.', 'Los octavos se ganan con orden y un poco de fe.'] },
+        '4tos': { A: ['Cuartos de final: {eq} está tocando la historia.', 'A ganar para meterse entre los cuatro mejores, {eq}.'],
+                  I: ['En cuartos todo se juega en los detalles.', 'Aquí el que se descuida se despide del Mundial.'] },
+        semis: { A: ['¡Semifinal! {eq} a 90 minutos de la gran final.', 'Una semifinal así se recuerda toda la vida, {eq}.'],
+                 I: ['Semifinal: los nervios, las piernas y la cabeza deciden.', 'En semifinales no se juega bonito, se juega para ganar.'] },
+        tercer: { A: ['El partido por el tercer lugar: {eq} quiere cerrar con orgullo.', 'Un tercer lugar también es historia para {eq}.'],
+                  I: ['El tercer lugar es un partido raro: duele la semifinal, pero hay una medalla.', 'Se juega con menos tensión, pero el orgullo pesa.'] },
+        final: { A: ['¡La final! {eq} está a un paso de la gloria.', 'Todo el país mirando: ¡esta es la final de {eq}!'],
+                 I: ['Una final no se juega, se sobrevive.', 'En una final nadie recuerda al que perdió.'] },
+    };
+    // sin país al que apoyar (la cadena y el invitado no son de los equipos): lectura neutral del partido
+    const CTX_NEUTRO = {
+        A: { cero: ['Con {marc} al minuto {min}, el partido sigue abierto.', 'Sin goles y mucha tensión entre {local} y {visita}.'],
+             empate: ['{marc} entre {local} y {visita}: partido parejo.', 'Empate en el marcador y todo por decidir.'],
+             ventaja: ['Con {marc} al minuto {min}, el partido se inclina.', 'Una ventaja que {local} y {visita} tendrán que gestionar.'],
+             goleada: ['{marc} ya es un resultado difícil de revertir.', 'Una diferencia así cambia todo el partido.'] },
+        I: { cero: ['Dos equipos que se respetan: el primer gol lo cambia todo.', 'El 0-0 es justo hasta ahora, pero no durará.'],
+             empate: ['Un partido muy parejo; cualquier detalle lo define.', '{marc} y los dos con argumentos para ganar.'],
+             ventaja: ['Una ventaja corta que se puede escapar en cualquier jugada.', 'Quien está abajo no tiene nada que perder.'],
+             goleada: ['Ya es difícil que el partido cambie.', 'Una diferencia grande y el rival sin respuestas.'] },
+    };
     const PRESENTA = ['{quien} presenta', '{quien} les trae', 'Un dato de {quien}'];
 
     const api = { crear, clasificar, grafico, estadoTanda, resumen, estadisticas, elegirDato, elegirPleca, plecaFormacion, conteos, comentario, PRESENTA, POSICIONES, tocaMarcador, apellido, limpiarDescripcion, rellenar, azar, CLASES, FRASES, CHARLA };

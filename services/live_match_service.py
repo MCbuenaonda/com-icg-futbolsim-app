@@ -25,6 +25,7 @@ flip de 'transmision.estado' a 'finished' dentro de obtener_estado_live.
 """
 import certifi
 import logging
+import re
 import math
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -105,7 +106,7 @@ def obtener_mesa_transmision(usuario: Optional[dict]) -> Optional[Dict[str, Any]
         mesas = []
     return {"match_id": str(juego["_id"]), "modo": "tv" if mesas else "radio", "mesas": mesas,
             "patrocinadores": _patrocinadores_del_partido(usuario, juego) if mesas else {"paises": {}, "jugadores": {}},
-            "voces": _voces_del_partido(juego) if mesas else []}
+            "voces": _voces_del_partido(juego) if mesas else [], "contexto": _contexto_fase(juego)}
 
 
 def _marca_para_pantalla(m: dict) -> dict:
@@ -130,6 +131,22 @@ def obtener_jugador_torneo(jugador_id: int) -> Optional[Dict[str, Any]]:
         return None
     return {"id": j["id"], "nombre": j["nombre"], "goles": int(j.get("goles") or 0), "asistencias": int(j.get("asistencias") or 0),
             "partidos": int(j.get("juegos_jugados") or 0), "amarillas": int(j.get("amarilla") or 0), "rojas": int(j.get("roja") or 0), "leyenda": bool(j.get("leyenda"))}
+
+
+def _contexto_fase(juego: dict) -> Dict[str, Any]:
+    """En qué punto del torneo está el partido (para los comentarios de TV): fase, jornada y cuántas jornadas tiene su grupo. Nunca lanza."""
+    salida: Dict[str, Any] = {"fase_id": juego.get("fase_id"), "jornada": None, "jornadas_total": None}
+    try:
+        def numero(txt):
+            m = re.search(r"\d+", str(txt or ""))
+            return int(m.group()) if m else None
+        salida["jornada"] = numero(juego.get("jornada"))
+        if juego.get("fase_id") is not None and juego.get("grupo") and salida["jornada"]:
+            nums = [numero(j) for j in db["juegos"].distinct("jornada", {"fase_id": juego["fase_id"], "grupo": juego["grupo"]})]
+            salida["jornadas_total"] = max([n for n in nums if n] or [salida["jornada"]])
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Contexto de fase: {e}")
+    return salida
 
 
 def _voces_del_partido(juego: dict) -> List[Dict[str, Any]]:

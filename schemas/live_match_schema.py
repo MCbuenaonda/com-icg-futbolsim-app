@@ -203,6 +203,13 @@ class VozOut(BaseModel):
     medio_logo: Optional[str] = None
 
 
+class ContextoPartidoOut(BaseModel):
+    """Dónde está el partido en el torneo (lista cerrada): lo usan los comentarios de la transmisión."""
+    fase_id: Optional[int] = None
+    jornada: Optional[int] = None
+    jornadas_total: Optional[int] = None
+
+
 class TransmisionLiveOut(BaseModel):
     """Quién narra el partido en transmisión PARA EL USUARIO de la sesión (lista cerrada: nada de pagos ni aficionados)."""
     match_id: str
@@ -210,6 +217,7 @@ class TransmisionLiveOut(BaseModel):
     mesas: List[MesaOut] = []
     patrocinadores: PatrocinadoresOut = PatrocinadoresOut()
     voces: List[VozOut] = []
+    contexto: ContextoPartidoOut = ContextoPartidoOut()
 
 
 class PlantillasLiveOut(BaseModel):

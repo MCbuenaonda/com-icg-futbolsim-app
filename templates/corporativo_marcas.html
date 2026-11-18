@@ -37,7 +37,16 @@
 
   {% if crisis %}
   <!-- Marcas en crisis (services/escandalos_service.py): escasez pasajera con aviso; tú decides si respaldas a la marca o tomas distancia -->
-  <h2 class="vivo-titulo"><i class="bi bi-exclamation-octagon-fill text-danger"></i>Marcas en crisis <span class="text-muted small fw-normal">(pagan menos mientras dure)</span></h2>
+  {% set sin_respaldo = crisis | rejectattr('respaldado') | list %}
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+    <h2 class="vivo-titulo mb-0"><i class="bi bi-exclamation-octagon-fill text-danger"></i>Marcas en crisis <span class="text-muted small fw-normal">(pagan menos mientras dure · {{ crisis | length }} patrocinio{{ 's' if crisis | length != 1 }})</span></h2>
+    {% if sin_respaldo %}
+    <button type="button" class="btn btn-success rounded-pill px-3 fw-bold" id="btnRespaldarTodas" data-cantidad="{{ sin_respaldo | length }}" data-costo="{{ sin_respaldo | sum(attribute='costo_respaldo') }}" title="Una campaña de apoyo para cada marca en crisis que aún no respaldas">
+      <i class="bi bi-shield-fill-check me-1"></i>Respaldar todas ({{ sin_respaldo | length }} · {{ '{:,}'.format(sin_respaldo | sum(attribute='costo_respaldo')) }})</button>
+    {% else %}
+    <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle px-3 py-2"><i class="bi bi-shield-fill-check me-1"></i>Todas respaldadas</span>
+    {% endif %}
+  </div>
   <div class="mk-ofertas mb-4">
     {% for c in crisis %}
     <div class="mk-oferta" style="--marca: #ef4444;">
@@ -47,6 +56,18 @@
           {% if not c.propia %}<span class="badge bg-info text-dark ms-1">Salpicada por {{ c.marca_en_crisis }}</span>{% endif %}</div>
         <div class="small text-body-secondary">{{ c.titular }}</div>
         <div class="small text-muted">Paga <strong class="text-white">{{ c.rebaja_pct }}%</strong> menos · quedan {{ c.partidos_restantes }} partidos{% if c.respaldado %} · <span class="text-success">ya la respaldaste</span>{% endif %}</div>
+        <!-- cómo va la crisis: avance de sus partidos, la fase y cómo se está manejando -->
+        <div class="mk-crisis-estado mt-2" title="La crisis se enfría con los partidos y termina sola a los {{ c.partidos_total }}">
+          <div class="d-flex justify-content-between small mb-1">
+            <span class="mk-fase mk-fase--{{ c.fase }}"><i class="bi {{ c.fase_icono }} me-1"></i>{{ c.fase_texto }}</span>
+            <span class="text-muted">{{ c.partidos_pasados }} de {{ c.partidos_total }} partidos</span>
+          </div>
+          <div class="progress" style="height: 6px;" role="progressbar" aria-valuenow="{{ c.avance_pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Avance de la crisis">
+            <div class="progress-bar mk-barra-crisis mk-barra-crisis--{{ c.fase }}" style="width: {{ c.avance_pct }}%"></div>
+          </div>
+          <div class="small mt-1 {{ 'text-success' if c.respaldado else 'text-warning' }}"><i class="bi {{ 'bi-shield-check' if c.respaldado else 'bi-exclamation-triangle' }} me-1"></i>{{ c.manejo }}{% if not c.respaldado and c.riesgo_extra %} (+{{ c.riesgo_extra }} de riesgo){% endif %}
+            <span class="ms-1 badge rounded-pill {{ 'bg-success' if c.salud == 'verde' else 'bg-warning text-dark' if c.salud == 'ambar' else 'bg-danger' }}" title="{{ c.salud_texto }}">{{ 'Marca contenta' if c.salud == 'verde' else 'Atento' if c.salud == 'ambar' else 'En riesgo de corte' }}</span></div>
+        </div>
       </div>
       <div class="d-flex gap-2 flex-wrap">
         {% if not c.respaldado %}<button class="btn btn-sm btn-outline-success rounded-pill btn-crisis" data-accion="respaldar" data-id="{{ c.id }}" data-marca="{{ c.marca }}" data-costo="{{ c.costo_respaldo }}" title="Campaña de apoyo: quita el riesgo extra y la rebaja baja a la mitad"><i class="bi bi-shield-check me-1"></i>Respaldar ({{ '{:,}'.format(c.costo_respaldo) }})</button>{% endif %}
@@ -230,6 +251,26 @@
 <script src="/static/js/marcas.js?v=3"></script>
 <script>
 // Responder a la crisis de una marca: respaldar (paga la campaña de apoyo) o tomar distancia (termina el patrocinio sin castigo)
+// Respaldar de una vez todas las marcas en crisis que aún no respaldas
+const btnTodas = document.getElementById('btnRespaldarTodas');
+if (btnTodas) btnTodas.addEventListener('click', async () => {
+    const n = Number(btnTodas.dataset.cantidad), costo = Number(btnTodas.dataset.costo);
+    const ok = await UI.confirmar({
+        titulo: `Respaldar ${n} marca${n === 1 ? '' : 's'} en crisis`,
+        mensaje: `Pagas ${costo.toLocaleString('es')} en total (una campaña de apoyo por patrocinio): se quita el riesgo extra de corte y la rebaja baja a la mitad mientras dure cada crisis. Si el capital no alcanza, se respaldan primero las más graves.`,
+        textoConfirmar: 'Respaldar todas',
+    });
+    if (!ok) return;
+    btnTodas.disabled = true;
+    try {
+        const resp = await fetch('/corporativos/marcas/crisis-respaldar-todas', { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || 'No se pudo completar la acción.');
+        UI.toast(data.mensaje, { icono: 'bi-shield-check' });
+        UI.refrescarSaldo();
+        setTimeout(() => location.reload(), 1100);
+    } catch (err) { UI.toast(err.message, { icono: 'bi-exclamation-triangle-fill' }); btnTodas.disabled = false; }
+});
 document.querySelectorAll('.btn-crisis').forEach(btn => btn.addEventListener('click', async () => {
     const accion = btn.dataset.accion;
     const ok = await UI.confirmar({

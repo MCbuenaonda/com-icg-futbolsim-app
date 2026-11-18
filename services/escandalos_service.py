@@ -140,7 +140,7 @@ def efecto_para(marca_id: int, seq: int) -> Optional[dict]:
             continue
         e = E.efecto(c["severidad"], contagio=not propia)
         if mejor is None or e["rebaja"] > mejor["rebaja"]:
-            mejor = {"crisis_id": c["_id"], "severidad": c["severidad"], "propia": propia, "titular": c["titular"], "marca_en_crisis": c["marca_id"], "hasta_seq": c["hasta_seq"], **e}
+            mejor = {"crisis_id": c["_id"], "severidad": c["severidad"], "propia": propia, "titular": c["titular"], "marca_en_crisis": c["marca_id"], "desde_seq": c["desde_seq"], "hasta_seq": c["hasta_seq"], **e}
     return mejor
 
 
@@ -165,7 +165,21 @@ def _afectados(user_id, sigla: str, seq: int) -> List[dict]:
             continue
         m = cat.get(p["marca_id"]) or {}
         respaldado = p.get("crisis_respaldo") == e["crisis_id"]
-        out.append({"id": str(p["_id"]), "marca": m.get("nombre", "?"), "nombre": _nombre(p["tipo"], p["ref_id"]), "severidad": e["severidad"], "propia": e["propia"],
+        total = max(1, e["hasta_seq"] - e["desde_seq"])
+        avance = min(100, max(0, round(100 * (seq - e["desde_seq"]) / total)))
+        # cómo va: la rebaja es pareja, pero la crisis se enfría con los partidos y termina sola
+        if avance < 34:
+            fase = ("peor", "En su peor momento", "bi-thermometer-high")
+        elif avance < 67:
+            fase = ("aflojando", "Aflojando", "bi-thermometer-half")
+        else:
+            fase = ("cierre", "Cerca de terminar", "bi-thermometer-low")
+        from services.corporativo_marcas_service import _salud
+        salud = _salud(p)
+        out.append({"fase": fase[0], "fase_texto": fase[1], "fase_icono": fase[2], "avance_pct": avance, "partidos_total": total, "partidos_pasados": max(0, seq - e["desde_seq"]),
+                    "riesgo_extra": 0 if respaldado else e["riesgo_extra"], "salud": salud["nivel"], "salud_texto": salud["texto"],
+                    "manejo": "Atendida: sin riesgo extra de corte y la rebaja a la mitad" if respaldado else "Sin atender: suma riesgo de corte y la rebaja completa",
+                    "id": str(p["_id"]), "marca": m.get("nombre", "?"), "nombre": _nombre(p["tipo"], p["ref_id"]), "severidad": e["severidad"], "propia": e["propia"],
                     "marca_en_crisis": (cat.get(e["marca_en_crisis"]) or {}).get("nombre", "?"), "titular": e["titular"], "respaldado": respaldado,
                     "rebaja_pct": round(100 * e["rebaja"] * (CE.RESPALDO_RESIDUO if respaldado else 1.0)),
                     "costo_respaldo": int(round(p.get("pago_ciclo", 0) * CE.RESPALDO_CICLOS)), "partidos_restantes": max(0, e["hasta_seq"] - seq), "pago_ciclo": p.get("pago_ciclo", 0)})
@@ -186,6 +200,35 @@ def contar_pendientes(user_id, sigla: Optional[str]) -> int:
         return sum(1 for a in _afectados(user_id, sigla, seq) if not a["respaldado"])
     except Exception:
         return 0
+
+
+def responder_crisis_todas(user_id) -> dict:
+    """Respalda de una vez todas las marcas en crisis que aún no respaldaste (las más graves primero, hasta donde alcance el capital)."""
+    from services import corporativo_universo_service as U
+    U.poner_al_dia(user_id)
+    universo = U.obtener_universo(user_id) or {}
+    sigla = (universo.get("cargo") or {}).get("sigla")
+    if not sigla:
+        raise ValueError("No tienes un corporativo en este momento")
+    seq = universo.get("cursor_seq") or _seq_reloj()
+    pendientes = sorted((a for a in _afectados(user_id, sigla, seq) if not a["respaldado"]), key=lambda a: (-a["severidad"], -a["costo_respaldo"]))
+    if not pendientes:
+        raise ValueError("No hay marcas en crisis sin respaldar")
+    hechas, costo, omitidas = 0, 0, 0
+    for a in pendientes:
+        try:
+            responder_crisis(user_id, a["id"], "respaldar")
+            hechas += 1
+            costo += a["costo_respaldo"]
+        except ValueError as err:
+            omitidas += 1
+            if "capital" in str(err):   # ya no alcanza: las demás tampoco (van de la más grave a la menos)
+                omitidas += len(pendientes) - hechas - omitidas
+                break
+    if not hechas:
+        raise ValueError("No te alcanza el capital para respaldar ninguna marca")
+    extra = f" Quedaron {omitidas} sin respaldar por falta de capital." if omitidas else ""
+    return {"ok": True, "respaldadas": hechas, "costo": costo, "mensaje": f"Respaldaste {hechas} marca{'s' if hechas != 1 else ''} en crisis por {costo:,} en total.{extra}"}
 
 
 def responder_crisis(user_id, pat_id: str, accion: str) -> dict:

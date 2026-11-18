@@ -253,6 +253,13 @@ def agente_cancelar(pacto_id: str, request: Request):
     return _accion(agentes.cancelar, _usuario_api(request)["_id"], pacto_id)
 
 
+@route.post("/marcas/crisis-respaldar-todas", name="corporativos_crisis_marca_todas")
+def crisis_marca_todas(request: Request):
+    """Respalda de una vez todas las marcas en crisis que aún no respaldaste (services/escandalos_service.py)."""
+    from services import escandalos_service
+    return _accion(escandalos_service.responder_crisis_todas, _usuario_api(request)["_id"])
+
+
 @route.post("/marcas/crisis/{pat_id}/{accion}", name="corporativos_crisis_marca")
 def crisis_marca(pat_id: str, accion: str, request: Request):
     """Responde a la crisis de una marca que te patrocina: accion = respaldar | distancia (services/escandalos_service.py)."""

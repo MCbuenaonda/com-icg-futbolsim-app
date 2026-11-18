@@ -212,8 +212,8 @@
     // Tarjeta de jugador (gol, amonestado, expulsado, portero que ataja un penal) y el «comercial» del marcador con el estadio
     // de fondo y, al final, el logo de la cadena. Solo en la televisión: la radio no tiene pantalla.
     let plantillas = { ids: {}, dorsales: {}, posiciones: {}, paises: {}, arbitros: {}, planteamiento: {} };   // las completa live_match.js (GET /matches/live/plantillas)
-    const GRAFICO_MS = { jugador: 6800, marcador: 6200, dato: 9600, penal: 5000, cambio: 4600, arbitro: 6800, tanda: 4600 };   // la tarjeta de jugador y el dato terminan con el logo
-    const ACCION_TXT = { gol: 'GOL', amarilla: 'TARJETA AMARILLA', roja: 'TARJETA ROJA', atajo: 'PENAL ATAJADO', lesion: 'LESIÓN', dtreclamo: 'BANQUILLO', dtajuste: 'AJUSTE TÁCTICO' };
+    const GRAFICO_MS = { suspenso: 3800, jugador: 6800, marcador: 6200, dato: 9600, penal: 5000, cambio: 4600, arbitro: 6800, tanda: 4600 };   // la tarjeta de jugador y el dato terminan con el logo
+    const ACCION_TXT = { gol: 'GOL', amarilla: 'TARJETA AMARILLA', roja: 'TARJETA ROJA', atajo: 'PENAL ATAJADO', lesion: 'LESIÓN', dtreclamo: 'BANQUILLO', dtajuste: 'AJUSTE TÁCTICO', tirolibre: 'BALÓN PARADO', penalcobro: 'PENAL' };
     const ROL_ARBITRO = { central: 'Árbitro central', linea1: 'Juez de línea', linea2: 'Juez de línea', cuarto: 'Cuarto árbitro', var: 'Árbitro VAR' };
 
     function equipoId(nombre) {
@@ -257,6 +257,7 @@
             detalle = [l1, g.asistente ? `Asistencia: ${e(g.asistente)}` : (g.portero ? `Anota ante ${e(g.portero)}` : '')].filter(Boolean).map(t => `<span>${t}</span>`).join('');
         } else if (g.accion === 'amarilla') detalle = `<span>${g.esDT ? 'Advertencia del árbitro al banquillo' : (g.rival ? 'Falta sobre ' + e(g.rival) : 'Primera advertencia')}</span>`;
         else if (g.accion === 'roja') detalle = g.esDT ? `<span>${e(g.motivo || '')}</span><span>Dirigirá desde la grada el resto del partido</span>` : `<span>${e(g.motivo || '')}</span><span>Su equipo se queda con uno menos</span>`;
+        else if (g.accion === 'tirolibre' || g.accion === 'penalcobro') detalle = `<span>${g.accion === 'penalcobro' ? 'Un solo disparo, todo el estadio en silencio' : 'Frente al balón, con la barrera lista'}</span><span class="tv-gfx__suspenso">¿Gol o no?</span>`;
         else if (g.accion === 'dtreclamo') detalle = '<span>Le pide explicaciones al árbitro desde el banquillo</span>';
         else if (g.accion === 'dtajuste') detalle = [g.de && g.a ? `<span>${e(g.de)} → ${e(g.a)}</span>` : '', g.ajuste ? `<span>Ajuste ${e(g.ajuste === 'ataque' ? 'ofensivo' : g.ajuste === 'defensa' ? 'defensivo' : g.ajuste)}</span>` : ''].join('');
         else if (g.accion === 'atajo') detalle = `<span>Detuvo el disparo de ${e(g.tirador)}</span>`;
@@ -539,9 +540,9 @@
         if (prio >= 3 && m.pleca) retirarPleca(m);
         clearTimeout(m.graficoTimer);
         m.grafico = tipo; m.graficoPrio = prio;
-        const html = { jugador: () => htmlJugador(datos, i), arbitro: () => htmlArbitro(datos, i), tanda: () => htmlTanda(datos, i), penal: () => htmlPenal(datos, i), cambio: () => htmlCambio(datos, i), dato: () => htmlDato(i, datos), marcador: () => htmlMarcador(i) };
+        const html = { jugador: () => htmlJugador(datos, i), suspenso: () => htmlJugador(datos, i), arbitro: () => htmlArbitro(datos, i), tanda: () => htmlTanda(datos, i), penal: () => htmlPenal(datos, i), cambio: () => htmlCambio(datos, i), dato: () => htmlDato(i, datos), marcador: () => htmlMarcador(i) };
         cont.innerHTML = html[tipo]();
-        cont.className = `tv-set__grafico tv-set__grafico--${tipo === 'arbitro' ? 'jugador' : tipo} is-activo`;   // el árbitro usa la misma animación que la tarjeta de jugador
+        cont.className = `tv-set__grafico tv-set__grafico--${tipo === 'arbitro' || tipo === 'suspenso' ? 'jugador' : tipo} is-activo`;   // el árbitro usa la misma animación que la tarjeta de jugador
         m.raiz.classList.add('con-grafico');
         const dur = (reducido ? 0.6 : 1) * GRAFICO_MS[tipo];
         m.graficoTimer = setTimeout(() => {
@@ -762,7 +763,7 @@
             if (g) {
                 // la tarjeta sustituye al destello de «¡GOL!» / tarjeta (el gol conserva la sacudida de la pantalla)
                 if (its.length && its[0].efecto) its[0].efecto = its[0].efecto === 'gol' ? 'sacude' : null;
-                const tipoG = { penal: 'penal', cambio: 'cambio', arbitro: 'arbitro', tanda: 'tanda' }[g.accion] || 'jugador';
+                const tipoG = { penal: 'penal', cambio: 'cambio', arbitro: 'arbitro', tanda: 'tanda', tirolibre: 'suspenso', penalcobro: 'suspenso' }[g.accion] || 'jugador';
                 // el arbitraje y la tanda se ven en todos los televisores; lo demás, en el de la cadena que narra la jugada
                 const mesasG = (g.accion === 'arbitro' || g.accion === 'tanda') ? est.mesas.map((_, n) => n) : [its.length ? its[0].mesa : mesaDelEquipo(g.equipo)];
                 mesasG.forEach(mesaG => setTimeout(() => { if (est && est.matchId === data.match_id) mostrarGrafico(mesaG, tipoG, g); }, Math.max(0, (k - est.cursor) * 600) + 150));

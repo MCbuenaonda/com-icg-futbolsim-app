@@ -60,6 +60,12 @@
             if (tipo.includes('PENAL FALLADO')) return 'tandafallo';
             if (tipo.includes('PREPARACIÓN')) return 'tandaprep';
         }
+        // la PREPARACIÓN de un tiro libre o de un penal en juego (antes de saber si es gol): momento de suspenso propio
+        if (tipo.includes('PREPARACIÓN') && evento && evento.periodo !== 5) {
+            const desc = evento.descripcion || '';
+            if (/punto penal/i.test(desc)) return 'penalcobro';
+            if (/punto de tiro libre|ordena la barrera/i.test(desc)) return 'tirolibre';
+        }
         for (const [fragmento, clase] of TIPOS) if (tipo.includes(fragmento)) return clase;
         return 'jugada';
     }
@@ -69,6 +75,9 @@
     const CLASES = {
         gol:        { p: 1.0,  prio: 3, cadena: ['N', 'A', 'I:0.8'], efecto: 'gol' },
         penal:      { p: 1.0,  prio: 3, cadena: ['N', 'A:0.8', 'I:0.5'], efecto: 'penal' },
+        // el instante ANTES del desenlace: el jugador se perfila y todavía no se sabe si será gol (siempre se narra, con suspenso)
+        penalcobro: { p: 1.0,  prio: 3, cadena: ['N', 'A:0.85', 'I:0.5'] },
+        tirolibre:  { p: 1.0,  prio: 2, cadena: ['N', 'A:0.75', 'I:0.4'] },
         roja:       { p: 1.0,  prio: 3, cadena: ['N', 'A', 'I:0.5'], efecto: 'roja' },
         amarilla:   { p: 0.95, prio: 2, cadena: ['N', 'A:0.55'], efecto: 'amarilla' },
         var:        { p: 1.0,  prio: 3, cadena: ['N', 'A:0.7'], efecto: 'var' },
@@ -119,6 +128,20 @@
             N: ['{desc}', '¡Pena máxima! {desc}', '¡El árbitro señala el punto penal! {desc}', '¡El árbitro no lo duda! {desc}', 'Silbato y a señalar el punto blanco. {desc}'],
             A: ['Hay contacto claro, no hay mucho que protestar.', 'Un penal siempre es una moneda al aire para el portero.', 'Aquí pesan los nervios, del que cobra y del que lo espera.'],
             I: ['Cobrar un penal es otra cosa: las piernas pesan el doble.', 'Yo me quedo con el que cobra: tiene el partido entero en la cabeza.', 'Dicen que es fácil, hasta que te toca patearlo.', 'Más que técnica, es temple: nadie quiere ser el que falle.'],
+        },
+        penalcobro: {
+            N: ['Silencio en el estadio... {j} acomoda el balón en el punto penal. ¿Gol o atajada?', '{j} toma carrera... ¡y cobra!', 'Todo se detiene: {j} frente al balón, el portero esperando. ¿Qué pasará?',
+                'Respira hondo {j}, mira al portero... ¡va a cobrar!', '{desc} ¡Y ejecuta!', 'Es el momento de la verdad para {j}. Dos pasos... ¡y dispara!'],
+            A: ['Aquí se define con la cabeza: {j} tiene el partido en los pies.', 'El portero elige un lado y reza; {j} elige el otro. ¿Quién acierta?', 'Cada segundo que pasa pesa más; el que cobra lo sabe.',
+                'Un penal es una moneda al aire con mucha presión encima.'],
+            I: ['Yo desde acá siento los nervios; ese camino al punto penal se hace eterno.', 'Hay que tener personalidad para pararse ahí con todo el estadio mirando.', 'Qué silencio... a mí me temblarían las piernas.'],
+        },
+        tirolibre: {
+            N: ['Tiro libre en posición peligrosa: {j} se perfila... ¿gol o barrera?', '{desc} ¡Cuidado, que viene el disparo!', '{j} mide los pasos, el árbitro ordena la barrera... ¿qué hará?',
+                'Atención al balón parado: {j} se prepara para cobrar. ¡Todo puede pasar!', 'Se hace el silencio: {j} frente a la pelota quieta... ¡y va a cobrar!'],
+            A: ['Con la barrera así, {j} tiene que elegir entre colocarla o ir por la fuerza.', 'El portero de {rival} tiene que adivinar hacia dónde: ahí se decide.', 'Balón parado y todo por decidir: una de esas jugadas que levantan al estadio.',
+                'Un tiro libre así vale oro; basta una buena ejecución para cambiar el partido.'],
+            I: ['Cobrar un tiro libre es otra cosa: tienes que confiar en tu pierna sin pensarlo.', 'La barrera, el portero, el balón... y un segundo para decidir.'],
         },
         roja: {
             N: ['{desc}', '¡Tarjeta roja! {desc}', '¡Se complica todo para {eq}! {desc}', '¡Y se va expulsado! {desc}', 'El árbitro no lo piensa dos veces. {desc}'],
@@ -846,6 +869,10 @@
             if (tipo.includes('DT AMONESTADO')) return Object.assign(dtBase, { accion: 'amarilla', titulo: 'DT AMONESTADO', rival: null, prio: 2 });
             if (tipo.includes('RECLAMO DEL DT')) return Object.assign(dtBase, { accion: 'dtreclamo', titulo: 'RECLAMO DEL DT', prio: 1 });
             return Object.assign(dtBase, { accion: 'dtajuste', titulo: 'CAMBIO TÁCTICO', de: evento.esquema_de || null, a: evento.esquema_a || null, ajuste: evento.ajuste || null, prio: 2 });
+        }
+        // --- el instante antes del cobro de un tiro libre o un penal: tarjeta de suspenso (aún no se sabe si será gol)
+        if ((clase === 'tirolibre' || clase === 'penalcobro') && j.length) {
+            return { accion: clase, titulo: clase === 'penalcobro' ? 'VA A COBRAR' : 'TIRO LIBRE', evento: indice, jugador: j[0], equipo: evento.equipo || null, minuto: evento.minuto, prio: clase === 'penalcobro' ? 3 : 2 };
         }
         if (!j.length) return null;
         const base = { evento: indice, jugador: j[0], equipo: evento.equipo || null, minuto: evento.minuto };

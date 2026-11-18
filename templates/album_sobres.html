@@ -3,7 +3,7 @@
 {% block title %}Sobres - FutbolSim{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="/static/css/album.css?v=20261031g">
+<link rel="stylesheet" href="/static/css/album.css?v=20261118a">
 {% endblock %}
 
 {% block content %}
@@ -71,6 +71,12 @@
             <i class="bi bi-gem me-1"></i>Abrir sobre Platino <span class="badge rounded-pill text-bg-light ms-1" data-contador>{{ sobres_platino }}</span>
         </button>
     </div>
+    <div class="text-center mt-2">
+        <div class="form-check form-switch d-inline-flex align-items-center gap-2 sobre-toggle-repetidas">
+            <input class="form-check-input" type="checkbox" role="switch" id="toggleRepetidas">
+            <label class="form-check-label small text-muted" for="toggleRepetidas">Ocultar estampas repetidas</label>
+        </div>
+    </div>
     <div class="text-center"><button type="button" id="btnRevelarTodas" class="btn btn-outline-light btn-sm rounded-pill px-3 d-none"><i class="bi bi-lightning-charge-fill me-1"></i>Revelar todas</button></div>
     <div id="resumenSobre" class="sobre-resumen d-none"></div>
 </div>
@@ -88,6 +94,25 @@ document.addEventListener('DOMContentLoaded', function () {
     const contenedor = document.getElementById('contenedorSobres');
     const resumen = document.getElementById('resumenSobre');
     const btnRevelarTodas = document.getElementById('btnRevelarTodas');
+    // «Ocultar estampas repetidas»: se recuerda en este navegador y se puede cambiar mientras se abre o después de abrir el sobre
+    const toggleRepetidas = document.getElementById('toggleRepetidas');
+    let ocultarRepetidas = false;
+    try { ocultarRepetidas = localStorage.getItem('album_ocultar_repetidas') === '1'; } catch (err) { /* sin almacenamiento */ }
+    toggleRepetidas.checked = ocultarRepetidas;
+    let sobreActual = [];      // estampas del último sobre abierto
+    let sobreTerminado = false;
+    const visibleLaCarta = c => !(ocultarRepetidas && c.classList.contains('carta-sobre--repetida'));
+    function textoFinalContador() {
+        const total = sobreActual.length, nuevas = sobreActual.filter(e => !e.duplicado).length, vistas = ocultarRepetidas ? nuevas : total;
+        if (total > 12) contador.textContent = vistas ? `${vistas} estampa${vistas === 1 ? '' : 's'}${ocultarRepetidas ? ' nuevas' : ''} · desliza o usa las flechas para repasarlas` : 'Todas las estampas de este sobre eran repetidas';
+        else contador.textContent = vistas ? '' : 'Todas las estampas de este sobre eran repetidas';
+    }
+    toggleRepetidas.addEventListener('change', () => {
+        ocultarRepetidas = toggleRepetidas.checked;
+        try { localStorage.setItem('album_ocultar_repetidas', ocultarRepetidas ? '1' : '0'); } catch (err) { /* sin almacenamiento */ }
+        contenedor.classList.toggle('sobre-cartas--sin-repetidas', ocultarRepetidas);
+        if (sobreTerminado) { contenedor.querySelectorAll('.carta-sobre').forEach(c => c.classList.add('carta-sobre--revelada')); textoFinalContador(); contenedor.scrollTo({ left: 0 }); }
+    });
     const carrusel = document.getElementById('carruselSobre');
     const contador = document.getElementById('contadorSobre');
     const mover = dir => contenedor.scrollBy({ left: dir * Math.max(300, contenedor.clientWidth * 0.6), behavior: reducido ? 'auto' : 'smooth' });
@@ -248,6 +273,8 @@ document.addEventListener('DOMContentLoaded', function () {
         contenedor.innerHTML = '';
         contenedor.classList.toggle('sobre-cartas--muchas', estampas.length > 12);
         carrusel.classList.toggle('sobre-carrusel--activo', estampas.length > 12);
+        contenedor.classList.toggle('sobre-cartas--sin-repetidas', ocultarRepetidas);
+        sobreActual = estampas; sobreTerminado = false;
         contenedor.scrollLeft = 0;
         contador.textContent = '';
         saltarEspera = false;
@@ -257,10 +284,11 @@ document.addEventListener('DOMContentLoaded', function () {
         cartas.forEach(c => contenedor.appendChild(c));
         await esperar(estampas.length > 12 ? 900 : 650);   // salen del sobre
         for (const carta of cartas) {            // y se dan vuelta una por una
-            if (saltarEspera) { carta.classList.add('carta-sobre--revelada'); continue; }
+            if (saltarEspera || !visibleLaCarta(carta)) { carta.classList.add('carta-sobre--revelada'); continue; }   // las repetidas ocultas no se esperan
             if (estampas.length > 12) {   // el carrusel sigue a la carta que se revela
                 carta.scrollIntoView({ behavior: reducido ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
-                contador.textContent = `${cartas.indexOf(carta) + 1} de ${cartas.length}`;
+                const vis = cartas.filter(visibleLaCarta);
+                contador.textContent = `${vis.indexOf(carta) + 1} de ${vis.length}`;
             }
             // suspenso: las raras brillan y tiemblan antes de darse vuelta (la Platino, más tiempo)
             const rara = ['dorada', 'platino', 'leyenda', 'mundial'].some(c => carta.classList.contains(`carta-sobre--${c}`));
@@ -274,7 +302,10 @@ document.addEventListener('DOMContentLoaded', function () {
             await esperar(rara ? 900 : (estampas.length > 12 ? 140 : (estampas.length > 6 ? 260 : 420)));
         }
         btnRevelarTodas.classList.add('d-none');
-        if (estampas.length > 12) { contador.textContent = `${estampas.length} estampas · desliza o usa las flechas para repasarlas`; contenedor.scrollTo({ left: 0, behavior: reducido ? 'auto' : 'smooth' }); }
+        cartas.forEach(c => c.classList.add('carta-sobre--revelada'));   // por si el toggle ocultó o mostró alguna durante la revelación
+        sobreTerminado = true;
+        textoFinalContador();
+        if (estampas.length > 12) contenedor.scrollTo({ left: 0, behavior: reducido ? 'auto' : 'smooth' });
         const nuevas = estampas.filter(e => !e.duplicado).length;
         const pila = repetidas ? ` · tienes <strong>${repetidas.total}</strong> para canjear` : '';
         resumen.innerHTML = `<span class="sobre-resumen__dato"><strong>${nuevas}</strong> nueva${nuevas === 1 ? '' : 's'}</span>

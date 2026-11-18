@@ -619,3 +619,7 @@
 /* La foto de equipo (horizontal) en una carta vertical del sobre: centrada y entera, del mismo tamaño que las demás */
 .carta-sobre--equipo .estampa__equipo-foto { top: 14%; bottom: 34%; }
 .carta-sobre--equipo .estampa__equipo-foto img { object-position: center center; }
+
+/* «Ocultar estampas repetidas» en la apertura de sobres */
+.sobre-cartas--sin-repetidas .carta-sobre--repetida { display: none; }
+.sobre-toggle-repetidas .form-check-input { cursor: pointer; }

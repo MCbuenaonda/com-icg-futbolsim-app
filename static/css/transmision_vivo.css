@@ -593,3 +593,12 @@
 /* director técnico: reclamo al árbitro y cambio táctico (expulsión y amonestación reusan los de roja y amarilla) */
 .tv-gfx--dtreclamo { --acento: #fb923c; --acento2: #9a3412; }
 .tv-gfx--dtajuste { --acento: #38bdf8; --acento2: #075985; }
+
+/* tiro libre y penal: la tarjeta de suspenso (antes de saber si es gol) */
+.tv-gfx--tirolibre { --acento: #38bdf8; --acento2: #0369a1; }
+.tv-gfx--penalcobro { --acento: #fb923c; --acento2: #9a3412; }
+.tv-gfx__suspenso { display: inline-block; margin-top: 0.2em; font-weight: 900; font-size: 1.25em; letter-spacing: 0.1em; text-transform: uppercase; color: #fff; animation: gfx-suspenso 0.9s ease-in-out infinite; }
+@keyframes gfx-suspenso { 0%, 100% { opacity: 0.35; transform: scale(0.96); } 50% { opacity: 1; transform: scale(1.06); text-shadow: 0 0 0.6em var(--acento); } }
+.tv-gfx--tirolibre .tv-gfx__rostro, .tv-gfx--penalcobro .tv-gfx__rostro { animation: gfx-latido 0.9s ease-in-out infinite; }
+@keyframes gfx-latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { .tv-gfx__suspenso, .tv-gfx--tirolibre .tv-gfx__rostro, .tv-gfx--penalcobro .tv-gfx__rostro { animation: none; } }

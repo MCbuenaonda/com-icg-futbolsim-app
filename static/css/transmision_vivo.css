@@ -516,7 +516,7 @@
 .tv-pleca__logo img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain; padding: 4%; box-sizing: border-box; }
 .tv-pleca__sup, .tv-pleca__inf { position: absolute; display: flex; align-items: center; overflow: hidden; white-space: nowrap; filter: none; transform-origin: left center; }
 .tv-pleca__barra { position: absolute; inset: 0; filter: drop-shadow(0 0.7cqw 1.2cqw rgba(0, 0, 0, 0.5)); }
-.tv-pleca__sup { z-index: 1; left: 14%; right: 3%; top: 12%; height: 40%; padding: 0 5% 0 9%; color: #fff; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em;
+.tv-pleca__sup { z-index: 1; left: 14%; right: 3%; top: 12%; height: 40%; padding: 0 5% 0 9%; color: var(--pleca-texto, #fff); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em;
     background: linear-gradient(180deg, color-mix(in srgb, var(--c1) 88%, #fff 12%), var(--c1) 55%, var(--c2)); clip-path: polygon(0 0, 100% 0, 96% 100%, 0 100%); }
 .tv-pleca__sup b { font-weight: 900; }
 .tv-pleca__sup::after { content: ""; position: absolute; top: 0; bottom: 0; width: 16%; left: -30%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.5), transparent); transform: skewX(-20deg); }
@@ -589,3 +589,7 @@
     font-size: 0.56em; line-height: 1.2; color: #e2e8f0; border-radius: 0.4cqw; background: rgba(0, 0, 0, 0.38); animation: gfx-texto-in 0.5s 0.6s ease-out both; }
 .tv-led__gol-stats b { color: #fff; font-size: 1.2em; }
 @media (prefers-reduced-motion: reduce) { .tv-led__estadio, .tv-led__gol-foto, .tv-led__gol-info, .tv-led__gol-stats { animation: none !important; } }
+
+/* director técnico: reclamo al árbitro y cambio táctico (expulsión y amonestación reusan los de roja y amarilla) */
+.tv-gfx--dtreclamo { --acento: #fb923c; --acento2: #9a3412; }
+.tv-gfx--dtajuste { --acento: #38bdf8; --acento2: #075985; }

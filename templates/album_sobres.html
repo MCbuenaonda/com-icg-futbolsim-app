@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function () {
         nodo.className = `carta-sobre estampa--${tipo} estampa--${cat} carta-sobre--${cat} ${e.duplicado ? 'carta-sobre--repetida' : 'carta-sobre--nueva'}`;
         // posición en el abanico (rotación y altura según su lugar)
         const centro = (total - 1) / 2;
-        const muchas = total > 12;   // un sobre de 25: en cuadrícula, sin abanico
+        const muchas = total > 12;   // un sobre de 40: en cuadrícula, sin abanico
         const paso = total > 6 ? 2 : 4;   // con varias cartas, el abanico se cierra
         nodo.style.setProperty('--abanico', muchas ? '0deg' : `${(i - centro) * paso}deg`);
         nodo.style.setProperty('--alto', muchas ? '0px' : `${Math.abs(i - centro) * (total > 6 ? 4 : 8)}px`);

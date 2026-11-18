@@ -24,10 +24,10 @@
 
 {% macro llave_html(llave, clase='') -%}
 {% if llave.id %}
-<a href="/juegos/{{ llave.id }}" class="cdr-llave {{ clase }} {{ 'cdr-llave--jugada' if llave.jugado else 'cdr-llave--programada' }}" title="{{ 'Ver partido' if llave.jugado else 'Partido programado' }}">
+<a href="/juegos/{{ llave.id }}" class="cdr-llave {{ clase }} {{ 'cdr-llave--jugada' if llave.jugado else 'cdr-llave--programada' }}" title="{{ 'Ver partido' if llave.jugado else ('Se está transmitiendo en vivo' if llave.en_vivo else 'Partido programado') }}">
   {{ equipo(llave.local, llave.ganador_id) }}
   {{ equipo(llave.visitante, llave.ganador_id) }}
-  <span class="cdr-llave__meta">{{ llave.letra }}{% if llave.penales %} · pen. {{ llave.penales }}{% elif not llave.jugado %} · por jugar{% endif %}</span>
+  <span class="cdr-llave__meta">{{ llave.letra }}{% if llave.penales %} · pen. {{ llave.penales }}{% elif llave.en_vivo %} · <span class="text-danger fw-bold">● en vivo</span>{% elif not llave.jugado %} · por jugar{% endif %}</span>
 </a>
 {% else %}
 <div class="cdr-llave cdr-llave--pendiente {{ clase }}">

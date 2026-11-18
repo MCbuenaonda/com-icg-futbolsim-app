@@ -35,11 +35,13 @@ def _letra(i: int) -> str:
 def _resumen_llave(juego: dict) -> dict:
     res = juego.get("resultado") or {}
     local, visitante = juego.get("equipo_local") or {}, juego.get("equipo_visitante") or {}
-    jugado = juego.get("estado") == "finalizado" and bool(res)
+    # el partido que se transmite en vivo ya está «finalizado» en la base: no se revela hasta que termine la transmisión
+    en_vivo = (juego.get("transmision") or {}).get("estado") == "in_progress"
+    jugado = juego.get("estado") == "finalizado" and bool(res) and not en_vivo
     pl, pv = res.get("penaltis_local") or 0, res.get("penaltis_visitante") or 0
     ganador = res.get("ganador_id") if jugado else None
     return {
-        "id": str(juego["_id"]), "jugado": jugado, "fecha": juego.get("fecha"),
+        "id": str(juego["_id"]), "jugado": jugado, "en_vivo": en_vivo, "fecha": juego.get("fecha"),
         "local": {"id": local.get("id"), "nombre": local.get("nombre"), "bandera": local.get("bandera") or "",
                   "goles": res.get("goles_local") if jugado else None},
         "visitante": {"id": visitante.get("id"), "nombre": visitante.get("nombre"), "bandera": visitante.get("bandera") or "",
@@ -58,7 +60,7 @@ def obtener_cuadro() -> Dict[str, Any]:
         {"mundial_id": str(mundial["_id"]), "fase_id": {"$in": [r[0] for r in RONDAS] + [FASE_TERCER_LUGAR]}},
         {"equipo_local": 1, "equipo_visitante": 1, "fase_id": 1, "grupo": 1, "estado": 1, "fecha": 1,
          "resultado.goles_local": 1, "resultado.goles_visitante": 1, "resultado.penaltis_local": 1,
-         "resultado.penaltis_visitante": 1, "resultado.ganador_id": 1}
+         "resultado.penaltis_visitante": 1, "resultado.ganador_id": 1, "transmision.estado": 1}
     ))
     por_llave = {}
     for j in juegos:

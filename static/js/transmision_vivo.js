@@ -213,7 +213,7 @@
     // de fondo y, al final, el logo de la cadena. Solo en la televisión: la radio no tiene pantalla.
     let plantillas = { ids: {}, dorsales: {}, posiciones: {}, paises: {}, arbitros: {}, planteamiento: {} };   // las completa live_match.js (GET /matches/live/plantillas)
     const GRAFICO_MS = { jugador: 6800, marcador: 6200, dato: 9600, penal: 5000, cambio: 4600, arbitro: 6800, tanda: 4600 };   // la tarjeta de jugador y el dato terminan con el logo
-    const ACCION_TXT = { gol: 'GOL', amarilla: 'TARJETA AMARILLA', roja: 'TARJETA ROJA', atajo: 'PENAL ATAJADO', lesion: 'LESIÓN' };
+    const ACCION_TXT = { gol: 'GOL', amarilla: 'TARJETA AMARILLA', roja: 'TARJETA ROJA', atajo: 'PENAL ATAJADO', lesion: 'LESIÓN', dtreclamo: 'BANQUILLO', dtajuste: 'AJUSTE TÁCTICO' };
     const ROL_ARBITRO = { central: 'Árbitro central', linea1: 'Juez de línea', linea2: 'Juez de línea', cuarto: 'Cuarto árbitro', var: 'Árbitro VAR' };
 
     function equipoId(nombre) {
@@ -243,17 +243,22 @@
 
     function htmlJugador(g, mesa) {
         const paisId = equipoId(g.equipo);
-        const id = plantillas.ids[g.jugador];
-        const dorsal = plantillas.dorsales[g.jugador];
-        const pos = window.Narracion.POSICIONES[plantillas.posiciones[g.jugador]] || '';
+        const d0 = est && est.ultimo || {};
+        const dtLado = g.esDT ? (g.equipo === d0.local ? 'local' : 'visita') : null;
+        const dtInfo = g.esDT ? ((plantillas.dt || {})[dtLado] || {}) : null;
+        const id = g.esDT ? null : plantillas.ids[g.jugador];
+        const dorsal = g.esDT ? null : plantillas.dorsales[g.jugador];
+        const pos = g.esDT ? 'Director técnico' : (window.Narracion.POSICIONES[plantillas.posiciones[g.jugador]] || '');
         const bandera = imagenPais(paisId, 'plana'), escudo = imagenPais(paisId, 'escudo');
-        const cara = id != null && window.UI && UI.urlAvatar ? `<img src="${e(UI.urlAvatar(id))}" alt="" decoding="async" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>';
+        const cara = g.esDT ? (dtInfo.avatar_url ? `<img src="${e(dtInfo.avatar_url)}" alt="" decoding="async" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>') : id != null && window.UI && UI.urlAvatar ? `<img src="${e(UI.urlAvatar(id))}" alt="" decoding="async" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>';
         let detalle = '';
         if (g.accion === 'gol') {
             const l1 = g.nGol > 1 ? `${ordinal(g.nGol)} gol en el partido` : (g.titulo === 'GOL' ? 'Abre su cuenta en el partido' : '');
             detalle = [l1, g.asistente ? `Asistencia: ${e(g.asistente)}` : (g.portero ? `Anota ante ${e(g.portero)}` : '')].filter(Boolean).map(t => `<span>${t}</span>`).join('');
-        } else if (g.accion === 'amarilla') detalle = `<span>${g.rival ? 'Falta sobre ' + e(g.rival) : 'Primera advertencia'}</span>`;
-        else if (g.accion === 'roja') detalle = `<span>${e(g.motivo || '')}</span><span>Su equipo se queda con uno menos</span>`;
+        } else if (g.accion === 'amarilla') detalle = `<span>${g.esDT ? 'Advertencia del árbitro al banquillo' : (g.rival ? 'Falta sobre ' + e(g.rival) : 'Primera advertencia')}</span>`;
+        else if (g.accion === 'roja') detalle = g.esDT ? `<span>${e(g.motivo || '')}</span><span>Dirigirá desde la grada el resto del partido</span>` : `<span>${e(g.motivo || '')}</span><span>Su equipo se queda con uno menos</span>`;
+        else if (g.accion === 'dtreclamo') detalle = '<span>Le pide explicaciones al árbitro desde el banquillo</span>';
+        else if (g.accion === 'dtajuste') detalle = [g.de && g.a ? `<span>${e(g.de)} → ${e(g.a)}</span>` : '', g.ajuste ? `<span>Ajuste ${e(g.ajuste === 'ataque' ? 'ofensivo' : g.ajuste === 'defensa' ? 'defensivo' : g.ajuste)}</span>` : ''].join('');
         else if (g.accion === 'atajo') detalle = `<span>Detuvo el disparo de ${e(g.tirador)}</span>`;
         else if (g.accion === 'lesion') detalle = [g.lesion ? `<span>${e(g.lesion.charAt(0).toUpperCase() + g.lesion.slice(1))}${g.gravedad ? ` · ${e(g.gravedad)}` : ''}</span>` : '',
             `<span>${g.sale ? 'Sale del campo' : 'Sigue en el campo, tocado'}</span>`, g.sinCambio ? '<span>Su equipo se queda con uno menos</span>' : ''].join('');
@@ -416,13 +421,22 @@
     // ---------------------------------------------------------------- pleca patrocinada (lower third)
     // Un dato a la vez, debajo de los comentaristas: círculo con el logo del patrocinador, barra de color con «<marca> presenta …» y
     // barra blanca con el dato. Va en su propia capa: no corta la narración ni las tarjetas (una tarjeta importante la retira).
+    // color de letra con contraste para una barra del color dado (#rgb o #rrggbb): oscuro sobre colores claros, blanco sobre oscuros
+    function colorTexto(hex, claro = '#ffffff', oscuro = '#0b1220') {
+        let h = String(hex || '').trim().replace('#', '');
+        if (h.length === 3) h = h.split('').map(c => c + c).join('');
+        if (!/^[0-9a-fA-F]{6}$/.test(h)) return claro;
+        const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        const L = 0.2126 * lin(parseInt(h.slice(0, 2), 16)) + 0.7152 * lin(parseInt(h.slice(2, 4), 16)) + 0.0722 * lin(parseInt(h.slice(4, 6), 16));
+        return L > 0.4 ? oscuro : claro;   // la barra se aclara un poco hacia arriba: umbral algo bajo
+    }
     // pleca de COMENTARIO: es de la televisora (sus colores, sin marca): el rostro de quien habla en el círculo, «nombre · cargo» arriba
     // (con el logo del medio si es periodista) y «#TAG comentario» abajo
     function htmlPlecaComentario(i, d) {
         const t = est.tele[i] || {}, v = d.voz;
         const url = v.jugador_id && window.UI && UI.urlAvatar ? UI.urlAvatar(v.jugador_id) : v.avatar_url;
         const rostro = url ? `<img class="tv-pleca__rostro" src="${e(url)}" alt="" onerror="this.remove()">` : '<i class="bi bi-person-fill"></i>';
-        const colores = t.color ? `--tv:${e(t.color)};--tv2:${e(t.color2)};` : '';
+        const colores = t.color ? `--tv:${e(t.color)};--tv2:${e(t.color2)};--pleca-texto:${colorTexto(t.color)};` : '';
         return `<div class="tv-pleca tv-pleca--comenta" style="${colores}">
             <span class="tv-pleca__persona">${rostro}</span>
             <div class="tv-pleca__barra">
@@ -435,7 +449,8 @@
         const nombre = marca ? marca.nombre : (t.nombre || 'La transmisión');
         const logo = marca ? (marca.logo ? `<img src="${e(marca.logo)}" alt="" onerror="this.remove()">` : `<b>${e(marca.nombre.slice(0, 2))}</b>`)
                            : (t.logo ? `<img src="${e(t.logo)}" alt="" onerror="this.remove()">` : '<i class="bi bi-broadcast"></i>');
-        const colores = marca ? `--tv:${e(marca.color)};--tv2:${e(marca.color2)};` : '';
+        const colorBase = marca ? marca.color : t.color;
+        const colores = (marca ? `--tv:${e(marca.color)};--tv2:${e(marca.color2)};` : '') + (colorBase ? `--pleca-texto:${colorTexto(colorBase)};` : '');
         return `<div class="tv-pleca" style="${colores}">
             <span class="tv-pleca__aro"><span class="tv-pleca__logo">${logo}</span></span>
             <div class="tv-pleca__barra">
@@ -827,6 +842,6 @@
         est.mesas.forEach((m, i) => { if (!m.mostrando) programar(i); });
     });
 
-    function ponerPlantillas(p) { plantillas = { ids: p.ids || {}, dorsales: p.dorsales || {}, posiciones: p.posiciones || {}, paises: p.paises || {}, arbitros: p.arbitros || {}, planteamiento: p.planteamiento || {} }; }
+    function ponerPlantillas(p) { plantillas = { ids: p.ids || {}, dorsales: p.dorsales || {}, posiciones: p.posiciones || {}, paises: p.paises || {}, arbitros: p.arbitros || {}, planteamiento: p.planteamiento || {}, dt: p.dt || {} }; }
     window.TransmisionVivo = { actualizar, plantillas: ponerPlantillas, grafico: mostrarGrafico };
 })();

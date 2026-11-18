@@ -127,7 +127,7 @@
                         <span id="marcadorSiglasVisitante" class="marcador-tv__siglas"></span>
                     </div>
                 </div>
-                <div class="marcador-tv__tiempo">
+                <div class="marcador-tv__tiempo d-none">
                     <div class="progress" style="height: 6px;">
                         <div id="barraTiempo" class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
                     </div>
@@ -387,7 +387,7 @@
 </div>
 
 <link rel="stylesheet" href="{{ url_for('static', path='/css/live_match.css') }}?v=20261108h">
-<link rel="stylesheet" href="{{ url_for('static', path='/css/transmision_vivo.css') }}?v=20261115n">
+<link rel="stylesheet" href="{{ url_for('static', path='/css/transmision_vivo.css') }}?v=20261117b">
 
 <script>
     // Configuración que depende del usuario (permisos); el resto de la lógica vive en static/js/live_match.js
@@ -397,8 +397,8 @@
     };
 </script>
 <script src="{{ url_for('static', path='/js/cancha_jugada.js') }}?v=20261029a"></script>
-<script src="{{ url_for('static', path='/js/narracion.js') }}?v=20261115d"></script>
-<script src="{{ url_for('static', path='/js/transmision_vivo.js') }}?v=20261115m"></script>
-<script src="{{ url_for('static', path='/js/live_match.js') }}?v=20261115d"></script>
+<script src="{{ url_for('static', path='/js/narracion.js') }}?v=20261117a"></script>
+<script src="{{ url_for('static', path='/js/transmision_vivo.js') }}?v=20261117b"></script>
+<script src="{{ url_for('static', path='/js/live_match.js') }}?v=20261117a"></script>
 {% endblock %}
 

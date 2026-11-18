@@ -839,6 +839,14 @@
         // --- lesión
         if (clase === 'lesion' && j.length) return { accion: 'lesion', titulo: 'LESIONADO', evento: indice, jugador: j[0], equipo: evento.equipo || null, minuto: evento.minuto, lesion: evento.lesion || null,
                                                       gravedad: evento.gravedad || null, sale: !!evento.sale_lesionado, sinCambio: !!evento.sin_cambio, prio: 2 };
+        // --- el director técnico: expulsado, amonestado, reclamo al árbitro y cambio táctico (sus eventos no traen jugadores sino `dt`)
+        if (evento.dt && (tipo.includes('DT EXPULSADO') || tipo.includes('DT AMONESTADO') || tipo.includes('RECLAMO DEL DT') || tipo.includes('AJUSTE TÁCTICO'))) {
+            const dtBase = { evento: indice, jugador: evento.dt, equipo: evento.equipo || null, minuto: evento.minuto, esDT: true };
+            if (tipo.includes('DT EXPULSADO')) return Object.assign(dtBase, { accion: 'roja', titulo: 'DT EXPULSADO', motivo: 'Expulsado del banco', prio: 3 });
+            if (tipo.includes('DT AMONESTADO')) return Object.assign(dtBase, { accion: 'amarilla', titulo: 'DT AMONESTADO', rival: null, prio: 2 });
+            if (tipo.includes('RECLAMO DEL DT')) return Object.assign(dtBase, { accion: 'dtreclamo', titulo: 'RECLAMO DEL DT', prio: 1 });
+            return Object.assign(dtBase, { accion: 'dtajuste', titulo: 'CAMBIO TÁCTICO', de: evento.esquema_de || null, a: evento.esquema_a || null, ajuste: evento.ajuste || null, prio: 2 });
+        }
         if (!j.length) return null;
         const base = { evento: indice, jugador: j[0], equipo: evento.equipo || null, minuto: evento.minuto };
         if (clase === 'gol' && !tipo.includes('TANDA') && tipo.indexOf('GOL DE PENAL') < 0) {

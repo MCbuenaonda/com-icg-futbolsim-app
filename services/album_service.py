@@ -20,11 +20,11 @@ from services.imagenes_pais_service import url_avatar_tecnico, url_estadio, url_
 client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
 db = client.get_database('mundial')
 
-# 25 estampas por 200 pts (antes 10 por 100): cada estampa sale ~20% más barata (8 pts contra 10) y 'bonus_repetida' se
-# escaló ×0,8 para que vender repetidas siga rindiendo la misma proporción del precio. Calibrado con calibrar_album.py
-# (Monte Carlo, solo lectura) junto con el canje de repetidas (ver COSTO_CANJE).
+# 40 estampas por 200 pts (antes 25, y antes 10 por 100): cada estampa sale a 5 pts (antes 8 y 10) y 'bonus_repetida' se
+# escaló ×0,625 (25/40) para que vender repetidas siga rindiendo la misma proporción del precio. Con el catálogo de 19.613
+# casilleros, calibrar_album.py --k 40: primera página ~54 sobres y álbum completo ~940 sobres (con 25 eran ~100 y ~1.500).
 COSTO_SOBRE = 200
-CANTIDAD_ESTAMPAS_POR_SOBRE = 25
+CANTIDAD_ESTAMPAS_POR_SOBRE = 40
 
 TIPOS_ESTAMPA = ["JUGADOR", "LEYENDA", "EQUIPO", "CIUDAD", "PAIS", "ARBITRO", "MUNDIAL", "TECNICO", "LOGO", "PERSONAJE", "DUENO"]
 
@@ -42,19 +42,19 @@ ESTAMPAS_MEDIOS_ACTIVAS = True
 # el mismo owned_jugadores (así la sinergia de fantasy/regalías las cubre sola), pero tienen su propia
 # categoría y su propia sección en la página del país, que NO cuenta para completar la página.
 CATEGORIAS_ESTAMPA = [
-    {"codigo": "NORMAL",   "nombre": "Normal",   "tipo": "JUGADOR", "estampa": "Jugadores", "probabilidad": 0.52, "bonus_repetida": 8, "color": "#e2e8f0"},
-    {"codigo": "ESPECIAL", "nombre": "Especial", "tipo": "CIUDAD",  "estampa": "Estadios",  "probabilidad": 0.20, "bonus_repetida": 12, "color": "#2dd4bf"},
-    {"codigo": "EQUIPO",   "nombre": "Foto de equipo", "tipo": "EQUIPO", "estampa": "Fotos de equipo", "probabilidad": 0.06, "bonus_repetida": 16, "color": "#60a5fa"},
-    {"codigo": "LEYENDA",  "nombre": "Leyenda",  "tipo": "LEYENDA", "estampa": "Leyendas",  "probabilidad": 0.05, "bonus_repetida": 20, "color": "#d9a066"},
-    {"codigo": "TECNICO",  "nombre": "Técnico",  "tipo": "TECNICO", "estampa": "Directores técnicos", "probabilidad": 0.05, "bonus_repetida": 16, "color": "#a78bfa"},
-    {"codigo": "DORADA",   "nombre": "Dorada",   "tipo": "ARBITRO", "estampa": "Árbitros",  "probabilidad": 0.07, "bonus_repetida": 24, "color": "#facc15"},
-    {"codigo": "MUNDIAL",  "nombre": "Edición Mundial", "tipo": "MUNDIAL", "estampa": "Pósters y mascotas", "probabilidad": 0.02, "bonus_repetida": 32, "color": "#f472b6"},
-    {"codigo": "PLATINO",  "nombre": "Platino",  "tipo": "PAIS",    "estampa": "Escudos",   "probabilidad": 0.03, "bonus_repetida": 40, "color": "#cbd5e1"},
+    {"codigo": "NORMAL",   "nombre": "Normal",   "tipo": "JUGADOR", "estampa": "Jugadores", "probabilidad": 0.52, "bonus_repetida": 5, "color": "#e2e8f0"},
+    {"codigo": "ESPECIAL", "nombre": "Especial", "tipo": "CIUDAD",  "estampa": "Estadios",  "probabilidad": 0.20, "bonus_repetida": 8, "color": "#2dd4bf"},
+    {"codigo": "EQUIPO",   "nombre": "Foto de equipo", "tipo": "EQUIPO", "estampa": "Fotos de equipo", "probabilidad": 0.06, "bonus_repetida": 10, "color": "#60a5fa"},
+    {"codigo": "LEYENDA",  "nombre": "Leyenda",  "tipo": "LEYENDA", "estampa": "Leyendas",  "probabilidad": 0.05, "bonus_repetida": 13, "color": "#d9a066"},
+    {"codigo": "TECNICO",  "nombre": "Técnico",  "tipo": "TECNICO", "estampa": "Directores técnicos", "probabilidad": 0.05, "bonus_repetida": 10, "color": "#a78bfa"},
+    {"codigo": "DORADA",   "nombre": "Dorada",   "tipo": "ARBITRO", "estampa": "Árbitros",  "probabilidad": 0.07, "bonus_repetida": 15, "color": "#facc15"},
+    {"codigo": "MUNDIAL",  "nombre": "Edición Mundial", "tipo": "MUNDIAL", "estampa": "Pósters y mascotas", "probabilidad": 0.02, "bonus_repetida": 20, "color": "#f472b6"},
+    {"codigo": "PLATINO",  "nombre": "Platino",  "tipo": "PAIS",    "estampa": "Escudos",   "probabilidad": 0.03, "bonus_repetida": 25, "color": "#cbd5e1"},
 ]
 CATEGORIAS_MEDIOS = [
-    {"codigo": "ESPECIAL", "nombre": "Especial", "tipo": "LOGO",      "estampa": "Logos de TV, marcas y prensa", "probabilidad": 0.07, "bonus_repetida": 12, "color": "#2dd4bf"},
-    {"codigo": "NORMAL",   "nombre": "Normal",   "tipo": "PERSONAJE", "estampa": "Comentaristas y periodistas", "probabilidad": 0.11, "bonus_repetida": 8,  "color": "#e2e8f0"},
-    {"codigo": "DORADA",   "nombre": "Dorada",   "tipo": "DUENO",     "estampa": "Dueños y directores",   "probabilidad": 0.025, "bonus_repetida": 24, "color": "#facc15"},
+    {"codigo": "ESPECIAL", "nombre": "Especial", "tipo": "LOGO",      "estampa": "Logos de TV, marcas y prensa", "probabilidad": 0.07, "bonus_repetida": 8, "color": "#2dd4bf"},
+    {"codigo": "NORMAL",   "nombre": "Normal",   "tipo": "PERSONAJE", "estampa": "Comentaristas y periodistas", "probabilidad": 0.11, "bonus_repetida": 5,  "color": "#e2e8f0"},
+    {"codigo": "DORADA",   "nombre": "Dorada",   "tipo": "DUENO",     "estampa": "Dueños y directores",   "probabilidad": 0.025, "bonus_repetida": 15, "color": "#facc15"},
 ]
 PESOS_CON_MEDIOS = {"JUGADOR": 0.375, "CIUDAD": 0.16, "EQUIPO": 0.06, "LEYENDA": 0.05, "TECNICO": 0.04, "ARBITRO": 0.06, "MUNDIAL": 0.02,
                     "PAIS": 0.03, "LOGO": 0.07, "PERSONAJE": 0.11, "DUENO": 0.025}

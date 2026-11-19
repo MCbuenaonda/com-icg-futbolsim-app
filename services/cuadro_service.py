@@ -40,13 +40,18 @@ def _resumen_llave(juego: dict) -> dict:
     jugado = juego.get("estado") == "finalizado" and bool(res) and not en_vivo
     pl, pv = res.get("penaltis_local") or 0, res.get("penaltis_visitante") or 0
     ganador = res.get("ganador_id") if jugado else None
+    gl, gv = res.get("goles_local"), res.get("goles_visitante")
+    # empatado en el tiempo reglamentario y alargue: pasa quien ganó la tanda (el partido guarda `ganador_id` en None y `empate: True`)
+    por_penales = bool(jugado and gl is not None and gl == gv and (pl or pv) and pl != pv)
+    if por_penales and ganador is None:
+        ganador = local.get("id") if pl > pv else visitante.get("id")
     return {
         "id": str(juego["_id"]), "jugado": jugado, "en_vivo": en_vivo, "fecha": juego.get("fecha"),
         "local": {"id": local.get("id"), "nombre": local.get("nombre"), "bandera": local.get("bandera") or "",
-                  "goles": res.get("goles_local") if jugado else None},
+                  "goles": res.get("goles_local") if jugado else None, "penales": pl if por_penales else None},
         "visitante": {"id": visitante.get("id"), "nombre": visitante.get("nombre"), "bandera": visitante.get("bandera") or "",
-                      "goles": res.get("goles_visitante") if jugado else None},
-        "penales": f"{pl}-{pv}" if jugado and (pl or pv) else None,
+                      "goles": res.get("goles_visitante") if jugado else None, "penales": pv if por_penales else None},
+        "penales": f"{pl}-{pv}" if jugado and (pl or pv) else None, "por_penales": por_penales,
         "ganador_id": ganador,
     }
 

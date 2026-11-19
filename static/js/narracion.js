@@ -65,6 +65,7 @@
             const desc = evento.descripcion || '';
             if (/punto penal/i.test(desc)) return 'penalcobro';
             if (/punto de tiro libre|ordena la barrera/i.test(desc)) return 'tirolibre';
+            if (/córner se mece|toma posición en el área para el centro/i.test(desc)) return 'cornercobro';
         }
         for (const [fragmento, clase] of TIPOS) if (tipo.includes(fragmento)) return clase;
         return 'jugada';
@@ -88,7 +89,9 @@
         atajada:    { p: 1.0,  prio: 2, cadena: ['N', 'A:0.45', 'I:0.3'] },
         remate:     { p: 1.0,  prio: 2, cadena: ['N', 'A:0.4', 'I:0.25'] },
         error:      { p: 0.8,  prio: 2, cadena: ['N', 'A:0.5'] },
-        corner:     { p: 0.35, prio: 1, cadena: ['N:0.6', 'A:0.5'] },
+        // el tiro de esquina: se anuncia con suspenso y, cuando el balón va al área, se narra el cabezazo antes del desenlace
+        corner:     { p: 1.0,  prio: 2, cadena: ['N', 'A:0.7', 'I:0.4'] },
+        cornercobro: { p: 1.0, prio: 1, cadena: ['N', 'A:0.6'] },
         regate:     { p: 0.35, prio: 1, cadena: ['N', 'A:0.5'] },
         falta:      { p: 0.3,  prio: 0, cadena: ['N:0.5', 'A:0.6'] },
         offside:    { p: 0.3,  prio: 0, cadena: ['N:0.5', 'A:0.6'] },
@@ -189,9 +192,15 @@
             I: ['Todos hemos tenido un momento así; hay que seguir sin pensarlo.'],
         },
         corner: {
-            N: ['{desc}', 'Tiro de esquina. {desc}'],
-            A: ['Los córners son oro: una pelota parada y todo puede cambiar.', 'Hay que cuidar los rebotes dentro del área.'],
-            I: ['En los córners todo se decide por centímetros.'],
+            N: ['Tiro de esquina para {eq}: el balón al área... ¿gol de cabeza?', '{desc} ¡Atención al área, que viene el centro!', 'Córner para {eq}: se aglomeran en el área, ¿qué pasará?',
+                'Se prepara el tiro de esquina de {eq}... todos arriba, incluso los defensas.', 'Tiro de esquina. {desc}'],
+            A: ['Un córner así es una oportunidad de oro: basta un cabezazo.', 'Los córners son oro: una pelota parada y todo puede cambiar.', 'Hay que cuidar los rebotes dentro del área.'],
+            I: ['En los córners todo se decide por centímetros.', 'Desde adentro, esos segundos antes del centro se hacen eternos.'],
+        },
+        cornercobro: {
+            N: ['Sale el centro... {j} se eleva entre los defensas. ¿Será gol?', 'El córner viaja al área y {j} busca el remate... ¡atención!', '{desc} ¡Ahí viene el balón!', 'Todos mirando al cielo: {j} sube a buscar el balón.'],
+            A: ['Mucha gente en el área: gana el que tenga más hambre.', 'Un cabezazo y se acaba la espera.'],
+            I: [],
         },
         regate: {
             N: ['{desc}', '{desc} ¡Qué calidad!'],
@@ -624,6 +633,7 @@
             const dif = g.a - g.b;
             const M = dif === 0 ? (g.a === 0 ? 'cero' : 'empate') : (dif > 0 ? (dif >= 2 ? 'gana2' : 'gana1') : (dif <= -2 ? 'pierde2' : 'pierde1'));
             d.eq = ps.nombre; d.rival = ps.contra;
+            d.marc = `${ps.nombre} ${g.a}-${g.b} ${ps.contra}`;   // el equipo de quien habla primero: así no se confunde quién va ganando
             // buenos o malos según considere: el hincha tiende al optimismo si va ganando; el invitado opina más libre
             const pOpt = codigo === 'A' ? (M.startsWith('gana') ? 0.72 : (M.startsWith('pierde') ? 0.45 : 0.6)) : 0.5;
             const tono = rng() < pOpt ? 'opt' : 'pes';
@@ -954,6 +964,10 @@
         if ((clase === 'tirolibre' || clase === 'penalcobro') && j.length) {
             return { accion: clase, titulo: clase === 'penalcobro' ? 'VA A COBRAR' : 'TIRO LIBRE', evento: indice, jugador: j[0], equipo: evento.equipo || null, minuto: evento.minuto, prio: clase === 'penalcobro' ? 3 : 2 };
         }
+        // --- tiro de esquina: la tarjeta de suspenso es del EQUIPO que lo cobra (el evento no trae jugadores)
+        if (clase === 'corner' && tipo.includes('SAQUE DE ESQUINA') && evento.equipo) {
+            return { accion: 'esquina', titulo: 'TIRO DE ESQUINA', evento: indice, jugador: null, esEquipo: true, equipo: evento.equipo, minuto: evento.minuto, prio: 2 };
+        }
         if (!j.length) return null;
         const base = { evento: indice, jugador: j[0], equipo: evento.equipo || null, minuto: evento.minuto };
         if (clase === 'gol' && !tipo.includes('TANDA') && tipo.indexOf('GOL DE PENAL') < 0) {
@@ -1199,7 +1213,7 @@
                 empate: ['{marc}: un partido parejo y de ida y vuelta.', 'Reparto de méritos; ambos tuvieron ocasiones claras.'],
                 gana: ['{marc}: {eq} es más efectivo en las áreas.', 'Una ventaja corta para {eq}; el partido sigue abierto.'],
                 gana_mucho: ['{marc}: {eq} marcó diferencias claras en el partido.', 'Dominio y contundencia de {eq}.'],
-                pierde: ['{eq} se adelanta en el marcador {rival}; ahora debe reaccionar.', 'Ventaja para el rival; {eq} necesita cambiar el ritmo.'],
+                pierde: ['{rival} se adelanta en el marcador; {eq} debe reaccionar.', 'Ventaja para el rival; {eq} necesita cambiar el ritmo.'],
                 pierde_mucho: ['{marc}: el partido se ha ido para {eq} por falta de contundencia.', 'Una diferencia importante que {eq} difícilmente revertirá.'],
                 roja_propia: ['Con la expulsión, {eq} cambia su planteamiento y defiende con diez.', 'La roja condiciona el partido: {eq} deberá jugar con orden.'],
                 roja_rival: ['Expulsión que cambia el partido a favor de {eq}.', 'Un hombre más para {eq}: el partido gira.']}
@@ -1277,7 +1291,8 @@
         if (!pool || !pool.length) return null;
         const eq = voz.lado === 'visita' ? partido.visitante : partido.local, rival = voz.lado === 'visita' ? partido.local : partido.visitante;
         const gan = partido.golesLocal >= partido.golesVisita ? partido.local : partido.visitante, per = gan === partido.local ? partido.visitante : partido.local;
-        const marc = `${partido.golesLocal}-${partido.golesVisita}`;
+        const marc = propio ? (voz.lado === 'visita' ? `${partido.visitante} ${partido.golesVisita}-${partido.golesLocal} ${partido.local}` : `${partido.local} ${partido.golesLocal}-${partido.golesVisita} ${partido.visitante}`)
+            : `${partido.local} ${partido.golesLocal}-${partido.golesVisita} ${partido.visitante}`;
         const frase = pool[Math.floor(az() * pool.length)]
             .replace(/\{eq\}/g, eq).replace(/\{rival\}/g, rival).replace(/\{gan\}/g, gan).replace(/\{per\}/g, per).replace(/\{marc\}/g, marc).replace(/\{pais\}/g, voz.pais || '');
         return { tag, texto: frase, situacion: sit };

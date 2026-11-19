@@ -9,13 +9,15 @@
   la mitad izquierda (llaves A..) y la derecha convergen en la Gran Final del centro, con conectores CSS entre cada
   par de llaves y la siguiente. En celular, las rondas como lista (el árbol no entra).
 #}
-{% macro equipo(eq, ganador_id, pendiente=None) -%}
+{% macro equipo(eq, ganador_id, pendiente=None, por_penales=False) -%}
 {%- set gano = ganador_id is not none and eq and eq.id == ganador_id -%}
 {%- set perdio = ganador_id is not none and eq and eq.id != ganador_id -%}
 <div class="cdr-eq {{ 'cdr-eq--gana' if gano }} {{ 'cdr-eq--pierde' if perdio }} {{ 'cdr-eq--pendiente' if not (eq and eq.nombre) }}">
   {% if eq and eq.nombre %}
   {{ m.bandera(eq.bandera, pais_id=eq.id) }}<span class="cdr-eq__nombre" title="{{ eq.nombre }}">{{ eq.nombre }}</span>
   <strong class="cdr-eq__goles">{{ eq.goles if eq.goles is not none else '' }}</strong>
+  {%- if eq.penales is not none %}<span class="cdr-eq__pen" title="Tanda de penales">({{ eq.penales }})</span>{% endif %}
+  {%- if gano and por_penales %}<i class="bi bi-check-circle-fill cdr-eq__pasa" title="Clasificó por penales"></i>{% endif %}
   {% else %}
   <i class="bi bi-question-circle"></i><span class="cdr-eq__nombre">{{ pendiente or 'Por definir' }}</span>
   {% endif %}
@@ -25,9 +27,9 @@
 {% macro llave_html(llave, clase='') -%}
 {% if llave.id %}
 <a href="/juegos/{{ llave.id }}" class="cdr-llave {{ clase }} {{ 'cdr-llave--jugada' if llave.jugado else 'cdr-llave--programada' }}" title="{{ 'Ver partido' if llave.jugado else ('Se está transmitiendo en vivo' if llave.en_vivo else 'Partido programado') }}">
-  {{ equipo(llave.local, llave.ganador_id) }}
-  {{ equipo(llave.visitante, llave.ganador_id) }}
-  <span class="cdr-llave__meta">{{ llave.letra }}{% if llave.penales %} · pen. {{ llave.penales }}{% elif llave.en_vivo %} · <span class="text-danger fw-bold">● en vivo</span>{% elif not llave.jugado %} · por jugar{% endif %}</span>
+  {{ equipo(llave.local, llave.ganador_id, none, llave.por_penales) }}
+  {{ equipo(llave.visitante, llave.ganador_id, none, llave.por_penales) }}
+  <span class="cdr-llave__meta">{{ llave.letra }}{% if llave.por_penales %} · <i class="bi bi-bullseye"></i> pasa por penales {{ llave.penales }}{% elif llave.penales %} · pen. {{ llave.penales }}{% elif llave.en_vivo %} · <span class="text-danger fw-bold">● en vivo</span>{% elif not llave.jugado %} · por jugar{% endif %}</span>
 </a>
 {% else %}
 <div class="cdr-llave cdr-llave--pendiente {{ clase }}">

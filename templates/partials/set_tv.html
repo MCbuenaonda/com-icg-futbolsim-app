@@ -57,9 +57,11 @@
         </div>
         <div class="tv-set__led tv-set__led--der" aria-hidden="true">
           <div class="tv-led__marcador" data-hud>
-            <img data-slot="escudo-local" src="{{ u.escudo_local or '' }}" alt="">
-            <i data-hud-goles>0 - 0</i>
-            <img data-slot="escudo-visita" src="{{ u.escudo_visita or '' }}" alt="">
+            <div class="tv-led__fila">
+              <img data-slot="escudo-local" src="{{ u.escudo_local or '' }}" alt="">
+              <i data-hud-goles>0 - 0</i>
+              <img data-slot="escudo-visita" src="{{ u.escudo_visita or '' }}" alt="">
+            </div>
             <b data-hud-local hidden>{{ u.siglas_local }}</b><b data-hud-visita hidden>{{ u.siglas_visitante }}</b>
             <em data-hud-min></em>
           </div>

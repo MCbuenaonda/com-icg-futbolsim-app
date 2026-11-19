@@ -3,7 +3,7 @@ from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from config.settings import PREFIX_HOME_PATH
-from services.mundial_service import crear_nuevo_mundial, restart_mundial, get_data_dashboard_stats, obtener_ordinal_mundial_actual, formatear_ordinal_torneo
+from services.mundial_service import obtener_mundial_para_inicio, generar_nuevo_mundial, restart_mundial, get_data_dashboard_stats, obtener_ordinal_mundial_actual, formatear_ordinal_torneo
 from services.juegos_service import get_data_dashboard_last_games, get_data_fase_actual_dashboard, get_data_clasificados_mundial, get_data_grupos_mundial, formatear_numero_compacto, ICONO_ESTADO_ANIMO
 from services.confederacion_service import get_data_confederaciones_dashboard
 from services.auth_service import context_usuario_actual, requiere_permiso, obtener_usuario_actual
@@ -29,7 +29,8 @@ process_uuid = uuid.uuid4()
 
 @route.get("/", response_class=HTMLResponse, name="home")
 def inicio(request: Request):
-    resp_mundial = crear_nuevo_mundial()
+    # el inicio ya NO crea el siguiente Mundial al terminar el anterior: lo genera un admin con el botón «Nuevo Mundial»
+    resp_mundial = obtener_mundial_para_inicio()
     mundial = resp_mundial.get('data')
     ordinal_mundial = obtener_ordinal_mundial_actual()
 
@@ -71,6 +72,8 @@ def inicio(request: Request):
         name="home.html",
         context={
             "mundial": mundial,
+            "torneo_terminado": resp_mundial.get("terminado", False),
+            "campeon_mundial": resp_mundial.get("campeon"),
             # colores del encabezado según la bandera del anfitrión (arte_mundial_service.tema_sede)
             "tema_sede": tema_sede(mundial.get("pais_id")) if mundial and mundial.get("pais_id") else None,
             "ordinal_mundial": ordinal_mundial,
@@ -86,6 +89,16 @@ def inicio(request: Request):
 
 # POST (antes GET: cualquier link o prefetch podía borrar el torneo) y solo con permiso
 # 'reiniciar_torneo' -- borra torneo, partidos y saldos (ver mundial_service.restart_mundial).
+# Genera el siguiente Mundial cuando el anterior ya terminó (no se crea solo): mismo permiso que reiniciar el torneo.
+@route.post("/nuevo-mundial", name="home_nuevo_mundial", dependencies=[Depends(requiere_permiso("reiniciar_torneo"))])
+def nuevo_mundial(request: Request):
+    try:
+        generar_nuevo_mundial()
+    except ValueError as e:
+        logger.warning(f"Nuevo Mundial: {e}")
+    return RedirectResponse(url=request.url_for("home"), status_code=303)
+
+
 @route.post("/restart", name="home_restart", dependencies=[Depends(requiere_permiso("reiniciar_torneo"))])
 def reinicio(request: Request):
     # limpieza de tablas

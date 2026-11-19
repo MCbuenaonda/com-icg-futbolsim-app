@@ -73,6 +73,9 @@
         <header class="hero-sede__header">
             <div class="min-w-0">
                 <h1 class="hero-sede__titulo"><i class="bi bi-trophy-fill" aria-hidden="true"></i>{{ ordinal_mundial | ordinal_torneo }} Torneo Mundial de Fútbol de la FIFAV</h1>
+                {% if torneo_terminado %}
+                <div class="hero-sede__sede mb-1"><i class="bi bi-flag-fill me-1"></i>Torneo terminado{% if campeon_mundial %} · Campeón: {{ m.bandera(None, pais_id=campeon_mundial.id) }} {{ campeon_mundial.nombre }}{% endif %}</div>
+                {% endif %}
                 {% if mundial %}
                 <div class="hero-sede__sede">{% if mundial.pais_id %}{{ m.bandera(None, pais_id=mundial.pais_id) }}{% endif %} {{ mundial.pais }} · {{ mundial.anio }}</div>
                 {% endif %}
@@ -82,6 +85,14 @@
                 <button type="button" class="btn hero-sede__btn hero-sede__btn--peligro" data-bs-toggle="modal" data-bs-target="#modalConfirmarReinicio">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Reiniciar Torneo
                 </button>
+                {% endif %}
+                {% if puede('reiniciar_torneo') and torneo_terminado %}
+                <!-- solo con el torneo ya terminado: el siguiente Mundial NO se crea solo -->
+                <form action="/nuevo-mundial" method="post" class="d-inline">
+                    <button type="submit" class="btn hero-sede__btn hero-sede__btn--oro" title="El Mundial ya terminó: genera el siguiente">
+                        <i class="bi bi-plus-circle-fill me-1"></i>Nuevo Mundial
+                    </button>
+                </form>
                 {% endif %}
                 {% if puede('partidos') %}
                 <a href="/juegos/" class="btn hero-sede__btn hero-sede__btn--oro"><i class="bi bi-play-fill me-1"></i>Ir a Partidos</a>

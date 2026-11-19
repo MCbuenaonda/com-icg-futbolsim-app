@@ -40,6 +40,38 @@ def formatear_ordinal_torneo(numero: int) -> str:
     return ORDINALES_TORNEO.get(numero, f"{numero}º")
 
 
+def _datos_mundial(mundial: dict) -> Dict[str, Any]:
+    pais = db["paises"].find_one({"id": mundial.get("pais_id")}) or {}
+    return {"pais": pais.get("nombre"), "pais_id": pais.get("id"), "anio": mundial.get("anio"), "_id": mundial["_id"]}
+
+
+def obtener_mundial_para_inicio() -> Dict[str, Any]:
+    """
+    El Mundial que muestra el inicio: el activo o, si ya terminó y nadie ha generado el siguiente, el último (con `terminado: True`
+    y su campeón). El siguiente NO se crea solo: lo genera un admin con `generar_nuevo_mundial()` (botón junto a «Reiniciar Torneo»).
+    Solo si no existe ningún Mundial (base vacía) se crea el primero.
+    """
+    coll = db["mundiales"]
+    activo = coll.find_one({"activo": True})
+    if activo:
+        return {"data": _datos_mundial(activo), "terminado": False, "campeon": None}
+    ultimo = coll.find_one(sort=[("anio", -1)])
+    if not ultimo:
+        resp = crear_nuevo_mundial()
+        return {"data": resp.get("data"), "terminado": False, "campeon": None}
+    campeon = None
+    if ultimo.get("campeon") is not None:
+        campeon = (db["paises"].find_one({"id": ultimo["campeon"]}, {"id": 1, "nombre": 1}) or {}) or None
+    return {"data": _datos_mundial(ultimo), "terminado": True, "campeon": campeon}
+
+
+def generar_nuevo_mundial() -> Dict[str, Any]:
+    """Botón del admin: crea el siguiente Mundial, solo si el anterior ya terminó (si hay uno en curso no hace nada)."""
+    if db["mundiales"].find_one({"activo": True}):
+        raise ValueError("Ya hay un Mundial en curso: el siguiente se genera cuando termine.")
+    return crear_nuevo_mundial()
+
+
 def obtener_ordinal_mundial_actual() -> int:
     """
     Posición (1-based) del mundial activo dentro de todos los mundiales alguna vez creados
@@ -48,7 +80,7 @@ def obtener_ordinal_mundial_actual() -> int:
     que home_route.inicio() siempre llama a crear_nuevo_mundial() antes).
     """
     mundiales_coll = db["mundiales"]
-    mundial_activo = mundiales_coll.find_one({"activo": True}, sort=[("anio", -1)])
+    mundial_activo = mundiales_coll.find_one({"activo": True}, sort=[("anio", -1)]) or mundiales_coll.find_one(sort=[("anio", -1)])   # o el último, si terminó
     if not mundial_activo:
         return 1
     return mundiales_coll.count_documents({"anio": {"$lte": mundial_activo["anio"]}})
@@ -473,9 +505,8 @@ def crear_siguiente_fase(fase_id: int, confederacion_id: int, mundial_id: str):
         # fantasy, etc. -- quedan intactas a propósito, ver restart_mundial() para el wipe
         # completo). Solo corre si update_data_mundial() realmente cerró el mundial -- si no
         # encontró campeón (ver comentario ahí), todavía no terminó de verdad.
-        # crear_nuevo_mundial() ya se llama automáticamente desde home_route.inicio() en cada
-        # carga del dashboard cuando no hay ningún mundial 'activo': con este reset, la
-        # próxima visita a "/" arranca solo la Fase 1 del siguiente mundial.
+        # El siguiente Mundial YA NO se crea solo al abrir "/": lo genera un admin con el botón «Nuevo Mundial»
+        # (POST /nuevo-mundial -> generar_nuevo_mundial()) que aparece junto a «Reiniciar Torneo» cuando el torneo terminó.
         if mundial_cerrado:
             clean_and_update()
 
